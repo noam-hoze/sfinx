@@ -141,7 +141,7 @@ const GestureRecognizer: React.FC = () => {
                 alignItems: "center",
             }}
         >
-            <h1>Gesture Recognition (Pose)</h1>
+            <h1>SFX Generator</h1>
             {isLoading && <p>Loading model...</p>}
             <Webcam
                 ref={webcamRef}
