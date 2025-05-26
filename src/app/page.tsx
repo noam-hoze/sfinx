@@ -1,4 +1,5 @@
 import GestureRecognizer from "./components/GestureRecognizer";
+import HandContour from "./components/HandContour";
 
 export default function Home() {
     return (
@@ -12,6 +13,7 @@ export default function Home() {
             }}
         >
             <GestureRecognizer />
+            <HandContour />
         </main>
     );
 }
