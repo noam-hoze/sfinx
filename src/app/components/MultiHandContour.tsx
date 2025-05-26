@@ -118,6 +118,54 @@ const MultiHandContour: React.FC = () => {
                 ctx.stroke();
             });
 
+            // === HEART SHAPE FILL — minimal top loop ===
+            if (results.landmarks?.length === 2) {
+                const [handA, handB] = results.landmarks;
+
+                const isA_left = handA[0].x < handB[0].x;
+                const leftHand = isA_left ? handA : handB;
+                const rightHand = isA_left ? handB : handA;
+
+                const scale = (pt: { x: number; y: number; z?: number }) => [
+                    pt.x * VIDEO_WIDTH,
+                    pt.y * VIDEO_HEIGHT,
+                ];
+
+                // Check if all necessary landmarks exist for the minimal top loop
+                const requiredHeartLoopIndices = [4, 5, 6, 7, 8];
+                const allHeartLoopLandmarksPresent =
+                    requiredHeartLoopIndices.every(
+                        (idx) => leftHand[idx] && rightHand[idx]
+                    );
+
+                if (allHeartLoopLandmarksPresent) {
+                    const leftPathPoints = [8, 7, 6, 5, 4].map((i) =>
+                        scale(leftHand[i])
+                    );
+                    const rightPathPoints = [4, 5, 6, 7, 8].map((i) =>
+                        scale(rightHand[i])
+                    );
+
+                    const heartPath = [
+                        ...leftPathPoints,
+                        ...rightPathPoints.reverse(),
+                    ];
+
+                    ctx.fillStyle = "rgba(255, 0, 0, 0.4)";
+                    ctx.strokeStyle = "red";
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    const [startX, startY] = heartPath[0]; // heartPath[0] is already an array [x,y]
+                    ctx.moveTo(startX, startY);
+                    heartPath.slice(1).forEach(([x, y]) => ctx.lineTo(x, y));
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                } else {
+                    // console.log("Minimal top loop heart landmarks not complete.");
+                }
+            }
+
             ctx.restore(); // Stop mirroring
 
             animationId = requestAnimationFrame(detect);
