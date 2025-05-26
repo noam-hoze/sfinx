@@ -87,12 +87,14 @@ const MultiHandContour: React.FC = () => {
             ctx.scale(-1, 1);
             ctx.translate(-canvas.width, 0);
 
-            ctx.strokeStyle = "lime";
-            ctx.fillStyle = "rgba(0,255,0,0.2)";
+            // Styles for contour
+            ctx.strokeStyle = "lime"; // For contour outline
+            // FillStyle will be set specifically for landmarks and then for contour
             ctx.lineWidth = 2;
 
             results.landmarks?.forEach((landmarks) => {
-                // Draw landmarks
+                // Draw landmarks (red dots)
+                ctx.fillStyle = "red"; // Set fill to red for landmarks
                 landmarks.forEach((landmark) => {
                     const x = landmark.x * VIDEO_WIDTH;
                     const y = landmark.y * VIDEO_HEIGHT;
@@ -101,7 +103,8 @@ const MultiHandContour: React.FC = () => {
                     ctx.fill();
                 });
 
-                // Draw contour polygon (e.g., 0 → 5 → 9 → 13 → 17 → 0)
+                // Draw contour polygon (green fill)
+                ctx.fillStyle = "rgba(0,255,0,0.2)"; // Set fill to green for contour
                 const indices = [0, 5, 9, 13, 17];
                 ctx.beginPath();
                 const first = landmarks[indices[0]];
