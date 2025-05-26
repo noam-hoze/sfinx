@@ -16,7 +16,6 @@ const GestureRecognizer: React.FC = () => {
     const modelURL = "/my-pose-model/model.json";
     const metadataURL = "/my-pose-model/metadata.json";
     const soundURL = "/sounds/FL_LH_KIT02_90BPM_Chimes.wav";
-    const audioRef = useRef<HTMLAudioElement | null>(null);
 
     const GESTURE_CLASS_NAME = "Heart";
     const CONFIDENCE_THRESHOLD = 0.9;
@@ -37,10 +36,6 @@ const GestureRecognizer: React.FC = () => {
             }
         };
         loadModel();
-
-        if (typeof Audio !== "undefined") {
-            audioRef.current = new Audio(soundURL);
-        }
 
         return () => {
             console.log("GestureRecognizer component unmounted");
@@ -92,28 +87,32 @@ const GestureRecognizer: React.FC = () => {
                     detectedGesture === GESTURE_CLASS_NAME &&
                     highestProb > CONFIDENCE_THRESHOLD
                 ) {
-                    if (!isGestureDetected) {
-                        const now = Date.now();
-                        if (now - lastSoundPlayTime > DEBOUNCE_TIME_MS) {
-                            if (audioRef.current) {
-                                audioRef.current
-                                    .play()
-                                    .catch((e) =>
-                                        console.error("Error playing sound:", e)
-                                    );
-                            }
-                            setLastSoundPlayTime(now);
-                        }
+                    const now = Date.now();
+                    if (now - lastSoundPlayTime > DEBOUNCE_TIME_MS) {
+                        const sound = new Audio(soundURL);
+                        sound
+                            .play()
+                            .catch((e) =>
+                                console.error("Error playing sound:", e)
+                            );
+                        setLastSoundPlayTime(now);
                     }
                     setIsGestureDetected(true);
                 } else {
-                    if (isGestureDetected) {
+                    if (
+                        isGestureDetected &&
+                        detectedGesture !== GESTURE_CLASS_NAME
+                    ) {
                         setLastSoundPlayTime(0);
                     }
                     setIsGestureDetected(false);
                 }
             } else {
                 setPrediction("No pose detected");
+                if (isGestureDetected) {
+                    setLastSoundPlayTime(0);
+                    setIsGestureDetected(false);
+                }
             }
         };
 
@@ -124,14 +123,7 @@ const GestureRecognizer: React.FC = () => {
         }, 200);
 
         return () => clearInterval(intervalId);
-    }, [
-        isLoading,
-        lastSoundPlayTime,
-        isGestureDetected,
-        GESTURE_CLASS_NAME,
-        CONFIDENCE_THRESHOLD,
-        DEBOUNCE_TIME_MS,
-    ]);
+    }, [isLoading, lastSoundPlayTime, isGestureDetected]);
 
     return (
         <div
