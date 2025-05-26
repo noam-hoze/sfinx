@@ -146,6 +146,7 @@ const GestureRecognizer: React.FC = () => {
             <Webcam
                 ref={webcamRef}
                 muted={true}
+                mirrored
                 style={{
                     width: "640px",
                     height: "480px",
