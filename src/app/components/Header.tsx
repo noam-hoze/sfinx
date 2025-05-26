@@ -17,6 +17,7 @@ const Header: React.FC<HeaderProps> = ({ showHandData, toggleHandData }) => {
                 backgroundColor: "rgb(80 60 179)",
                 padding: "0 100px 0 0",
                 height: "120px",
+                boxSizing: "border-box",
             }}
         >
             {/* Using a standard img tag */}
@@ -26,7 +27,7 @@ const Header: React.FC<HeaderProps> = ({ showHandData, toggleHandData }) => {
                 style={{
                     transform: "scale(0.25)",
                     transformOrigin: "left",
-                    margin: "0 0 0 61px"
+                    margin: "0 0 0 61px",
                 }}
             />
             <Switch

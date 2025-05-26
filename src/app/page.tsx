@@ -29,9 +29,12 @@ export default function Home() {
                 style={{
                     display: "flex",
                     flexDirection: "row",
-                    justifyContent: "space-around",
+                    flexWrap: "wrap",
+                    justifyContent: "center",
+                    alignItems: "flex-start",
                     width: "100%",
                     marginTop: "20px",
+                    gap: "20px",
                 }}
             >
                 <GestureRecognizer />
