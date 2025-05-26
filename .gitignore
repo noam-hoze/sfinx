@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# User-added
+# public/my-pose-model/*.bin # Previous model-specific directory entry
+*.bin # Ignore all .bin files anywhere in the project
