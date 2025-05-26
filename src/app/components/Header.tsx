@@ -14,15 +14,20 @@ const Header: React.FC<HeaderProps> = ({ showHandData, toggleHandData }) => {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                backgroundColor: "#1a1a1a",
-                padding: "0 100px 0 0"
+                backgroundColor: "rgb(80 60 179)",
+                padding: "0 100px 0 0",
+                height: "120px",
             }}
         >
             {/* Using a standard img tag */}
             <img
-                src="/logo-1.png" // Make sure this path is correct in your public folder
+                src="/logo-no-back.png" // Make sure this path is correct in your public folder
                 alt="SFINX Logo"
-                style={{ transform: "scale(0.5)" }}
+                style={{
+                    transform: "scale(0.25)",
+                    transformOrigin: "left",
+                    margin: "0 0 0 61px"
+                }}
             />
             <Switch
                 isOn={showHandData}
