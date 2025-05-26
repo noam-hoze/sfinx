@@ -120,7 +120,7 @@ const HandContour: React.FC<HandContourProps> = () => {
                         // Draw all 21 keypoints
                         ctx.fillStyle = "red";
                         for (let i = 0; i < landmarks.length; i++) {
-                            const x = landmarks[i][0];
+                            const x = canvas.width - landmarks[i][0];
                             const y = landmarks[i][1];
                             ctx.beginPath();
                             ctx.arc(x, y, 5, 0, 2 * Math.PI);
@@ -132,7 +132,10 @@ const HandContour: React.FC<HandContourProps> = () => {
                             ctx.beginPath();
                             const firstPoint =
                                 landmarks[HAND_CONTOUR_LANDMARKS[0]];
-                            ctx.moveTo(firstPoint[0], firstPoint[1]);
+                            ctx.moveTo(
+                                canvas.width - firstPoint[0],
+                                firstPoint[1]
+                            );
 
                             for (
                                 let i = 1;
@@ -142,7 +145,10 @@ const HandContour: React.FC<HandContourProps> = () => {
                                 const landmarkIndex = HAND_CONTOUR_LANDMARKS[i];
                                 if (landmarks[landmarkIndex]) {
                                     const point = landmarks[landmarkIndex];
-                                    ctx.lineTo(point[0], point[1]);
+                                    ctx.lineTo(
+                                        canvas.width - point[0],
+                                        point[1]
+                                    );
                                 }
                             }
                             ctx.closePath(); // Close the polygon path
