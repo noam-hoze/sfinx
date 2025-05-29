@@ -8,6 +8,7 @@ import * as tf from "@tensorflow/tfjs";
 const GestureRecognizer: React.FC = () => {
     const webcamRef = useRef<Webcam>(null);
     const modelRef = useRef<tmPose.CustomPoseNet | null>(null);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
     const [prediction, setPrediction] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [lastSoundPlayTime, setLastSoundPlayTime] = useState<number>(0);
@@ -15,7 +16,7 @@ const GestureRecognizer: React.FC = () => {
 
     const modelURL = "/my-pose-model/model.json";
     const metadataURL = "/my-pose-model/metadata.json";
-    const soundURL = "/sounds/FL_LH_KIT02_90BPM_Chimes.wav";
+    const soundURL = "/sounds/love_short.mp3";
 
     const GESTURE_CLASS_NAME = "Heart";
     const CONFIDENCE_THRESHOLD = 0.9;
@@ -39,6 +40,8 @@ const GestureRecognizer: React.FC = () => {
 
         return () => {
             console.log("GestureRecognizer component unmounted");
+            audioRef.current?.pause();
+            audioRef.current = null;
         };
     }, []);
 
@@ -54,15 +57,14 @@ const GestureRecognizer: React.FC = () => {
             }
 
             const video = webcamRef.current.video as HTMLVideoElement;
-
             const { pose, posenetOutput } = await modelRef.current.estimatePose(
                 video
             );
+
             if (pose) {
                 const predictionResult = await modelRef.current.predict(
                     posenetOutput
                 );
-
                 let highestProb = 0;
                 let detectedGesture = null;
 
@@ -89,13 +91,15 @@ const GestureRecognizer: React.FC = () => {
                 ) {
                     const now = Date.now();
                     if (now - lastSoundPlayTime > DEBOUNCE_TIME_MS) {
-                        const sound = new Audio(soundURL);
-                        sound
-                            .play()
-                            .catch((e) =>
-                                console.error("Error playing sound:", e)
-                            );
-                        setLastSoundPlayTime(now);
+                        if (!audioRef.current || audioRef.current.ended) {
+                            audioRef.current = new Audio(soundURL);
+                            audioRef.current
+                                .play()
+                                .catch((e) =>
+                                    console.error("Error playing sound:", e)
+                                );
+                            setLastSoundPlayTime(now);
+                        }
                     }
                     setIsGestureDetected(true);
                 } else {
@@ -103,14 +107,14 @@ const GestureRecognizer: React.FC = () => {
                         isGestureDetected &&
                         detectedGesture !== GESTURE_CLASS_NAME
                     ) {
-                        setLastSoundPlayTime(0);
+                        // Don't reset lastSoundPlayTime here if we want sound to finish
                     }
                     setIsGestureDetected(false);
                 }
             } else {
                 setPrediction("No pose detected");
                 if (isGestureDetected) {
-                    setLastSoundPlayTime(0);
+                    // Don't reset lastSoundPlayTime here if we want sound to finish
                     setIsGestureDetected(false);
                 }
             }
