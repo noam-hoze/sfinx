@@ -22,10 +22,10 @@ const Header: React.FC<HeaderProps> = ({ showHandData, toggleHandData }) => {
         >
             {/* Using a standard img tag */}
             <img
-                src="/logo-no-back.png" // Make sure this path is correct in your public folder
+                src="/new_logo.png" // Make sure this path is correct in your public folder
                 alt="SFINX Logo"
                 style={{
-                    transform: "scale(0.25)",
+                    transform: "scale(1)",
                     transformOrigin: "left",
                     margin: "0 0 0 61px",
                 }}

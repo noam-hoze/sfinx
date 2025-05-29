@@ -7,11 +7,32 @@ import Header from "./components/Header";
 
 export default function Home() {
     const [showHandData, setShowHandData] = useState(true);
+    const [isHeartRecognized, setIsHeartRecognized] = useState(false);
+    const [noGodNoPosePlayTrigger, setNoGodNoPosePlayTrigger] = useState(0);
 
     const toggleHandData = () => {
         setShowHandData((prev) => !prev);
     };
 
+    const handleHeartRecognized = (recognized: boolean) => {
+        setIsHeartRecognized(recognized);
+    };
+
+    const handleNoGodNoPoseDetected = () => {
+        console.log("page.tsx: handleNoGodNoPoseDetected called");
+        setNoGodNoPosePlayTrigger((prev) => {
+            const nextVal = prev + 1;
+            console.log(
+                `page.tsx: noGodNoPosePlayTrigger changing from ${prev} to ${nextVal}`
+            );
+            return nextVal;
+        });
+    };
+
+    console.log(
+        "page.tsx: Rendering with noGodNoPosePlayTrigger =",
+        noGodNoPosePlayTrigger
+    );
     return (
         <main
             style={{
@@ -37,8 +58,15 @@ export default function Home() {
                     gap: "20px",
                 }}
             >
-                <GestureRecognizer />
-                <MultiHandContour showData={showHandData} />
+                <GestureRecognizer
+                    onHeartRecognized={handleHeartRecognized}
+                    onNoGodNoPoseDetected={handleNoGodNoPoseDetected}
+                />
+                <MultiHandContour
+                    showData={showHandData}
+                    isHeartTriggered={isHeartRecognized}
+                    noGodNoPlayTrigger={noGodNoPosePlayTrigger}
+                />
             </div>
         </main>
     );

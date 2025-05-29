@@ -5,22 +5,34 @@ import Webcam from "react-webcam";
 import * as tmPose from "@teachablemachine/pose";
 import * as tf from "@tensorflow/tfjs";
 
-const GestureRecognizer: React.FC = () => {
+interface GestureRecognizerProps {
+    onHeartRecognized: (recognized: boolean) => void;
+    onNoGodNoPoseDetected: () => void;
+}
+
+const GestureRecognizer: React.FC<GestureRecognizerProps> = ({
+    onHeartRecognized,
+    onNoGodNoPoseDetected,
+}) => {
     const webcamRef = useRef<Webcam>(null);
     const modelRef = useRef<tmPose.CustomPoseNet | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [prediction, setPrediction] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [lastSoundPlayTime, setLastSoundPlayTime] = useState<number>(0);
-    const [isGestureDetected, setIsGestureDetected] = useState<boolean>(false);
+    const [isHeartGestureActive, setIsHeartGestureActive] =
+        useState<boolean>(false);
+    const [wasNoGodNoPosePreviouslyActive, setWasNoGodNoPosePreviouslyActive] =
+        useState<boolean>(false);
 
     const modelURL = "/my-pose-model/model.json";
     const metadataURL = "/my-pose-model/metadata.json";
-    const soundURL = "/sounds/love_short.mp3";
+    const heartSoundURL = "/sounds/love_short.mp3";
 
-    const GESTURE_CLASS_NAME = "Heart";
-    const CONFIDENCE_THRESHOLD = 0.9;
-    const DEBOUNCE_TIME_MS = 1000;
+    const HEART_GESTURE_CLASS = "Heart";
+    const NO_GOD_NO_GESTURE_CLASS = "No god no";
+    const CONFIDENCE_THRESHOLD = 0.85;
+    const HEART_SOUND_DEBOUNCE_MS = 1000;
 
     useEffect(() => {
         const loadModel = async () => {
@@ -61,63 +73,67 @@ const GestureRecognizer: React.FC = () => {
                 video
             );
 
+            let detectedGestureClass: string | null = null;
+            let highestProb = 0;
+
             if (pose) {
                 const predictionResult = await modelRef.current.predict(
                     posenetOutput
                 );
-                let highestProb = 0;
-                let detectedGesture = null;
-
                 for (const pred of predictionResult) {
                     if (pred.probability > highestProb) {
                         highestProb = pred.probability;
-                        detectedGesture = pred.className;
+                        detectedGestureClass = pred.className;
                     }
                 }
+                console.log(
+                    `Detected: ${detectedGestureClass}, Confidence: ${highestProb.toFixed(
+                        4
+                    )}`
+                );
+                setPrediction(
+                    detectedGestureClass
+                        ? `${detectedGestureClass} (${(
+                              highestProb * 100
+                          ).toFixed(2)}%)`
+                        : "No gesture detected"
+                );
+            } else {
+                setPrediction("No pose detected");
+            }
 
-                if (detectedGesture) {
-                    setPrediction(
-                        `${detectedGesture} (${(highestProb * 100).toFixed(
-                            2
-                        )}%)`
-                    );
-                } else {
-                    setPrediction("No gesture detected");
-                }
-
-                if (
-                    detectedGesture === GESTURE_CLASS_NAME &&
-                    highestProb > CONFIDENCE_THRESHOLD
-                ) {
+            const isCurrentlyHeart =
+                detectedGestureClass === HEART_GESTURE_CLASS &&
+                highestProb > CONFIDENCE_THRESHOLD;
+            if (isHeartGestureActive !== isCurrentlyHeart) {
+                setIsHeartGestureActive(isCurrentlyHeart);
+                onHeartRecognized(isCurrentlyHeart);
+                if (isCurrentlyHeart) {
                     const now = Date.now();
-                    if (now - lastSoundPlayTime > DEBOUNCE_TIME_MS) {
+                    if (now - lastSoundPlayTime > HEART_SOUND_DEBOUNCE_MS) {
                         if (!audioRef.current || audioRef.current.ended) {
-                            audioRef.current = new Audio(soundURL);
+                            audioRef.current = new Audio(heartSoundURL);
                             audioRef.current
                                 .play()
                                 .catch((e) =>
-                                    console.error("Error playing sound:", e)
+                                    console.error(
+                                        "Error playing heart sound:",
+                                        e
+                                    )
                                 );
                             setLastSoundPlayTime(now);
                         }
                     }
-                    setIsGestureDetected(true);
-                } else {
-                    if (
-                        isGestureDetected &&
-                        detectedGesture !== GESTURE_CLASS_NAME
-                    ) {
-                        // Don't reset lastSoundPlayTime here if we want sound to finish
-                    }
-                    setIsGestureDetected(false);
-                }
-            } else {
-                setPrediction("No pose detected");
-                if (isGestureDetected) {
-                    // Don't reset lastSoundPlayTime here if we want sound to finish
-                    setIsGestureDetected(false);
                 }
             }
+
+            const isCurrentlyNoGodNo =
+                detectedGestureClass === NO_GOD_NO_GESTURE_CLASS &&
+                highestProb > CONFIDENCE_THRESHOLD;
+            if (isCurrentlyNoGodNo && !wasNoGodNoPosePreviouslyActive) {
+                onNoGodNoPoseDetected();
+            }
+            setWasNoGodNoPosePreviouslyActive(isCurrentlyNoGodNo);
         };
 
         const intervalId = setInterval(() => {
@@ -126,8 +142,18 @@ const GestureRecognizer: React.FC = () => {
             }
         }, 200);
 
-        return () => clearInterval(intervalId);
-    }, [isLoading, lastSoundPlayTime, isGestureDetected]);
+        return () => {
+            clearInterval(intervalId);
+            if (isHeartGestureActive) onHeartRecognized(false);
+        };
+    }, [
+        isLoading,
+        lastSoundPlayTime,
+        isHeartGestureActive,
+        wasNoGodNoPosePreviouslyActive,
+        onHeartRecognized,
+        onNoGodNoPoseDetected,
+    ]);
 
     return (
         <div
