@@ -1,9 +1,18 @@
 "use client";
 
 import { useConversation } from "@elevenlabs/react";
-import { useCallback } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export function Conversation() {
+    const router = useRouter();
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const recordedChunksRef = useRef<Blob[]>([]);
+
+    const [cameraStarted, setCameraStarted] = useState(false);
+    const [isRecording, setIsRecording] = useState(false);
+
     const conversation = useConversation({
         onConnect: () => console.log("Connected"),
         onDisconnect: () => console.log("Disconnected"),
@@ -22,48 +31,144 @@ export function Conversation() {
 
     const startConversation = useCallback(async () => {
         try {
-            // Request microphone permission
-            await navigator.mediaDevices.getUserMedia({ audio: true });
-
-            const signedUrl = await getSignedUrl();
-
-            // Start the conversation with your signed url
-            await conversation.startSession({
-                signedUrl,
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: true,
+                video: true,
             });
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+            }
+
+            mediaRecorderRef.current = new MediaRecorder(stream, {
+                mimeType: "video/webm",
+            });
+            recordedChunksRef.current = [];
+
+            mediaRecorderRef.current.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    recordedChunksRef.current.push(event.data);
+                }
+            };
+
+            mediaRecorderRef.current.onstop = async () => {
+                const blob = new Blob(recordedChunksRef.current, {
+                    type: "video/webm",
+                });
+
+                const formData = new FormData();
+                formData.append("video", blob, "interview_recording.webm");
+
+                try {
+                    const response = await fetch("/api/upload-video", {
+                        method: "POST",
+                        body: formData,
+                    });
+
+                    if (!response.ok) {
+                        throw new Error("Video upload failed");
+                    }
+
+                    const result = await response.json();
+                    console.log("Video upload successful:", result);
+                    if (result.videoId) {
+                        router.push(`/results/${result.videoId}`);
+                    }
+                } catch (error) {
+                    console.error("Error uploading video:", error);
+                } finally {
+                    setIsRecording(false);
+                }
+            };
+
+            mediaRecorderRef.current.start();
+            setIsRecording(true);
+            setCameraStarted(true);
         } catch (error) {
-            console.error("Failed to start conversation:", error);
+            console.error("Failed to start camera or conversation:", error);
         }
-    }, [conversation]);
+    }, [router]);
+
+    useEffect(() => {
+        if (cameraStarted) {
+            const connectToElevenLabs = async () => {
+                try {
+                    const signedUrl = await getSignedUrl();
+                    await conversation.startSession({ signedUrl });
+                } catch (error) {
+                    console.error(
+                        "Failed to start conversation session:",
+                        error
+                    );
+                }
+            };
+            connectToElevenLabs();
+        }
+    }, [cameraStarted, conversation]);
 
     const stopConversation = useCallback(async () => {
+        if (mediaRecorderRef.current && isRecording) {
+            mediaRecorderRef.current.stop();
+        }
+
+        if (videoRef.current && videoRef.current.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
+            stream.getTracks().forEach((track) => track.stop());
+            videoRef.current.srcObject = null;
+        }
+        setCameraStarted(false);
+
         await conversation.endSession();
-    }, [conversation]);
+    }, [conversation, isRecording]);
 
     return (
-        <div className="flex flex-col items-center gap-4">
-            <div className="flex gap-2">
+        <div className="w-full max-w-4xl mx-auto">
+            <div className="relative aspect-video bg-gray-900 rounded-2xl shadow-2xl overflow-hidden">
+                {/* Interviewer Image */}
+                <img
+                    src="https://placehold.co/1280x720/1a1a1a/ffffff?text=Interviewer"
+                    alt="Interviewer"
+                    className="w-full h-full object-cover"
+                />
+
+                {/* User's Video Feed */}
+                <video
+                    ref={videoRef}
+                    autoPlay
+                    muted
+                    className={`absolute right-0 bottom-0 w-1/4 h-auto bg-black rounded-lg border-2 border-gray-700 shadow-md transition-opacity duration-300 ${
+                        cameraStarted ? "opacity-100" : "opacity-0"
+                    }`}
+                />
+            </div>
+
+            <div className="flex justify-center gap-4 mt-6">
                 <button
                     onClick={startConversation}
-                    disabled={conversation.status === "connected"}
-                    className="px-4 py-2 bg-blue-500 text-white rounded disabled:bg-gray-300"
+                    disabled={isRecording}
+                    className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-full shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-400 focus:ring-opacity-50 transition-all duration-300 disabled:bg-gray-500 disabled:cursor-not-allowed"
                 >
-                    Start Conversation
+                    Start Interview
                 </button>
                 <button
                     onClick={stopConversation}
-                    disabled={conversation.status !== "connected"}
-                    className="px-4 py-2 bg-red-500 text-white rounded disabled:bg-gray-300"
+                    disabled={!isRecording}
+                    className="px-6 py-3 bg-red-600 text-white font-semibold rounded-full shadow-lg hover:bg-red-700 focus:outline-none focus:ring-4 focus:ring-red-400 focus:ring-opacity-50 transition-all duration-300 disabled:bg-gray-500 disabled:cursor-not-allowed"
                 >
-                    Stop Conversation
+                    Stop Interview
                 </button>
             </div>
 
-            <div className="flex flex-col items-center">
-                <p>Status: {conversation.status}</p>
+            <div className="text-center mt-4 text-gray-400">
                 <p>
-                    Agent is{" "}
-                    {conversation.isSpeaking ? "speaking" : "listening"}
+                    Status:{" "}
+                    <span className="font-semibold text-white">
+                        {conversation.status}
+                    </span>
+                </p>
+                <p>
+                    {conversation.isSpeaking
+                        ? "Agent is speaking..."
+                        : "Agent is listening..."}
                 </p>
             </div>
         </div>
