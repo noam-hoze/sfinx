@@ -12,7 +12,9 @@ export default function RootLayout({
 }) {
     return (
         <html lang="en" className="h-full bg-black text-white">
-            <body className="h-full">{children}</body>
+            <body className="h-full" suppressHydrationWarning={true}>
+                {children}
+            </body>
         </html>
     );
 }
