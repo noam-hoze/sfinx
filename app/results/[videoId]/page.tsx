@@ -1,14 +1,25 @@
 import { Suspense } from "react";
 
-type AnalysisData = {
+type VoiceAnalysisData = {
     pitch: number;
     jitter: number;
     loudness: number;
     harshness: number;
 };
 
+type VideoAnalysisData = {
+    smile: number;
+    browFurrow: number;
+    mouthOpen: number;
+};
+
+type CombinedAnalysisData = {
+    voice: VoiceAnalysisData;
+    video: VideoAnalysisData;
+};
+
 // Simple interpretation logic
-const interpretAnalysis = (data: AnalysisData) => {
+const interpretVoiceAnalysis = (data: VoiceAnalysisData) => {
     const interpretations = {
         vocalStress: "Low",
         confidence: "Medium",
@@ -39,16 +50,30 @@ const interpretAnalysis = (data: AnalysisData) => {
     return interpretations;
 };
 
+const interpretVideoAnalysis = (data: VideoAnalysisData) => {
+    return {
+        friendliness:
+            data.smile > 0.5 ? "High" : data.smile > 0.2 ? "Medium" : "Low",
+        attentiveness: data.browFurrow < 0.5 ? "High" : "Low",
+        engagement: data.mouthOpen > 0.2 ? "High" : "Low",
+    };
+};
+
 function AnalysisDisplay({
     videoId,
     analysis,
     error,
 }: {
     videoId: string;
-    analysis: AnalysisData | null;
+    analysis: CombinedAnalysisData | null;
     error: string | null;
 }) {
-    const interpretations = analysis ? interpretAnalysis(analysis) : null;
+    const voiceInterpretations = analysis
+        ? interpretVoiceAnalysis(analysis.voice)
+        : null;
+    const videoInterpretations = analysis
+        ? interpretVideoAnalysis(analysis.video)
+        : null;
 
     return (
         <div className="container mx-auto p-8">
@@ -56,45 +81,79 @@ function AnalysisDisplay({
             <h2 className="text-xl text-gray-400 mb-8">Video ID: {videoId}</h2>
 
             {!analysis && !error && (
-                <p className="text-lg">Analyzing voice... Please wait.</p>
+                <p className="text-lg">Analyzing interview... Please wait.</p>
             )}
             {error && <p className="text-lg text-red-500">Error: {error}</p>}
 
-            {analysis && interpretations && (
+            {analysis && voiceInterpretations && videoInterpretations && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Soft Skill Proxies */}
+                    {/* Voice Analysis */}
                     <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
                         <h3 className="text-2xl font-semibold mb-4">
-                            Soft Skill Proxies
+                            Vocal Insights
                         </h3>
                         <ul className="space-y-4">
                             <li className="flex justify-between items-center">
                                 <span className="text-gray-300">
                                     Vocal Stress:
-                                </span>{" "}
+                                </span>
                                 <span className="text-xl font-bold">
-                                    {interpretations.vocalStress}
+                                    {voiceInterpretations.vocalStress}
                                 </span>
                             </li>
                             <li className="flex justify-between items-center">
                                 <span className="text-gray-300">
                                     Confidence:
-                                </span>{" "}
+                                </span>
                                 <span className="text-xl font-bold">
-                                    {interpretations.confidence}
+                                    {voiceInterpretations.confidence}
                                 </span>
                             </li>
                             <li className="flex justify-between items-center">
                                 <span className="text-gray-300">
                                     Engagement:
-                                </span>{" "}
+                                </span>
                                 <span className="text-xl font-bold">
-                                    {interpretations.engagement}
+                                    {voiceInterpretations.engagement}
                                 </span>
                             </li>
                         </ul>
                     </div>
-                    {/* Raw Feature Data */}
+
+                    {/* Video Analysis */}
+                    <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
+                        <h3 className="text-2xl font-semibold mb-4">
+                            Facial Expression Insights
+                        </h3>
+                        <ul className="space-y-4">
+                            <li className="flex justify-between items-center">
+                                <span className="text-gray-300">
+                                    Friendliness (Smile):
+                                </span>
+                                <span className="text-xl font-bold">
+                                    {videoInterpretations.friendliness}
+                                </span>
+                            </li>
+                            <li className="flex justify-between items-center">
+                                <span className="text-gray-300">
+                                    Attentiveness (Brow):
+                                </span>
+                                <span className="text-xl font-bold">
+                                    {videoInterpretations.attentiveness}
+                                </span>
+                            </li>
+                            <li className="flex justify-between items-center">
+                                <span className="text-gray-300">
+                                    Engagement (Mouth):
+                                </span>
+                                <span className="text-xl font-bold">
+                                    {videoInterpretations.engagement}
+                                </span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    {/* Raw Voice Features */}
                     <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
                         <h3 className="text-2xl font-semibold mb-4">
                             Raw Voice Features
@@ -103,31 +162,63 @@ function AnalysisDisplay({
                             <li className="flex justify-between items-center">
                                 <span className="text-gray-300">
                                     Pitch (F0):
-                                </span>{" "}
+                                </span>
                                 <span className="text-xl font-mono">
-                                    {analysis.pitch.toFixed(2)} Hz
+                                    {analysis.voice.pitch.toFixed(2)} Hz
                                 </span>
                             </li>
                             <li className="flex justify-between items-center">
                                 <span className="text-gray-300">
                                     Jitter (Stability):
-                                </span>{" "}
+                                </span>
                                 <span className="text-xl font-mono">
-                                    {analysis.jitter.toFixed(4)}
+                                    {analysis.voice.jitter.toFixed(4)}
                                 </span>
                             </li>
                             <li className="flex justify-between items-center">
-                                <span className="text-gray-300">Loudness:</span>{" "}
+                                <span className="text-gray-300">Loudness:</span>
                                 <span className="text-xl font-mono">
-                                    {analysis.loudness.toFixed(2)}
+                                    {analysis.voice.loudness.toFixed(2)}
                                 </span>
                             </li>
                             <li className="flex justify-between items-center">
                                 <span className="text-gray-300">
                                     Harshness (Alpha Ratio):
-                                </span>{" "}
+                                </span>
                                 <span className="text-xl font-mono">
-                                    {analysis.harshness.toFixed(2)}
+                                    {analysis.voice.harshness.toFixed(2)}
+                                </span>
+                            </li>
+                        </ul>
+                    </div>
+                    {/* Raw Video Features */}
+                    <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
+                        <h3 className="text-2xl font-semibold mb-4">
+                            Raw Facial Features (Avg. Intensity)
+                        </h3>
+                        <ul className="space-y-4">
+                            <li className="flex justify-between items-center">
+                                <span className="text-gray-300">
+                                    Smile (AU12):
+                                </span>
+                                <span className="text-xl font-mono">
+                                    {analysis.video.smile.toFixed(2)}
+                                </span>
+                            </li>
+                            <li className="flex justify-between items-center">
+                                <span className="text-gray-300">
+                                    Brow Furrow (AU04):
+                                </span>
+                                <span className="text-xl font-mono">
+                                    {analysis.video.browFurrow.toFixed(2)}
+                                </span>
+                            </li>
+                            <li className="flex justify-between items-center">
+                                <span className="text-gray-300">
+                                    Mouth Open (AU25):
+                                </span>
+                                <span className="text-xl font-mono">
+                                    {analysis.video.mouthOpen.toFixed(2)}
                                 </span>
                             </li>
                         </ul>
