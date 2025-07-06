@@ -166,9 +166,10 @@ export function Conversation() {
                     </span>
                 </p>
                 <p>
-                    {conversation.isSpeaking
-                        ? "Agent is speaking..."
-                        : "Agent is listening..."}
+                    {conversation.status === "connected" &&
+                        (conversation.isSpeaking
+                            ? "Agent is speaking..."
+                            : "Agent is listening...")}
                 </p>
             </div>
         </div>
