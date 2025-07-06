@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { headers } from "next/headers";
 
 type VoiceAnalysisData = {
     pitch: number;
@@ -229,12 +230,14 @@ function AnalysisDisplay({
     );
 }
 
-async function fetchAnalysisData(videoId: string) {
+async function fetchAnalysisData(videoId: string, host: string | null) {
     // This fetch call is now happening on the server-side.
     // We need to provide the full URL.
-    const host = process.env.NEXT_PUBLIC_HOST || "http://localhost:3000";
+    const protocol = host?.startsWith("localhost") ? "http" : "https";
     try {
-        const response = await fetch(`${host}/api/results/${videoId}`);
+        const response = await fetch(
+            `${protocol}://${host}/api/results/${videoId}`
+        );
 
         if (!response.ok) {
             const errorData = await response.json();
@@ -246,18 +249,23 @@ async function fetchAnalysisData(videoId: string) {
         } else {
             throw new Error(data.error || "Analysis failed.");
         }
-    } catch (err: any) {
-        return { analysis: null, error: err.message };
+    } catch (err: unknown) {
+        return {
+            analysis: null,
+            error: err instanceof Error ? err.message : String(err),
+        };
     }
 }
 
 export default async function ResultsPage({
     params,
 }: {
-    params: { videoId: string };
+    params: Promise<{ videoId: string }>;
 }) {
-    const { videoId } = params;
-    const { analysis, error } = await fetchAnalysisData(videoId);
+    const { videoId } = await params;
+    const requestHeaders = await headers();
+    const host = requestHeaders.get("host");
+    const { analysis, error } = await fetchAnalysisData(videoId, host);
 
     return (
         <Suspense fallback={<p>Loading video analysis...</p>}>
