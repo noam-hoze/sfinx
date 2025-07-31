@@ -13,6 +13,7 @@ export function Conversation() {
 
     const [cameraStarted, setCameraStarted] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
+    const [isCoding, setIsCoding] = useState(false);
 
     const conversation = useConversation({
         onConnect: () => console.log("Connected"),
@@ -80,6 +81,18 @@ export function Conversation() {
         }
     }, [cameraStarted, conversation]);
 
+    useEffect(() => {
+        if (conversation.webSocket) {
+            const message = {
+                type: "contextual_update",
+                text: isCoding
+                    ? "The user has started coding and needs to focus. Do not interrupt."
+                    : "The user has stopped coding and is ready to talk.",
+            };
+            conversation.webSocket.send(JSON.stringify(message));
+        }
+    }, [isCoding, conversation.webSocket]);
+    
     const stopConversation = useCallback(async () => {
         window.location.reload();
     }, []);
@@ -115,6 +128,16 @@ export function Conversation() {
                     className="px-6 py-3 bg-red-600 text-white font-semibold rounded-full shadow-lg hover:bg-red-700 focus:outline-none focus:ring-4 focus:ring-red-400 focus:ring-opacity-50 transition-all duration-300 disabled:bg-gray-500 disabled:cursor-not-allowed"
                 >
                     Stop Interview
+                </button>
+                <button
+                    onClick={() => setIsCoding(!isCoding)}
+                    className={`px-6 py-3 font-semibold rounded-full shadow-lg transition-all duration-300 ${
+                        isCoding
+                            ? "bg-yellow-500 text-black"
+                            : "bg-gray-700 text-white"
+                    }`}
+                >
+                    {isCoding ? "Stop Coding" : "Start Coding"}
                 </button>
             </div>
 
