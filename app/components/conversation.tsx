@@ -50,34 +50,8 @@ export function Conversation() {
                 }
             };
 
-            mediaRecorderRef.current.onstop = async () => {
-                const blob = new Blob(recordedChunksRef.current, {
-                    type: "video/webm",
-                });
-
-                const formData = new FormData();
-                formData.append("video", blob, "interview_recording.webm");
-
-                try {
-                    const response = await fetch("/api/upload-video", {
-                        method: "POST",
-                        body: formData,
-                    });
-
-                    if (!response.ok) {
-                        throw new Error("Video upload failed");
-                    }
-
-                    const result = await response.json();
-                    console.log("Video upload successful:", result);
-                    if (result.videoId) {
-                        router.push(`/results/${result.videoId}`);
-                    }
-                } catch (error) {
-                    console.error("Error uploading video:", error);
-                } finally {
-                    setIsRecording(false);
-                }
+            mediaRecorderRef.current.onstop = () => {
+                setIsRecording(false);
             };
 
             mediaRecorderRef.current.start();
@@ -116,6 +90,7 @@ export function Conversation() {
             videoRef.current.srcObject = null;
         }
         setCameraStarted(false);
+        setIsRecording(false);
 
         await conversation.endSession();
     }, [conversation, isRecording]);
