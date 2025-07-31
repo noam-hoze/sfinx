@@ -3,6 +3,7 @@
 import { useConversation } from "@elevenlabs/react";
 import { useCallback, useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { MonacoEditor } from "./editor";
 
 export function Conversation() {
     const router = useRouter();
@@ -87,11 +88,7 @@ export function Conversation() {
         <div className="w-full max-w-4xl mx-auto">
             <div className="relative aspect-video bg-gray-900 rounded-2xl shadow-2xl overflow-hidden">
                 {/* Interviewer Image */}
-                <img
-                    src="https://placehold.co/1280x720/1a1a1a/ffffff?text=Interviewer"
-                    alt="Interviewer"
-                    className="w-full h-full object-cover"
-                />
+                <MonacoEditor />
 
                 {/* User's Video Feed */}
                 <video
