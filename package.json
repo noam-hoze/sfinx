@@ -3,11 +3,25 @@
     "version": "0.1.0",
     "private": true,
     "type": "module",
+    "description": "Advanced AI-powered interview platform with real-time conversation and video analysis",
+    "keywords": ["nextjs", "react", "ai", "interview", "elevenlabs", "typescript"],
+    "author": "Sfinx Team",
+    "license": "MIT",
+    "engines": {
+        "node": ">=18.0.0",
+        "npm": ">=8.0.0"
+    },
     "scripts": {
         "dev": "next dev",
         "build": "next build",
         "start": "next start",
-        "lint": "next lint"
+        "lint": "next lint",
+        "lint:fix": "next lint --fix",
+        "type-check": "tsc --noEmit",
+        "build:analyze": "ANALYZE=true next build",
+        "preview": "npm run build && npm run start",
+        "clean": "rm -rf .next out node_modules/.cache",
+        "postinstall": "npm run type-check"
     },
     "dependencies": {
         "@elevenlabs/react": "^0.2.1",
@@ -27,5 +41,17 @@
         "tailwindcss": "^3.4.4",
         "ts-node": "^10.9.2",
         "typescript": "^5"
+    },
+    "browserslist": {
+        "production": [
+            ">0.2%",
+            "not dead",
+            "not op_mini all"
+        ],
+        "development": [
+            "last 1 chrome version",
+            "last 1 firefox version",
+            "last 1 safari version"
+        ]
     }
 }
