@@ -80,21 +80,8 @@ export function Conversation() {
     }, [cameraStarted, conversation]);
 
     const stopConversation = useCallback(async () => {
-        if (mediaRecorderRef.current && isRecording) {
-            mediaRecorderRef.current.stop();
-        }
-
-        if (videoRef.current && videoRef.current.srcObject) {
-            const stream = videoRef.current.srcObject as MediaStream;
-            stream.getTracks().forEach((track) => track.stop());
-            videoRef.current.srcObject = null;
-        }
-        setCameraStarted(false);
-        setIsRecording(false);
-
-        conversation.stop();
-        await conversation.endSession();
-    }, [conversation, isRecording]);
+        window.location.reload();
+    }, []);
 
     return (
         <div className="w-full max-w-4xl mx-auto">
