@@ -92,6 +92,7 @@ export function Conversation() {
         setCameraStarted(false);
         setIsRecording(false);
 
+        conversation.stop();
         await conversation.endSession();
     }, [conversation, isRecording]);
 
