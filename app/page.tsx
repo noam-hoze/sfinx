@@ -1,11 +1,8 @@
-import { Conversation } from "./components/conversation";
-
-export default function Home() {
+export default function HomePage() {
     return (
-        <main className="flex min-h-screen flex-col items-center justify-center p-12 bg-black text-white">
-            <h1 className="text-4xl font-bold mb-2 text-center">SFINX</h1>
-            <h2 className="text-2xl text-center mb-8">AI-Interviewer</h2>
-            <Conversation />
+        <main style={{ padding: 24 }}>
+            <h1>Sfinx MVP</h1>
+            <p>Welcome.</p>
         </main>
     );
 }
