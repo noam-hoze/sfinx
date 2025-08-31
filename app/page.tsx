@@ -1,8 +1,9 @@
-export default function HomePage() {
+import CandidateSession from "./components/session/CandidateSession";
+
+export default function Home() {
     return (
-        <main style={{ padding: 24 }}>
-            <h1>Sfinx MVP</h1>
-            <p>Welcome.</p>
+        <main>
+            <CandidateSession />
         </main>
     );
 }
