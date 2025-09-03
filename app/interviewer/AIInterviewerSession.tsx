@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { Moon, Sun } from "lucide-react";
 import EditorPanel from "./components/EditorPanel";
-import ChatPanel from "./components/ChatPanel";
+import RealTimeConversation from "./components/RealTimeConversation";
 import { InterviewProvider, useInterview } from "../../lib/interview/context";
 import { BUGGY_COUNTER_CODE } from "../../lib/interview/types";
 import AvatarManager from "../components/avatar/AvatarManager";
@@ -137,16 +137,6 @@ export default UserList;`;
         setShowDiff(true);
     };
 
-    const handleSendMessage = (message: string) => {
-        console.log("User sent message:", message);
-    };
-
-    const handleRequestCodeChange = (change: string) => {
-        console.log("AI requested code change:", change);
-        // In a real implementation, this would trigger the AI to analyze and suggest changes
-        simulateAIChange();
-    };
-
     const updateCodeForTask = (taskId: string) => {
         if (taskId === "task2-counter-debug") {
             setCurrentCode(BUGGY_COUNTER_CODE);
@@ -243,13 +233,16 @@ export default UserList;`;
 
                     <PanelResizeHandle className="w-2 bg-light-gray hover:bg-electric-blue dark:bg-gray-600 dark:hover:bg-gray-500" />
 
-                    {/* Right Panel - AI Chat */}
+                    {/* Right Panel - Real-Time Conversation */}
                     <Panel defaultSize={30} minSize={25}>
-                        <div className="h-full bg-white dark:bg-gray-800">
-                            <ChatPanel
-                                onSendMessage={handleSendMessage}
-                                onRequestCodeChange={handleRequestCodeChange}
-                                isDarkMode={isDarkMode}
+                        <div className="h-full bg-white dark:bg-gray-800 p-4">
+                            <RealTimeConversation
+                                onStartConversation={() =>
+                                    console.log("Conversation started")
+                                }
+                                onEndConversation={() =>
+                                    console.log("Conversation ended")
+                                }
                             />
                         </div>
                     </Panel>

@@ -1,14 +1,10 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { TypeAnimation } from "react-type-animation";
 import { Send, Bot, User } from "lucide-react";
 import { useInterview } from "../../../lib/interview/context";
-import {
-    sendToOpenAI,
-    buildSystemPrompt,
-    convertInterviewMessagesToOpenAI,
-} from "../../../lib/interview/openai";
+// Removed OpenAI imports - now using ElevenLabs Conversational AI
 import { InterviewMessage } from "../../../lib/interview/types";
 
 interface Message {
@@ -39,7 +35,41 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         stopAvatarSpeaking,
     } = useInterview();
 
-    // TTS function with lip sync
+    // Play audio from ElevenLabs Conversational AI URL
+    const playAudioFromUrl = async (audioUrl: string) => {
+        try {
+            const audio = new Audio(audioUrl);
+
+            // Start avatar speaking animation
+            startAvatarSpeaking();
+
+            // Set up audio event handlers
+            audio.onended = () => {
+                console.log("🎭 Audio ended, stopping avatar speaking");
+                stopAvatarSpeaking();
+            };
+
+            audio.onerror = () => {
+                console.log("🎭 Audio error, stopping avatar speaking");
+                stopAvatarSpeaking();
+            };
+
+            // Also listen for pause event as a backup
+            audio.onpause = () => {
+                console.log("🎭 Audio paused, stopping avatar speaking");
+                stopAvatarSpeaking();
+            };
+
+            // Play the audio
+            await audio.play();
+        } catch (error) {
+            console.warn("Audio playback failed:", error);
+            stopAvatarSpeaking(); // Stop speaking on error
+            // Continue without audio - don't break the chat flow
+        }
+    };
+
+    // TTS function with lip sync (fallback)
     const playTTS = async (text: string) => {
         try {
             const response = await fetch("/api/tts", {
@@ -74,7 +104,6 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                 // Also listen for pause event as a backup
                 audio.onpause = () => {
                     console.log("🎭 Audio paused, stopping avatar speaking");
-                    stopAvatarSpeaking();
                 };
 
                 // Play the audio
@@ -108,15 +137,97 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
     const [currentMessage, setCurrentMessage] = useState("");
     const [isTyping, setIsTyping] = useState(false);
+    const [hasStarted, setHasStarted] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
+    // Handle initial message to start the conversation
+    const handleInitialMessage = useCallback(async () => {
+        const initialMessage =
+            "Hello, I'm ready for my coding interview. Please introduce yourself and let's get started.";
+
+        const userMessage: InterviewMessage = {
+            id: Date.now().toString(),
+            type: "user",
+            content: initialMessage,
+            timestamp: new Date(),
+        };
+
+        setMessages((prev) => [...prev, userMessage]);
+
+        // Get AI response using ElevenLabs Conversational AI
+        setIsTyping(true);
+        try {
+            const currentTask = getCurrentTask();
+            const conversationResponse = await fetch("/api/conversation", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    message: initialMessage,
+                }),
+            });
+
+            if (!conversationResponse.ok) {
+                throw new Error(
+                    `Conversation API failed: ${conversationResponse.status}`
+                );
+            }
+
+            const data = await conversationResponse.json();
+            const aiResponseContent = data.response;
+
+            const aiMessage: InterviewMessage = {
+                id: (Date.now() + 1).toString(),
+                type: "ai",
+                content: aiResponseContent,
+                timestamp: new Date(),
+                taskId: currentTask?.id,
+            };
+
+            setMessages((prev) => [...prev, aiMessage]);
+
+            // Play audio from ElevenLabs Conversational AI response
+            if (data.audio_url) {
+                await playAudioFromUrl(data.audio_url);
+            } else {
+                await playTTS(aiResponseContent);
+            }
+        } catch (error) {
+            console.error("Error getting initial AI response:", error);
+            const errorMessage: InterviewMessage = {
+                id: (Date.now() + 1).toString(),
+                type: "ai",
+                content:
+                    "Hello! I'm ready to begin your coding interview. Let's get started!",
+                timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, errorMessage]);
+        } finally {
+            setIsTyping(false);
+        }
+    }, [getCurrentTask, playAudioFromUrl, playTTS]); // eslint-disable-line react-hooks/exhaustive-deps
+
     useEffect(() => {
         scrollToBottom();
     }, [messages]);
+
+    // Auto-start the conversation when component mounts
+    useEffect(() => {
+        if (!hasStarted) {
+            setHasStarted(true);
+            // Start interview and trigger initial agent response
+            if (!state.isActive) {
+                startInterview();
+            }
+            // Send initial trigger message to start the conversation
+            handleInitialMessage();
+        }
+    }, [hasStarted, state.isActive, startInterview, handleInitialMessage]);
 
     const handleSendMessage = async () => {
         if (!currentMessage.trim()) return;
@@ -137,24 +248,31 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             startInterview();
         }
 
-        // Get AI response using OpenAI
+        // Get AI response using ElevenLabs Conversational AI
         setIsTyping(true);
         try {
             const currentTask = getCurrentTask();
-            const systemPrompt = buildSystemPrompt(currentTask);
+            const conversationResponse = await fetch("/api/conversation", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    message: currentMessage,
+                    // conversation_id: // Add if you want to maintain conversation context
+                }),
+            });
 
-            // Convert messages to OpenAI format
-            const openaiMessages = convertInterviewMessagesToOpenAI([
-                ...messages,
-                userMessage,
-            ]);
+            if (!conversationResponse.ok) {
+                throw new Error(
+                    `Conversation API failed: ${conversationResponse.status}`
+                );
+            }
 
-            const aiResponseContent = await sendToOpenAI(
-                openaiMessages,
-                systemPrompt
-            );
+            const data = await conversationResponse.json();
+            const aiResponseContent = data.response;
 
-            const aiResponse: InterviewMessage = {
+            const aiMessage: InterviewMessage = {
                 id: (Date.now() + 1).toString(),
                 type: "ai",
                 content: aiResponseContent,
@@ -162,10 +280,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                 taskId: currentTask?.id,
             };
 
-            setMessages((prev) => [...prev, aiResponse]);
+            setMessages((prev) => [...prev, aiMessage]);
 
-            // Generate and play TTS audio
-            await playTTS(aiResponseContent);
+            // Play audio from ElevenLabs Conversational AI response
+            if (data.audio_url) {
+                // If ElevenLabs provides audio URL, use it directly
+                await playAudioFromUrl(data.audio_url);
+            } else {
+                // Fallback to TTS if no audio URL provided
+                await playTTS(aiResponseContent);
+            }
 
             // Trigger speaking animation for avatar (this will be passed up to parent)
             if (window.parent) {
