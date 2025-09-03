@@ -17,17 +17,30 @@ const AIInterviewerSession = () => {
     >(["editor"]);
     const [activeTab, setActiveTab] = useState<"editor" | "preview">("editor");
 
-    // Load theme preference from localStorage
+    // Load theme preference and apply to document
     useEffect(() => {
         const savedTheme = localStorage.getItem("sfinx-theme");
-        if (savedTheme === "dark") {
-            setIsDarkMode(true);
+        const shouldBeDark = savedTheme === "dark";
+        setIsDarkMode(shouldBeDark);
+
+        const root = document.documentElement;
+        if (shouldBeDark) {
+            root.classList.add("dark");
+        } else {
+            root.classList.remove("dark");
         }
     }, []);
 
-    // Save theme preference to localStorage
+    // Save theme preference and apply to document
     useEffect(() => {
         localStorage.setItem("sfinx-theme", isDarkMode ? "dark" : "light");
+
+        const root = document.documentElement;
+        if (isDarkMode) {
+            root.classList.add("dark");
+        } else {
+            root.classList.remove("dark");
+        }
     }, [isDarkMode]);
 
     const toggleTheme = () => {
@@ -82,58 +95,28 @@ const AIInterviewerSession = () => {
     };
 
     return (
-        <div
-            className={`h-screen flex flex-col transition-colors duration-300 ${
-                isDarkMode
-                    ? "bg-gray-900 text-white"
-                    : "bg-soft-white text-deep-slate"
-            }`}
-        >
+        <div className="h-screen flex flex-col bg-soft-white text-deep-slate dark:bg-gray-900 dark:text-white">
             {/* Header */}
-            <header
-                className={`border-b px-6 py-4 transition-colors duration-300 ${
-                    isDarkMode
-                        ? "bg-gray-800 border-gray-700"
-                        : "bg-white border-light-gray"
-                }`}
-            >
+            <header className="border-b px-6 py-4 bg-white border-light-gray dark:bg-gray-800 dark:border-gray-700">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1
-                            className={`text-2xl font-bold ${
-                                isDarkMode ? "text-white" : "text-deep-slate"
-                            }`}
-                        >
+                        <h1 className="text-2xl font-bold text-deep-slate dark:text-white">
                             AI Interviewer Session
                         </h1>
-                        <p
-                            className={`text-sm ${
-                                isDarkMode ? "text-gray-300" : "text-gray-600"
-                            }`}
-                        >
+                        <p className="text-sm text-gray-600 dark:text-gray-300">
                             Interactive coding interview with AI assistance
                         </p>
                     </div>
                     <div className="flex items-center space-x-3">
                         <div className="flex items-center space-x-2">
                             <div className="w-3 h-3 bg-success-green rounded-full"></div>
-                            <span
-                                className={`text-sm ${
-                                    isDarkMode
-                                        ? "text-gray-300"
-                                        : "text-gray-600"
-                                }`}
-                            >
+                            <span className="text-sm text-gray-600 dark:text-gray-300">
                                 Session Active
                             </span>
                         </div>
                         <button
                             onClick={toggleTheme}
-                            className={`p-2 rounded-md transition-colors ${
-                                isDarkMode
-                                    ? "bg-gray-700 text-yellow-400 hover:bg-gray-600"
-                                    : "bg-light-gray text-gray-600 hover:bg-gray-200"
-                            }`}
+                            className="p-2 rounded-md bg-light-gray text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-yellow-400 dark:hover:bg-gray-600"
                             title={
                                 isDarkMode
                                     ? "Switch to Light Mode"
@@ -148,11 +131,7 @@ const AIInterviewerSession = () => {
                         </button>
                         <button
                             onClick={simulateAIChange}
-                            className={`px-3 py-1 text-xs rounded transition-colors ${
-                                isDarkMode
-                                    ? "bg-electric-blue text-white hover:bg-blue-600"
-                                    : "bg-electric-blue text-white hover:bg-blue-600"
-                            }`}
+                            className="px-3 py-1 text-xs rounded bg-electric-blue text-white hover:bg-blue-600"
                         >
                             Test AI Change
                         </button>
@@ -165,13 +144,7 @@ const AIInterviewerSession = () => {
                 <PanelGroup direction="horizontal">
                     {/* Left Panel - Editor */}
                     <Panel defaultSize={60} minSize={40}>
-                        <div
-                            className={`h-full border-r transition-colors duration-300 ${
-                                isDarkMode
-                                    ? "bg-gray-800 border-gray-700"
-                                    : "bg-white border-light-gray"
-                            }`}
-                        >
+                        <div className="h-full border-r bg-white border-light-gray dark:bg-gray-800 dark:border-gray-700">
                             <EditorPanel
                                 showDiff={showDiff}
                                 originalCode={originalCode}
@@ -188,21 +161,11 @@ const AIInterviewerSession = () => {
                         </div>
                     </Panel>
 
-                    <PanelResizeHandle
-                        className={`w-2 transition-colors duration-300 ${
-                            isDarkMode
-                                ? "bg-gray-600 hover:bg-gray-500"
-                                : "bg-light-gray hover:bg-electric-blue"
-                        }`}
-                    />
+                    <PanelResizeHandle className="w-2 bg-light-gray hover:bg-electric-blue dark:bg-gray-600 dark:hover:bg-gray-500" />
 
                     {/* Right Panel - AI Chat */}
                     <Panel defaultSize={40} minSize={30}>
-                        <div
-                            className={`h-full transition-colors duration-300 ${
-                                isDarkMode ? "bg-gray-800" : "bg-white"
-                            }`}
-                        >
+                        <div className="h-full bg-white dark:bg-gray-800">
                             <ChatPanel
                                 onSendMessage={handleSendMessage}
                                 onRequestCodeChange={handleRequestCodeChange}

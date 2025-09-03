@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
 import { Play, RotateCcw } from "lucide-react";
 import CodePreview from "./CodePreview";
@@ -68,6 +68,30 @@ render(Counter);`);
 
     const editorRef = useRef<any>(null);
 
+    // Watch for dark mode changes and update Monaco theme
+    useEffect(() => {
+        const observer = new MutationObserver(() => {
+            if (editorRef.current) {
+                const isDark =
+                    document.documentElement.classList.contains("dark");
+                // Access Monaco through the editor instance
+                const monaco = (window as any).monaco;
+                if (monaco) {
+                    monaco.editor.setTheme(
+                        isDark ? "sfinx-dark" : "sfinx-light"
+                    );
+                }
+            }
+        });
+
+        observer.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ["class"],
+        });
+
+        return () => observer.disconnect();
+    }, []);
+
     const handleEditorDidMount = (editor: any, monaco: any) => {
         editorRef.current = editor;
 
@@ -90,7 +114,9 @@ render(Counter);`);
             },
         });
 
-        monaco.editor.setTheme(isDarkMode ? "sfinx-dark" : "sfinx-light");
+        // Check if dark mode is active on document
+        const isDark = document.documentElement.classList.contains("dark");
+        monaco.editor.setTheme(isDark ? "sfinx-dark" : "sfinx-light");
     };
 
     const handleCodeChange = (value: string | undefined) => {
@@ -152,7 +178,11 @@ render(Counter);`);
                         language="javascript"
                         original={originalCode}
                         modified={modifiedCode}
-                        theme={isDarkMode ? "sfinx-dark" : "sfinx-light"}
+                        theme={
+                            document.documentElement.classList.contains("dark")
+                                ? "sfinx-dark"
+                                : "sfinx-light"
+                        }
                         options={{
                             readOnly: true,
                             renderSideBySide: true,
@@ -172,27 +202,17 @@ render(Counter);`);
     return (
         <div className="h-full flex flex-col">
             {/* Editor Header */}
-            <div
-                className={`border-b px-4 py-2 flex items-center justify-between transition-colors duration-300 ${
-                    isDarkMode
-                        ? "bg-gray-800 border-gray-700"
-                        : "bg-white border-light-gray"
-                }`}
-            >
+            <div className="border-b px-4 py-2 flex items-center justify-between bg-white border-light-gray dark:bg-gray-800 dark:border-gray-700">
                 <div className="flex items-center space-x-3">
                     {/* Tabs */}
                     {availableTabs.map((tab) => (
                         <button
                             key={tab}
                             onClick={() => onTabSwitch?.(tab)}
-                            className={`px-3 py-1 text-sm font-medium rounded transition-colors duration-300 ${
+                            className={`px-3 py-1 text-sm font-medium rounded ${
                                 activeTab === tab
-                                    ? isDarkMode
-                                        ? "bg-gray-700 text-white"
-                                        : "bg-gray-100 text-deep-slate"
-                                    : isDarkMode
-                                    ? "text-gray-400 hover:text-white hover:bg-gray-700"
-                                    : "text-gray-600 hover:text-deep-slate hover:bg-gray-100"
+                                    ? "bg-gray-100 text-deep-slate dark:bg-gray-700 dark:text-white"
+                                    : "text-gray-600 hover:text-deep-slate hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700"
                             }`}
                         >
                             {tab === "editor" ? "Counter.tsx" : "Preview"}
@@ -215,7 +235,11 @@ render(Counter);`);
                         height="100%"
                         language="javascript"
                         value={currentCode}
-                        theme={isDarkMode ? "sfinx-dark" : "sfinx-light"}
+                        theme={
+                            document.documentElement.classList.contains("dark")
+                                ? "sfinx-dark"
+                                : "sfinx-light"
+                        }
                         onChange={handleCodeChange}
                         onMount={handleEditorDidMount}
                         options={{

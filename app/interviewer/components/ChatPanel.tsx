@@ -116,26 +116,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     };
 
     return (
-        <div
-            className={`h-full flex flex-col transition-colors duration-300 ${
-                isDarkMode ? "bg-gray-800" : "bg-white"
-            }`}
-        >
+        <div className="h-full flex flex-col bg-white dark:bg-gray-800">
             {/* Chat Header */}
-            <div
-                className={`border-b px-4 py-3 transition-colors duration-300 ${
-                    isDarkMode
-                        ? "bg-gray-800 border-gray-700"
-                        : "bg-white border-light-gray"
-                }`}
-            >
+            <div className="border-b px-4 py-3 bg-white border-light-gray dark:bg-gray-800 dark:border-gray-700">
                 <div className="flex items-center space-x-2">
                     <Bot className="w-5 h-5 text-electric-blue" />
-                    <h3
-                        className={`text-sm font-semibold ${
-                            isDarkMode ? "text-white" : "text-deep-slate"
-                        }`}
-                    >
+                    <h3 className="text-sm font-semibold text-deep-slate dark:text-white">
                         AI Interviewer
                     </h3>
                 </div>
@@ -156,9 +142,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                             className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
                                 message.type === "user"
                                     ? "bg-electric-blue text-white"
-                                    : isDarkMode
-                                    ? "bg-gray-700 text-white"
-                                    : "bg-light-gray text-deep-slate"
+                                    : "bg-light-gray text-deep-slate dark:bg-gray-700 dark:text-white"
                             }`}
                         >
                             <div className="flex items-center space-x-2 mb-1">
@@ -179,20 +163,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                 {/* Typing Indicator */}
                 {isTyping && (
                     <div className="flex justify-start">
-                        <div
-                            className={`px-4 py-2 rounded-lg ${
-                                isDarkMode ? "bg-gray-700" : "bg-light-gray"
-                            }`}
-                        >
+                        <div className="px-4 py-2 rounded-lg bg-light-gray dark:bg-gray-700">
                             <div className="flex items-center space-x-2">
                                 <Bot className="w-4 h-4" />
-                                <span
-                                    className={`text-xs ${
-                                        isDarkMode
-                                            ? "text-gray-300"
-                                            : "text-gray-600"
-                                    }`}
-                                >
+                                <span className="text-xs text-gray-600 dark:text-gray-300">
                                     AI is typing
                                 </span>
                                 <div className="flex space-x-1">
@@ -215,11 +189,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             </div>
 
             {/* Quick Actions */}
-            <div
-                className={`px-4 py-2 border-t transition-colors duration-300 ${
-                    isDarkMode ? "border-gray-700" : "border-light-gray"
-                }`}
-            >
+            <div className="px-4 py-2 border-t border-light-gray dark:border-gray-700">
                 <div className="flex space-x-2">
                     <button
                         onClick={() => handleQuickAction("fix-bug")}
@@ -243,11 +213,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             </div>
 
             {/* Input Area */}
-            <div
-                className={`p-4 border-t transition-colors duration-300 ${
-                    isDarkMode ? "border-gray-700" : "border-light-gray"
-                }`}
-            >
+            <div className="p-4 border-t border-light-gray dark:border-gray-700">
                 <div className="flex space-x-2">
                     <input
                         type="text"
@@ -257,11 +223,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                             e.key === "Enter" && handleSendMessage()
                         }
                         placeholder="Ask me anything about your code..."
-                        className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent text-sm transition-colors duration-300 ${
-                            isDarkMode
-                                ? "border-gray-600 bg-gray-700 text-white placeholder-gray-400"
-                                : "border-light-gray bg-white text-deep-slate"
-                        }`}
+                        className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-electric-blue focus:border-transparent text-sm border-light-gray bg-white text-deep-slate dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
                     />
                     <button
                         onClick={handleSendMessage}
