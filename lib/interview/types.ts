@@ -15,6 +15,10 @@ export interface InterviewState {
     candidateName: string;
     startTime: Date | null;
     endTime: Date | null;
+    // Avatar state
+    avatarVisible: boolean;
+    avatarPosition: { x: number; y: number };
+    isAvatarSpeaking: boolean;
 }
 
 export interface InterviewMessage {
@@ -35,6 +39,12 @@ export interface InterviewContextType {
     addMessage: (message: InterviewMessage) => void;
     updateTaskStatus: (taskId: string, status: "started" | "completed") => void;
     getCurrentTask: () => InterviewTask | null;
+    // Avatar methods
+    showAvatar: () => void;
+    hideAvatar: () => void;
+    updateAvatarPosition: (x: number, y: number) => void;
+    startAvatarSpeaking: () => void;
+    stopAvatarSpeaking: () => void;
 }
 
 export const GAL_TASKS: InterviewTask[] = [

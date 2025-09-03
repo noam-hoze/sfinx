@@ -35,9 +35,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         startInterview,
         nextTask,
         updateTaskStatus,
+        startAvatarSpeaking,
+        stopAvatarSpeaking,
     } = useInterview();
 
-    // TTS function
+    // TTS function with lip sync
     const playTTS = async (text: string) => {
         try {
             const response = await fetch("/api/tts", {
@@ -53,18 +55,36 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                 const audioUrl = URL.createObjectURL(audioBlob);
                 const audio = new Audio(audioUrl);
 
-                // Play the audio
-                await audio.play();
+                // Start avatar speaking animation
+                startAvatarSpeaking();
 
-                // Clean up the URL after playing
+                // Set up audio event handlers
                 audio.onended = () => {
+                    console.log("🎭 Audio ended, stopping avatar speaking");
+                    stopAvatarSpeaking();
                     URL.revokeObjectURL(audioUrl);
                 };
+
+                audio.onerror = () => {
+                    console.log("🎭 Audio error, stopping avatar speaking");
+                    stopAvatarSpeaking();
+                    URL.revokeObjectURL(audioUrl);
+                };
+
+                // Also listen for pause event as a backup
+                audio.onpause = () => {
+                    console.log("🎭 Audio paused, stopping avatar speaking");
+                    stopAvatarSpeaking();
+                };
+
+                // Play the audio
+                await audio.play();
             } else {
                 console.warn("TTS request failed:", response.status);
             }
         } catch (error) {
             console.warn("TTS playback failed:", error);
+            stopAvatarSpeaking(); // Stop speaking on error
             // Continue without TTS - don't break the chat flow
         }
     };

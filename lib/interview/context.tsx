@@ -20,6 +20,13 @@ const initialState: InterviewState = {
     candidateName: "Gal",
     startTime: null,
     endTime: null,
+    // Avatar state
+    avatarVisible: true,
+    avatarPosition: {
+        x: typeof window !== "undefined" ? window.innerWidth - 400 : 800,
+        y: 100,
+    },
+    isAvatarSpeaking: false,
 };
 
 function interviewReducer(
@@ -70,6 +77,36 @@ function interviewReducer(
                           }
                         : task
                 ),
+            };
+
+        case "SHOW_AVATAR":
+            return {
+                ...state,
+                avatarVisible: true,
+            };
+
+        case "HIDE_AVATAR":
+            return {
+                ...state,
+                avatarVisible: false,
+            };
+
+        case "UPDATE_AVATAR_POSITION":
+            return {
+                ...state,
+                avatarPosition: action.payload,
+            };
+
+        case "START_AVATAR_SPEAKING":
+            return {
+                ...state,
+                isAvatarSpeaking: true,
+            };
+
+        case "STOP_AVATAR_SPEAKING":
+            return {
+                ...state,
+                isAvatarSpeaking: false,
             };
 
         default:
@@ -127,6 +164,27 @@ export function useInterview() {
         );
     };
 
+    // Avatar methods
+    const showAvatar = () => {
+        dispatch({ type: "SHOW_AVATAR" });
+    };
+
+    const hideAvatar = () => {
+        dispatch({ type: "HIDE_AVATAR" });
+    };
+
+    const updateAvatarPosition = (x: number, y: number) => {
+        dispatch({ type: "UPDATE_AVATAR_POSITION", payload: { x, y } });
+    };
+
+    const startAvatarSpeaking = () => {
+        dispatch({ type: "START_AVATAR_SPEAKING" });
+    };
+
+    const stopAvatarSpeaking = () => {
+        dispatch({ type: "STOP_AVATAR_SPEAKING" });
+    };
+
     return {
         state,
         startInterview,
@@ -134,5 +192,10 @@ export function useInterview() {
         nextTask,
         updateTaskStatus,
         getCurrentTask,
+        showAvatar,
+        hideAvatar,
+        updateAvatarPosition,
+        startAvatarSpeaking,
+        stopAvatarSpeaking,
     };
 }

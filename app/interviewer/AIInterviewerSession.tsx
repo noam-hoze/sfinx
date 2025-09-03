@@ -10,7 +10,8 @@ import { BUGGY_COUNTER_CODE } from "../../lib/interview/types";
 import AvatarManager from "../components/avatar/AvatarManager";
 
 const InterviewerContent = () => {
-    const { state, getCurrentTask } = useInterview();
+    const { state, getCurrentTask, showAvatar, updateAvatarPosition } =
+        useInterview();
     const [showDiff, setShowDiff] = useState(false);
     const [originalCode, setOriginalCode] = useState("");
     const [modifiedCode, setModifiedCode] = useState("");
@@ -174,6 +175,24 @@ export default UserList;`;
                                 Session Active
                             </span>
                         </div>
+                        {!state.avatarVisible && (
+                            <button
+                                onClick={() => {
+                                    // Reset to default position when showing
+                                    const defaultX =
+                                        typeof window !== "undefined"
+                                            ? window.innerWidth - 400
+                                            : 800;
+                                    const defaultY = 100;
+                                    updateAvatarPosition(defaultX, defaultY);
+                                    showAvatar();
+                                }}
+                                className="px-3 py-1 text-sm rounded bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+                                title="Show Sfinx Avatar"
+                            >
+                                Show Sfinx
+                            </button>
+                        )}
                         <button
                             onClick={toggleTheme}
                             className="p-2 rounded-md bg-light-gray text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-yellow-400 dark:hover:bg-gray-600"
@@ -202,15 +221,6 @@ export default UserList;`;
             {/* Main Content Area */}
             <div className="flex-1 overflow-hidden">
                 <PanelGroup direction="horizontal">
-                    {/* Left Panel - Avatar */}
-                    <Panel defaultSize={20} minSize={15}>
-                        <div className="h-full border-r bg-white border-light-gray dark:bg-gray-800 dark:border-gray-700 p-4">
-                            <AvatarManager isSpeaking={isAISpeaking} />
-                        </div>
-                    </Panel>
-
-                    <PanelResizeHandle className="w-2 bg-light-gray hover:bg-electric-blue dark:bg-gray-600 dark:hover:bg-gray-500" />
-
                     {/* Middle Panel - Editor */}
                     <Panel defaultSize={50} minSize={35}>
                         <div className="h-full border-r bg-white border-light-gray dark:bg-gray-800 dark:border-gray-700">
@@ -245,6 +255,9 @@ export default UserList;`;
                     </Panel>
                 </PanelGroup>
             </div>
+
+            {/* Draggable Avatar */}
+            <AvatarManager />
         </div>
     );
 };

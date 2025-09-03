@@ -23,9 +23,9 @@ function AvatarModel({ avatarUrl, isSpeaking }: AvatarModelProps) {
         if (clonedScene) {
             console.log("Avatar loaded successfully:", avatarUrl);
 
-            // Scale and position the avatar as if standing on the floor
-            clonedScene.scale.setScalar(2.0);
-            clonedScene.position.set(0, -4.5, 0);
+            // Scale and position the avatar for front-facing view
+            clonedScene.scale.setScalar(1.8);
+            clonedScene.position.set(0, 0.5, 0);
 
             console.log(
                 "🎭 AVATAR POSITIONED - Scale:",
@@ -40,12 +40,12 @@ function AvatarModel({ avatarUrl, isSpeaking }: AvatarModelProps) {
             clonedScene.updateMatrix();
             clonedScene.updateMatrixWorld(true);
 
-            // Add a visible debug indicator
+            // Debug: Add visible indicator at avatar position
             const debugCube = new THREE.Mesh(
-                new THREE.BoxGeometry(0.1, 0.1, 0.1),
-                new THREE.MeshBasicMaterial({ color: 0xff0000 })
+                new THREE.BoxGeometry(0.2, 0.2, 0.2),
+                new THREE.MeshBasicMaterial({ color: 0x00ff00 })
             );
-            debugCube.position.set(0, 0, 1);
+            debugCube.position.set(0, 1.5, 0); // Position at head level
             clonedScene.add(debugCube);
 
             // Traverse and set material properties for better rendering
@@ -102,7 +102,7 @@ const LipSyncAvatar = React.forwardRef<THREE.Group, LipSyncAvatarProps>(
         const [headTilt, setHeadTilt] = React.useState(0);
         const [eyeBlink, setEyeBlink] = React.useState(0);
 
-        // Enhanced lip sync animation with phoneme mapping
+        // Real-time lip sync with audio analysis
         React.useEffect(() => {
             if (!isSpeaking) {
                 setMouthOpen(0);
@@ -111,57 +111,195 @@ const LipSyncAvatar = React.forwardRef<THREE.Group, LipSyncAvatarProps>(
                 return;
             }
 
-            // Phoneme patterns for different mouth shapes
-            const phonemes = [
-                { pattern: /[aeiouAEIOU]/g, intensity: 0.8 }, // Vowels - wide open
-                { pattern: /[mM]/g, intensity: 0.9 }, // M - very closed
-                { pattern: /[pPbBfFvV]/g, intensity: 0.2 }, // P/B/F/V - slightly open
-                { pattern: /[tTdDkKgG]/g, intensity: 0.3 }, // T/D/K/G - medium open
-                { pattern: /[sSzZ]/g, intensity: 0.1 }, // S/Z - tight
-                { pattern: /[wW]/g, intensity: 0.4 }, // W - rounded
-            ];
+            // Create audio context for real-time analysis
+            const audioContext = new (window.AudioContext ||
+                (window as any).webkitAudioContext)();
+            const analyser = audioContext.createAnalyser();
+            const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
-            // Create a more realistic mouth animation
-            const animateMouth = () => {
-                let charIndex = 0;
-                const interval = setInterval(() => {
-                    if (!isSpeaking) {
-                        clearInterval(interval);
-                        setMouthOpen(0);
-                        return;
+            // Find audio element playing the TTS
+            const findAudioElement = () => {
+                const audioElements = document.querySelectorAll("audio");
+                for (const audio of audioElements) {
+                    // Check if audio is actively playing (not paused, not ended, and has started)
+                    if (
+                        !audio.paused &&
+                        !audio.ended &&
+                        audio.currentTime > 0 &&
+                        audio.currentTime < audio.duration
+                    ) {
+                        return audio;
                     }
-
-                    // Simulate speaking by cycling through different mouth positions
-                    // This creates a more natural animation pattern
-                    const time = Date.now() * 0.005;
-                    let baseIntensity = Math.sin(time) * 0.3 + 0.5;
-
-                    // Add some variation based on simulated phonemes
-                    const variation = Math.sin(time * 2) * 0.2;
-                    const mouthValue = Math.max(
-                        0,
-                        Math.min(1, baseIntensity + variation)
-                    );
-
-                    setMouthOpen(mouthValue);
-
-                    // Add subtle head tilt animation
-                    const headTiltValue = Math.sin(time * 0.3) * 0.05; // Very subtle
-                    setHeadTilt(headTiltValue);
-
-                    // Occasional eye blinks (less frequent)
-                    const blinkChance = Math.random();
-                    if (blinkChance > 0.98) {
-                        setEyeBlink(1);
-                        setTimeout(() => setEyeBlink(0), 150); // Quick blink
-                    }
-                }, 80); // Faster updates for smoother animation
-
-                return () => clearInterval(interval);
+                }
+                return null;
             };
 
-            const cleanup = animateMouth();
-            return cleanup;
+            // Connect to audio for analysis
+            const connectToAudio = () => {
+                const audioElement = findAudioElement();
+                if (audioElement && audioContext.state === "running") {
+                    try {
+                        // Check if audio is still valid before connecting
+                        if (
+                            !audioElement.ended &&
+                            !audioElement.paused &&
+                            audioElement.currentTime > 0
+                        ) {
+                            const source =
+                                audioContext.createMediaElementSource(
+                                    audioElement
+                                );
+                            source.connect(analyser);
+                            analyser.connect(audioContext.destination);
+                            return true;
+                        }
+                    } catch (e) {
+                        console.warn(
+                            "Could not connect to audio for lip sync:",
+                            e
+                        );
+                    }
+                }
+                return false;
+            };
+
+            // Analyze audio and sync mouth movements
+            const analyzeAudio = () => {
+                if (!isSpeaking) return;
+
+                // Check if there's still active audio playing
+                const activeAudio = findAudioElement();
+                if (!activeAudio) {
+                    // No active audio found, stop the animation
+                    console.log(
+                        "🎭 No active audio found, stopping lip sync animation"
+                    );
+                    setMouthOpen(0);
+                    setHeadTilt(0);
+                    setEyeBlink(0);
+                    return;
+                }
+
+                analyser.getByteFrequencyData(dataArray);
+
+                // Calculate average volume from frequency data
+                let sum = 0;
+                for (let i = 0; i < dataArray.length; i++) {
+                    sum += dataArray[i];
+                }
+                const average = sum / dataArray.length;
+                const volume = average / 255; // Normalize to 0-1
+
+                // Map volume to mouth opening (0-1)
+                const mouthValue = Math.min(1, volume * 2); // Amplify for better visibility
+                setMouthOpen(mouthValue);
+
+                // Add subtle head tilt based on volume
+                const headTiltValue = (volume - 0.5) * 0.1;
+                setHeadTilt(headTiltValue);
+
+                // Occasional eye blinks
+                const blinkChance = Math.random();
+                if (blinkChance > 0.985) {
+                    setEyeBlink(1);
+                    setTimeout(() => setEyeBlink(0), 120);
+                }
+
+                // Continue analyzing
+                if (isSpeaking) {
+                    requestAnimationFrame(analyzeAudio);
+                }
+            };
+
+            // Start the lip sync process
+            const startLipSync = async () => {
+                // Don't start if not speaking
+                if (!isSpeaking) return;
+
+                try {
+                    if (audioContext.state === "suspended") {
+                        await audioContext.resume();
+                    }
+
+                    // Try to connect to audio immediately
+                    if (connectToAudio()) {
+                        console.log(
+                            "🎭 Starting real-time lip sync with audio analysis"
+                        );
+                        analyzeAudio();
+                    } else {
+                        // If no audio found yet, wait a bit and try again
+                        console.log("🎭 Waiting for audio to start...");
+                        setTimeout(() => {
+                            if (connectToAudio()) {
+                                console.log(
+                                    "🎭 Connected to audio, starting lip sync"
+                                );
+                                analyzeAudio();
+                            } else {
+                                // Fallback to basic animation if audio analysis fails
+                                console.log(
+                                    "Using fallback lip sync animation"
+                                );
+                                const fallbackInterval = setInterval(() => {
+                                    if (!isSpeaking) {
+                                        clearInterval(fallbackInterval);
+                                        setMouthOpen(0);
+                                        console.log(
+                                            "🎭 Stopped fallback animation"
+                                        );
+                                        return;
+                                    }
+                                    const time = Date.now() * 0.005;
+                                    const mouthValue = Math.max(
+                                        0,
+                                        Math.min(
+                                            1,
+                                            Math.sin(time) * 0.4 +
+                                                0.5 +
+                                                Math.sin(time * 2) * 0.2
+                                        )
+                                    );
+                                    setMouthOpen(mouthValue);
+                                }, 80);
+                            }
+                        }, 500);
+                    }
+                } catch (error) {
+                    console.warn(
+                        "Audio analysis failed, using fallback:",
+                        error
+                    );
+                    // Fallback animation
+                    const fallbackInterval = setInterval(() => {
+                        if (!isSpeaking) {
+                            clearInterval(fallbackInterval);
+                            setMouthOpen(0);
+                            return;
+                        }
+                        const time = Date.now() * 0.005;
+                        const mouthValue = Math.max(
+                            0,
+                            Math.min(
+                                1,
+                                Math.sin(time) * 0.4 +
+                                    0.5 +
+                                    Math.sin(time * 2) * 0.2
+                            )
+                        );
+                        setMouthOpen(mouthValue);
+                    }, 80);
+                }
+            };
+
+            startLipSync();
+
+            // Cleanup
+            return () => {
+                if (audioContext.state !== "closed") {
+                    audioContext.close();
+                }
+            };
         }, [isSpeaking]);
 
         // Apply mouth animation to avatar (if morph targets exist)
@@ -296,8 +434,8 @@ const LipSyncAvatar = React.forwardRef<THREE.Group, LipSyncAvatarProps>(
         React.useEffect(() => {
             if (scene) {
                 console.log("🎭 FINAL POSITION - Before:", scene.position);
-                scene.position.set(0, -4.5, 0);
-                scene.scale.setScalar(2.0);
+                scene.position.set(0, 0.5, 0);
+                scene.scale.setScalar(1.6);
                 scene.updateMatrix();
                 scene.updateMatrixWorld(true);
                 console.log("🎭 FINAL POSITION - After:", scene.position);
@@ -322,7 +460,7 @@ interface AvatarDisplayProps {
 
 const AvatarDisplay: React.FC<AvatarDisplayProps> = ({
     avatarUrl,
-    className = "w-full h-96",
+    className = "w-full h-full",
     isSpeaking = false,
 }) => {
     // Use your local Ready Player Me avatar
@@ -334,13 +472,11 @@ const AvatarDisplay: React.FC<AvatarDisplayProps> = ({
     // "https://d1a370nemizbjq.cloudfront.net/68b88e056e93b8842f1afadf.glb";
 
     return (
-        <div
-            className={`${className} rounded-lg overflow-hidden bg-transparent`}
-        >
+        <div className={`${className} rounded-lg bg-transparent`}>
             <Canvas
                 camera={{
-                    position: [0, -1, 1.5],
-                    fov: 50,
+                    position: [0, 1.5, 3.0],
+                    fov: 70,
                 }}
                 gl={{
                     antialias: true,
@@ -349,14 +485,14 @@ const AvatarDisplay: React.FC<AvatarDisplayProps> = ({
                 style={{ background: "transparent" }}
             >
                 {/* Lighting setup for white background */}
-                <ambientLight intensity={0.8} />
+                <ambientLight intensity={1.0} />
                 <directionalLight
                     position={[5, 5, 5]}
-                    intensity={0.8}
+                    intensity={1.0}
                     castShadow
                 />
-                <directionalLight position={[-5, -5, -5]} intensity={0.4} />
-                <pointLight position={[0, 2, 2]} intensity={0.3} />
+                <directionalLight position={[-5, -5, -5]} intensity={0.5} />
+                <pointLight position={[0, 2, 2]} intensity={0.4} />
 
                 {/* Avatar model with suspense for loading */}
                 <Suspense
@@ -373,17 +509,11 @@ const AvatarDisplay: React.FC<AvatarDisplayProps> = ({
                     />
                 </Suspense>
 
-                {/* Camera controls */}
+                {/* Camera controls disabled - only dragging allowed */}
                 <OrbitControls
-                    enablePan={true}
-                    enableZoom={true}
-                    enableRotate={true}
-                    minDistance={1.5}
-                    maxDistance={8}
-                    minPolarAngle={Math.PI / 12}
-                    maxPolarAngle={Math.PI - Math.PI / 12}
-                    panSpeed={0.8}
-                    rotateSpeed={0.5}
+                    enablePan={false}
+                    enableZoom={false}
+                    enableRotate={false}
                 />
             </Canvas>
         </div>

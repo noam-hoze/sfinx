@@ -1,52 +1,97 @@
 "use client";
 
-import React from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { X } from "lucide-react";
 import AvatarDisplay from "./AvatarDisplay";
+import { useInterview } from "../../../lib/interview/context";
 
-interface AvatarManagerProps {
-    className?: string;
-    isSpeaking?: boolean;
-}
+const AvatarManager: React.FC = () => {
+    const {
+        state,
+        hideAvatar,
+        updateAvatarPosition,
+        showAvatar,
+        startAvatarSpeaking,
+        stopAvatarSpeaking,
+    } = useInterview();
+    const [isDragging, setIsDragging] = useState(false);
+    const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+    const avatarRef = useRef<HTMLDivElement>(null);
 
-const AvatarManager: React.FC<AvatarManagerProps> = ({
-    className = "",
-    isSpeaking = false,
-}) => {
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (!avatarRef.current) return;
+
+        setIsDragging(true);
+        const rect = avatarRef.current.getBoundingClientRect();
+        setDragOffset({
+            x: e.clientX - rect.left,
+            y: e.clientY - rect.top,
+        });
+    };
+
+    const handleMouseMove = useCallback(
+        (e: MouseEvent) => {
+            if (!isDragging || !avatarRef.current) return;
+
+            const newX = e.clientX - dragOffset.x;
+            const newY = e.clientY - dragOffset.y;
+
+            // Allow unlimited dragging - no bounds constraints
+            updateAvatarPosition(newX, newY);
+        },
+        [isDragging, dragOffset.x, dragOffset.y, updateAvatarPosition]
+    );
+
+    const handleMouseUp = useCallback(() => {
+        setIsDragging(false);
+    }, []);
+
+    useEffect(() => {
+        if (isDragging) {
+            document.addEventListener("mousemove", handleMouseMove);
+            document.addEventListener("mouseup", handleMouseUp);
+        }
+
+        return () => {
+            document.removeEventListener("mousemove", handleMouseMove);
+            document.removeEventListener("mouseup", handleMouseUp);
+        };
+    }, [isDragging, handleMouseMove, handleMouseUp]);
+
+    if (!state.avatarVisible) {
+        return null;
+    }
+
     return (
-        <div className={`${className} flex flex-col justify-end h-full`}>
-            {/* Header - moved to bottom */}
-            <div className="mb-2">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white text-center">
-                    Sfinx AI Interviewer
-                </h3>
-            </div>
+        <div
+            ref={avatarRef}
+            className="fixed z-[9999] cursor-move select-none"
+            style={{
+                left: `${state.avatarPosition.x}px`,
+                top: `${state.avatarPosition.y}px`,
+                width: "300px",
+                height: "900px",
+            }}
+            onMouseDown={handleMouseDown}
+        >
+            {/* Close button */}
+            <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    hideAvatar();
+                }}
+                className="absolute top-2 right-2 z-10 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-sm transition-colors opacity-70 hover:opacity-100"
+                title="Close Avatar"
+            >
+                <X size={16} />
+            </button>
 
-            {/* Avatar Display - takes full available space */}
-            <div className="flex-1 min-h-0">
+            {/* Avatar Display - no container, just the 3D model */}
+            <div className="w-full h-full">
                 <AvatarDisplay
                     className="w-full h-full"
-                    isSpeaking={isSpeaking}
+                    isSpeaking={state.isAvatarSpeaking}
                 />
-            </div>
-
-            {/* Status indicator - moved to very bottom */}
-            <div className="mt-2 text-center pb-2">
-                <div
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm ${
-                        isSpeaking
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                            : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                    }`}
-                >
-                    <div
-                        className={`w-2 h-2 rounded-full mr-2 ${
-                            isSpeaking
-                                ? "bg-green-500 animate-pulse"
-                                : "bg-gray-400"
-                        }`}
-                    ></div>
-                    {isSpeaking ? "Speaking" : "Ready"}
-                </div>
             </div>
         </div>
     );
