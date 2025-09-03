@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.2.0] - 2025-09-04
+
+### Added
+
+-   **Eleven Labs TTS Integration**: Complete text-to-speech system with API route and audio playback
+-   **Voice Synthesis**: Professional female voice (Rachel) for AI responses
+-   **Audio Playback**: Automatic speech synthesis for all AI messages
+-   **TTS API Route**: `/api/tts` endpoint for text-to-speech conversion
+-   **Voice Configuration**: Customizable voice settings and model parameters
+
+### Enhanced
+
+-   **Audio Integration**: Seamless TTS playback in chat interface
+-   **Error Handling**: Graceful fallback when TTS fails
+-   **API Architecture**: Clean separation between chat and TTS endpoints
+
+### Fixed
+
+-   **TypeScript Errors**: Resolved material cloning and ArrayBuffer issues
+-   **SDK Compatibility**: Replaced problematic Eleven Labs SDK with direct API calls
+-   **Import Issues**: Fixed module import problems with @types/three
+-   **Avatar Positioning**: Improved 3D avatar placement and scaling
+
+### Technical
+
+-   **Eleven Labs API**: Direct HTTP integration with voice synthesis
+-   **Audio Processing**: ArrayBuffer handling and proper content headers
+-   **Voice Settings**: Optimized stability, similarity, and speaker boost
+-   **Fallback System**: Continues chat functionality without TTS if needed
+
 ## [1.1.0] - 2025-09-04
 
 ### Added
@@ -112,3 +142,4 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 [0.3.0]: https://github.com/noam-hoze/sfinx/compare/v0.2.0...v0.3.0
 [1.0.0]: https://github.com/noam-hoze/sfinx/compare/v0.3.0...v1.0.0
 [1.1.0]: https://github.com/noam-hoze/sfinx/compare/v1.0.0...v1.1.0
+[1.2.0]: https://github.com/noam-hoze/sfinx/compare/v1.1.0...v1.2.0

@@ -1,6 +1,6 @@
 {
     "name": "sfinx",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "private": true,
     "scripts": {
         "dev": "next dev",
@@ -13,6 +13,7 @@
     },
     "dependencies": {
         "@babel/parser": "^7.25.0",
+        "@elevenlabs/elevenlabs-js": "^2.13.0",
         "@monaco-editor/react": "^4.7.0",
         "@prisma/client": "^5.18.0",
         "@react-three/drei": "9.88.13",

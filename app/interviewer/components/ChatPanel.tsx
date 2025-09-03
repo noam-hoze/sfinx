@@ -37,6 +37,38 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         updateTaskStatus,
     } = useInterview();
 
+    // TTS function
+    const playTTS = async (text: string) => {
+        try {
+            const response = await fetch("/api/tts", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ text }),
+            });
+
+            if (response.ok) {
+                const audioBlob = await response.blob();
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const audio = new Audio(audioUrl);
+
+                // Play the audio
+                await audio.play();
+
+                // Clean up the URL after playing
+                audio.onended = () => {
+                    URL.revokeObjectURL(audioUrl);
+                };
+            } else {
+                console.warn("TTS request failed:", response.status);
+            }
+        } catch (error) {
+            console.warn("TTS playback failed:", error);
+            // Continue without TTS - don't break the chat flow
+        }
+    };
+
     const [messages, setMessages] = useState<InterviewMessage[]>([
         {
             id: "1",
@@ -111,6 +143,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             };
 
             setMessages((prev) => [...prev, aiResponse]);
+
+            // Generate and play TTS audio
+            await playTTS(aiResponseContent);
 
             // Trigger speaking animation for avatar (this will be passed up to parent)
             if (window.parent) {
