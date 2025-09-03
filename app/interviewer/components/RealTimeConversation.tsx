@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
+import { useConversation } from "@elevenlabs/react";
 import { Mic, MicOff, Phone, PhoneOff } from "lucide-react";
 
 interface RealTimeConversationProps {
@@ -15,317 +16,126 @@ const RealTimeConversation: React.FC<RealTimeConversationProps> = ({
     const [isConnected, setIsConnected] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState("Disconnected");
+    const [isCoding, setIsCoding] = useState(false);
 
-    const wsRef = useRef<WebSocket | null>(null);
-    const audioContextRef = useRef<AudioContext | null>(null);
+    const videoRef = useRef<HTMLVideoElement>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-    const audioChunksRef = useRef<Float32Array[]>([]);
+    const recordedChunksRef = useRef<Blob[]>([]);
 
-    const connectToConversation = async () => {
-        // Prevent multiple connections
-        if (isConnected || wsRef.current?.readyState === WebSocket.CONNECTING) {
-            console.log("Already connecting or connected");
-            return;
+    const conversation = useConversation({
+        onConnect: () => {
+            console.log("Connected to Eleven Labs");
+            setIsConnected(true);
+            setConnectionStatus("Connected");
+            onStartConversation?.();
+        },
+        onDisconnect: () => {
+            console.log("Disconnected from Eleven Labs");
+            setIsConnected(false);
+            setConnectionStatus("Disconnected");
+            onEndConversation?.();
+        },
+        onMessage: (message) => console.log("Message:", message),
+        onError: (error) => {
+            console.error("Eleven Labs error:", error);
+            setConnectionStatus("Connection Error");
+        },
+    });
+
+    const getSignedUrl = async (): Promise<string> => {
+        const response = await fetch("/api/get-signed-url");
+        if (!response.ok) {
+            throw new Error(`Failed to get signed url: ${response.statusText}`);
         }
-
-        try {
-            setConnectionStatus("Getting signed URL...");
-
-            // Get signed WebSocket URL
-            const response = await fetch("/api/convai");
-            if (!response.ok) {
-                throw new Error("Failed to get signed URL");
-            }
-
-            const data = await response.json();
-            const wsUrl = data.url;
-
-            if (!wsUrl) {
-                throw new Error("No WebSocket URL received");
-            }
-
-            setConnectionStatus("Connecting...");
-
-            // Connect to WebSocket
-            const ws = new WebSocket(wsUrl);
-            wsRef.current = ws;
-
-            ws.onopen = () => {
-                console.log("Connected to ElevenLabs conversation");
-                setIsConnected(true);
-                setConnectionStatus("Connected");
-                onStartConversation?.();
-
-                // Send text first to start conversation (no custom heartbeat needed)
-                ws.send(
-                    JSON.stringify({
-                        type: "input_text",
-                        text: "Hello! I'm ready for my coding interview. Please introduce yourself and let's get started.",
-                    })
-                );
-            };
-
-            ws.onmessage = (event) => {
-                try {
-                    const message = JSON.parse(event.data);
-                    console.log("Received message:", message);
-
-                    // Handle different message types
-                    if (message.type === "conversation_initiation_metadata") {
-                        console.log("Conversation started");
-                    } else if (message.type === "audio") {
-                        // Handle incoming audio
-                        console.log("Received audio message:", message);
-                        // Try different audio data structures
-                        const audioData =
-                            message.audio ||
-                            message.audio_event?.audio_base_64 ||
-                            message.audio_event?.audio ||
-                            message.audio_base_64;
-                        if (audioData) {
-                            playAudio(audioData);
-                        } else {
-                            console.log("No audio data found in message");
-                        }
-                    } else if (message.type === "user_transcript") {
-                        console.log(
-                            "User said:",
-                            message.user_transcript_event?.transcript ||
-                                message.transcript ||
-                                message.text
-                        );
-                    } else if (message.type === "agent_response") {
-                        console.log(
-                            "Agent response:",
-                            message.agent_response_event
-                        );
-                        // Handle agent text response
-                        if (message.agent_response_event?.agent_response) {
-                            console.log(
-                                "Agent said:",
-                                message.agent_response_event.agent_response
-                            );
-                        } else if (message.agent_response) {
-                            console.log("Agent said:", message.agent_response);
-                        }
-                    } else if (message.type === "ping") {
-                        // Respond to ping to keep connection alive
-                        console.log("Received ping, sending pong");
-                        ws.send(JSON.stringify({ type: "pong" }));
-                    } else if (message.type === "pong") {
-                        console.log("Received pong");
-                    } else {
-                        console.log(
-                            "Unknown message type:",
-                            message.type,
-                            message
-                        );
-                    }
-                } catch (error) {
-                    console.error(
-                        "Error parsing WebSocket message:",
-                        error,
-                        "Raw data:",
-                        event.data
-                    );
-                }
-            };
-
-            ws.onerror = (error) => {
-                console.error("WebSocket error:", error);
-                setConnectionStatus("Connection Error");
-            };
-
-            ws.onclose = (event) => {
-                console.log("WebSocket closed", {
-                    code: event.code,
-                    reason: event.reason,
-                    wasClean: event.wasClean,
-                });
-
-                // Common WebSocket close codes:
-                // 1000 - Normal closure
-                // 1006 - Abnormal closure
-                // 1008 - Policy violation
-                // 1011 - Internal server error
-
-                let statusMessage = "Disconnected";
-                if (event.code === 1006) {
-                    statusMessage = "Connection Lost (Abnormal)";
-                } else if (event.code === 1008) {
-                    statusMessage = "Connection Rejected (Policy)";
-                } else if (event.code === 1011) {
-                    statusMessage = "Server Error";
-                } else if (event.code === 1000) {
-                    statusMessage = "Connection Closed (Normal)";
-                }
-
-                console.log(
-                    `Connection closed with code ${event.code}: ${statusMessage}`
-                );
-
-                setIsConnected(false);
-                setConnectionStatus(statusMessage);
-                onEndConversation?.();
-            };
-        } catch (error) {
-            console.error("Failed to connect:", error);
-            setConnectionStatus("Connection Failed");
-        }
+        const { signedUrl } = await response.json();
+        return signedUrl;
     };
 
-    const disconnectFromConversation = () => {
-        if (wsRef.current) {
-            wsRef.current.close();
-            wsRef.current = null;
-        }
-        stopRecording();
-        setIsConnected(false);
-        setConnectionStatus("Disconnected");
-        onEndConversation?.();
-    };
-
-    const startRecording = async () => {
+    const startConversation = useCallback(async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: true,
+                video: true,
             });
-            audioContextRef.current = new AudioContext();
 
-            const source =
-                audioContextRef.current.createMediaStreamSource(stream);
-            const processor = audioContextRef.current.createScriptProcessor(
-                4096,
-                1,
-                1
-            );
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+            }
 
-            processor.onaudioprocess = (event) => {
-                const inputBuffer = event.inputBuffer;
-                const inputData = inputBuffer.getChannelData(0);
+            mediaRecorderRef.current = new MediaRecorder(stream, {
+                mimeType: "video/webm",
+            });
+            recordedChunksRef.current = [];
 
-                // Convert to 16-bit PCM
-                const pcmData = new Int16Array(inputData.length);
-                for (let i = 0; i < inputData.length; i++) {
-                    pcmData[i] = Math.max(
-                        -32768,
-                        Math.min(32767, inputData[i] * 32768)
-                    );
-                }
-
-                // Send audio data to ElevenLabs
-                if (
-                    wsRef.current &&
-                    wsRef.current.readyState === WebSocket.OPEN
-                ) {
-                    // Convert PCM data to base64 for ElevenLabs
-                    const base64Audio = btoa(
-                        String.fromCharCode(...new Uint8Array(pcmData.buffer))
-                    );
-                    wsRef.current.send(
-                        JSON.stringify({
-                            type: "user_audio_chunk",
-                            audio_event: {
-                                audio_base_64: base64Audio,
-                            },
-                        })
-                    );
+            mediaRecorderRef.current.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    recordedChunksRef.current.push(event.data);
                 }
             };
 
-            source.connect(processor);
-            processor.connect(audioContextRef.current.destination);
+            mediaRecorderRef.current.onstop = () => {
+                setIsRecording(false);
+            };
 
+            mediaRecorderRef.current.start();
             setIsRecording(true);
         } catch (error) {
-            console.error("Failed to start recording:", error);
+            console.error("Failed to start camera or conversation:", error);
+            setConnectionStatus("Failed to start");
         }
-    };
+    }, []);
 
-    const stopRecording = () => {
-        if (audioContextRef.current) {
-            audioContextRef.current.close();
-            audioContextRef.current = null;
-        }
-        setIsRecording(false);
-
-        // Send completion message to ElevenLabs
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-            wsRef.current.send(JSON.stringify({ type: "user_audio_complete" }));
-        }
-    };
-
-    const playAudio = (audioData: any) => {
-        try {
-            console.log(
-                "Playing audio, data type:",
-                typeof audioData,
-                "data:",
-                audioData?.substring?.(0, 100)
-            );
-
-            let audioUrl: string;
-
-            if (typeof audioData === "string") {
-                // Check if it's base64 encoded
-                if (audioData.startsWith("data:audio/")) {
-                    // Already a data URL
-                    audioUrl = audioData;
-                } else {
-                    try {
-                        // Try to decode as base64
-                        const audioBuffer = Uint8Array.from(
-                            atob(audioData),
-                            (c) => c.charCodeAt(0)
-                        );
-                        const blob = new Blob([audioBuffer], {
-                            type: "audio/wav",
-                        });
-                        audioUrl = URL.createObjectURL(blob);
-                    } catch (base64Error) {
-                        console.error(
-                            "Failed to decode base64 audio:",
-                            base64Error
-                        );
-                        return;
-                    }
-                }
-            } else if (
-                audioData instanceof ArrayBuffer ||
-                audioData instanceof Uint8Array
-            ) {
-                // Handle binary audio data
-                const blob = new Blob([audioData as BlobPart], {
-                    type: "audio/wav",
-                });
-                audioUrl = URL.createObjectURL(blob);
-            } else {
-                console.error(
-                    "Unsupported audio data format:",
-                    typeof audioData
-                );
-                return;
-            }
-
-            const audio = new Audio(audioUrl);
-            audio.play().catch((error) => {
-                console.error("Failed to play audio:", error);
-            });
-
-            // Clean up
-            audio.onended = () => URL.revokeObjectURL(audioUrl);
-        } catch (error) {
-            console.error("Error in playAudio:", error);
-        }
-    };
-
-    const toggleRecording = () => {
+    useEffect(() => {
         if (isRecording) {
-            stopRecording();
-        } else {
-            startRecording();
+            const connectToElevenLabs = async () => {
+                try {
+                    const signedUrl = await getSignedUrl();
+                    await conversation.startSession({ signedUrl });
+                } catch (error) {
+                    console.error(
+                        "Failed to start conversation session:",
+                        error
+                    );
+                    setConnectionStatus("Connection failed");
+                }
+            };
+            connectToElevenLabs();
         }
-    };
+    }, [isRecording, conversation]);
+
+    // Send contextual updates when coding state changes
+    useEffect(() => {
+        if (isConnected) {
+            const contextualMessage = isCoding
+                ? "The user has started coding and needs to focus. Do not interrupt."
+                : "The user has stopped coding and is ready to talk.";
+            conversation.sendContextualUpdate(contextualMessage);
+        }
+    }, [isCoding, isConnected, conversation]);
+
+    const disconnectFromConversation = useCallback(() => {
+        if (
+            mediaRecorderRef.current &&
+            mediaRecorderRef.current.state === "recording"
+        ) {
+            mediaRecorderRef.current.stop();
+        }
+
+        if (videoRef.current && videoRef.current.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
+            stream.getTracks().forEach((track) => track.stop());
+            videoRef.current.srcObject = null;
+        }
+
+        conversation.endSession();
+        setIsConnected(false);
+        setConnectionStatus("Disconnected");
+        onEndConversation?.();
+    }, [conversation, onEndConversation]);
+
+    const stopConversation = useCallback(async () => {
+        disconnectFromConversation();
+    }, [disconnectFromConversation]);
 
     // Cleanup on unmount
     useEffect(() => {
@@ -335,57 +145,59 @@ const RealTimeConversation: React.FC<RealTimeConversationProps> = ({
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     return (
-        <div className="flex flex-col items-center space-y-4 p-6 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
-            <div className="text-center">
-                <h3 className="text-lg font-semibold mb-2">
-                    Real-Time Conversation
-                </h3>
-                <div
-                    className={`px-3 py-1 rounded-full text-sm ${
-                        isConnected
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                            : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+        <div className="w-full max-w-4xl mx-auto">
+            <div className="relative aspect-video bg-gray-900 rounded-2xl shadow-2xl overflow-hidden">
+                {/* User's Video Feed */}
+                <video
+                    ref={videoRef}
+                    autoPlay
+                    muted
+                    className={`absolute right-0 bottom-0 w-1/4 h-auto bg-black rounded-lg border-2 border-gray-700 shadow-md transition-opacity duration-300 ${
+                        isRecording ? "opacity-100" : "opacity-0"
                     }`}
-                >
-                    {connectionStatus}
-                </div>
+                />
             </div>
 
-            <div className="flex space-x-4">
+            <div className="flex justify-center gap-4 mt-6">
                 <button
-                    onClick={
-                        isConnected
-                            ? disconnectFromConversation
-                            : connectToConversation
-                    }
-                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                        isConnected
-                            ? "bg-red-500 hover:bg-red-600 text-white"
-                            : "bg-green-500 hover:bg-green-600 text-white"
+                    onClick={startConversation}
+                    disabled={isRecording}
+                    className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-full shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-400 focus:ring-opacity-50 transition-all duration-300 disabled:bg-gray-500 disabled:cursor-not-allowed"
+                >
+                    Start Interview
+                </button>
+                <button
+                    onClick={stopConversation}
+                    disabled={!isRecording}
+                    className="px-6 py-3 bg-red-600 text-white font-semibold rounded-full shadow-lg hover:bg-red-700 focus:outline-none focus:ring-4 focus:ring-red-400 focus:ring-opacity-50 transition-all duration-300 disabled:bg-gray-500 disabled:cursor-not-allowed"
+                >
+                    Stop Interview
+                </button>
+                <button
+                    onClick={() => setIsCoding(!isCoding)}
+                    className={`px-6 py-3 font-semibold rounded-full shadow-lg transition-all duration-300 ${
+                        isCoding
+                            ? "bg-yellow-500 text-black"
+                            : "bg-gray-700 text-white"
                     }`}
                 >
-                    {isConnected ? <PhoneOff size={20} /> : <Phone size={20} />}
-                    <span>{isConnected ? "End Call" : "Start Call"}</span>
-                </button>
-
-                <button
-                    onClick={toggleRecording}
-                    disabled={!isConnected}
-                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                        isRecording
-                            ? "bg-red-500 hover:bg-red-600 text-white"
-                            : "bg-blue-500 hover:bg-blue-600 text-white"
-                    } ${!isConnected ? "opacity-50 cursor-not-allowed" : ""}`}
-                >
-                    {isRecording ? <MicOff size={20} /> : <Mic size={20} />}
-                    <span>{isRecording ? "Stop Mic" : "Start Mic"}</span>
+                    {isCoding ? "Stop Coding" : "Start Coding"}
                 </button>
             </div>
 
-            <div className="text-sm text-gray-600 dark:text-gray-400 text-center max-w-md">
-                {isConnected
-                    ? "Your ElevenLabs agent is ready to have a real-time conversation!"
-                    : "Click 'Start Call' to begin your real-time conversation with the AI interviewer."}
+            <div className="text-center mt-4 text-gray-400">
+                <p>
+                    Status:{" "}
+                    <span className="font-semibold text-white">
+                        {conversation.status}
+                    </span>
+                </p>
+                <p>
+                    {conversation.status === "connected" &&
+                        (conversation.isSpeaking
+                            ? "Agent is speaking..."
+                            : "Agent is listening...")}
+                </p>
             </div>
         </div>
     );
