@@ -12,6 +12,10 @@ const AIInterviewerSession = () => {
     const [modifiedCode, setModifiedCode] = useState("");
     const [currentCode, setCurrentCode] = useState("");
     const [isDarkMode, setIsDarkMode] = useState(false);
+    const [availableTabs, setAvailableTabs] = useState<
+        Array<"editor" | "preview">
+    >(["editor"]);
+    const [activeTab, setActiveTab] = useState<"editor" | "preview">("editor");
 
     // Load theme preference from localStorage
     useEffect(() => {
@@ -41,6 +45,19 @@ const AIInterviewerSession = () => {
 
     const handleRejectChanges = () => {
         setShowDiff(false);
+    };
+
+    const handleRunCode = () => {
+        if (!availableTabs.includes("preview")) {
+            setAvailableTabs([...availableTabs, "preview"]);
+        }
+        setActiveTab("preview");
+    };
+
+    const handleTabSwitch = (tab: "editor" | "preview") => {
+        if (availableTabs.includes(tab)) {
+            setActiveTab(tab);
+        }
     };
 
     // Mock function to simulate AI applying changes
@@ -163,6 +180,10 @@ const AIInterviewerSession = () => {
                                 onApplyChanges={handleApplyChanges}
                                 onRejectChanges={handleRejectChanges}
                                 isDarkMode={isDarkMode}
+                                availableTabs={availableTabs}
+                                activeTab={activeTab}
+                                onTabSwitch={handleTabSwitch}
+                                onRunCode={handleRunCode}
                             />
                         </div>
                     </Panel>

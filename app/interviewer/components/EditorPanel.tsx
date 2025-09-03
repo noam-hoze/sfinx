@@ -3,6 +3,7 @@
 import React, { useState, useRef } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
 import { Play, RotateCcw } from "lucide-react";
+import CodePreview from "./CodePreview";
 
 interface EditorPanelProps {
     showDiff?: boolean;
@@ -12,6 +13,10 @@ interface EditorPanelProps {
     onApplyChanges?: () => void;
     onRejectChanges?: () => void;
     isDarkMode?: boolean;
+    availableTabs?: Array<"editor" | "preview">;
+    activeTab?: "editor" | "preview";
+    onTabSwitch?: (tab: "editor" | "preview") => void;
+    onRunCode?: () => void;
 }
 
 const EditorPanel: React.FC<EditorPanelProps> = ({
@@ -22,15 +27,13 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     onApplyChanges,
     onRejectChanges,
     isDarkMode = false,
+    availableTabs = ["editor"],
+    activeTab = "editor",
+    onTabSwitch,
+    onRunCode,
 }) => {
-    const [currentCode, setCurrentCode] =
-        useState(`// Welcome to the AI Interviewer Session!
-// This is a React component for a counter application.
-
-import React, { useState } from 'react';
-
-const Counter = () => {
-    const [count, setCount] = useState(0);
+    const [currentCode, setCurrentCode] = useState(`const Counter = () => {
+    const [count, setCount] = React.useState(0);
 
     const increment = () => {
         setCount(count + 1);
@@ -41,15 +44,27 @@ const Counter = () => {
     };
 
     return (
-        <div className="counter">
-            <h1>Counter: {count}</h1>
-            <button onClick={increment}>+</button>
-            <button onClick={decrement}>-</button>
+        <div className="p-8 text-center">
+            <h1 className="text-3xl font-bold mb-4 text-gray-800">Counter: {count}</h1>
+            <div className="space-x-4">
+                <button
+                    onClick={decrement}
+                    className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                >
+                    -
+                </button>
+                <button
+                    onClick={increment}
+                    className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                >
+                    +
+                </button>
+            </div>
         </div>
     );
 };
 
-export default Counter;`);
+render(Counter);`);
 
     const editorRef = useRef<any>(null);
 
@@ -86,9 +101,10 @@ export default Counter;`);
     };
 
     const runCode = () => {
-        // Simulate running the code
-        console.log("Running code:", currentCode);
-        // In a real implementation, this would execute the code
+        // Trigger the preview tab creation and switching
+        if (onRunCode) {
+            onRunCode();
+        }
     };
 
     if (showDiff) {
@@ -163,15 +179,25 @@ export default Counter;`);
                         : "bg-white border-light-gray"
                 }`}
             >
-                <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-success-green rounded-full"></div>
-                    <span
-                        className={`text-sm font-medium ${
-                            isDarkMode ? "text-white" : "text-deep-slate"
-                        }`}
-                    >
-                        Counter.tsx
-                    </span>
+                <div className="flex items-center space-x-3">
+                    {/* Tabs */}
+                    {availableTabs.map((tab) => (
+                        <button
+                            key={tab}
+                            onClick={() => onTabSwitch?.(tab)}
+                            className={`px-3 py-1 text-sm font-medium rounded transition-colors duration-300 ${
+                                activeTab === tab
+                                    ? isDarkMode
+                                        ? "bg-gray-700 text-white"
+                                        : "bg-gray-100 text-deep-slate"
+                                    : isDarkMode
+                                    ? "text-gray-400 hover:text-white hover:bg-gray-700"
+                                    : "text-gray-600 hover:text-deep-slate hover:bg-gray-100"
+                            }`}
+                        >
+                            {tab === "editor" ? "Counter.tsx" : "Preview"}
+                        </button>
+                    ))}
                 </div>
                 <button
                     onClick={runCode}
@@ -182,27 +208,35 @@ export default Counter;`);
                 </button>
             </div>
 
-            {/* Monaco Editor */}
+            {/* Dynamic Content */}
             <div className="flex-1">
-                <Editor
-                    height="100%"
-                    language="javascript"
-                    value={currentCode}
-                    theme={isDarkMode ? "sfinx-dark" : "sfinx-light"}
-                    onChange={handleCodeChange}
-                    onMount={handleEditorDidMount}
-                    options={{
-                        minimap: { enabled: false },
-                        fontSize: 14,
-                        lineNumbers: "on",
-                        renderWhitespace: "boundary",
-                        scrollBeyondLastLine: false,
-                        automaticLayout: true,
-                        wordWrap: "on",
-                        tabSize: 2,
-                        insertSpaces: true,
-                    }}
-                />
+                {activeTab === "editor" ? (
+                    <Editor
+                        height="100%"
+                        language="javascript"
+                        value={currentCode}
+                        theme={isDarkMode ? "sfinx-dark" : "sfinx-light"}
+                        onChange={handleCodeChange}
+                        onMount={handleEditorDidMount}
+                        options={{
+                            minimap: { enabled: false },
+                            fontSize: 14,
+                            lineNumbers: "on",
+                            renderWhitespace: "boundary",
+                            scrollBeyondLastLine: false,
+                            automaticLayout: true,
+                            wordWrap: "on",
+                            tabSize: 2,
+                            insertSpaces: true,
+                        }}
+                    />
+                ) : (
+                    <CodePreview
+                        code={currentCode}
+                        isActive={activeTab === "preview"}
+                        isDarkMode={isDarkMode}
+                    />
+                )}
             </div>
         </div>
     );
