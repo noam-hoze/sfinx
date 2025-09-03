@@ -1,8 +1,14 @@
 .next
 node_modules
 .env
+.env.local
+.env.production
+.env.development
 pnpm-lock.yaml
 npm-lock.json
 dist
+
+# API keys and sensitive files
+app/api/debug/seed/ok
 
 
