@@ -7,6 +7,7 @@ import EditorPanel from "./components/EditorPanel";
 import ChatPanel from "./components/ChatPanel";
 import { InterviewProvider, useInterview } from "../../lib/interview/context";
 import { BUGGY_COUNTER_CODE } from "../../lib/interview/types";
+import AvatarManager from "../components/avatar/AvatarManager";
 
 const InterviewerContent = () => {
     const { state, getCurrentTask } = useInterview();
@@ -19,6 +20,7 @@ const InterviewerContent = () => {
         Array<"editor" | "preview">
     >(["editor"]);
     const [activeTab, setActiveTab] = useState<"editor" | "preview">("editor");
+    const [isAISpeaking, setIsAISpeaking] = useState(false);
 
     function getInitialCode(): string {
         return `// Welcome to your coding interview!
@@ -95,6 +97,20 @@ export default UserList;`;
     const handleRejectChanges = () => {
         setShowDiff(false);
     };
+
+    // Handle avatar speaking messages
+    useEffect(() => {
+        const handleAvatarSpeaking = (event: MessageEvent) => {
+            if (event.data.type === "avatar-speaking") {
+                setIsAISpeaking(true);
+                setTimeout(() => setIsAISpeaking(false), event.data.duration);
+            }
+        };
+
+        window.addEventListener("message", handleAvatarSpeaking);
+        return () =>
+            window.removeEventListener("message", handleAvatarSpeaking);
+    }, []);
 
     const handleRunCode = () => {
         if (!availableTabs.includes("preview")) {
@@ -186,8 +202,17 @@ export default UserList;`;
             {/* Main Content Area */}
             <div className="flex-1 overflow-hidden">
                 <PanelGroup direction="horizontal">
-                    {/* Left Panel - Editor */}
-                    <Panel defaultSize={60} minSize={40}>
+                    {/* Left Panel - Avatar */}
+                    <Panel defaultSize={20} minSize={15}>
+                        <div className="h-full border-r bg-white border-light-gray dark:bg-gray-800 dark:border-gray-700 p-4">
+                            <AvatarManager isSpeaking={isAISpeaking} />
+                        </div>
+                    </Panel>
+
+                    <PanelResizeHandle className="w-2 bg-light-gray hover:bg-electric-blue dark:bg-gray-600 dark:hover:bg-gray-500" />
+
+                    {/* Middle Panel - Editor */}
+                    <Panel defaultSize={50} minSize={35}>
                         <div className="h-full border-r bg-white border-light-gray dark:bg-gray-800 dark:border-gray-700">
                             <EditorPanel
                                 showDiff={showDiff}
@@ -209,7 +234,7 @@ export default UserList;`;
                     <PanelResizeHandle className="w-2 bg-light-gray hover:bg-electric-blue dark:bg-gray-600 dark:hover:bg-gray-500" />
 
                     {/* Right Panel - AI Chat */}
-                    <Panel defaultSize={40} minSize={30}>
+                    <Panel defaultSize={30} minSize={25}>
                         <div className="h-full bg-white dark:bg-gray-800">
                             <ChatPanel
                                 onSendMessage={handleSendMessage}

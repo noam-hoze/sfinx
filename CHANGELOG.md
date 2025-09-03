@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.1.0] - 2025-09-04
+
+### Added
+
+-   **3D Avatar Integration**: Complete Ready Player Me avatar system with interactive 3D display
+-   **Lip Sync Animation**: Realistic mouth, eye, and head animations synchronized with AI speech
+-   **Avatar Controls**: Full pan, zoom, and rotate controls for avatar positioning
+-   **Interactive Positioning**: Drag avatar to position feet at "Ready" indicator level
+-   **TypeScript Fixes**: Added @types/three for proper three.js type support
+
+### Enhanced
+
+-   **Avatar Rendering**: Optimized 3D scene with proper lighting and materials
+-   **Component Architecture**: Separate AvatarManager and AvatarDisplay for better organization
+-   **Positioning System**: Advanced 3D positioning with matrix updates and morph target support
+
+### Fixed
+
+-   **TypeScript Errors**: Resolved material cloning and component display name issues
+-   **3D Scene Issues**: Fixed avatar positioning and scaling problems
+-   **Material Handling**: Proper handling of single materials vs material arrays
+
+### Technical
+
+-   **Three.js Integration**: Full React Three Fiber implementation with OrbitControls
+-   **Morph Target Animation**: Advanced facial animation system for lip sync
+-   **Component Separation**: Clean separation between 3D rendering and UI management
+
 ## [1.0.0] - 2025-09-03
 
 ### Added
@@ -83,3 +111,4 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 [0.2.0]: https://github.com/noam-hoze/sfinx/compare/v0.1.1...v0.2.0
 [0.3.0]: https://github.com/noam-hoze/sfinx/compare/v0.2.0...v0.3.0
 [1.0.0]: https://github.com/noam-hoze/sfinx/compare/v0.3.0...v1.0.0
+[1.1.0]: https://github.com/noam-hoze/sfinx/compare/v1.0.0...v1.1.0

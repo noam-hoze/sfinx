@@ -111,6 +111,17 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             };
 
             setMessages((prev) => [...prev, aiResponse]);
+
+            // Trigger speaking animation for avatar (this will be passed up to parent)
+            if (window.parent) {
+                window.parent.postMessage(
+                    {
+                        type: "avatar-speaking",
+                        duration: Math.max(2000, aiResponseContent.length * 50),
+                    },
+                    "*"
+                );
+            }
         } catch (error) {
             console.error("Error getting AI response:", error);
             const errorMessage: InterviewMessage = {
