@@ -21,7 +21,7 @@ const initialState: InterviewState = {
     startTime: null,
     endTime: null,
     // Avatar state
-    avatarVisible: true,
+    avatarVisible: false,
     avatarPosition: {
         x: typeof window !== "undefined" ? window.innerWidth - 400 : 800,
         y: 100,
