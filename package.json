@@ -13,6 +13,7 @@
     },
     "dependencies": {
         "@babel/parser": "^7.25.0",
+        "@monaco-editor/react": "^4.7.0",
         "@prisma/client": "^5.18.0",
         "csv-parse": "^5.5.6",
         "escomplex": "2.0.0-alpha",
@@ -20,6 +21,7 @@
         "eslint-config-next": "^14.2.7",
         "execa": "^9.3.0",
         "jscpd": "^4.0.4",
+        "lucide-react": "^0.542.0",
         "ml-confusion-matrix": "^2.0.0",
         "ml-distance": "^4.0.1",
         "monaco-editor": "^0.52.0",
@@ -28,6 +30,8 @@
         "pg": "^8.12.0",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
+        "react-resizable-panels": "^3.0.5",
+        "react-type-animation": "^3.2.0",
         "zod": "^3.23.8"
     },
     "devDependencies": {
