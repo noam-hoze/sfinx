@@ -5,17 +5,53 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { Moon, Sun } from "lucide-react";
 import EditorPanel from "./components/EditorPanel";
 import ChatPanel from "./components/ChatPanel";
+import { InterviewProvider, useInterview } from "../../lib/interview/context";
+import { BUGGY_COUNTER_CODE } from "../../lib/interview/types";
 
-const AIInterviewerSession = () => {
+const InterviewerContent = () => {
+    const { state, getCurrentTask } = useInterview();
     const [showDiff, setShowDiff] = useState(false);
     const [originalCode, setOriginalCode] = useState("");
     const [modifiedCode, setModifiedCode] = useState("");
-    const [currentCode, setCurrentCode] = useState("");
+    const [currentCode, setCurrentCode] = useState(getInitialCode());
     const [isDarkMode, setIsDarkMode] = useState(false);
     const [availableTabs, setAvailableTabs] = useState<
         Array<"editor" | "preview">
     >(["editor"]);
     const [activeTab, setActiveTab] = useState<"editor" | "preview">("editor");
+
+    function getInitialCode(): string {
+        return `// Welcome to your coding interview!
+// Start by creating a UserList component that fetches users from an API
+
+import React, { useState, useEffect } from 'react';
+
+function UserList() {
+    // Your code here
+    // Fetch from: https://jsonplaceholder.typicode.com/users
+    // Display name and email for each user
+    // Add loading and error states
+
+    return (
+        <div>
+            <h2>User List</h2>
+            {/* Your component JSX here */}
+        </div>
+    );
+}
+
+export default UserList;`;
+    }
+
+    // Update code when task changes
+    useEffect(() => {
+        const currentTask = getCurrentTask();
+        if (currentTask?.id === "task2-counter-debug") {
+            setCurrentCode(BUGGY_COUNTER_CODE);
+        } else if (currentTask?.id === "task1-userlist") {
+            setCurrentCode(getInitialCode());
+        }
+    }, [state.currentTaskId, getCurrentTask]);
 
     // Load theme preference and apply to document
     useEffect(() => {
@@ -94,6 +130,14 @@ const AIInterviewerSession = () => {
         simulateAIChange();
     };
 
+    const updateCodeForTask = (taskId: string) => {
+        if (taskId === "task2-counter-debug") {
+            setCurrentCode(BUGGY_COUNTER_CODE);
+        } else if (taskId === "task1-userlist") {
+            setCurrentCode(getInitialCode());
+        }
+    };
+
     return (
         <div className="h-screen flex flex-col bg-soft-white text-deep-slate dark:bg-gray-900 dark:text-white">
             {/* Header */}
@@ -149,6 +193,7 @@ const AIInterviewerSession = () => {
                                 showDiff={showDiff}
                                 originalCode={originalCode}
                                 modifiedCode={modifiedCode}
+                                currentCode={currentCode}
                                 onCodeChange={handleCodeChange}
                                 onApplyChanges={handleApplyChanges}
                                 onRejectChanges={handleRejectChanges}
@@ -176,6 +221,14 @@ const AIInterviewerSession = () => {
                 </PanelGroup>
             </div>
         </div>
+    );
+};
+
+const AIInterviewerSession = () => {
+    return (
+        <InterviewProvider>
+            <InterviewerContent />
+        </InterviewProvider>
     );
 };
 

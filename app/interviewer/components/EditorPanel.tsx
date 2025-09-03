@@ -9,6 +9,7 @@ interface EditorPanelProps {
     showDiff?: boolean;
     originalCode?: string;
     modifiedCode?: string;
+    currentCode?: string;
     onCodeChange?: (code: string) => void;
     onApplyChanges?: () => void;
     onRejectChanges?: () => void;
@@ -23,6 +24,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     showDiff = false,
     originalCode = "",
     modifiedCode = "",
+    currentCode: propCurrentCode,
     onCodeChange,
     onApplyChanges,
     onRejectChanges,
@@ -32,7 +34,9 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     onTabSwitch,
     onRunCode,
 }) => {
-    const [currentCode, setCurrentCode] = useState(`const Counter = () => {
+    const [currentCode, setCurrentCode] = useState(
+        propCurrentCode ||
+            `const Counter = () => {
     const [count, setCount] = React.useState(0);
 
     const increment = () => {
@@ -64,7 +68,24 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     );
 };
 
-render(Counter);`);
+render(Counter);`
+    );
+
+    // State for theme to avoid SSR issues
+    const [editorTheme, setEditorTheme] = useState("sfinx-light");
+
+    // Update local state when prop changes
+    useEffect(() => {
+        if (propCurrentCode && propCurrentCode !== currentCode) {
+            setCurrentCode(propCurrentCode);
+        }
+    }, [propCurrentCode, currentCode]);
+
+    // Set theme on client side to avoid SSR issues
+    useEffect(() => {
+        const isDark = document.documentElement.classList.contains("dark");
+        setEditorTheme(isDark ? "sfinx-dark" : "sfinx-light");
+    }, []);
 
     const editorRef = useRef<any>(null);
 
@@ -235,11 +256,7 @@ render(Counter);`);
                         height="100%"
                         language="javascript"
                         value={currentCode}
-                        theme={
-                            document.documentElement.classList.contains("dark")
-                                ? "sfinx-dark"
-                                : "sfinx-light"
-                        }
+                        theme={editorTheme}
                         onChange={handleCodeChange}
                         onMount={handleEditorDidMount}
                         options={{

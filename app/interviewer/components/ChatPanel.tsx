@@ -3,6 +3,13 @@
 import React, { useState, useRef, useEffect } from "react";
 import { TypeAnimation } from "react-type-animation";
 import { Send, Bot, User } from "lucide-react";
+import { useInterview } from "../../../lib/interview/context";
+import {
+    sendToOpenAI,
+    buildSystemPrompt,
+    convertInterviewMessagesToOpenAI,
+} from "../../../lib/interview/openai";
+import { InterviewMessage } from "../../../lib/interview/types";
 
 interface Message {
     id: string;
@@ -22,19 +29,27 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     onRequestCodeChange,
     isDarkMode = false,
 }) => {
-    const [messages, setMessages] = useState<Message[]>([
+    const {
+        state,
+        getCurrentTask,
+        startInterview,
+        nextTask,
+        updateTaskStatus,
+    } = useInterview();
+
+    const [messages, setMessages] = useState<InterviewMessage[]>([
         {
             id: "1",
             type: "ai",
             content:
-                "Hello! I'm your AI interviewer. Let's build a React counter component together. I'll guide you through the process and help you write clean, efficient code.",
+                "Hello! I'm Sfinx, your AI coding interviewer. I'm here to guide you through some practical coding challenges and help you demonstrate your skills.",
             timestamp: new Date(),
         },
         {
             id: "2",
             type: "ai",
             content:
-                "Start by creating a basic counter component with increment and decrement functionality. Feel free to ask me any questions along the way!",
+                "Let's get started! Your first task is to build a UserList React component that fetches users from an API and displays their information. You can see the requirements and starting code in the editor. Feel free to ask me questions as you work through this challenge!",
             timestamp: new Date(),
         },
     ]);
@@ -51,10 +66,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         scrollToBottom();
     }, [messages]);
 
-    const handleSendMessage = () => {
+    const handleSendMessage = async () => {
         if (!currentMessage.trim()) return;
 
-        const userMessage: Message = {
+        const userMessage: InterviewMessage = {
             id: Date.now().toString(),
             type: "user",
             content: currentMessage,
@@ -65,53 +80,72 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         setCurrentMessage("");
         onSendMessage?.(currentMessage);
 
-        // Simulate AI response
+        // Start interview if not already started
+        if (!state.isActive) {
+            startInterview();
+        }
+
+        // Get AI response using OpenAI
         setIsTyping(true);
-        setTimeout(() => {
-            const aiResponse: Message = {
+        try {
+            const currentTask = getCurrentTask();
+            const systemPrompt = buildSystemPrompt(currentTask);
+
+            // Convert messages to OpenAI format
+            const openaiMessages = convertInterviewMessagesToOpenAI([
+                ...messages,
+                userMessage,
+            ]);
+
+            const aiResponseContent = await sendToOpenAI(
+                openaiMessages,
+                systemPrompt
+            );
+
+            const aiResponse: InterviewMessage = {
                 id: (Date.now() + 1).toString(),
                 type: "ai",
-                content: getAIResponse(currentMessage),
+                content: aiResponseContent,
+                timestamp: new Date(),
+                taskId: currentTask?.id,
+            };
+
+            setMessages((prev) => [...prev, aiResponse]);
+        } catch (error) {
+            console.error("Error getting AI response:", error);
+            const errorMessage: InterviewMessage = {
+                id: (Date.now() + 1).toString(),
+                type: "ai",
+                content: "Sorry, I encountered an error. Please try again.",
                 timestamp: new Date(),
             };
-            setMessages((prev) => [...prev, aiResponse]);
+            setMessages((prev) => [...prev, errorMessage]);
+        } finally {
             setIsTyping(false);
-        }, 1000);
-    };
-
-    const getAIResponse = (userInput: string): string => {
-        const input = userInput.toLowerCase();
-
-        if (
-            input.includes("bug") ||
-            input.includes("fix") ||
-            input.includes("error")
-        ) {
-            return "I can help you fix that! Let me analyze your code and suggest the improvements. Would you like me to apply the fix directly to your editor?";
         }
-
-        if (input.includes("test") || input.includes("run")) {
-            return "Great! Testing is important. I can see you've added a Run button. Let me help you add some basic tests for your counter component.";
-        }
-
-        if (input.includes("help") || input.includes("stuck")) {
-            return "No worries! Let's break this down step by step. Here's what we need to implement for a solid counter component...";
-        }
-
-        return "That's a good question! Let me think about that and provide you with some guidance. Keep up the great work!";
     };
 
     const handleQuickAction = (action: string) => {
+        const currentTask = getCurrentTask();
+
         if (action === "fix-bug") {
-            onRequestCodeChange?.(
-                "Fix the counter bug by adding proper state management"
-            );
-        } else if (action === "add-test") {
-            onRequestCodeChange?.("Add unit tests for the counter component");
-        } else if (action === "optimize") {
-            onRequestCodeChange?.(
-                "Optimize the counter component for better performance"
-            );
+            if (currentTask?.id === "task2-counter-debug") {
+                onRequestCodeChange?.(
+                    "The counter component has a state management issue. Can you identify and fix it?"
+                );
+            } else {
+                onRequestCodeChange?.("Let me help you debug this issue");
+            }
+        } else if (action === "next-task") {
+            if (currentTask) {
+                updateTaskStatus(currentTask.id, "completed");
+                nextTask();
+                setCurrentMessage(
+                    `I've completed ${currentTask.title}. What's next?`
+                );
+            }
+        } else if (action === "hint") {
+            setCurrentMessage("Can you give me a hint for the current task?");
         }
     };
 
@@ -195,19 +229,19 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                         onClick={() => handleQuickAction("fix-bug")}
                         className="px-3 py-1 text-xs bg-warning-yellow text-white rounded hover:bg-yellow-600 transition-colors"
                     >
-                        Fix Bug
+                        Debug
                     </button>
                     <button
-                        onClick={() => handleQuickAction("add-test")}
+                        onClick={() => handleQuickAction("hint")}
                         className="px-3 py-1 text-xs bg-success-green text-white rounded hover:bg-green-600 transition-colors"
                     >
-                        Add Tests
+                        Hint
                     </button>
                     <button
-                        onClick={() => handleQuickAction("optimize")}
+                        onClick={() => handleQuickAction("next-task")}
                         className="px-3 py-1 text-xs bg-electric-blue text-white rounded hover:bg-blue-600 transition-colors"
                     >
-                        Optimize
+                        Next Task
                     </button>
                 </div>
             </div>

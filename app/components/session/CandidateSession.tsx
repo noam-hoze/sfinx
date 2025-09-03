@@ -13,7 +13,7 @@ const CandidateSession = () => {
                     Candidate Session
                 </h1>
                 <p className="text-gray-600">
-                    Live analysis of a candidate's work session.
+                    Live analysis of a candidate&apos;s work session.
                 </p>
             </header>
 

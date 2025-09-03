@@ -1,5 +1,10 @@
-import AIInterviewerSession from "./AIInterviewerSession";
+import InterviewerContent from "./AIInterviewerSession";
+import { InterviewProvider } from "../../lib/interview/context";
 
 export default function InterviewerPage() {
-    return <AIInterviewerSession />;
+    return (
+        <InterviewProvider>
+            <InterviewerContent />
+        </InterviewProvider>
+    );
 }

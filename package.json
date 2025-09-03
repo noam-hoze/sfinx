@@ -1,6 +1,6 @@
 {
     "name": "sfinx",
-    "version": "0.3.0",
+    "version": "1.0.0",
     "private": true,
     "scripts": {
         "dev": "next dev",
@@ -27,9 +27,11 @@
         "monaco-editor": "^0.52.0",
         "multer": "^2.0.0",
         "next": "^14.2.7",
+        "openai": "^5.19.1",
         "pg": "^8.12.0",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
+        "react-live": "^4.1.8",
         "react-resizable-panels": "^3.0.5",
         "react-type-animation": "^3.2.0",
         "zod": "^3.23.8"
