@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY!;
 const AGENT_ID =
-    process.env.ELEVEN_AGENT_ID || "agent_01jzdt18pxf3ebb27sad40cwe4";
+    process.env.NEXT_PUBLIC_AGENT_ID || "agent_01jzdt18pxf3ebb27sad40cwe4";
 
 export async function GET() {
     const response = await fetch(

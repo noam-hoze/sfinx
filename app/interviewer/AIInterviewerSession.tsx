@@ -212,7 +212,7 @@ export default UserList;`;
             <div className="flex-1 overflow-hidden">
                 <PanelGroup direction="horizontal">
                     {/* Middle Panel - Editor */}
-                    <Panel defaultSize={50} minSize={35}>
+                    <Panel defaultSize={70} minSize={50}>
                         <div className="h-full border-r bg-white border-light-gray dark:bg-gray-800 dark:border-gray-700">
                             <EditorPanel
                                 showDiff={showDiff}

@@ -1,16 +1,24 @@
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(request: Request) {
     try {
-        console.log("Environment variables:");
-        console.log("NEXT_PUBLIC_AGENT_ID:", process.env.NEXT_PUBLIC_AGENT_ID);
+        const { searchParams } = new URL(request.url);
+        const customAgentId = searchParams.get("agentId");
+
+        const agentId = customAgentId || process.env.NEXT_PUBLIC_AGENT_ID;
+
+        console.log("Test signed URL - Agent ID:", agentId);
+        console.log(
+            "Test signed URL - Custom agent ID provided:",
+            !!customAgentId
+        );
         console.log(
             "ELEVENLABS_API_KEY present:",
             !!process.env.ELEVENLABS_API_KEY
         );
 
-        if (!process.env.NEXT_PUBLIC_AGENT_ID) {
-            console.error("NEXT_PUBLIC_AGENT_ID is not set!");
+        if (!agentId) {
+            console.error("No agent ID available!");
             return NextResponse.json(
                 { error: "Agent ID not configured" },
                 { status: 500 }
@@ -25,8 +33,8 @@ export async function GET() {
             );
         }
 
-        const url = `https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=${process.env.NEXT_PUBLIC_AGENT_ID}`;
-        console.log("Fetching URL:", url);
+        const url = `https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=${agentId}`;
+        console.log("Test - Fetching URL:", url);
 
         const response = await fetch(url, {
             headers: {
@@ -34,27 +42,31 @@ export async function GET() {
             },
         });
 
-        console.log("ElevenLabs API response status:", response.status);
+        console.log("Test - ElevenLabs API response status:", response.status);
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error("ElevenLabs API error response:", errorText);
+            console.error("Test - ElevenLabs API error response:", errorText);
             throw new Error(
                 `ElevenLabs API returned ${response.status}: ${errorText}`
             );
         }
 
         const data = await response.json();
-        console.log("ElevenLabs API response data:", data);
+        console.log("Test - ElevenLabs API response data:", data);
 
         if (!data.signed_url) {
-            console.error("No signed_url in response");
+            console.error("Test - No signed_url in response");
             throw new Error("Invalid response from ElevenLabs API");
         }
 
-        return NextResponse.json({ signedUrl: data.signed_url });
+        return NextResponse.json({
+            signedUrl: data.signed_url,
+            agentId: agentId,
+            usedCustomAgent: !!customAgentId,
+        });
     } catch (error) {
-        console.error("Error in get-signed-url:", error);
+        console.error("Test - Error in get-signed-url:", error);
         return NextResponse.json(
             {
                 error: "Failed to generate signed URL",

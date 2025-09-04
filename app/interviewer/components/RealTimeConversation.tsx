@@ -24,84 +24,123 @@ const RealTimeConversation: React.FC<RealTimeConversationProps> = ({
 
     const conversation = useConversation({
         onConnect: () => {
-            console.log("Connected to Eleven Labs");
+            console.log("✅ Connected to Eleven Labs");
             setIsConnected(true);
             setConnectionStatus("Connected");
             onStartConversation?.();
         },
-        onDisconnect: () => {
-            console.log("Disconnected from Eleven Labs");
+        onDisconnect: (event) => {
+            console.log("❌ Disconnected from Eleven Labs:", event);
             setIsConnected(false);
             setConnectionStatus("Disconnected");
             onEndConversation?.();
         },
-        onMessage: (message) => console.log("Message:", message),
-        onError: (error) => {
-            console.error("Eleven Labs error:", error);
-            setConnectionStatus("Connection Error");
+        onMessage: (message) => console.log("📨 Message:", message),
+        onError: (error: any) => {
+            console.error("🚨 Interviewer: Eleven Labs error:", error);
+            console.error("🚨 Interviewer: Error type:", typeof error);
+            console.error(
+                "🚨 Interviewer: Error properties:",
+                Object.keys(error)
+            );
+
+            // Handle WebSocket CloseEvent specifically
+            if (error && typeof error === "object" && "code" in error) {
+                console.error(
+                    "🚨 Interviewer: WebSocket Close Code:",
+                    error.code
+                );
+                console.error(
+                    "🚨 Interviewer: WebSocket Reason:",
+                    error.reason
+                );
+                setConnectionStatus(
+                    `WebSocket closed: ${error.reason} (Code: ${error.code})`
+                );
+            } else {
+                setConnectionStatus("Connection Error");
+            }
         },
     });
 
     const getSignedUrl = async (): Promise<string> => {
-        const response = await fetch("/api/get-signed-url");
+        console.log("🔗 Interviewer: Fetching signed URL...");
+        const response = await fetch("/api/test-signed-url");
+        console.log("🔗 Interviewer: Response status:", response.status);
+
         if (!response.ok) {
-            throw new Error(`Failed to get signed url: ${response.statusText}`);
+            const errorText = await response.text();
+            console.error("🔗 Interviewer: Error response:", errorText);
+            throw new Error(
+                `Failed to get signed url: ${response.statusText} - ${errorText}`
+            );
         }
-        const { signedUrl } = await response.json();
-        return signedUrl;
+
+        const data = await response.json();
+        console.log("🔗 Interviewer: Response data:", data);
+        console.log("🔗 Interviewer: Signed URL:", data.signedUrl);
+
+        if (!data.signedUrl) {
+            throw new Error("No signedUrl in response");
+        }
+
+        return data.signedUrl;
     };
 
     const startConversation = useCallback(async () => {
         try {
+            console.log("🎤 Interviewer: Requesting media permissions...");
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: true,
                 video: true,
             });
+            console.log("✅ Interviewer: Media permissions granted");
 
+            // Simplified: Just get media, don't set up recording
             if (videoRef.current) {
                 videoRef.current.srcObject = stream;
             }
 
-            mediaRecorderRef.current = new MediaRecorder(stream, {
-                mimeType: "video/webm",
-            });
-            recordedChunksRef.current = [];
-
-            mediaRecorderRef.current.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    recordedChunksRef.current.push(event.data);
-                }
-            };
-
-            mediaRecorderRef.current.onstop = () => {
-                setIsRecording(false);
-            };
-
-            mediaRecorderRef.current.start();
+            // Skip MediaRecorder setup for now
             setIsRecording(true);
+            console.log("✅ Interviewer: Media setup complete");
         } catch (error) {
-            console.error("Failed to start camera or conversation:", error);
+            console.error("❌ Failed to start camera or conversation:", error);
             setConnectionStatus("Failed to start");
+        }
+    }, []);
+
+    const connectToElevenLabs = useCallback(async () => {
+        try {
+            console.log("Getting signed URL...");
+            const signedUrl = await getSignedUrl();
+            console.log("Got signed URL:", signedUrl);
+            console.log("🎯 Interviewer: Starting ElevenLabs session...");
+
+            // Remove delay to match test page
+            await conversation.startSession({ signedUrl });
+            console.log("Session started successfully");
+        } catch (error) {
+            console.error("Failed to start conversation session:", error);
+            if (error instanceof Error) {
+                console.error("Error details:", {
+                    message: error.message,
+                    name: error.name,
+                    stack: error.stack,
+                });
+            }
+            setConnectionStatus("Connection failed");
         }
     }, []);
 
     useEffect(() => {
         if (isRecording) {
-            const connectToElevenLabs = async () => {
-                try {
-                    const signedUrl = await getSignedUrl();
-                    await conversation.startSession({ signedUrl });
-                } catch (error) {
-                    console.error(
-                        "Failed to start conversation session:",
-                        error
-                    );
-                    setConnectionStatus("Connection failed");
-                }
-            };
+            console.log("🔄 isRecording is true, connecting to ElevenLabs...");
             connectToElevenLabs();
+        } else {
+            console.log("⏸️ isRecording is false, not connecting");
         }
-    }, [isRecording, conversation]);
+    }, [isRecording, connectToElevenLabs]);
 
     // Send contextual updates when coding state changes
     useEffect(() => {
@@ -111,29 +150,36 @@ const RealTimeConversation: React.FC<RealTimeConversationProps> = ({
                 : "The user has stopped coding and is ready to talk.";
             conversation.sendContextualUpdate(contextualMessage);
         }
-    }, [isCoding, isConnected, conversation]);
+    }, [isCoding, isConnected]);
 
     const disconnectFromConversation = useCallback(() => {
+        console.log("🔌 Disconnecting from conversation...");
+
         if (
             mediaRecorderRef.current &&
             mediaRecorderRef.current.state === "recording"
         ) {
+            console.log("🛑 Stopping media recorder");
             mediaRecorderRef.current.stop();
         }
 
         if (videoRef.current && videoRef.current.srcObject) {
+            console.log("📹 Stopping video stream");
             const stream = videoRef.current.srcObject as MediaStream;
             stream.getTracks().forEach((track) => track.stop());
             videoRef.current.srcObject = null;
         }
 
+        console.log("🔚 Ending ElevenLabs session");
         conversation.endSession();
         setIsConnected(false);
         setConnectionStatus("Disconnected");
         onEndConversation?.();
+        console.log("✅ Disconnection complete");
     }, [conversation, onEndConversation]);
 
     const stopConversation = useCallback(async () => {
+        console.log("🛑 Stop conversation called");
         disconnectFromConversation();
     }, [disconnectFromConversation]);
 
