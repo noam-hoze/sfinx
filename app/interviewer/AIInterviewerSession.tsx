@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { Moon, Sun } from "lucide-react";
 import EditorPanel from "./components/EditorPanel";
@@ -22,6 +22,29 @@ const InterviewerContent = () => {
     >(["editor"]);
     const [activeTab, setActiveTab] = useState<"editor" | "preview">("editor");
     const [isAISpeaking, setIsAISpeaking] = useState(false);
+    const [isInterviewActive, setIsInterviewActive] = useState(false);
+    const realTimeConversationRef = useRef<any>(null);
+
+    const handleInterviewButtonClick = useCallback(
+        async (action: "start" | "stop") => {
+            if (action === "start") {
+                try {
+                    await realTimeConversationRef.current?.startConversation();
+                    setIsInterviewActive(true);
+                } catch (error) {
+                    console.error("Failed to start interview:", error);
+                }
+            } else {
+                try {
+                    await realTimeConversationRef.current?.stopConversation();
+                    setIsInterviewActive(false);
+                } catch (error) {
+                    console.error("Failed to stop interview:", error);
+                }
+            }
+        },
+        []
+    );
 
     function getInitialCode(): string {
         return `// Welcome to your coding interview!
@@ -126,17 +149,6 @@ export default UserList;`;
         }
     };
 
-    // Mock function to simulate AI applying changes
-    const simulateAIChange = () => {
-        const buggedCode = currentCode.replace(
-            "const [count, setCount] = useState(0);",
-            "const [count, setCount] = useState(0); // Bug: missing dependency"
-        );
-        setOriginalCode(currentCode);
-        setModifiedCode(buggedCode);
-        setShowDiff(true);
-    };
-
     const updateCodeForTask = (taskId: string) => {
         if (taskId === "task2-counter-debug") {
             setCurrentCode(BUGGY_COUNTER_CODE);
@@ -148,23 +160,41 @@ export default UserList;`;
     return (
         <div className="h-screen flex flex-col bg-soft-white text-deep-slate dark:bg-gray-900 dark:text-white">
             {/* Header */}
-            <header className="border-b px-6 py-4 bg-white border-light-gray dark:bg-gray-800 dark:border-gray-700">
+            <header className="border-b border-gray-200/50 dark:border-gray-700/50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl px-6 py-5">
                 <div className="flex items-center justify-between">
+                    {/* Left Section - Title */}
                     <div>
-                        <h1 className="text-2xl font-bold text-deep-slate dark:text-white">
-                            AI Interviewer Session
+                        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white tracking-tight">
+                            Front-end Developer Interview
                         </h1>
-                        <p className="text-sm text-gray-600 dark:text-gray-300">
-                            Interactive coding interview with AI assistance
-                        </p>
                     </div>
+
+                    {/* Right Section - Controls */}
                     <div className="flex items-center space-x-3">
+                        {/* Interview Control Buttons */}
                         <div className="flex items-center space-x-2">
-                            <div className="w-3 h-3 bg-success-green rounded-full"></div>
-                            <span className="text-sm text-gray-600 dark:text-gray-300">
-                                Session Active
-                            </span>
+                            <button
+                                onClick={() =>
+                                    handleInterviewButtonClick("start")
+                                }
+                                disabled={isInterviewActive}
+                                className="px-4 py-2 text-sm font-medium rounded-lg bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 disabled:from-gray-400 disabled:to-gray-500 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02] disabled:hover:scale-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Start Interview"
+                            >
+                                Start Interview
+                            </button>
+                            <button
+                                onClick={() =>
+                                    handleInterviewButtonClick("stop")
+                                }
+                                disabled={!isInterviewActive}
+                                className="px-4 py-2 text-sm font-medium rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 disabled:from-gray-400 disabled:to-gray-500 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02] disabled:hover:scale-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Stop Interview"
+                            >
+                                Stop Interview
+                            </button>
                         </div>
+
                         {!state.avatarVisible && (
                             <button
                                 onClick={() => {
@@ -177,7 +207,7 @@ export default UserList;`;
                                     updateAvatarPosition(defaultX, defaultY);
                                     showAvatar();
                                 }}
-                                className="px-3 py-1 text-sm rounded bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+                                className="px-4 py-2 text-sm font-medium rounded-lg bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02]"
                                 title="Show Sfinx Avatar"
                             >
                                 Show Sfinx
@@ -185,7 +215,7 @@ export default UserList;`;
                         )}
                         <button
                             onClick={toggleTheme}
-                            className="p-2 rounded-md bg-light-gray text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-yellow-400 dark:hover:bg-gray-600"
+                            className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105"
                             title={
                                 isDarkMode
                                     ? "Switch to Light Mode"
@@ -197,12 +227,6 @@ export default UserList;`;
                             ) : (
                                 <Moon className="w-5 h-5" />
                             )}
-                        </button>
-                        <button
-                            onClick={simulateAIChange}
-                            className="px-3 py-1 text-xs rounded bg-electric-blue text-white hover:bg-blue-600"
-                        >
-                            Test AI Change
                         </button>
                     </div>
                 </div>
@@ -237,6 +261,7 @@ export default UserList;`;
                     <Panel defaultSize={30} minSize={25}>
                         <div className="h-full bg-white dark:bg-gray-800 p-4">
                             <RealTimeConversation
+                                ref={realTimeConversationRef}
                                 onStartConversation={() =>
                                     console.log("Conversation started")
                                 }
