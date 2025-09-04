@@ -8,6 +8,7 @@ import React, {
     useImperativeHandle,
 } from "react";
 import { useConversation } from "@elevenlabs/react";
+import AnimatedWaveform from "./AnimatedWaveform";
 
 interface RealTimeConversationProps {
     onStartConversation?: () => void;
@@ -207,6 +208,9 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         return (
             <div className="w-full max-w-4xl mx-auto">
                 <div className="text-center text-gray-400">
+                    {/* Animated waveform indicator */}
+                    <AnimatedWaveform isSpeaking={conversation.isSpeaking} />
+
                     <p>
                         Status:{" "}
                         <span className="font-semibold text-gray-400">
