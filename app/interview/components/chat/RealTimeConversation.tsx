@@ -64,7 +64,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
 
         const getSignedUrl = useCallback(async (): Promise<string> => {
             console.log("🔗 Interviewer: Fetching signed URL...");
-            const response = await fetch("/api/get-signed-url");
+            const response = await fetch("/api/convai");
             console.log("🔗 Interviewer: Response status:", response.status);
 
             if (!response.ok) {

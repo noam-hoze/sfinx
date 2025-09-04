@@ -21,6 +21,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 -   **Test signed URL API**: Removed `/api/test-signed-url` endpoint and consolidated to production route
 -   **OpenAI integration**: Removed `/api/chat` route and `lib/interview/openai.ts` utility
 -   **Prisma ORM**: Removed Prisma database integration, schema, and client dependencies
+-   **Conversation API**: Removed `/api/conversation` endpoint (ElevenLabs conversational AI)
 
 ### Enhanced
 

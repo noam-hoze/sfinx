@@ -66,7 +66,7 @@ export async function GET(request: Request) {
             usedCustomAgent: !!customAgentId,
         });
     } catch (error) {
-        console.error("Test - Error in get-signed-url:", error);
+        console.error("Test - Error in convai:", error);
         return NextResponse.json(
             {
                 error: "Failed to generate signed URL",
