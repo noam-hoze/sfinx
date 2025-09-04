@@ -234,7 +234,7 @@ const RealTimeConversation: React.FC<RealTimeConversationProps> = ({
             <div className="text-center mt-4 text-gray-400">
                 <p>
                     Status:{" "}
-                    <span className="font-semibold text-white">
+                    <span className="font-semibold text-gray-400">
                         {conversation.status}
                     </span>
                 </p>
