@@ -48,25 +48,22 @@ const InterviewerContent = () => {
 
     function getInitialCode(): string {
         return `// Welcome to your coding interview!
-// Start by creating a UserList component that fetches users from an API
+// Create a UserList component that fetches users from an API
 
-import React, { useState, useEffect } from 'react';
-
-function UserList() {
-    // Your code here
-    // Fetch from: https://jsonplaceholder.typicode.com/users
+const UserList = () => {
+    // Fetch users from: https://jsonplaceholder.typicode.com/users
     // Display name and email for each user
     // Add loading and error states
 
     return (
         <div>
             <h2>User List</h2>
-            {/* Your component JSX here */}
+            {/* Implement your user list here */}
         </div>
     );
-}
+};
 
-export default UserList;`;
+render(UserList);`;
     }
 
     // Update code when task changes

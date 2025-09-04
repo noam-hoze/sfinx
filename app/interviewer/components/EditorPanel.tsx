@@ -34,42 +34,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     onTabSwitch,
     onRunCode,
 }) => {
-    const [currentCode, setCurrentCode] = useState(
-        propCurrentCode ||
-            `const Counter = () => {
-    const [count, setCount] = React.useState(0);
-
-    const increment = () => {
-        setCount(count + 1);
-    };
-
-    const decrement = () => {
-        setCount(count - 1);
-    };
-
-    return (
-        <div className="p-8 text-center">
-            <h1 className="text-3xl font-bold mb-4 text-gray-800">Counter: {count}</h1>
-            <div className="space-x-4">
-                <button
-                    onClick={decrement}
-                    className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-                >
-                    -
-                </button>
-                <button
-                    onClick={increment}
-                    className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-                >
-                    +
-                </button>
-            </div>
-        </div>
-    );
-};
-
-render(Counter);`
-    );
+    const [currentCode, setCurrentCode] = useState(propCurrentCode || "");
 
     // State for theme to avoid SSR issues
     const [editorTheme, setEditorTheme] = useState("sfinx-light");
