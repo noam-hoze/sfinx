@@ -9,9 +9,6 @@ export default function TestPage() {
     const [connectionStatus, setConnectionStatus] = useState("Disconnected");
     const [error, setError] = useState<string | null>(null);
     const [signedUrl, setSignedUrl] = useState<string | null>(null);
-    const [customAgentId, setCustomAgentId] = useState(
-        "agent_01jzdt18pxf3ebb27sad40cwe4"
-    );
 
     const conversation = useConversation({
         onConnect: () => {
@@ -50,17 +47,9 @@ export default function TestPage() {
     });
 
     const getSignedUrl = async (): Promise<string> => {
-        console.log("🔗 Fetching signed URL from test endpoint...");
-        console.log("🔗 Using agent ID:", customAgentId);
+        console.log("🔗 Fetching signed URL from production endpoint...");
 
-        const url =
-            customAgentId !== "agent_01jzdt18pxf3ebb27sad40cwe4"
-                ? `/api/test-signed-url?agentId=${encodeURIComponent(
-                      customAgentId
-                  )}`
-                : "/api/test-signed-url";
-
-        const response = await fetch(url);
+        const response = await fetch("/api/get-signed-url");
         console.log("🔗 Response status:", response.status);
 
         if (!response.ok) {
@@ -182,18 +171,6 @@ export default function TestPage() {
                     )}
 
                     {/* Agent ID Input */}
-                    <div className="mb-6">
-                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                            Agent ID (for testing different agents)
-                        </label>
-                        <input
-                            type="text"
-                            value={customAgentId}
-                            onChange={(e) => setCustomAgentId(e.target.value)}
-                            className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            placeholder="Enter agent ID to test..."
-                        />
-                    </div>
 
                     {/* Control Buttons */}
                     <div className="flex justify-center gap-4 mb-6">
@@ -268,7 +245,6 @@ export default function TestPage() {
                             Agent Speaking:{" "}
                             {conversation.isSpeaking ? "Yes" : "No"}
                         </p>
-                        <p>Current Agent ID: {customAgentId}</p>
                         <p>
                             Signed URL Length:{" "}
                             {signedUrl ? signedUrl.length : "N/A"}

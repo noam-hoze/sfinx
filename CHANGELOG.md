@@ -18,6 +18,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 -   **Seed functionality**: Removed unused seed script and debug API route
 -   **Database seeding**: Removed `/prisma/seed.ts` and `/api/debug/seed` endpoint
+-   **Test signed URL API**: Removed `/api/test-signed-url` endpoint and consolidated to production route
 
 ### Enhanced
 

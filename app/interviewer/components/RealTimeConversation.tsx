@@ -2,7 +2,6 @@
 
 import React, {
     useEffect,
-    useRef,
     useState,
     useCallback,
     forwardRef,
@@ -21,9 +20,6 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         const [isRecording, setIsRecording] = useState(false);
         const [connectionStatus, setConnectionStatus] =
             useState("Disconnected");
-
-        const videoRef = useRef<HTMLVideoElement>(null);
-        const mediaRecorderRef = useRef<MediaRecorder | null>(null);
 
         const conversation = useConversation({
             onConnect: () => {
@@ -68,7 +64,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
 
         const getSignedUrl = useCallback(async (): Promise<string> => {
             console.log("🔗 Interviewer: Fetching signed URL...");
-            const response = await fetch("/api/test-signed-url");
+            const response = await fetch("/api/get-signed-url");
             console.log("🔗 Interviewer: Response status:", response.status);
 
             if (!response.ok) {
@@ -92,24 +88,17 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
 
         const startConversation = useCallback(async () => {
             try {
-                console.log("🎤 Interviewer: Requesting media permissions...");
-                const stream = await navigator.mediaDevices.getUserMedia({
+                console.log("🎤 Interviewer: Requesting audio permissions...");
+                await navigator.mediaDevices.getUserMedia({
                     audio: true,
-                    video: true,
                 });
-                console.log("✅ Interviewer: Media permissions granted");
+                console.log("✅ Interviewer: Audio permissions granted");
 
-                // Simplified: Just get media, don't set up recording
-                if (videoRef.current) {
-                    videoRef.current.srcObject = stream;
-                }
-
-                // Skip MediaRecorder setup for now
                 setIsRecording(true);
-                console.log("✅ Interviewer: Media setup complete");
+                console.log("✅ Interviewer: Audio setup complete");
             } catch (error) {
                 console.error(
-                    "❌ Failed to start camera or conversation:",
+                    "❌ Failed to start audio or conversation:",
                     error
                 );
                 setConnectionStatus("Failed to start");
@@ -152,21 +141,6 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
 
         const disconnectFromConversation = useCallback(() => {
             console.log("🔌 Disconnecting from conversation...");
-
-            if (
-                mediaRecorderRef.current &&
-                mediaRecorderRef.current.state === "recording"
-            ) {
-                console.log("🛑 Stopping media recorder");
-                mediaRecorderRef.current.stop();
-            }
-
-            if (videoRef.current && videoRef.current.srcObject) {
-                console.log("📹 Stopping video stream");
-                const stream = videoRef.current.srcObject as MediaStream;
-                stream.getTracks().forEach((track) => track.stop());
-                videoRef.current.srcObject = null;
-            }
 
             console.log("🔚 Ending ElevenLabs session");
             conversation.endSession();
