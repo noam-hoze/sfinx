@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { Moon, Sun } from "lucide-react";
 import EditorPanel from "./editor/EditorPanel";
+import ChatPanel from "./chat/ChatPanel";
 import RealTimeConversation from "./chat/RealTimeConversation";
 import {
     InterviewProvider,
@@ -257,18 +258,26 @@ render(UserList);`;
 
                     <PanelResizeHandle className="w-2 bg-light-gray hover:bg-electric-blue dark:bg-gray-600 dark:hover:bg-gray-500" />
 
-                    {/* Right Panel - Real-Time Conversation */}
+                    {/* Right Panel - Voice Controls & Transcription */}
                     <Panel defaultSize={30} minSize={25}>
-                        <div className="h-full bg-white dark:bg-gray-800 p-4">
-                            <RealTimeConversation
-                                ref={realTimeConversationRef}
-                                onStartConversation={() =>
-                                    console.log("Conversation started")
-                                }
-                                onEndConversation={() =>
-                                    console.log("Conversation ended")
-                                }
-                            />
+                        <div className="h-full flex flex-col">
+                            {/* Voice Controls (Top Half) */}
+                            <div className="flex-1 border-b border-gray-200 dark:border-gray-700">
+                                <RealTimeConversation
+                                    ref={realTimeConversationRef}
+                                    onStartConversation={() =>
+                                        console.log("Conversation started")
+                                    }
+                                    onEndConversation={() =>
+                                        console.log("Conversation ended")
+                                    }
+                                />
+                            </div>
+
+                            {/* Transcription Display (Bottom Half) */}
+                            <div className="flex-1">
+                                <ChatPanel />
+                            </div>
                         </div>
                     </Panel>
                 </PanelGroup>

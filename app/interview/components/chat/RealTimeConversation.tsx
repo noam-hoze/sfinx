@@ -26,15 +26,50 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                 console.log("✅ Connected to Eleven Labs");
                 setIsConnected(true);
                 setConnectionStatus("Connected");
+
+                // Notify ChatPanel about recording status
+                window.parent.postMessage(
+                    {
+                        type: "recording-status",
+                        isRecording: true,
+                    },
+                    "*"
+                );
+
                 onStartConversation?.();
             },
             onDisconnect: (event) => {
                 console.log("❌ Disconnected from Eleven Labs:", event);
                 setIsConnected(false);
                 setConnectionStatus("Disconnected");
+
+                // Notify ChatPanel about recording status
+                window.parent.postMessage(
+                    {
+                        type: "recording-status",
+                        isRecording: false,
+                    },
+                    "*"
+                );
+
                 onEndConversation?.();
             },
-            onMessage: (message) => console.log("📨 Message:", message),
+            onMessage: (message) => {
+                console.log("📨 Message:", message);
+
+                // Send transcription data to ChatPanel
+                if (message.message) {
+                    window.parent.postMessage(
+                        {
+                            type: "transcription",
+                            text: message.message,
+                            speaker: message.source === "user" ? "user" : "ai",
+                            timestamp: new Date(),
+                        },
+                        "*"
+                    );
+                }
+            },
             onError: (error: any) => {
                 console.error("🚨 Interviewer: Eleven Labs error:", error);
                 console.error("🚨 Interviewer: Error type:", typeof error);
