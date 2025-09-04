@@ -6,12 +6,14 @@ import React, {
     useCallback,
     forwardRef,
     useImperativeHandle,
+    useRef,
 } from "react";
 // import { useConversation } from "@elevenlabs/react"; // Temporarily commented out
 import StreamingAvatar, {
     TaskType,
     AvatarQuality,
 } from "@heygen/streaming-avatar";
+import HeyGenInterview, { HeyGenInterviewRef } from "./HeyGenInterview";
 
 interface RealTimeConversationProps {
     onStartConversation?: () => void;
@@ -24,6 +26,10 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         const [isRecording, setIsRecording] = useState(false);
         const [connectionStatus, setConnectionStatus] =
             useState("Disconnected");
+
+        // HeyGen references
+        const heyGenRef = useRef<HeyGenInterviewRef>(null);
+        const [heyGenStatus, setHeyGenStatus] = useState("Initializing...");
 
         // Temporarily commented out ElevenLabs conversation
         // const conversation = useConversation({
@@ -142,68 +148,54 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
 
         const startConversation = useCallback(async () => {
             try {
-                console.log("🎤 Interviewer: Requesting audio permissions...");
+                console.log("🎤 Interviewer: Starting HeyGen interview...");
+
+                // Request audio permissions for HeyGen
                 await navigator.mediaDevices.getUserMedia({
                     audio: true,
                 });
                 console.log("✅ Interviewer: Audio permissions granted");
 
+                // Start HeyGen interview
+                await heyGenRef.current?.startInterview();
+                console.log("✅ Interviewer: HeyGen interview started");
+
+                // Speak the greeting
+                await heyGenRef.current?.speakText(
+                    "Hi Noam, how are you today? Are you feeling well or what?"
+                );
+
                 setIsRecording(true);
-                console.log("✅ Interviewer: Audio setup complete");
+                setIsConnected(true);
+                setConnectionStatus("Connected - HeyGen Active");
+                setHeyGenStatus("Speaking greeting...");
+
+                // Notify ChatPanel about recording status
+                window.parent.postMessage(
+                    {
+                        type: "recording-status",
+                        isRecording: true,
+                    },
+                    "*"
+                );
+
+                onStartConversation?.();
             } catch (error) {
-                console.error(
-                    "❌ Failed to start audio or conversation:",
-                    error
-                );
-                setConnectionStatus("Failed to start");
+                console.error("❌ Failed to start HeyGen interview:", error);
+                setConnectionStatus("Failed to start HeyGen");
+                setHeyGenStatus("Connection failed");
             }
-        }, []);
+        }, [onStartConversation]);
 
-        // Temporarily commented out ElevenLabs connectToElevenLabs
-        // const connectToElevenLabs = useCallback(async () => {
-        //     try {
-        //         console.log("Getting signed URL...");
-        //         const signedUrl = await getSignedUrl();
-        //         console.log("Got signed URL:", signedUrl);
-        //         console.log("🎯 Interviewer: Starting ElevenLabs session...");
-        //
-        //         // Remove delay to match test page
-        //         await conversation.startSession({ signedUrl });
-        //         console.log("Session started successfully");
-        //     } catch (error) {
-        //         console.error("Failed to start conversation session:", error);
-        //         if (error instanceof Error) {
-        //             console.error("Error details:", {
-        //                 message: error.message,
-        //                 name: error.name,
-        //                 stack: error.stack,
-        //             });
-        //         }
-        //         setConnectionStatus("Connection failed");
-        //     }
-        // }, [getSignedUrl]);
+        // HeyGen connection is handled in startConversation method
 
-        // Temporary placeholder
-        const connectToElevenLabs = useCallback(async () => {
-            console.log("🎯 Interviewer: Starting HeyGen session (placeholder)...");
-            setConnectionStatus("HeyGen session started");
-        }, []);
-
-        useEffect(() => {
-            if (isRecording) {
-                console.log(
-                    "🔄 isRecording is true, connecting to ElevenLabs..."
-                );
-                connectToElevenLabs();
-            } else {
-                console.log("⏸️ isRecording is false, not connecting");
-            }
-        }, [isRecording]);
+        // HeyGen initialization happens in the startConversation method
+        // No need for automatic connection on isRecording change
 
         const disconnectFromConversation = useCallback(() => {
             console.log("🔌 Disconnecting from conversation...");
 
-            console.log("🔚 Ending ElevenLabs session");
+            console.log("🔚 Ending HeyGen session");
             conversation.endSession();
             setIsRecording(false);
             setIsConnected(false);
@@ -214,6 +206,22 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
 
         const stopConversation = useCallback(async () => {
             console.log("🛑 Stop conversation called");
+
+            try {
+                setHeyGenStatus("Stopping interview...");
+                setConnectionStatus("Disconnecting...");
+
+                await heyGenRef.current?.stopInterview();
+                console.log("✅ HeyGen interview stopped");
+
+                setHeyGenStatus("Interview stopped");
+                setConnectionStatus("Disconnected");
+            } catch (error) {
+                console.error("❌ Error stopping HeyGen interview:", error);
+                setHeyGenStatus("Stop failed");
+                setConnectionStatus("Disconnect failed");
+            }
+
             disconnectFromConversation();
         }, [disconnectFromConversation]);
 
@@ -231,20 +239,52 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
         return (
-            <div className="w-full max-w-4xl mx-auto">
-                <div className="text-center text-gray-400">
-                    <p>
-                        Status:{" "}
-                        <span className="font-semibold text-gray-400">
-                            {conversation.status}
-                        </span>
-                    </p>
-                    <p>
-                        {conversation.status === "connected" &&
-                            (conversation.isSpeaking
-                                ? "Agent is speaking..."
-                                : "Agent is listening...")}
-                    </p>
+            <div className="w-full max-w-4xl mx-auto space-y-4">
+                {/* HeyGen Interview Component - Video and Avatar */}
+                <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                    <HeyGenInterview
+                        ref={heyGenRef}
+                        onVideoReady={() => {
+                            console.log("🎥 HeyGen video is ready");
+                            setHeyGenStatus("Video ready");
+                        }}
+                        onSpeakingStart={() => {
+                            console.log("🎤 HeyGen avatar started speaking");
+                            setHeyGenStatus("Speaking...");
+                        }}
+                        onSpeakingEnd={() => {
+                            console.log("🔇 HeyGen avatar finished speaking");
+                            setHeyGenStatus("Listening...");
+                        }}
+                    />
+                </div>
+
+                {/* Status Display */}
+                <div className="text-center text-gray-400 space-y-2">
+                    <div>
+                        <p className="text-sm">
+                            <span className="font-medium">HeyGen Status:</span>{" "}
+                            <span
+                                className={`font-semibold ${
+                                    connectionStatus.includes("Connected")
+                                        ? "text-green-400"
+                                        : connectionStatus.includes("Failed")
+                                        ? "text-red-400"
+                                        : "text-yellow-400"
+                                }`}
+                            >
+                                {heyGenStatus}
+                            </span>
+                        </p>
+                    </div>
+                    <div>
+                        <p className="text-sm">
+                            <span className="font-medium">Connection:</span>{" "}
+                            <span className="font-semibold text-gray-400">
+                                {connectionStatus}
+                            </span>
+                        </p>
+                    </div>
                 </div>
             </div>
         );

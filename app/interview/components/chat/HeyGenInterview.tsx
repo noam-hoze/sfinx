@@ -173,20 +173,68 @@ const HeyGenInterview = forwardRef<HeyGenInterviewRef, HeyGenInterviewProps>(
                 setStatus("Stopping interview...");
                 console.log("🛑 Stopping HeyGen session");
 
-                // Note: HeyGen SDK might not have a direct stop method
-                // We'll rely on cleanup when component unmounts
+                const avatar = avatarRef.current;
+
+                // Clean up media resources (SDK methods may not be available)
+                console.log("🧹 Cleaning up HeyGen resources...");
+
+                // Clear media stream
+                if (avatar.mediaStream) {
+                    avatar.mediaStream.getTracks().forEach((track) => {
+                        track.stop();
+                        console.log("✅ Media track stopped:", track.kind);
+                    });
+                }
+
+                // Clear video element
+                if (videoRef.current) {
+                    videoRef.current.srcObject = null;
+                    setHasVideo(false);
+                    console.log("✅ Video element cleared");
+                }
 
                 setStatus("Interview stopped");
                 setIsSpeaking(false);
+                setIsInitialized(false);
                 onSpeakingEnd?.();
+
+                console.log("✅ HeyGen interview fully terminated");
             } catch (error) {
                 console.error("❌ Failed to stop interview:", error);
+                // Still try to reset state even if cleanup fails
+                setStatus("Interview stopped (with errors)");
+                setIsSpeaking(false);
+                setIsInitialized(false);
+                onSpeakingEnd?.();
             }
         };
 
         // Initialize HeyGen when component mounts
         useEffect(() => {
             initializeHeyGen();
+
+            // Cleanup when component unmounts
+            return () => {
+                console.log("🧹 Cleaning up HeyGen interview component");
+                if (avatarRef.current) {
+                    try {
+                        // Stop media tracks
+                        if (avatarRef.current.mediaStream) {
+                            avatarRef.current.mediaStream
+                                .getTracks()
+                                .forEach((track) => {
+                                    track.stop();
+                                });
+                        }
+                        // Clear video element
+                        if (videoRef.current) {
+                            videoRef.current.srcObject = null;
+                        }
+                    } catch (error) {
+                        console.warn("⚠️ Error during cleanup:", error);
+                    }
+                }
+            };
         }, []);
 
         // Expose methods to parent component
@@ -198,27 +246,6 @@ const HeyGenInterview = forwardRef<HeyGenInterviewRef, HeyGenInterviewProps>(
 
         return (
             <div className="w-full space-y-4">
-                {/* Status Display */}
-                <div className="text-center">
-                    <p className="text-sm text-gray-600 dark:text-gray-300">
-                        <span className="font-semibold">HeyGen Status:</span>{" "}
-                        <span
-                            className={`font-medium ${
-                                isInitialized
-                                    ? "text-green-600"
-                                    : "text-orange-500"
-                            }`}
-                        >
-                            {status}
-                        </span>
-                    </p>
-                    {isSpeaking && (
-                        <p className="text-sm text-blue-600 mt-1">
-                            🎤 Avatar is speaking...
-                        </p>
-                    )}
-                </div>
-
                 {/* Video Element */}
                 <div className="relative bg-black rounded-lg overflow-hidden">
                     <video
@@ -245,13 +272,6 @@ const HeyGenInterview = forwardRef<HeyGenInterviewRef, HeyGenInterviewProps>(
                             </div>
                         </div>
                     )}
-                </div>
-
-                {/* Debug Info */}
-                <div className="text-xs text-gray-500 space-y-1">
-                    <div>Initialized: {isInitialized ? "✅" : "❌"}</div>
-                    <div>Video Ready: {hasVideo ? "✅" : "❌"}</div>
-                    <div>Speaking: {isSpeaking ? "🎤" : "🔇"}</div>
                 </div>
             </div>
         );
