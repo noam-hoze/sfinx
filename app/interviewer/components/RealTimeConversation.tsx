@@ -16,7 +16,6 @@ const RealTimeConversation: React.FC<RealTimeConversationProps> = ({
     const [isConnected, setIsConnected] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
     const [connectionStatus, setConnectionStatus] = useState("Disconnected");
-    const [isCoding, setIsCoding] = useState(false);
 
     const videoRef = useRef<HTMLVideoElement>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -142,16 +141,6 @@ const RealTimeConversation: React.FC<RealTimeConversationProps> = ({
         }
     }, [isRecording, connectToElevenLabs]);
 
-    // Send contextual updates when coding state changes
-    useEffect(() => {
-        if (isConnected) {
-            const contextualMessage = isCoding
-                ? "The user has started coding and needs to focus. Do not interrupt."
-                : "The user has stopped coding and is ready to talk.";
-            conversation.sendContextualUpdate(contextualMessage);
-        }
-    }, [isCoding, isConnected]);
-
     const disconnectFromConversation = useCallback(() => {
         console.log("🔌 Disconnecting from conversation...");
 
@@ -172,6 +161,7 @@ const RealTimeConversation: React.FC<RealTimeConversationProps> = ({
 
         console.log("🔚 Ending ElevenLabs session");
         conversation.endSession();
+        setIsRecording(false);
         setIsConnected(false);
         setConnectionStatus("Disconnected");
         onEndConversation?.();
@@ -218,16 +208,6 @@ const RealTimeConversation: React.FC<RealTimeConversationProps> = ({
                     className="px-6 py-3 bg-red-600 text-white font-semibold rounded-full shadow-lg hover:bg-red-700 focus:outline-none focus:ring-4 focus:ring-red-400 focus:ring-opacity-50 transition-all duration-300 disabled:bg-gray-500 disabled:cursor-not-allowed"
                 >
                     Stop Interview
-                </button>
-                <button
-                    onClick={() => setIsCoding(!isCoding)}
-                    className={`px-6 py-3 font-semibold rounded-full shadow-lg transition-all duration-300 ${
-                        isCoding
-                            ? "bg-yellow-500 text-black"
-                            : "bg-gray-700 text-white"
-                    }`}
-                >
-                    {isCoding ? "Stop Coding" : "Start Coding"}
                 </button>
             </div>
 
