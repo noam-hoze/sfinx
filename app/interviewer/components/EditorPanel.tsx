@@ -242,10 +242,10 @@ render(Counter);`
                 </div>
                 <button
                     onClick={runCode}
-                    className="px-3 py-1 text-sm bg-electric-blue text-white rounded hover:bg-blue-600 flex items-center"
+                    className="p-2 text-sm bg-orange-500 text-white rounded hover:bg-orange-600 transition-all duration-200 hover:shadow-sm transform hover:scale-[1.02] flex items-center dark:bg-orange-600 dark:hover:bg-orange-700"
+                    title="Run Code"
                 >
-                    <Play className="w-4 h-4 mr-1" />
-                    Run
+                    <Play className="w-4 h-4" />
                 </button>
             </div>
 

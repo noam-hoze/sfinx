@@ -178,7 +178,7 @@ export default UserList;`;
                                     handleInterviewButtonClick("start")
                                 }
                                 disabled={isInterviewActive}
-                                className="px-4 py-2 text-sm font-medium rounded-lg bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 disabled:from-gray-400 disabled:to-gray-500 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02] disabled:hover:scale-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-4 py-2 text-sm font-medium rounded-lg bg-green-100 text-green-800 hover:bg-green-200 disabled:bg-gray-300 disabled:text-gray-500 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02] disabled:hover:scale-100 disabled:opacity-60 disabled:cursor-not-allowed dark:bg-green-900/20 dark:text-green-300 dark:hover:bg-green-800/30"
                                 title="Start Interview"
                             >
                                 Start Interview
@@ -188,7 +188,7 @@ export default UserList;`;
                                     handleInterviewButtonClick("stop")
                                 }
                                 disabled={!isInterviewActive}
-                                className="px-4 py-2 text-sm font-medium rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700 disabled:from-gray-400 disabled:to-gray-500 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02] disabled:hover:scale-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-4 py-2 text-sm font-medium rounded-lg bg-red-100 text-red-800 hover:bg-red-200 disabled:bg-gray-300 disabled:text-gray-500 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02] disabled:hover:scale-100 disabled:opacity-60 disabled:cursor-not-allowed dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-800/30"
                                 title="Stop Interview"
                             >
                                 Stop Interview
@@ -207,7 +207,7 @@ export default UserList;`;
                                     updateAvatarPosition(defaultX, defaultY);
                                     showAvatar();
                                 }}
-                                className="px-4 py-2 text-sm font-medium rounded-lg bg-gradient-to-r from-purple-500 to-purple-600 text-white hover:from-purple-600 hover:to-purple-700 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02]"
+                                className="px-4 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02] dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                                 title="Show Sfinx Avatar"
                             >
                                 Show Sfinx
