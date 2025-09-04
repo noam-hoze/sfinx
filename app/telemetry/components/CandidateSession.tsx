@@ -1,4 +1,6 @@
 import React from "react";
+import VideoPlayer from "./VideoPlayer";
+import TelemetryPanel from "./TelemetryPanel";
 import LearningBanner from "./LearningBanner";
 
 const CandidateSession = () => {
@@ -16,6 +18,11 @@ const CandidateSession = () => {
             </header>
 
             {isLearning && <LearningBanner />}
+
+            <div className="flex flex-col lg:flex-row gap-8">
+                <VideoPlayer />
+                <TelemetryPanel />
+            </div>
         </div>
     );
 };

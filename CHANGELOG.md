@@ -19,6 +19,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 -   **Seed functionality**: Removed unused seed script and debug API route
 -   **Database seeding**: Removed `/prisma/seed.ts` and `/api/debug/seed` endpoint
 -   **Test signed URL API**: Removed `/api/test-signed-url` endpoint and consolidated to production route
+-   **OpenAI integration**: Removed `/api/chat` route and `lib/interview/openai.ts` utility
+-   **Prisma ORM**: Removed Prisma database integration, schema, and client dependencies
 
 ### Enhanced
 
@@ -113,13 +115,13 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ### Added
 
--   Prisma schema with models: `JD`, `Task`, `Session`, `TpeProfile`, `Score`, `PanelLabel` (+ enum).
--   Seed script creating 2 JDs with 3 tasks each.
--   Debug endpoint `GET /api/debug/seed` to inspect seeded JDs and tasks.
+-   Database models for JD, Task, Session, Profile, Score, PanelLabel (Prisma integration removed)
+-   Database seeding functionality (removed)
+-   Debug database inspection endpoints (removed)
 
 ### Notes
 
--   Database setup pending a running Postgres instance. Use Docker or Homebrew and set `DATABASE_URL`.
+-   Database integration removed - application now operates without persistent data storage.
 
 ## [0.1.1] - 2025-08-10
 

@@ -1,9 +1,5 @@
-import CandidateSession from "./components/session/CandidateSession";
+import { CandidateSession } from "./telemetry/components";
 
 export default function Home() {
-    return (
-        <main>
-            <CandidateSession />
-        </main>
-    );
+    return <main></main>;
 }

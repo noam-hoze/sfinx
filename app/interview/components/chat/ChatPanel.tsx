@@ -3,9 +3,8 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { TypeAnimation } from "react-type-animation";
 import { Send, Bot, User } from "lucide-react";
-import { useInterview } from "../../../lib/interview/context";
+import { useInterview, InterviewMessage } from "../../../../lib/interview";
 // Removed OpenAI imports - now using ElevenLabs Conversational AI
-import { InterviewMessage } from "../../../lib/interview/types";
 
 interface Message {
     id: string;

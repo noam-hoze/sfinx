@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { X } from "lucide-react";
 import AvatarDisplay from "./AvatarDisplay";
-import { useInterview } from "../../../lib/interview/context";
+import { useInterview } from "../../../../lib/interview";
 
 const AvatarManager: React.FC = () => {
     const {

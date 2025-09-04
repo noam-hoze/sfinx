@@ -3,11 +3,14 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { Moon, Sun } from "lucide-react";
-import EditorPanel from "./components/EditorPanel";
-import RealTimeConversation from "./components/RealTimeConversation";
-import { InterviewProvider, useInterview } from "../../lib/interview/context";
-import { BUGGY_COUNTER_CODE } from "../../lib/interview/types";
-import AvatarManager from "../components/avatar/AvatarManager";
+import EditorPanel from "./editor/EditorPanel";
+import RealTimeConversation from "./chat/RealTimeConversation";
+import {
+    InterviewProvider,
+    useInterview,
+    BUGGY_COUNTER_CODE,
+} from "../../../lib/interview";
+import AvatarManager from "./avatar/AvatarManager";
 
 const InterviewerContent = () => {
     const { state, getCurrentTask, showAvatar, updateAvatarPosition } =
@@ -277,7 +280,7 @@ render(UserList);`;
     );
 };
 
-const AIInterviewerSession = () => {
+const InterviewSession = () => {
     return (
         <InterviewProvider>
             <InterviewerContent />
@@ -285,4 +288,4 @@ const AIInterviewerSession = () => {
     );
 };
 
-export default AIInterviewerSession;
+export default InterviewSession;
