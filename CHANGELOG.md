@@ -14,6 +14,11 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 -   **TTS API Route**: `/api/tts` endpoint for text-to-speech conversion
 -   **Voice Configuration**: Customizable voice settings and model parameters
 
+### Removed
+
+-   **Seed functionality**: Removed unused seed script and debug API route
+-   **Database seeding**: Removed `/prisma/seed.ts` and `/api/debug/seed` endpoint
+
 ### Enhanced
 
 -   **Audio Integration**: Seamless TTS playback in chat interface

@@ -9,7 +9,6 @@ import React, {
     useImperativeHandle,
 } from "react";
 import { useConversation } from "@elevenlabs/react";
-import { Mic, MicOff, Phone, PhoneOff } from "lucide-react";
 
 interface RealTimeConversationProps {
     onStartConversation?: () => void;
@@ -25,7 +24,6 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
 
         const videoRef = useRef<HTMLVideoElement>(null);
         const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-        const recordedChunksRef = useRef<Blob[]>([]);
 
         const conversation = useConversation({
             onConnect: () => {

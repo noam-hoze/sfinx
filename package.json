@@ -8,8 +8,7 @@
         "start": "next start",
         "lint": "next lint",
         "test": "vitest run",
-        "db:migrate": "prisma migrate dev --name init || true",
-        "db:seed": "ts-node --transpile-only prisma/seed.ts || echo 'No seed yet'"
+        "db:migrate": "prisma migrate dev --name init || true"
     },
     "dependencies": {
         "@babel/parser": "^7.25.0",
