@@ -161,25 +161,34 @@ render(UserList);`;
     return (
         <div className="h-screen flex flex-col bg-soft-white text-deep-slate dark:bg-gray-900 dark:text-white">
             {/* Header */}
-            <header className="border-b border-gray-200/50 dark:border-gray-700/50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl px-6 py-5">
-                <div className="flex items-center justify-between">
-                    {/* Left Section - Title */}
-                    <div>
-                        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white tracking-tight">
+            <header className="border-b border-gray-200/30 dark:border-gray-700/30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl px-3 py-1">
+                <div className="flex items-center justify-between max-w-8xl mx-auto">
+                    {/* Left Section - Logo */}
+                    <div className="flex items-center">
+                        <img
+                            src="/sfinx-logo.png"
+                            alt="Sfinx Logo"
+                            className="h-20 w-auto"
+                        />
+                    </div>
+
+                    {/* Center Section - Title */}
+                    <div className="flex-1 flex justify-center items-center">
+                        <h1 className="text-xl font-medium text-gray-900 dark:text-white tracking-tight">
                             Front-end Developer Interview
                         </h1>
                     </div>
 
                     {/* Right Section - Controls */}
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-4">
                         {/* Interview Control Buttons */}
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-3">
                             <button
                                 onClick={() =>
                                     handleInterviewButtonClick("start")
                                 }
                                 disabled={isInterviewActive}
-                                className="px-4 py-2 text-sm font-medium rounded-lg bg-green-100 text-green-800 hover:bg-green-200 disabled:bg-gray-300 disabled:text-gray-500 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02] disabled:hover:scale-100 disabled:opacity-60 disabled:cursor-not-allowed dark:bg-green-900/20 dark:text-green-300 dark:hover:bg-green-800/30"
+                                className="px-4 py-2 text-sm font-medium rounded-full bg-green-50 text-green-700 hover:bg-green-100 disabled:bg-gray-100 disabled:text-gray-400 transition-all duration-200 hover:shadow-sm disabled:hover:shadow-none disabled:cursor-not-allowed dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20"
                                 title="Start Interview"
                             >
                                 Start Interview
@@ -189,7 +198,7 @@ render(UserList);`;
                                     handleInterviewButtonClick("stop")
                                 }
                                 disabled={!isInterviewActive}
-                                className="px-4 py-2 text-sm font-medium rounded-lg bg-red-100 text-red-800 hover:bg-red-200 disabled:bg-gray-300 disabled:text-gray-500 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02] disabled:hover:scale-100 disabled:opacity-60 disabled:cursor-not-allowed dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-800/30"
+                                className="px-4 py-2 text-sm font-medium rounded-full bg-red-50 text-red-700 hover:bg-red-100 disabled:bg-gray-100 disabled:text-gray-400 transition-all duration-200 hover:shadow-sm disabled:hover:shadow-none disabled:cursor-not-allowed dark:bg-red-900/10 dark:text-red-400 dark:hover:bg-red-900/20"
                                 title="Stop Interview"
                             >
                                 Stop Interview
@@ -208,7 +217,7 @@ render(UserList);`;
                                     updateAvatarPosition(defaultX, defaultY);
                                     showAvatar();
                                 }}
-                                className="px-4 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02] dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                                className="px-4 py-2 text-sm font-medium rounded-full bg-gray-50 text-gray-700 hover:bg-gray-100 transition-all duration-200 hover:shadow-sm dark:bg-gray-800/50 dark:text-gray-300 dark:hover:bg-gray-700/70"
                                 title="Show Sfinx Avatar"
                             >
                                 Show Sfinx
@@ -216,7 +225,7 @@ render(UserList);`;
                         )}
                         <button
                             onClick={toggleTheme}
-                            className="p-2 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105"
+                            className="p-2.5 rounded-full bg-gray-50 dark:bg-gray-800/50 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/70 transition-all duration-200 hover:shadow-sm"
                             title={
                                 isDarkMode
                                     ? "Switch to Light Mode"
@@ -234,7 +243,7 @@ render(UserList);`;
             </header>
 
             {/* Main Content Area */}
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden mt-6">
                 <PanelGroup direction="horizontal">
                     {/* Middle Panel - Editor */}
                     <Panel defaultSize={70} minSize={50}>
@@ -260,19 +269,34 @@ render(UserList);`;
 
                     {/* Right Panel - Voice Controls & Transcription */}
                     <Panel defaultSize={30} minSize={25}>
-                        <div className="h-full flex flex-col">
+                        <div className="h-full flex flex-col border-t">
                             {/* Voice Controls (Top Quarter - 25%) */}
-                            <div className="flex-[1] border-b border-gray-200 dark:border-gray-700">
-                                <RealTimeConversation
-                                    ref={realTimeConversationRef}
-                                    isInterviewActive={isInterviewActive}
-                                    onStartConversation={() =>
-                                        console.log("Conversation started")
-                                    }
-                                    onEndConversation={() =>
-                                        console.log("Conversation ended")
-                                    }
-                                />
+                            <div className="flex-[1] flex flex-col bg-white dark:bg-gray-800">
+                                {/* Header */}
+                                <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-2">
+                                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                                                Interviewer Status
+                                            </h3>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Status Content */}
+                                <div className="flex-1 p-4">
+                                    <RealTimeConversation
+                                        ref={realTimeConversationRef}
+                                        isInterviewActive={isInterviewActive}
+                                        onStartConversation={() =>
+                                            console.log("Conversation started")
+                                        }
+                                        onEndConversation={() =>
+                                            console.log("Conversation ended")
+                                        }
+                                    />
+                                </div>
                             </div>
 
                             {/* Transcription Display (Bottom Three Quarters - 75%) */}

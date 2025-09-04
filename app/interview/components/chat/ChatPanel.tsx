@@ -58,7 +58,7 @@ const ChatPanel = () => {
                     <div className="flex items-center space-x-2">
                         <MessageSquare className="w-5 h-5 text-blue-600" />
                         <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                            Voice Transcription
+                            Chat
                         </h3>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -78,10 +78,10 @@ const ChatPanel = () => {
                         <div className="text-center text-gray-500 dark:text-gray-400 mt-8">
                             <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
                             <p className="text-sm">
-                                Voice conversation will appear here
+                                Your chat will appear here
                             </p>
                             <p className="text-xs mt-1">
-                                Start speaking to begin transcription
+                                Start interview to begin 
                             </p>
                         </div>
                     ) : (
