@@ -13,10 +13,14 @@ import AnimatedWaveform from "./AnimatedWaveform";
 interface RealTimeConversationProps {
     onStartConversation?: () => void;
     onEndConversation?: () => void;
+    isInterviewActive?: boolean;
 }
 
 const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
-    ({ onStartConversation, onEndConversation }, ref) => {
+    (
+        { onStartConversation, onEndConversation, isInterviewActive = false },
+        ref
+    ) => {
         const [isConnected, setIsConnected] = useState(false);
         const [isRecording, setIsRecording] = useState(false);
         const [connectionStatus, setConnectionStatus] =
@@ -209,7 +213,10 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             <div className="w-full max-w-4xl mx-auto">
                 <div className="text-center text-gray-400">
                     {/* Animated waveform indicator */}
-                    <AnimatedWaveform isSpeaking={conversation.isSpeaking} />
+                    <AnimatedWaveform
+                        isSpeaking={conversation.isSpeaking}
+                        isInterviewActive={isInterviewActive}
+                    />
 
                     <p>
                         Status:{" "}

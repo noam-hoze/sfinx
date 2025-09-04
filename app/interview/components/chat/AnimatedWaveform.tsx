@@ -4,9 +4,13 @@ import React from "react";
 
 interface AnimatedWaveformProps {
     isSpeaking: boolean;
+    isInterviewActive?: boolean;
 }
 
-const AnimatedWaveform = ({ isSpeaking }: AnimatedWaveformProps) => {
+const AnimatedWaveform = ({
+    isSpeaking,
+    isInterviewActive = false,
+}: AnimatedWaveformProps) => {
     // Create a more dynamic waveform pattern
     const barHeights = [12, 20, 28, 20, 12, 16, 24, 16];
 
@@ -16,15 +20,25 @@ const AnimatedWaveform = ({ isSpeaking }: AnimatedWaveformProps) => {
                 <div
                     key={index}
                     className={`w-1 rounded-full transition-all duration-300 ${
-                        isSpeaking
+                        !isInterviewActive
+                            ? "bg-gray-400 dark:bg-gray-500"
+                            : isSpeaking
                             ? "bg-electric-blue animate-pulse"
-                            : "bg-gray-300 dark:bg-gray-600"
+                            : "bg-blue-300 dark:bg-blue-400"
                     }`}
                     style={{
                         height: `${height}px`,
-                        opacity: isSpeaking ? 0.9 : 0.4,
-                        animationDelay: isSpeaking ? `${index * 0.15}s` : "0s",
-                        animationDuration: isSpeaking ? "0.8s" : "0s",
+                        opacity: !isInterviewActive
+                            ? 0.3
+                            : isSpeaking
+                            ? 0.9
+                            : 0.6,
+                        animationDelay:
+                            isInterviewActive && isSpeaking
+                                ? `${index * 0.15}s`
+                                : "0s",
+                        animationDuration:
+                            isInterviewActive && isSpeaking ? "0.8s" : "0s",
                     }}
                 />
             ))}

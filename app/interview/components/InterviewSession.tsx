@@ -265,6 +265,7 @@ render(UserList);`;
                             <div className="flex-1 border-b border-gray-200 dark:border-gray-700">
                                 <RealTimeConversation
                                     ref={realTimeConversationRef}
+                                    isInterviewActive={isInterviewActive}
                                     onStartConversation={() =>
                                         console.log("Conversation started")
                                     }
