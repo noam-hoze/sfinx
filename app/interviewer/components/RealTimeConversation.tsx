@@ -199,19 +199,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
 
         return (
             <div className="w-full max-w-4xl mx-auto">
-                <div className="relative aspect-video bg-gray-900 rounded-2xl shadow-2xl overflow-hidden">
-                    {/* User's Video Feed */}
-                    <video
-                        ref={videoRef}
-                        autoPlay
-                        muted
-                        className={`absolute right-0 bottom-0 w-1/4 h-auto bg-black rounded-lg border-2 border-gray-700 shadow-md transition-opacity duration-300 ${
-                            isRecording ? "opacity-100" : "opacity-0"
-                        }`}
-                    />
-                </div>
-
-                <div className="text-center mt-4 text-gray-400">
+                <div className="text-center text-gray-400">
                     <p>
                         Status:{" "}
                         <span className="font-semibold text-gray-400">
