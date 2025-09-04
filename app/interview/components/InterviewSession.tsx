@@ -261,8 +261,8 @@ render(UserList);`;
                     {/* Right Panel - Voice Controls & Transcription */}
                     <Panel defaultSize={30} minSize={25}>
                         <div className="h-full flex flex-col">
-                            {/* Voice Controls (Top Half) */}
-                            <div className="flex-1 border-b border-gray-200 dark:border-gray-700">
+                            {/* Voice Controls (Top Quarter - 25%) */}
+                            <div className="flex-[1] border-b border-gray-200 dark:border-gray-700">
                                 <RealTimeConversation
                                     ref={realTimeConversationRef}
                                     isInterviewActive={isInterviewActive}
@@ -275,8 +275,8 @@ render(UserList);`;
                                 />
                             </div>
 
-                            {/* Transcription Display (Bottom Half) */}
-                            <div className="flex-1">
+                            {/* Transcription Display (Bottom Three Quarters - 75%) */}
+                            <div className="flex-[3] h-full overflow-hidden">
                                 <ChatPanel />
                             </div>
                         </div>

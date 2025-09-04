@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { MessageSquare, Mic, MicOff } from "lucide-react";
 
 interface TranscriptionMessage {
@@ -15,6 +15,7 @@ const ChatPanel = () => {
         TranscriptionMessage[]
     >([]);
     const [isRecording, setIsRecording] = useState(false);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
 
     // Listen for transcription events from RealTimeConversation
     useEffect(() => {
@@ -39,6 +40,16 @@ const ChatPanel = () => {
         return () => window.removeEventListener("message", handleTranscription);
     }, []);
 
+    // Auto-scroll to bottom when new messages arrive (smooth)
+    useEffect(() => {
+        if (messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTo({
+                top: messagesContainerRef.current.scrollHeight,
+                behavior: "smooth",
+            });
+        }
+    }, [transcriptions]);
+
     return (
         <div className="h-full flex flex-col bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
             {/* Header */}
@@ -60,50 +71,52 @@ const ChatPanel = () => {
                 </div>
             </div>
 
-            {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                {transcriptions.length === 0 ? (
-                    <div className="text-center text-gray-500 dark:text-gray-400 mt-8">
-                        <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">
-                            Voice conversation will appear here
-                        </p>
-                        <p className="text-xs mt-1">
-                            Start speaking to begin transcription
-                        </p>
-                    </div>
-                ) : (
-                    transcriptions.map((message) => (
-                        <div
-                            key={message.id}
-                            className={`flex ${
-                                message.speaker === "user"
-                                    ? "justify-end"
-                                    : "justify-start"
-                            }`}
-                        >
+            {/* Messages Area - Simple scrollable container */}
+            <div ref={messagesContainerRef} className="flex-1 overflow-y-auto">
+                <div className="p-4 space-y-3">
+                    {transcriptions.length === 0 ? (
+                        <div className="text-center text-gray-500 dark:text-gray-400 mt-8">
+                            <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm">
+                                Voice conversation will appear here
+                            </p>
+                            <p className="text-xs mt-1">
+                                Start speaking to begin transcription
+                            </p>
+                        </div>
+                    ) : (
+                        transcriptions.map((message) => (
                             <div
-                                className={`max-w-xs lg:max-w-md px-3 py-2 rounded-lg text-sm ${
+                                key={message.id}
+                                className={`flex ${
                                     message.speaker === "user"
-                                        ? "bg-blue-600 text-white"
-                                        : "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
+                                        ? "justify-end"
+                                        : "justify-start"
                                 }`}
                             >
-                                <div className="flex items-center space-x-2 mb-1">
-                                    <span className="text-xs opacity-75">
-                                        {message.speaker === "ai"
-                                            ? "AI"
-                                            : "You"}
+                                <div
+                                    className={`max-w-xs lg:max-w-md px-3 py-2 rounded-lg text-sm ${
+                                        message.speaker === "user"
+                                            ? "bg-blue-600 text-white"
+                                            : "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
+                                    }`}
+                                >
+                                    <div className="flex items-center space-x-2 mb-1">
+                                        <span className="text-xs opacity-75">
+                                            {message.speaker === "ai"
+                                                ? "AI"
+                                                : "You"}
+                                        </span>
+                                    </div>
+                                    <p>{message.text}</p>
+                                    <span className="text-xs opacity-50 mt-1 block">
+                                        {message.timestamp.toLocaleTimeString()}
                                     </span>
                                 </div>
-                                <p>{message.text}</p>
-                                <span className="text-xs opacity-50 mt-1 block">
-                                    {message.timestamp.toLocaleTimeString()}
-                                </span>
                             </div>
-                        </div>
-                    ))
-                )}
+                        ))
+                    )}
+                </div>
             </div>
 
             {/* Footer */}
