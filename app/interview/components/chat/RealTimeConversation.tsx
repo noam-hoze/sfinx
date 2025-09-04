@@ -7,7 +7,11 @@ import React, {
     forwardRef,
     useImperativeHandle,
 } from "react";
-import { useConversation } from "@elevenlabs/react";
+// import { useConversation } from "@elevenlabs/react"; // Temporarily commented out
+import StreamingAvatar, {
+    TaskType,
+    AvatarQuality,
+} from "@heygen/streaming-avatar";
 
 interface RealTimeConversationProps {
     onStartConversation?: () => void;
@@ -21,104 +25,119 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         const [connectionStatus, setConnectionStatus] =
             useState("Disconnected");
 
-        const conversation = useConversation({
-            onConnect: () => {
-                console.log("✅ Connected to Eleven Labs");
-                setIsConnected(true);
-                setConnectionStatus("Connected");
+        // Temporarily commented out ElevenLabs conversation
+        // const conversation = useConversation({
+        //     onConnect: () => {
+        //         console.log("✅ Connected to Eleven Labs");
+        //         setIsConnected(true);
+        //         setConnectionStatus("Connected");
+        //
+        //         // Notify ChatPanel about recording status
+        //         window.parent.postMessage(
+        //             {
+        //                 type: "recording-status",
+        //                 isRecording: true,
+        //             },
+        //             "*"
+        //         );
+        //
+        //         onStartConversation?.();
+        //     },
+        //     onDisconnect: (event) => {
+        //         console.log("❌ Disconnected from Eleven Labs:", event);
+        //         setIsConnected(false);
+        //         setConnectionStatus("Disconnected");
+        //
+        //         // Notify ChatPanel about recording status
+        //         window.parent.postMessage(
+        //             {
+        //                 type: "recording-status",
+        //                 isRecording: false,
+        //             },
+        //             "*"
+        //         );
+        //
+        //         onEndConversation?.();
+        //     },
+        //     onMessage: (message) => {
+        //         console.log("📨 Message:", message);
+        //
+        //         // Send transcription data to ChatPanel
+        //         if (message.message) {
+        //             window.parent.postMessage(
+        //                 {
+        //                     type: "transcription",
+        //                     text: message.message,
+        //                     speaker: message.source === "user" ? "user" : "ai",
+        //                     timestamp: new Date(),
+        //                 },
+        //                 "*"
+        //             );
+        //         }
+        //     },
+        //     onError: (error: any) => {
+        //         console.error("🚨 Interviewer: Eleven Labs error:", error);
+        //         console.error("🚨 Interviewer: Error type:", typeof error);
+        //         console.error(
+        //             "🚨 Interviewer: Error properties:",
+        //             Object.keys(error)
+        //         );
+        //
+        //         // Handle WebSocket CloseEvent specifically
+        //         if (error && typeof error === "object" && "code" in error) {
+        //             console.error(
+        //                 "🚨 Interviewer: WebSocket Close Code:",
+        //                 error.code
+        //             );
+        //             console.error(
+        //                 "🚨 Interviewer: WebSocket Reason:",
+        //                 error.reason
+        //             );
+        //             setConnectionStatus(
+        //                 `WebSocket closed: ${error.reason} (Code: ${error.code})`
+        //             );
+        //         } else {
+        //             setConnectionStatus("Connection Error");
+        //         }
+        //     },
+        // });
 
-                // Notify ChatPanel about recording status
-                window.parent.postMessage(
-                    {
-                        type: "recording-status",
-                        isRecording: true,
-                    },
-                    "*"
-                );
+        // Temporary placeholder for conversation
+        const conversation = {
+            status: "disconnected",
+            isSpeaking: false,
+            startSession: () => Promise.resolve(),
+            endSession: () => {},
+        };
 
-                onStartConversation?.();
-            },
-            onDisconnect: (event) => {
-                console.log("❌ Disconnected from Eleven Labs:", event);
-                setIsConnected(false);
-                setConnectionStatus("Disconnected");
+        // Temporarily commented out ElevenLabs getSignedUrl
+        // const getSignedUrl = useCallback(async (): Promise<string> => {
+        //     console.log("🔗 Interviewer: Fetching signed URL...");
+        //     const response = await fetch("/api/convai");
+        //     console.log("🔗 Interviewer: Response status:", response.status);
+        //
+        //     if (!response.ok) {
+        //         const errorText = await response.text();
+        //         console.error("🔗 Interviewer: Error response:", errorText);
+        //         throw new Error(
+        //             `Failed to get signed url: ${response.statusText} - ${errorText}`
+        //         );
+        //     }
+        //
+        //     const data = await response.json();
+        //     console.log("🔗 Interviewer: Response data:", data);
+        //     console.log("🔗 Interviewer: Signed URL:", data.signedUrl);
+        //
+        //     if (!data.signedUrl) {
+        //         throw new Error("No signedUrl in response");
+        //     }
+        //
+        //     return data.signedUrl;
+        // }, []);
 
-                // Notify ChatPanel about recording status
-                window.parent.postMessage(
-                    {
-                        type: "recording-status",
-                        isRecording: false,
-                    },
-                    "*"
-                );
-
-                onEndConversation?.();
-            },
-            onMessage: (message) => {
-                console.log("📨 Message:", message);
-
-                // Send transcription data to ChatPanel
-                if (message.message) {
-                    window.parent.postMessage(
-                        {
-                            type: "transcription",
-                            text: message.message,
-                            speaker: message.source === "user" ? "user" : "ai",
-                            timestamp: new Date(),
-                        },
-                        "*"
-                    );
-                }
-            },
-            onError: (error: any) => {
-                console.error("🚨 Interviewer: Eleven Labs error:", error);
-                console.error("🚨 Interviewer: Error type:", typeof error);
-                console.error(
-                    "🚨 Interviewer: Error properties:",
-                    Object.keys(error)
-                );
-
-                // Handle WebSocket CloseEvent specifically
-                if (error && typeof error === "object" && "code" in error) {
-                    console.error(
-                        "🚨 Interviewer: WebSocket Close Code:",
-                        error.code
-                    );
-                    console.error(
-                        "🚨 Interviewer: WebSocket Reason:",
-                        error.reason
-                    );
-                    setConnectionStatus(
-                        `WebSocket closed: ${error.reason} (Code: ${error.code})`
-                    );
-                } else {
-                    setConnectionStatus("Connection Error");
-                }
-            },
-        });
-
+        // Temporary placeholder
         const getSignedUrl = useCallback(async (): Promise<string> => {
-            console.log("🔗 Interviewer: Fetching signed URL...");
-            const response = await fetch("/api/convai");
-            console.log("🔗 Interviewer: Response status:", response.status);
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error("🔗 Interviewer: Error response:", errorText);
-                throw new Error(
-                    `Failed to get signed url: ${response.statusText} - ${errorText}`
-                );
-            }
-
-            const data = await response.json();
-            console.log("🔗 Interviewer: Response data:", data);
-            console.log("🔗 Interviewer: Signed URL:", data.signedUrl);
-
-            if (!data.signedUrl) {
-                throw new Error("No signedUrl in response");
-            }
-
-            return data.signedUrl;
+            return "placeholder-url"; // This won't be used
         }, []);
 
         const startConversation = useCallback(async () => {
@@ -140,28 +159,35 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             }
         }, []);
 
-        const connectToElevenLabs = useCallback(async () => {
-            try {
-                console.log("Getting signed URL...");
-                const signedUrl = await getSignedUrl();
-                console.log("Got signed URL:", signedUrl);
-                console.log("🎯 Interviewer: Starting ElevenLabs session...");
+        // Temporarily commented out ElevenLabs connectToElevenLabs
+        // const connectToElevenLabs = useCallback(async () => {
+        //     try {
+        //         console.log("Getting signed URL...");
+        //         const signedUrl = await getSignedUrl();
+        //         console.log("Got signed URL:", signedUrl);
+        //         console.log("🎯 Interviewer: Starting ElevenLabs session...");
+        //
+        //         // Remove delay to match test page
+        //         await conversation.startSession({ signedUrl });
+        //         console.log("Session started successfully");
+        //     } catch (error) {
+        //         console.error("Failed to start conversation session:", error);
+        //         if (error instanceof Error) {
+        //             console.error("Error details:", {
+        //                 message: error.message,
+        //                 name: error.name,
+        //                 stack: error.stack,
+        //             });
+        //         }
+        //         setConnectionStatus("Connection failed");
+        //     }
+        // }, [getSignedUrl]);
 
-                // Remove delay to match test page
-                await conversation.startSession({ signedUrl });
-                console.log("Session started successfully");
-            } catch (error) {
-                console.error("Failed to start conversation session:", error);
-                if (error instanceof Error) {
-                    console.error("Error details:", {
-                        message: error.message,
-                        name: error.name,
-                        stack: error.stack,
-                    });
-                }
-                setConnectionStatus("Connection failed");
-            }
-        }, [getSignedUrl]);
+        // Temporary placeholder
+        const connectToElevenLabs = useCallback(async () => {
+            console.log("🎯 Interviewer: Starting HeyGen session (placeholder)...");
+            setConnectionStatus("HeyGen session started");
+        }, []);
 
         useEffect(() => {
             if (isRecording) {
