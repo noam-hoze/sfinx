@@ -59,9 +59,14 @@ const HeyGenInterview = forwardRef<HeyGenInterviewRef, HeyGenInterviewProps>(
                 setStatus("Connecting to HeyGen...");
                 console.log("🚀 Initializing HeyGen avatar");
 
-                // Use API key directly
-                const apiKey =
-                    "Mjk4ZjE3NzA3YWNhNDNmNmEwYzcwODdlOTBjYzZlYTMtMTc1MTY1MjMxMQ==";
+                // Use API key from environment
+                const apiKey = process.env.HEYGEN_API_KEY;
+
+                if (!apiKey) {
+                    throw new Error(
+                        "HEYGEN_API_KEY environment variable is not set"
+                    );
+                }
 
                 // Create HeyGen avatar instance
                 const avatar = new StreamingAvatar({ token: apiKey });

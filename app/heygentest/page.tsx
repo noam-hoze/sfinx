@@ -33,13 +33,18 @@ export default function HeyGenTestPage() {
         try {
             setStatus("Initializing SDK...");
 
-            // 1) Use API key directly (server-side approach)
-            const apiKey =
-                "Mjk4ZjE3NzA3YWNhNDNmNmEwYzcwODdlOTBjYzZlYTMtMTc1MTY1MjMxMQ==";
+            // 1) Use API key from environment
+            const apiKey = process.env.HEYGEN_API_KEY;
+
+            if (!apiKey) {
+                throw new Error(
+                    "HEYGEN_API_KEY environment variable is not set"
+                );
+            }
 
             console.log("Initializing SDK with API key");
 
-            // 2) Create the SDK with API key directly
+            // 2) Create the SDK with API key from environment
             const avatar = new StreamingAvatar({ token: apiKey });
             avatarRef.current = avatar;
 
