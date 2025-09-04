@@ -160,7 +160,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                 await heyGenRef.current?.startInterview();
                 console.log("✅ Interviewer: HeyGen interview started");
 
-                // Speak the greeting
+                // Speak the greeting - HeyGen will handle transcription events
                 await heyGenRef.current?.speakText(
                     "Hi Noam, how are you today? Are you feeling well or what?"
                 );
@@ -188,6 +188,8 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         }, [onStartConversation]);
 
         // HeyGen connection is handled in startConversation method
+
+        // HeyGen provides transcription through events - no Web Speech API needed
 
         // HeyGen initialization happens in the startConversation method
         // No need for automatic connection on isRecording change
@@ -255,6 +257,26 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                         onSpeakingEnd={() => {
                             console.log("🔇 HeyGen avatar finished speaking");
                             setHeyGenStatus("Listening...");
+                        }}
+                        onTranscription={(text: string) => {
+                            console.log(
+                                "📝 HeyGen transcription received in RealTimeConversation:",
+                                text
+                            );
+                            console.log("📝 Sending to ChatPanel...");
+
+                            const messageData = {
+                                type: "transcription",
+                                text: text.trim(),
+                                speaker: "ai", // HeyGen is the AI speaking
+                                timestamp: new Date(),
+                            };
+
+                            console.log("📝 Message data:", messageData);
+
+                            // Send transcription to ChatPanel
+                            window.parent.postMessage(messageData, "*");
+                            console.log("📝 postMessage sent to ChatPanel");
                         }}
                     />
                 </div>

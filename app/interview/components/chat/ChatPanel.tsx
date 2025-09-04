@@ -19,14 +19,28 @@ const ChatPanel = () => {
     // Listen for transcription events from RealTimeConversation
     useEffect(() => {
         const handleTranscription = (event: MessageEvent) => {
+            console.log("💬 ChatPanel received message:", event.data);
+
             if (event.data.type === "transcription") {
+                console.log("💬 Processing transcription:", event.data.text);
                 const newTranscription: TranscriptionMessage = {
                     id: Date.now().toString(),
                     text: event.data.text,
                     speaker: event.data.speaker || "user",
                     timestamp: new Date(),
                 };
-                setTranscriptions((prev) => [...prev, newTranscription]);
+                console.log(
+                    "💬 Adding transcription to chat:",
+                    newTranscription
+                );
+                setTranscriptions((prev) => {
+                    const newTranscriptions = [...prev, newTranscription];
+                    console.log(
+                        "💬 Transcriptions updated, count:",
+                        newTranscriptions.length
+                    );
+                    return newTranscriptions;
+                });
             }
 
             // Handle recording status updates

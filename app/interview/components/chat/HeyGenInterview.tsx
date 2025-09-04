@@ -16,6 +16,7 @@ interface HeyGenInterviewProps {
     onVideoReady?: () => void;
     onSpeakingStart?: () => void;
     onSpeakingEnd?: () => void;
+    onTranscription?: (text: string) => void;
 }
 
 export interface HeyGenInterviewRef {
@@ -25,7 +26,10 @@ export interface HeyGenInterviewRef {
 }
 
 const HeyGenInterview = forwardRef<HeyGenInterviewRef, HeyGenInterviewProps>(
-    ({ onVideoReady, onSpeakingStart, onSpeakingEnd }, ref) => {
+    (
+        { onVideoReady, onSpeakingStart, onSpeakingEnd, onTranscription },
+        ref
+    ) => {
         const [isInitialized, setIsInitialized] = useState(false);
         const [isSpeaking, setIsSpeaking] = useState(false);
         const [status, setStatus] = useState("Initializing...");
@@ -63,7 +67,53 @@ const HeyGenInterview = forwardRef<HeyGenInterviewRef, HeyGenInterviewProps>(
                 const avatar = new StreamingAvatar({ token: apiKey });
                 avatarRef.current = avatar;
 
-                console.log("✅ HeyGen SDK initialized");
+                // Set up HeyGen event listeners for transcription
+                avatar.on("avatar_start_talking", (event: any) => {
+                    console.log("🎤 HeyGen avatar started speaking");
+                    setIsSpeaking(true);
+                    onSpeakingStart?.();
+                });
+
+                avatar.on("avatar_stop_talking", (event: any) => {
+                    console.log("🔇 HeyGen avatar stopped speaking");
+                    setIsSpeaking(false);
+                    onSpeakingEnd?.();
+                });
+
+                avatar.on("avatar_talking_message", (event: any) => {
+                    console.log(
+                        "📝 HeyGen transcription event received:",
+                        event
+                    );
+                    console.log("📝 Event detail:", event.detail);
+                    console.log("📝 Message content:", event.detail?.message);
+                    console.log("📝 Task ID:", event.detail?.task_id);
+
+                    // Try different possible paths for the message content
+                    const message =
+                        event.detail?.message ||
+                        event.detail?.text ||
+                        event.message;
+
+                    if (message && onTranscription) {
+                        console.log(
+                            "📝 Calling onTranscription callback with:",
+                            message
+                        );
+                        onTranscription(message);
+                    } else {
+                        console.warn(
+                            "📝 No message found in event. Event detail:",
+                            event.detail
+                        );
+                    }
+                });
+
+                avatar.on("avatar_end_message", (event: any) => {
+                    console.log("✋ HeyGen finished speaking message");
+                });
+
+                console.log("✅ HeyGen SDK initialized with event listeners");
 
                 setStatus("Avatar ready");
                 setIsInitialized(true);
