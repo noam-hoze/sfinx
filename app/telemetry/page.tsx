@@ -23,17 +23,20 @@ export default function TelemetryPage() {
     return (
         <div className="h-screen bg-gray-50 overflow-hidden">
             <div className="max-w-7xl mx-auto p-4 h-full">
-                {/* Minimal Header */}
-                <div className="mb-8 text-center">
-                    <h1 className="text-2xl font-semibold text-gray-800 tracking-tight">
-                        Candidate Telemetry
-                    </h1>
-                </div>
+                {/* 2x2 Grid Layout */}
+                <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] xl:grid-rows-[auto_1fr] gap-4 xl:gap-6 h-[calc(100vh-2rem)]">
+                    {/* Cell 0 - Empty (top-left) */}
+                    <div className="hidden xl:block"></div>
 
-                {/* Main Content - Left: Analytics Panels, Right: Video */}
-                <div className="flex flex-col xl:flex-row gap-4 xl:gap-6 h-[calc(100vh-8rem)]">
-                    {/* Left Side - Analytics Panels + Behavioral Graphs */}
-                    <div className="w-full xl:w-80 xl:flex-shrink-0 order-2 xl:order-1">
+                    {/* Cell 1 - Candidate Telemetry (top-right) */}
+                    <div className="text-center xl:text-center xl:flex xl:items-center xl:justify-center">
+                        <h1 className="text-2xl font-semibold text-gray-800 tracking-tight">
+                            Candidate Profile Story
+                        </h1>
+                    </div>
+
+                    {/* Cell 2 - Left Panel (bottom-left) */}
+                    <div className="w-full xl:w-auto">
                         {/* Candidate Profile - Minimal Apple Style */}
                         <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 mb-4 shadow-sm">
                             <div className="flex items-center justify-between">
@@ -124,8 +127,8 @@ export default function TelemetryPage() {
                         </div>
                     </div>
 
-                    {/* Right Side - Evidence Reel (Main Focus) */}
-                    <div className="flex-1 xl:max-w-4xl mx-auto xl:mx-0 order-1 xl:order-2 h-full">
+                    {/* Cell 3 - Video (bottom-right) */}
+                    <div className="w-full xl:w-auto h-full">
                         <EvidenceReel
                             chapters={chapters}
                             evidence={evidence}
