@@ -3,9 +3,10 @@ import { GapAnalysis as GapAnalysisType } from "../../../lib/interview/types";
 
 interface GapAnalysisProps {
     gaps: GapAnalysisType;
+    onVideoJump: (timestamp: number) => void;
 }
 
-const GapAnalysis: React.FC<GapAnalysisProps> = ({ gaps }) => {
+const GapAnalysis: React.FC<GapAnalysisProps> = ({ gaps, onVideoJump }) => {
     const getGapIcon = (severity: string) => {
         switch (severity) {
             case "Critical":
@@ -93,6 +94,33 @@ const GapAnalysis: React.FC<GapAnalysisProps> = ({ gaps }) => {
                                 <p className="text-gray-700 text-sm leading-relaxed">
                                     {gap.description}
                                 </p>
+
+                                {/* Video Evidence Links */}
+                                {gap.evidenceLinks &&
+                                    gap.evidenceLinks.length > 0 && (
+                                        <div className="flex gap-1 mt-2">
+                                            {gap.evidenceLinks.map(
+                                                (timestamp, index) => (
+                                                    <button
+                                                        key={index}
+                                                        onClick={() =>
+                                                            onVideoJump(
+                                                                timestamp
+                                                            )
+                                                        }
+                                                        className="w-6 h-6 flex items-center justify-center text-xs font-medium text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all duration-200"
+                                                        title={`Jump to ${Math.floor(
+                                                            timestamp / 60
+                                                        )}:${(timestamp % 60)
+                                                            .toString()
+                                                            .padStart(2, "0")}`}
+                                                    >
+                                                        {index + 1}
+                                                    </button>
+                                                )
+                                            )}
+                                        </div>
+                                    )}
                             </div>
                         </div>
                     </div>

@@ -109,6 +109,7 @@ export interface GapAnalysis {
         severity: "Critical" | "Major" | "Minor";
         description: string;
         color: "red" | "yellow" | "green";
+        evidenceLinks?: number[];
     }[];
 }
 
@@ -142,22 +143,26 @@ export interface WorkstyleMetrics {
         value: number; // 0-100
         level: "High" | "Moderate" | "Low";
         color: "blue" | "yellow" | "red";
+        evidenceLinks?: number[]; // Array of video timestamps
     };
     debugLoops: {
         value: number; // 0-100
         level: "Fast" | "Moderate" | "Slow";
         color: "blue" | "yellow" | "red";
+        evidenceLinks?: number[];
     };
     refactorCleanups: {
         value: number; // 0-100
         level: "Strong" | "Moderate" | "Weak";
         color: "blue" | "yellow" | "red";
+        evidenceLinks?: number[];
     };
     aiAssistUsage: {
         value: number; // 0-100
         level: "Minimal" | "Moderate" | "High";
         color: "white" | "yellow" | "red";
         isFairnessFlag: boolean;
+        evidenceLinks?: number[];
     };
 }
 

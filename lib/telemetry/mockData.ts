@@ -22,11 +22,13 @@ export const galGaps: GapAnalysis = {
             severity: "Minor",
             description: "Inconsistent CSS naming conventions",
             color: "yellow",
+            evidenceLinks: [85, 145, 220], // Multiple instances of naming issues
         },
         {
             severity: "Minor",
             description: "Limited test coverage for edge cases",
             color: "yellow",
+            evidenceLinks: [95, 185], // Two instances of testing gaps
         },
     ],
 };
@@ -172,22 +174,26 @@ export const galWorkstyle: WorkstyleMetrics = {
         value: 85,
         level: "High",
         color: "blue",
+        evidenceLinks: [45, 75, 120, 135], // 4 examples - very iterative
     },
     debugLoops: {
         value: 90,
         level: "Fast",
         color: "blue",
+        evidenceLinks: [170, 190], // 2 examples - efficient debugging
     },
     refactorCleanups: {
         value: 88,
         level: "Strong",
         color: "blue",
+        evidenceLinks: [210, 255, 300, 315, 330], // 5 examples - thorough cleanup
     },
     aiAssistUsage: {
         value: 15,
         level: "Minimal",
         color: "white",
         isFairnessFlag: false,
+        evidenceLinks: [30], // 1 example - minimal usage
     },
 };
 

@@ -3,10 +3,12 @@ import { WorkstyleMetrics } from "../../../lib/interview/types";
 
 interface WorkstyleDashboardProps {
     workstyle: WorkstyleMetrics;
+    onVideoJump: (timestamp: number) => void;
 }
 
 const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
     workstyle,
+    onVideoJump,
 }) => {
     const getColorClass = (color: string) => {
         switch (color) {
@@ -91,6 +93,31 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                                 ></div>
                             </div>
                         </div>
+
+                        {/* Video Evidence Links */}
+                        {metric.data.evidenceLinks &&
+                            metric.data.evidenceLinks.length > 0 && (
+                                <div className="flex gap-1 mt-2">
+                                    {metric.data.evidenceLinks.map(
+                                        (timestamp, index) => (
+                                            <button
+                                                key={index}
+                                                onClick={() =>
+                                                    onVideoJump(timestamp)
+                                                }
+                                                className="w-6 h-6 flex items-center justify-center text-xs font-medium text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all duration-200"
+                                                title={`Jump to ${Math.floor(
+                                                    timestamp / 60
+                                                )}:${(timestamp % 60)
+                                                    .toString()
+                                                    .padStart(2, "0")}`}
+                                            >
+                                                {index + 1}
+                                            </button>
+                                        )
+                                    )}
+                                </div>
+                            )}
                     </div>
                 ))}
             </div>
@@ -106,20 +133,6 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                     </div>
                     <p className="text-xs text-yellow-700 mt-1">
                         High AI assistance usage may impact evaluation fairness
-                    </p>
-                </div>
-            )}
-
-            {!workstyle.aiAssistUsage.isFairnessFlag && (
-                <div className="mt-6 p-3 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="flex items-center gap-2 text-green-800">
-                        <span className="text-lg">✅</span>
-                        <span className="text-sm font-medium">
-                            Clean Session
-                        </span>
-                    </div>
-                    <p className="text-xs text-green-700 mt-1">
-                        No fairness concerns detected
                     </p>
                 </div>
             )}

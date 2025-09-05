@@ -91,8 +91,14 @@ export default function TelemetryPage() {
                         <div className="space-y-3 max-h-[calc(100vh-18rem)] overflow-y-auto border-t border-l border-r border-white/40 border-b-2 border-b-white/60 rounded-2xl bg-white/20 backdrop-blur-sm p-3 shadow-sm">
                             {activeTab === "benchmarks" && (
                                 <div className="space-y-3 animate-in slide-in-from-right-2 duration-300">
-                                    <WorkstyleDashboard workstyle={workstyle} />
-                                    <GapAnalysis gaps={gaps} />
+                                    <WorkstyleDashboard
+                                        workstyle={workstyle}
+                                        onVideoJump={onVideoJump}
+                                    />
+                                    <GapAnalysis
+                                        gaps={gaps}
+                                        onVideoJump={onVideoJump}
+                                    />
                                 </div>
                             )}
 
