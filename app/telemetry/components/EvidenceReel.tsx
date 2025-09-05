@@ -1,7 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { VideoChapter, EvidenceClip } from "../../../lib/interview/types";
+import {
+    VideoChapter,
+    EvidenceClip,
+    VideoCaption,
+} from "../../../lib/interview/types";
 import { formatTime, formatDuration } from "../../../lib/telemetry/mockData";
 
 interface EvidenceReelProps {
@@ -79,6 +83,29 @@ const EvidenceReel: React.FC<EvidenceReelProps> = ({
         }
     };
 
+    // Find current caption based on video time
+    const getCurrentCaption = (): VideoCaption | null => {
+        const currentChapter = chapters.find(
+            (chapter) =>
+                currentTime >= chapter.startTime &&
+                currentTime < chapter.endTime
+        );
+
+        if (currentChapter?.captions) {
+            return (
+                currentChapter.captions.find(
+                    (caption) =>
+                        currentTime >= caption.startTime &&
+                        currentTime < caption.endTime
+                ) || null
+            );
+        }
+
+        return null;
+    };
+
+    const currentCaption = getCurrentCaption();
+
     return (
         <div className="bg-white rounded-xl shadow-xl border border-gray-300 overflow-hidden">
             {/* Video Player Section */}
@@ -154,6 +181,17 @@ const EvidenceReel: React.FC<EvidenceReelProps> = ({
                             >
                                 <div className="w-0 h-0 border-l-[16px] border-l-white border-t-[10px] border-t-transparent border-b-[10px] border-b-transparent ml-1"></div>
                             </button>
+                        </div>
+                    )}
+
+                    {/* Video Caption Overlay */}
+                    {currentCaption && (
+                        <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-20">
+                            <div className="bg-white/10 backdrop-blur-md rounded-2xl px-6 py-3 border border-white/20 shadow-2xl">
+                                <p className="text-white text-sm font-medium tracking-wide opacity-90">
+                                    {currentCaption.text}
+                                </p>
+                            </div>
                         </div>
                     )}
                 </div>

@@ -16,9 +16,12 @@ interface PersistenceFlowProps {
 
 const PersistenceFlow: React.FC<PersistenceFlowProps> = ({ onVideoJump }) => {
     const data = [
-        { name: "Attempt #1", attempts: 1, timestamp: 75, color: "#ef4444" },
-        { name: "Attempt #2", attempts: 2, timestamp: 165, color: "#f97316" },
-        { name: "Attempt #3", attempts: 3, timestamp: 260, color: "#22c55e" },
+        { name: "0:30", attempts: 1, timestamp: 30, color: "#ef4444" }, // First quick attempt - failed
+        { name: "1:15", attempts: 2, timestamp: 75, color: "#ef4444" }, // Second attempt - still struggling
+        { name: "2:00", attempts: 3, timestamp: 120, color: "#f97316" }, // Third attempt - better but not there
+        { name: "2:45", attempts: 4, timestamp: 165, color: "#f97316" }, // Fourth - learning from mistakes
+        { name: "3:30", attempts: 5, timestamp: 210, color: "#eab308" }, // Fifth - breakthrough approaching
+        { name: "4:20", attempts: 6, timestamp: 260, color: "#22c55e" }, // Sixth - finally got it!
     ];
 
     const handleBarClick = (data: any) => {
@@ -41,7 +44,10 @@ const PersistenceFlow: React.FC<PersistenceFlowProps> = ({ onVideoJump }) => {
                         dataKey="name"
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fontSize: 10, fill: "#6b7280" }}
+                        tick={{ fontSize: 9, fill: "#9ca3af", fontWeight: 500 }}
+                        interval={0}
+                        angle={0}
+                        textAnchor="middle"
                     />
                     <YAxis hide />
                     <Bar
@@ -61,7 +67,7 @@ const PersistenceFlow: React.FC<PersistenceFlowProps> = ({ onVideoJump }) => {
                 </BarChart>
             </ResponsiveContainer>
             <div className="text-xs text-gray-500 text-center mt-1">
-                Gal tried 3 approaches before success
+                Gal tried 6 approaches - persistence pays off!
             </div>
         </div>
     );

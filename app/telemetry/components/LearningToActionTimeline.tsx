@@ -18,9 +18,15 @@ const LearningToActionTimeline: React.FC<LearningToActionTimelineProps> = ({
     onVideoJump,
 }) => {
     const data = [
-        { time: "Research", value: 1, timestamp: 90, color: "#3b82f6" },
-        { time: "Implement", value: 2, timestamp: 120, color: "#eab308" },
-        { time: "Success", value: 3, timestamp: 270, color: "#22c55e" },
+        { time: "0:00", value: 0.8, timestamp: 0, color: "#3b82f6" }, // Initial research
+        { time: "0:45", value: 0.5, timestamp: 45, color: "#3b82f6" }, // Got confused, stepped back
+        { time: "1:30", value: 1.2, timestamp: 90, color: "#3b82f6" }, // Found some direction
+        { time: "2:15", value: 0.9, timestamp: 135, color: "#eab308" }, // Hit implementation wall
+        { time: "2:45", value: 1.8, timestamp: 165, color: "#eab308" }, // Breakthrough after debugging
+        { time: "3:30", value: 1.4, timestamp: 210, color: "#eab308" }, // Refactoring needed
+        { time: "4:15", value: 2.3, timestamp: 255, color: "#22c55e" }, // Clean implementation
+        { time: "5:00", value: 2.7, timestamp: 300, color: "#22c55e" }, // Final polish
+        { time: "5:30", value: 3, timestamp: 330, color: "#22c55e" }, // Success!
     ];
 
     const CustomDot = (props: any) => {
@@ -53,7 +59,10 @@ const LearningToActionTimeline: React.FC<LearningToActionTimelineProps> = ({
                         dataKey="time"
                         axisLine={false}
                         tickLine={false}
-                        tick={{ fontSize: 10, fill: "#6b7280" }}
+                        tick={{ fontSize: 9, fill: "#9ca3af", fontWeight: 500 }}
+                        interval={0}
+                        angle={0}
+                        textAnchor="middle"
                     />
                     <YAxis hide />
                     <Line

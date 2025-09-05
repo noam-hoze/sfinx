@@ -121,6 +121,12 @@ export interface EvidenceClip {
     startTime?: number; // for chapter navigation
 }
 
+export interface VideoCaption {
+    text: string;
+    startTime: number;
+    endTime: number;
+}
+
 export interface VideoChapter {
     id: string;
     title: string;
@@ -128,6 +134,7 @@ export interface VideoChapter {
     endTime: number; // in seconds
     description: string;
     thumbnailUrl?: string;
+    captions?: VideoCaption[];
 }
 
 export interface WorkstyleMetrics {

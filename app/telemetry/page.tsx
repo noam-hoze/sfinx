@@ -20,45 +20,45 @@ export default function TelemetryPage() {
     return (
         <div className="min-h-screen bg-gray-50">
             <div className="max-w-7xl mx-auto p-4">
-                {/* Header - Name, Score, Confidence */}
-                <div className="mb-6">
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 max-w-4xl mx-auto">
-                        <div className="flex items-center gap-4">
-                            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xl">
-                                {candidate.name.charAt(0)}
-                            </div>
-                            <div>
-                                <h1 className="text-3xl font-bold text-gray-900">
-                                    {candidate.name}
-                                </h1>
-                                <p className="text-gray-600 text-lg">
-                                    Candidate Profile Story
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-8">
-                            <div className="text-center">
-                                <div className="text-4xl font-bold text-blue-600 mb-1">
-                                    {candidate.matchScore}%
-                                </div>
-                                <div className="text-sm text-gray-600 font-medium">
-                                    MatchScore
-                                </div>
-                            </div>
-
-                            <div className="inline-block px-6 py-3 rounded-full border text-base font-semibold bg-green-50 border-green-200 text-green-700">
-                                High Confidence
-                            </div>
-                        </div>
-                    </div>
+                {/* Minimal Header */}
+                <div className="mb-8 text-center">
+                    <h1 className="text-2xl font-semibold text-gray-800 tracking-tight">
+                        Candidate Telemetry
+                    </h1>
                 </div>
 
                 {/* Main Content - Left: Analytics Panels, Right: Video */}
                 <div className="flex flex-col xl:flex-row gap-4 xl:gap-6">
                     {/* Left Side - Analytics Panels + Behavioral Graphs */}
                     <div className="w-full xl:w-80 xl:flex-shrink-0 order-2 xl:order-1">
-                        <div className="space-y-3 max-h-[calc(100vh-12rem)] overflow-y-auto">
+                        {/* Candidate Profile - Minimal Apple Style */}
+                        <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 mb-4 shadow-sm">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
+                                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                                    </div>
+                                    <div>
+                                        <h2 className="text-lg font-medium text-gray-900">
+                                            {candidate.name}
+                                        </h2>
+                                        <p className="text-sm text-gray-600">
+                                            Software Engineer
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-2xl font-semibold text-blue-600">
+                                        {candidate.matchScore}%
+                                    </div>
+                                    <div className="text-xs text-gray-500 font-medium">
+                                        Match Score
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 max-h-[calc(100vh-16rem)] overflow-y-auto">
                             <GapAnalysis gaps={gaps} />
                             <WorkstyleDashboard workstyle={workstyle} />
 

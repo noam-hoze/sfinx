@@ -68,6 +68,23 @@ export const galChapters: VideoChapter[] = [
         description:
             "Initial setup, task briefing, and environment configuration",
         thumbnailUrl: "/mock/chapter1.jpg",
+        captions: [
+            {
+                text: "Setting up development environment",
+                startTime: 5,
+                endTime: 20,
+            },
+            {
+                text: "Reviewing project requirements",
+                startTime: 25,
+                endTime: 40,
+            },
+            {
+                text: "Exploring codebase structure",
+                startTime: 45,
+                endTime: 65,
+            },
+        ],
     },
     {
         id: "chapter2",
@@ -77,6 +94,24 @@ export const galChapters: VideoChapter[] = [
         description:
             "Building the UserList component with API integration and styling",
         thumbnailUrl: "/mock/chapter2.jpg",
+        captions: [
+            {
+                text: "Planning component architecture",
+                startTime: 80,
+                endTime: 95,
+            },
+            {
+                text: "Implementing API data fetching",
+                startTime: 100,
+                endTime: 115,
+            },
+            {
+                text: "Adding loading and error states",
+                startTime: 120,
+                endTime: 135,
+            },
+            { text: "Styling responsive layout", startTime: 140, endTime: 155 },
+        ],
     },
     {
         id: "chapter3",
@@ -86,6 +121,28 @@ export const galChapters: VideoChapter[] = [
         description:
             "Debugging the state management issue in the Counter component",
         thumbnailUrl: "/mock/chapter3.jpg",
+        captions: [
+            {
+                text: "Analyzing counter behavior",
+                startTime: 170,
+                endTime: 185,
+            },
+            {
+                text: "Identifying state management issue",
+                startTime: 190,
+                endTime: 205,
+            },
+            {
+                text: "Implementing fix for counter logic",
+                startTime: 210,
+                endTime: 225,
+            },
+            {
+                text: "Testing solution thoroughly",
+                startTime: 230,
+                endTime: 245,
+            },
+        ],
     },
     {
         id: "chapter4",
@@ -94,6 +151,19 @@ export const galChapters: VideoChapter[] = [
         endTime: 330, // 5:30
         description: "Final testing, code cleanup, and session wrap-up",
         thumbnailUrl: "/mock/chapter4.jpg",
+        captions: [
+            {
+                text: "Running comprehensive tests",
+                startTime: 265,
+                endTime: 280,
+            },
+            {
+                text: "Code cleanup and optimization",
+                startTime: 285,
+                endTime: 300,
+            },
+            { text: "Final code review", startTime: 305, endTime: 320 },
+        ],
     },
 ];
 
