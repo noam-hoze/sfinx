@@ -83,10 +83,16 @@ const EvidenceReel: React.FC<EvidenceReelProps> = ({
         <div className="bg-white rounded-xl shadow-xl border border-gray-300 overflow-hidden">
             {/* Video Player Section */}
             <div className="relative">
-                <div className="aspect-video bg-black relative">
+                <div
+                    className="aspect-video bg-black relative cursor-pointer"
+                    onClick={handlePlayPause}
+                >
                     <video
                         ref={videoRef}
                         className="w-full h-full object-cover"
+                        controls={false}
+                        preload="metadata"
+                        playsInline
                         onTimeUpdate={(e) => {
                             const video = e.target as HTMLVideoElement;
                             const newTime = Math.floor(video.currentTime);
@@ -98,7 +104,8 @@ const EvidenceReel: React.FC<EvidenceReelProps> = ({
                                 // Update active chapter based on current time
                                 const currentChapter = chapters.find(
                                     (chapter) =>
-                                        video.currentTime >= chapter.startTime &&
+                                        video.currentTime >=
+                                            chapter.startTime &&
                                         video.currentTime < chapter.endTime
                                 );
                                 if (
@@ -113,7 +120,22 @@ const EvidenceReel: React.FC<EvidenceReelProps> = ({
                         onPause={() => setIsPlaying(false)}
                         onLoadedMetadata={(e) => {
                             const video = e.target as HTMLVideoElement;
-                            // Could update total duration here if needed
+                            console.log(
+                                "Video loaded:",
+                                video.duration,
+                                "seconds"
+                            );
+                        }}
+                        onError={(e) => {
+                            const video = e.target as HTMLVideoElement;
+                            console.error("Video error:", video.error);
+                            console.error("Video src:", video.currentSrc);
+                        }}
+                        onLoadStart={() => {
+                            console.log("Video load started");
+                        }}
+                        onCanPlay={() => {
+                            console.log("Video can play");
                         }}
                     >
                         <source src="/gal-interview.mp4" type="video/mp4" />
@@ -122,14 +144,15 @@ const EvidenceReel: React.FC<EvidenceReelProps> = ({
 
                     {/* Custom Play/Pause Overlay */}
                     {!isPlaying && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/10 backdrop-blur-[2px]">
                             <button
-                                onClick={handlePlayPause}
-                                className="w-20 h-20 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white transition-all duration-200 hover:scale-110 shadow-lg"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handlePlayPause();
+                                }}
+                                className="w-16 h-16 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-all duration-300 ease-out hover:scale-105 shadow-2xl shadow-black/20 backdrop-blur-sm border border-white/10"
                             >
-                                <span className="text-3xl ml-1">
-                                    ▶️
-                                </span>
+                                <div className="w-0 h-0 border-l-[16px] border-l-white border-t-[10px] border-t-transparent border-b-[10px] border-b-transparent ml-1"></div>
                             </button>
                         </div>
                     )}
@@ -140,11 +163,16 @@ const EvidenceReel: React.FC<EvidenceReelProps> = ({
                     <div className="flex items-center justify-between mb-3">
                         <button
                             onClick={handlePlayPause}
-                            className="w-12 h-12 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white transition-all duration-200 hover:scale-105 shadow-lg"
+                            className="w-10 h-10 bg-white/15 hover:bg-white/25 rounded-full flex items-center justify-center text-white transition-all duration-300 ease-out hover:scale-105 shadow-xl shadow-black/10 backdrop-blur-sm border border-white/5"
                         >
-                            <span className="text-lg">
-                                {isPlaying ? "⏸️" : "▶️"}
-                            </span>
+                            {isPlaying ? (
+                                <div className="flex gap-0.5">
+                                    <div className="w-1 h-4 bg-white rounded-sm"></div>
+                                    <div className="w-1 h-4 bg-white rounded-sm"></div>
+                                </div>
+                            ) : (
+                                <div className="w-0 h-0 border-l-[8px] border-l-white border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent ml-0.5"></div>
+                            )}
                         </button>
 
                         <div className="flex-1 mx-4">
@@ -207,7 +235,7 @@ const EvidenceReel: React.FC<EvidenceReelProps> = ({
                                 <button
                                     key={chapter.id}
                                     onClick={() => handleChapterClick(chapter)}
-                                    className={`flex-shrink-0 p-2 rounded-lg text-xs text-left transition-all duration-200 min-w-[100px] ${
+                                    className={`flex-shrink-0 p-2 rounded-lg text-xs text-left transition-all duration-300 ease-out min-w-[100px] ${
                                         activeChapter === chapter.id
                                             ? "bg-blue-600 text-white shadow-lg"
                                             : "bg-white/10 text-white/80 hover:bg-white/20 hover:shadow-md"
