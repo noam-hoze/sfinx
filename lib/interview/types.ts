@@ -19,6 +19,8 @@ export interface InterviewState {
     avatarVisible: boolean;
     avatarPosition: { x: number; y: number };
     isAvatarSpeaking: boolean;
+    // Editor state
+    currentCode: string;
 }
 
 export interface InterviewMessage {

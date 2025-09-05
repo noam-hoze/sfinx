@@ -27,6 +27,8 @@ const initialState: InterviewState = {
         y: 100,
     },
     isAvatarSpeaking: false,
+    // Editor state
+    currentCode: "",
 };
 
 function interviewReducer(
@@ -109,6 +111,12 @@ function interviewReducer(
                 isAvatarSpeaking: false,
             };
 
+        case "UPDATE_CURRENT_CODE":
+            return {
+                ...state,
+                currentCode: action.payload,
+            };
+
         default:
             return state;
     }
@@ -185,6 +193,10 @@ export function useInterview() {
         dispatch({ type: "STOP_AVATAR_SPEAKING" });
     };
 
+    const updateCurrentCode = (code: string) => {
+        dispatch({ type: "UPDATE_CURRENT_CODE", payload: code });
+    };
+
     return {
         state,
         startInterview,
@@ -197,5 +209,6 @@ export function useInterview() {
         updateAvatarPosition,
         startAvatarSpeaking,
         stopAvatarSpeaking,
+        updateCurrentCode,
     };
 }

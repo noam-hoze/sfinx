@@ -8,6 +8,7 @@ import React, {
     useImperativeHandle,
 } from "react";
 import { useConversation } from "@elevenlabs/react";
+import { useInterview } from "../../../../lib/interview";
 import AnimatedWaveform from "./AnimatedWaveform";
 
 interface RealTimeConversationProps {
@@ -25,6 +26,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         const [isRecording, setIsRecording] = useState(false);
         const [connectionStatus, setConnectionStatus] =
             useState("Disconnected");
+        const { state } = useInterview();
 
         const conversation = useConversation({
             onConnect: () => {
@@ -177,7 +179,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             } else {
                 console.log("⏸️ isRecording is false, not connecting");
             }
-        }, [isRecording, connectToElevenLabs]);
+        }, [isRecording]);
 
         const disconnectFromConversation = useCallback(() => {
             console.log("🔌 Disconnecting from conversation...");
@@ -196,26 +198,56 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             disconnectFromConversation();
         }, [disconnectFromConversation]);
 
-        // Removed broken sendCodeUpdate - use conversation.sendContextualUpdate instead
-
         // Minimal test function - exactly as requested
-        const testSendMessage = useCallback(async () => {
+        const testSendMessage = async () => {
             try {
-                console.log("🧪 Testing Eleven Labs message sending...");
-                await conversation.sendContextualUpdate(
-                    "I'm 62 years old"
-                );
-                console.log("✅ sendContextualUpdate completed");
+                if (conversation.status !== "connected") {
+                    console.warn("⏳ Not connected yet; skipping KB update.");
+                    return;
+                }
+
+                const kb = {
+                    current_code_summary: state.currentCode,
+                };
+
+                const text = `KB_UPDATE: ${JSON.stringify(kb)}`;
+
+                // Use sendContextualUpdate (primary method)
+                await conversation.sendContextualUpdate(text);
+
+                console.log("✅ KB_UPDATE sent:", kb.current_code_summary);
             } catch (error) {
-                console.error("❌ Error testing message send:", error);
+                console.error("❌ Error sending KB_UPDATE:", error);
             }
-        }, [conversation]);
+        };
+
+        // Optional: one-shot verifier
+        const askAboutCode = async () => {
+            try {
+                if (conversation.status !== "connected") {
+                    console.warn("⏳ Not connected yet; skipping question.");
+                    return;
+                }
+
+                // Use sendUserMessage if available, otherwise skip
+                if (typeof conversation.sendUserMessage === "function") {
+                    await conversation.sendUserMessage(
+                        "What does the code I just sent do?"
+                    );
+                } else {
+                    console.warn("⚠️ sendUserMessage not available");
+                }
+            } catch (error) {
+                console.error("❌ Error asking about code:", error);
+            }
+        };
 
         // Expose methods to parent component
         useImperativeHandle(ref, () => ({
             startConversation,
             stopConversation,
-            testSendMessage, // Only working method
+            testSendMessage, // KB_UPDATE sender
+            askAboutCode, // Code question asker
         }));
 
         // Cleanup on unmount

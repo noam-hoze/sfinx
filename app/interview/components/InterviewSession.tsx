@@ -16,14 +16,18 @@ import {
 import AvatarManager from "./avatar/AvatarManager";
 
 const InterviewerContent = () => {
-    const { state, getCurrentTask, showAvatar, updateAvatarPosition } =
-        useInterview();
+    const {
+        state,
+        getCurrentTask,
+        showAvatar,
+        updateAvatarPosition,
+        updateCurrentCode,
+    } = useInterview();
     const searchParams = useSearchParams();
     const companyLogo = searchParams.get("logo") || "/meta-logo.png";
     const [showDiff, setShowDiff] = useState(false);
     const [originalCode, setOriginalCode] = useState("");
     const [modifiedCode, setModifiedCode] = useState("");
-    const [currentCode, setCurrentCode] = useState(getInitialCode());
     const [isDarkMode, setIsDarkMode] = useState(false);
     const [availableTabs, setAvailableTabs] = useState<
         Array<"editor" | "preview">
@@ -58,10 +62,19 @@ const InterviewerContent = () => {
 
     const handleTestMessage = useCallback(async () => {
         try {
-            console.log("🧪 Testing Eleven Labs message sending...");
+            console.log("🧪 Testing Eleven Labs KB_UPDATE sending...");
             await realTimeConversationRef.current?.testSendMessage();
         } catch (error) {
             console.error("Failed to test message:", error);
+        }
+    }, []);
+
+    const handleAskAboutCode = useCallback(async () => {
+        try {
+            console.log("🤖 Asking agent about the code...");
+            await realTimeConversationRef.current?.askAboutCode();
+        } catch (error) {
+            console.error("Failed to ask about code:", error);
         }
     }, []);
 
@@ -85,15 +98,22 @@ const UserList = () => {
 render(UserList);`;
     }
 
+    // Initialize code on first load
+    useEffect(() => {
+        if (!state.currentCode) {
+            updateCurrentCode(getInitialCode());
+        }
+    }, []);
+
     // Update code when task changes
     useEffect(() => {
         const currentTask = getCurrentTask();
         if (currentTask?.id === "task2-counter-debug") {
-            setCurrentCode(BUGGY_COUNTER_CODE);
+            updateCurrentCode(BUGGY_COUNTER_CODE);
         } else if (currentTask?.id === "task1-userlist") {
-            setCurrentCode(getInitialCode());
+            updateCurrentCode(getInitialCode());
         }
-    }, [state.currentTaskId, getCurrentTask]);
+    }, [state.currentTaskId, getCurrentTask, updateCurrentCode]);
 
     // Load theme preference and apply to document
     useEffect(() => {
@@ -126,11 +146,11 @@ render(UserList);`;
     };
 
     const handleCodeChange = (code: string) => {
-        setCurrentCode(code);
+        updateCurrentCode(code);
     };
 
     const handleApplyChanges = () => {
-        setCurrentCode(modifiedCode);
+        updateCurrentCode(modifiedCode);
         setShowDiff(false);
     };
 
@@ -167,9 +187,9 @@ render(UserList);`;
 
     const updateCodeForTask = (taskId: string) => {
         if (taskId === "task2-counter-debug") {
-            setCurrentCode(BUGGY_COUNTER_CODE);
+            updateCurrentCode(BUGGY_COUNTER_CODE);
         } else if (taskId === "task1-userlist") {
-            setCurrentCode(getInitialCode());
+            updateCurrentCode(getInitialCode());
         }
     };
 
@@ -228,9 +248,17 @@ render(UserList);`;
                                 onClick={handleTestMessage}
                                 disabled={!isInterviewActive}
                                 className="px-4 py-2 text-sm font-medium rounded-full bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:bg-gray-100 disabled:text-gray-400 transition-all duration-200 hover:shadow-sm disabled:hover:shadow-none disabled:cursor-not-allowed dark:bg-blue-900/10 dark:text-blue-400 dark:hover:bg-blue-900/20"
-                                title="Test Message Sending"
+                                title="Send KB_UPDATE"
                             >
-                                Test Message
+                                Send KB Update
+                            </button>
+                            <button
+                                onClick={handleAskAboutCode}
+                                disabled={!isInterviewActive}
+                                className="px-4 py-2 text-sm font-medium rounded-full bg-purple-50 text-purple-700 hover:bg-purple-100 disabled:bg-gray-100 disabled:text-gray-400 transition-all duration-200 hover:shadow-sm disabled:hover:shadow-none disabled:cursor-not-allowed dark:bg-purple-900/10 dark:text-purple-400 dark:hover:bg-purple-900/20"
+                                title="Ask About Code"
+                            >
+                                Ask About Code
                             </button>
                         </div>
 
@@ -281,7 +309,7 @@ render(UserList);`;
                                 showDiff={showDiff}
                                 originalCode={originalCode}
                                 modifiedCode={modifiedCode}
-                                currentCode={currentCode}
+                                currentCode={state.currentCode}
                                 onCodeChange={handleCodeChange}
                                 onApplyChanges={handleApplyChanges}
                                 onRejectChanges={handleRejectChanges}
