@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { Moon, Sun } from "lucide-react";
 import EditorPanel from "./editor/EditorPanel";
@@ -16,6 +17,8 @@ import AvatarManager from "./avatar/AvatarManager";
 const InterviewerContent = () => {
     const { state, getCurrentTask, showAvatar, updateAvatarPosition } =
         useInterview();
+    const searchParams = useSearchParams();
+    const companyLogo = searchParams.get("logo") || "/meta-logo.png";
     const [showDiff, setShowDiff] = useState(false);
     const [originalCode, setOriginalCode] = useState("");
     const [modifiedCode, setModifiedCode] = useState("");
@@ -166,8 +169,8 @@ render(UserList);`;
                     {/* Left Section - Logo */}
                     <div className="flex items-center">
                         <img
-                            src="/meta-logo.png"
-                            alt="Meta Logo"
+                            src={companyLogo}
+                            alt="Company Logo"
                             className="h-20 w-auto"
                         />
                     </div>

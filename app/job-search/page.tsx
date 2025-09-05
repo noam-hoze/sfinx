@@ -178,12 +178,15 @@ export default function JobSearchPage() {
                                 </div>
                             );
 
-                            return isMeta ? (
-                                <Link key={company.id} href="/interview">
+                            return (
+                                <Link
+                                    key={company.id}
+                                    href={`/interview?logo=${encodeURIComponent(
+                                        company.logo
+                                    )}`}
+                                >
                                     {CompanyCard}
                                 </Link>
-                            ) : (
-                                CompanyCard
                             );
                         }
                     )}
