@@ -227,25 +227,6 @@ render(UserList);`;
                                 Stop Interview
                             </button>
                         </div>
-
-                        {!state.avatarVisible && (
-                            <button
-                                onClick={() => {
-                                    // Reset to default position when showing
-                                    const defaultX =
-                                        typeof window !== "undefined"
-                                            ? window.innerWidth - 400
-                                            : 800;
-                                    const defaultY = 100;
-                                    updateAvatarPosition(defaultX, defaultY);
-                                    showAvatar();
-                                }}
-                                className="px-4 py-2 text-sm font-medium rounded-full bg-gray-50 text-gray-700 hover:bg-gray-100 transition-all duration-200 hover:shadow-sm dark:bg-gray-800/50 dark:text-gray-300 dark:hover:bg-gray-700/70"
-                                title="Show Sfinx Avatar"
-                            >
-                                Show Sfinx
-                            </button>
-                        )}
                         <button
                             onClick={toggleTheme}
                             className="p-2.5 rounded-full bg-gray-50 dark:bg-gray-800/50 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/70 transition-all duration-200 hover:shadow-sm"
