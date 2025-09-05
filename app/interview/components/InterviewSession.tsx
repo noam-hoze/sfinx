@@ -60,24 +60,6 @@ const InterviewerContent = () => {
         []
     );
 
-    const handleTestMessage = useCallback(async () => {
-        try {
-            console.log("🧪 Testing Eleven Labs KB_UPDATE sending...");
-            await realTimeConversationRef.current?.testSendMessage();
-        } catch (error) {
-            console.error("Failed to test message:", error);
-        }
-    }, []);
-
-    const handleAskAboutCode = useCallback(async () => {
-        try {
-            console.log("🤖 Asking agent about the code...");
-            await realTimeConversationRef.current?.askAboutCode();
-        } catch (error) {
-            console.error("Failed to ask about code:", error);
-        }
-    }, []);
-
     function getInitialCode(): string {
         return `// Welcome to your coding interview!
 // Create a UserList component that fetches users from an API
@@ -243,22 +225,6 @@ render(UserList);`;
                                 title="Stop Interview"
                             >
                                 Stop Interview
-                            </button>
-                            <button
-                                onClick={handleTestMessage}
-                                disabled={!isInterviewActive}
-                                className="px-4 py-2 text-sm font-medium rounded-full bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:bg-gray-100 disabled:text-gray-400 transition-all duration-200 hover:shadow-sm disabled:hover:shadow-none disabled:cursor-not-allowed dark:bg-blue-900/10 dark:text-blue-400 dark:hover:bg-blue-900/20"
-                                title="Send KB_UPDATE"
-                            >
-                                Send KB Update
-                            </button>
-                            <button
-                                onClick={handleAskAboutCode}
-                                disabled={!isInterviewActive}
-                                className="px-4 py-2 text-sm font-medium rounded-full bg-purple-50 text-purple-700 hover:bg-purple-100 disabled:bg-gray-100 disabled:text-gray-400 transition-all duration-200 hover:shadow-sm disabled:hover:shadow-none disabled:cursor-not-allowed dark:bg-purple-900/10 dark:text-purple-400 dark:hover:bg-purple-900/20"
-                                title="Ask About Code"
-                            >
-                                Ask About Code
                             </button>
                         </div>
 
