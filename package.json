@@ -25,6 +25,7 @@
         "react-live": "^4.1.8",
         "react-resizable-panels": "^3.0.5",
         "react-type-animation": "^3.2.0",
+        "recharts": "^3.1.2",
         "three": "0.158.0",
         "zod": "^3.23.8"
     },

@@ -93,3 +93,72 @@ export const BUGGY_COUNTER_CODE = `function Counter() {
     </div>
   );
 }`;
+
+// Telemetry/CPS (Candidate Profile Story) Types
+export interface CandidateProfile {
+    id: string;
+    name: string;
+    matchScore: number; // 0-100
+    confidence: "High" | "Medium" | "Low";
+    story: string; // Narrative summary of candidate's performance
+    avatarUrl?: string;
+}
+
+export interface GapAnalysis {
+    gaps: {
+        severity: "Critical" | "Major" | "Minor";
+        description: string;
+        color: "red" | "yellow" | "green";
+    }[];
+}
+
+export interface EvidenceClip {
+    id: string;
+    title: string;
+    thumbnailUrl: string;
+    duration: number; // in seconds
+    description: string;
+    startTime?: number; // for chapter navigation
+}
+
+export interface VideoChapter {
+    id: string;
+    title: string;
+    startTime: number; // in seconds
+    endTime: number; // in seconds
+    description: string;
+    thumbnailUrl?: string;
+}
+
+export interface WorkstyleMetrics {
+    iterationSpeed: {
+        value: number; // 0-100
+        level: "High" | "Moderate" | "Low";
+        color: "blue" | "yellow" | "red";
+    };
+    debugLoops: {
+        value: number; // 0-100
+        level: "Fast" | "Moderate" | "Slow";
+        color: "blue" | "yellow" | "red";
+    };
+    refactorCleanups: {
+        value: number; // 0-100
+        level: "Strong" | "Moderate" | "Weak";
+        color: "blue" | "yellow" | "red";
+    };
+    aiAssistUsage: {
+        value: number; // 0-100
+        level: "Minimal" | "Moderate" | "High";
+        color: "white" | "yellow" | "red";
+        isFairnessFlag: boolean;
+    };
+}
+
+export interface TelemetryData {
+    candidate: CandidateProfile;
+    gaps: GapAnalysis;
+    evidence: EvidenceClip[];
+    chapters: VideoChapter[];
+    workstyle: WorkstyleMetrics;
+    hasFairnessFlag: boolean;
+}
