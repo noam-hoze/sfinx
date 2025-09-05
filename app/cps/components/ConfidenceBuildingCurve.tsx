@@ -2,8 +2,8 @@
 
 import React from "react";
 import {
-    AreaChart,
-    Area,
+    LineChart,
+    Line,
     XAxis,
     YAxis,
     ResponsiveContainer,
@@ -51,7 +51,7 @@ const ConfidenceBuildingCurve: React.FC<ConfidenceBuildingCurveProps> = ({
                 Confidence Building Curve
             </h3>
             <ResponsiveContainer width="100%" height="70%">
-                <AreaChart
+                <LineChart
                     data={data}
                     margin={{ top: 10, right: 10, left: 10, bottom: 10 }}
                 >
@@ -65,35 +65,15 @@ const ConfidenceBuildingCurve: React.FC<ConfidenceBuildingCurveProps> = ({
                         textAnchor="middle"
                     />
                     <YAxis hide />
-                    <Area
+                    <Line
                         type="monotone"
                         dataKey="confidence"
                         stroke="#6366f1"
-                        strokeWidth={2}
-                        fill="url(#colorConfidence)"
+                        strokeWidth={3}
                         dot={<CustomDot />}
+                        activeDot={false}
                     />
-                    <defs>
-                        <linearGradient
-                            id="colorConfidence"
-                            x1="0"
-                            y1="0"
-                            x2="0"
-                            y2="1"
-                        >
-                            <stop
-                                offset="5%"
-                                stopColor="#6366f1"
-                                stopOpacity={0.3}
-                            />
-                            <stop
-                                offset="95%"
-                                stopColor="#6366f1"
-                                stopOpacity={0.1}
-                            />
-                        </linearGradient>
-                    </defs>
-                </AreaChart>
+                </LineChart>
             </ResponsiveContainer>
             <div className="text-xs text-gray-500 text-center mt-1">
                 From uncertainty to confident mastery
