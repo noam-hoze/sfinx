@@ -281,7 +281,7 @@ render(UserList);`;
                                         <div className="flex items-center space-x-2">
                                             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                                             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                                                Interviewer Status
+                                                Carrey
                                             </h3>
                                         </div>
                                     </div>
