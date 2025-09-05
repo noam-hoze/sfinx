@@ -191,6 +191,7 @@ render(UserList);`;
                                 src={companyLogo}
                                 alt="Company Logo"
                                 fill
+                                sizes="80px"
                                 className="object-contain"
                             />
                         </div>
