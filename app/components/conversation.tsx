@@ -3,8 +3,10 @@
 import { useConversation } from "@elevenlabs/react";
 import { useCallback, useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { createLogger } from "../../lib/logger";
 
 export function Conversation() {
+    const log = createLogger("Conversation");
     const router = useRouter();
     const videoRef = useRef<HTMLVideoElement>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -14,10 +16,10 @@ export function Conversation() {
     const [isRecording, setIsRecording] = useState(false);
 
     const conversation = useConversation({
-        onConnect: () => console.log("Connected"),
-        onDisconnect: () => console.log("Disconnected"),
-        onMessage: (message) => console.log("Message:", message),
-        onError: (error) => console.error("Error:", error),
+        onConnect: () => log.info("Connected"),
+        onDisconnect: () => log.info("Disconnected"),
+        onMessage: (message) => log.debug("Message", message),
+        onError: (error) => log.error("Error", error),
     });
 
     const getSignedUrl = async (): Promise<string> => {
@@ -58,7 +60,7 @@ export function Conversation() {
             setIsRecording(true);
             setCameraStarted(true);
         } catch (error) {
-            console.error("Failed to start camera or conversation:", error);
+            log.error("Failed to start camera or conversation", error);
         }
     }, [router]);
 
@@ -69,10 +71,7 @@ export function Conversation() {
                     const signedUrl = await getSignedUrl();
                     await conversation.startSession({ signedUrl });
                 } catch (error) {
-                    console.error(
-                        "Failed to start conversation session:",
-                        error
-                    );
+                    log.error("Failed to start conversation session", error);
                 }
             };
             connectToElevenLabs();
