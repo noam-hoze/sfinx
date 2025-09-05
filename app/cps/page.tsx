@@ -41,9 +41,11 @@ export default function TelemetryPage() {
                         <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 mb-4 shadow-sm">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
-                                        <div className="w-2 h-2 bg-white rounded-full"></div>
-                                    </div>
+                                    <img
+                                        src="/gal-profile.jpeg"
+                                        alt={`${candidate.name} profile`}
+                                        className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
+                                    />
                                     <div>
                                         <h2 className="text-lg font-medium text-gray-900">
                                             {candidate.name}
