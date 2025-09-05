@@ -470,7 +470,7 @@ export const companiesData: Company[] = [
     {
         id: "github",
         name: "GitHub",
-        logo: "/company-logos/google-logo.png",
+        logo: "/company-logos/github-logo.png",
         industry: "Developer Tools",
         locations: ["San Francisco, CA", "New York, NY", "Remote"],
         size: "medium",
