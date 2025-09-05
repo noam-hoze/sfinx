@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { Moon, Sun } from "lucide-react";
+import Image from "next/image";
 import EditorPanel from "./editor/EditorPanel";
 import ChatPanel from "./chat/ChatPanel";
 import RealTimeConversation from "./chat/RealTimeConversation";
@@ -30,6 +31,7 @@ const InterviewerContent = () => {
     const [activeTab, setActiveTab] = useState<"editor" | "preview">("editor");
     const [isAISpeaking, setIsAISpeaking] = useState(false);
     const [isInterviewActive, setIsInterviewActive] = useState(false);
+    const [isAgentConnected, setIsAgentConnected] = useState(false);
     const realTimeConversationRef = useRef<any>(null);
 
     const handleInterviewButtonClick = useCallback(
@@ -45,6 +47,7 @@ const InterviewerContent = () => {
                 try {
                     await realTimeConversationRef.current?.stopConversation();
                     setIsInterviewActive(false);
+                    setIsAgentConnected(false);
                 } catch (error) {
                     console.error("Failed to stop interview:", error);
                 }
@@ -161,6 +164,21 @@ render(UserList);`;
         }
     };
 
+    // Send code updates to Eleven Labs every 5 seconds during active interview
+    useEffect(() => {
+        if (!isInterviewActive) return;
+
+        const interval = setInterval(async () => {
+            if (realTimeConversationRef.current?.sendCodeUpdate) {
+                await realTimeConversationRef.current.sendCodeUpdate(
+                    currentCode
+                );
+            }
+        }, 5000); // Send every 5 seconds
+
+        return () => clearInterval(interval);
+    }, [isInterviewActive, currentCode]);
+
     return (
         <div className="h-screen flex flex-col bg-soft-white text-deep-slate dark:bg-gray-900 dark:text-white">
             {/* Header */}
@@ -168,11 +186,14 @@ render(UserList);`;
                 <div className="flex items-center justify-between max-w-8xl mx-auto">
                     {/* Left Section - Logo */}
                     <div className="flex items-center">
-                        <img
-                            src={companyLogo}
-                            alt="Company Logo"
-                            className="h-20 w-auto"
-                        />
+                        <div className="relative h-20 w-20">
+                            <Image
+                                src={companyLogo}
+                                alt="Company Logo"
+                                fill
+                                className="object-contain"
+                            />
+                        </div>
                     </div>
 
                     {/* Center Section - Title */}
@@ -279,7 +300,14 @@ render(UserList);`;
                                 <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center space-x-2">
-                                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                            <div
+                                                className={`w-2 h-2 rounded-full ${
+                                                    isInterviewActive &&
+                                                    isAgentConnected
+                                                        ? "bg-green-500"
+                                                        : "bg-red-500"
+                                                }`}
+                                            ></div>
                                             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                                                 Carrey
                                             </h3>
@@ -292,12 +320,14 @@ render(UserList);`;
                                     <RealTimeConversation
                                         ref={realTimeConversationRef}
                                         isInterviewActive={isInterviewActive}
-                                        onStartConversation={() =>
-                                            console.log("Conversation started")
-                                        }
-                                        onEndConversation={() =>
-                                            console.log("Conversation ended")
-                                        }
+                                        onStartConversation={() => {
+                                            console.log("Conversation started");
+                                            setIsAgentConnected(true);
+                                        }}
+                                        onEndConversation={() => {
+                                            console.log("Conversation ended");
+                                            setIsAgentConnected(false);
+                                        }}
                                     />
                                 </div>
                             </div>

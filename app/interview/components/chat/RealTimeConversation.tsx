@@ -196,10 +196,37 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             disconnectFromConversation();
         }, [disconnectFromConversation]);
 
+        const sendCodeUpdate = useCallback(async (code: string) => {
+            try {
+                const response = await fetch("/api/convai/code-update", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        code: code,
+                    }),
+                });
+
+                if (response.ok) {
+                    console.log(
+                        "✅ Code update sent successfully to Eleven Labs"
+                    );
+                } else {
+                    console.error(
+                        "❌ Failed to send code update to Eleven Labs"
+                    );
+                }
+            } catch (error) {
+                console.error("❌ Network error sending code update:", error);
+            }
+        }, []);
+
         // Expose methods to parent component
         useImperativeHandle(ref, () => ({
             startConversation,
             stopConversation,
+            sendCodeUpdate,
         }));
 
         // Cleanup on unmount
