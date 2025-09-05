@@ -39,7 +39,9 @@ const LearningToActionTimeline: React.FC<LearningToActionTimelineProps> = ({
                 fill={payload.color}
                 stroke="#fff"
                 strokeWidth={2}
-                className="cursor-pointer hover:opacity-80"
+                className="cursor-pointer hover:opacity-80 focus:outline-none focus:ring-0 active:outline-none"
+                style={{ outline: "none" }}
+                tabIndex={-1}
                 onClick={() => onVideoJump(payload.timestamp)}
             />
         );

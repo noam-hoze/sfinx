@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { GapAnalysis as GapAnalysisType } from "../../../lib/interview/types";
 
 interface GapAnalysisProps {
@@ -7,6 +7,9 @@ interface GapAnalysisProps {
 }
 
 const GapAnalysis: React.FC<GapAnalysisProps> = ({ gaps, onVideoJump }) => {
+    const [clickedTimestamp, setClickedTimestamp] = useState<number | null>(
+        null
+    );
     const getGapIcon = (severity: string) => {
         switch (severity) {
             case "Critical":
@@ -103,12 +106,20 @@ const GapAnalysis: React.FC<GapAnalysisProps> = ({ gaps, onVideoJump }) => {
                                                 (timestamp, index) => (
                                                     <button
                                                         key={index}
-                                                        onClick={() =>
+                                                        onClick={() => {
+                                                            setClickedTimestamp(
+                                                                timestamp
+                                                            );
                                                             onVideoJump(
                                                                 timestamp
-                                                            )
-                                                        }
-                                                        className="w-6 h-6 flex items-center justify-center text-xs font-medium text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all duration-200"
+                                                            );
+                                                        }}
+                                                        className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-all duration-200 ${
+                                                            clickedTimestamp ===
+                                                            timestamp
+                                                                ? "text-blue-600 bg-blue-50"
+                                                                : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                                                        }`}
                                                         title={`Jump to ${Math.floor(
                                                             timestamp / 60
                                                         )}:${(timestamp % 60)
