@@ -15,16 +15,23 @@ const EvidenceReel: React.FC<EvidenceReelProps> = ({
     chapters,
     evidence,
     jumpToTime,
+    onChapterClick,
 }) => {
     const [currentTime, setCurrentTime] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
     const [activeChapter, setActiveChapter] = useState(chapters[0]?.id);
+    const videoRef = React.useRef<HTMLVideoElement>(null);
+    const lastChapterUpdate = React.useRef<number>(0);
 
     // Handle video jumping when jumpToTime changes
     useEffect(() => {
-        if (jumpToTime !== undefined && jumpToTime !== currentTime) {
+        if (
+            jumpToTime !== undefined &&
+            jumpToTime !== currentTime &&
+            videoRef.current
+        ) {
+            videoRef.current.currentTime = jumpToTime;
             setCurrentTime(jumpToTime);
-            setIsPlaying(false); // Pause when jumping
 
             // Update active chapter based on jumped time
             const currentChapter = chapters.find(
@@ -36,17 +43,28 @@ const EvidenceReel: React.FC<EvidenceReelProps> = ({
                 setActiveChapter(currentChapter.id);
             }
         }
-    }, [jumpToTime, chapters, currentTime]);
+    }, [jumpToTime, chapters]);
 
     const totalDuration = chapters[chapters.length - 1]?.endTime || 330;
 
     const handleChapterClick = (chapter: VideoChapter) => {
-        setCurrentTime(chapter.startTime);
-        setActiveChapter(chapter.id);
+        if (videoRef.current) {
+            videoRef.current.currentTime = chapter.startTime;
+            setCurrentTime(chapter.startTime);
+            setActiveChapter(chapter.id);
+            // Notify parent component to jump to this timestamp
+            onChapterClick?.(chapter.startTime);
+        }
     };
 
     const handlePlayPause = () => {
-        setIsPlaying(!isPlaying);
+        if (videoRef.current) {
+            if (videoRef.current.paused) {
+                videoRef.current.play().catch(console.error);
+            } else {
+                videoRef.current.pause();
+            }
+        }
     };
 
     const handleTimeUpdate = (newTime: number) => {
@@ -65,18 +83,56 @@ const EvidenceReel: React.FC<EvidenceReelProps> = ({
         <div className="bg-white rounded-xl shadow-xl border border-gray-300 overflow-hidden">
             {/* Video Player Section */}
             <div className="relative">
-                <div className="aspect-video bg-gradient-to-br from-slate-900 via-gray-800 to-slate-900 flex items-center justify-center relative">
-                    <div className="text-center text-white">
-                        <div className="w-20 h-20 bg-white/30 hover:bg-white/40 rounded-full flex items-center justify-center mb-4 mx-auto cursor-pointer transition-all duration-200 hover:scale-105 shadow-lg">
-                            <span className="text-3xl">
-                                {isPlaying ? "⏸️" : "▶️"}
-                            </span>
+                <div className="aspect-video bg-black relative">
+                    <video
+                        ref={videoRef}
+                        className="w-full h-full object-cover"
+                        onTimeUpdate={(e) => {
+                            const video = e.target as HTMLVideoElement;
+                            const newTime = Math.floor(video.currentTime);
+
+                            // Only update if time changed by at least 1 second
+                            if (newTime !== Math.floor(currentTime)) {
+                                setCurrentTime(video.currentTime);
+
+                                // Update active chapter based on current time
+                                const currentChapter = chapters.find(
+                                    (chapter) =>
+                                        video.currentTime >= chapter.startTime &&
+                                        video.currentTime < chapter.endTime
+                                );
+                                if (
+                                    currentChapter &&
+                                    currentChapter.id !== activeChapter
+                                ) {
+                                    setActiveChapter(currentChapter.id);
+                                }
+                            }
+                        }}
+                        onPlay={() => setIsPlaying(true)}
+                        onPause={() => setIsPlaying(false)}
+                        onLoadedMetadata={(e) => {
+                            const video = e.target as HTMLVideoElement;
+                            // Could update total duration here if needed
+                        }}
+                    >
+                        <source src="/gal-interview.mp4" type="video/mp4" />
+                        Your browser does not support the video tag.
+                    </video>
+
+                    {/* Custom Play/Pause Overlay */}
+                    {!isPlaying && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                            <button
+                                onClick={handlePlayPause}
+                                className="w-20 h-20 bg-black/60 hover:bg-black/80 rounded-full flex items-center justify-center text-white transition-all duration-200 hover:scale-110 shadow-lg"
+                            >
+                                <span className="text-3xl ml-1">
+                                    ▶️
+                                </span>
+                            </button>
                         </div>
-                        <p className="text-lg font-medium">Session Recording</p>
-                        <p className="text-sm opacity-75">
-                            Gal&apos;s coding session
-                        </p>
-                    </div>
+                    )}
                 </div>
 
                 {/* Video Controls */}
@@ -93,7 +149,23 @@ const EvidenceReel: React.FC<EvidenceReelProps> = ({
 
                         <div className="flex-1 mx-4">
                             <div className="relative">
-                                <div className="w-full h-2 bg-white/20 rounded-full cursor-pointer">
+                                <div
+                                    className="w-full h-2 bg-white/20 rounded-full cursor-pointer"
+                                    onClick={(e) => {
+                                        if (videoRef.current) {
+                                            const rect =
+                                                e.currentTarget.getBoundingClientRect();
+                                            const clickX =
+                                                e.clientX - rect.left;
+                                            const percentage =
+                                                clickX / rect.width;
+                                            const newTime =
+                                                percentage * totalDuration;
+                                            videoRef.current.currentTime =
+                                                newTime;
+                                        }
+                                    }}
+                                >
                                     <div
                                         className="h-2 bg-red-500 rounded-full transition-all duration-300 shadow-sm"
                                         style={{

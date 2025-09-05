@@ -96,6 +96,7 @@ export default function TelemetryPage() {
                             chapters={chapters}
                             evidence={evidence}
                             jumpToTime={currentVideoTime}
+                            onChapterClick={onVideoJump}
                         />
                     </div>
                 </div>
