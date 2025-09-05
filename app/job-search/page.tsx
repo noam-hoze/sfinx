@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
-import { companiesData, Company } from "../../lib/job-search/mockData";
+import { companiesData, Company } from "../../lib";
 
 export default function JobSearchPage() {
     const [searchRole, setSearchRole] = useState("");

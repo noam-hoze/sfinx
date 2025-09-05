@@ -4,7 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
-## [1.3.0] - 2025-09-04
+## [1.3.1] - 2025-09-05
+
+### Fixed
+
+-   **Import Path Updates**: Complete migration to new lib/ folder structure
+-   **Asset Organization**: Restructured public assets into logical folders (images/, logos/, video/)
+-   **Blueprint Documentation**: Removed remaining counter task references
+-   **Component Cleanup**: Removed Heygen API and avatar system remnants
+-   **File Structure**: Consolidated interview-related files into contexts/ folder
+
+### Technical
+
+-   **Code Organization**: Improved folder structure and import consistency
+-   **Asset Management**: Better organization of static files and media
+-   **Documentation**: Updated demo scripts and UI design documents
+-   **Dependencies**: Cleaned up unused component references and imports
+
+## [1.3.0] - 2025-09-05
 
 ### Added
 

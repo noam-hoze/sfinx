@@ -1,12 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import {
-    VideoChapter,
-    EvidenceClip,
-    VideoCaption,
-} from "../../../lib/interview/types";
-import { formatTime, formatDuration } from "../../../lib/telemetry/mockData";
+import { VideoChapter, EvidenceClip, VideoCaption } from "../../../lib";
+import { formatTime, formatDuration } from "../../../lib";
 
 interface EvidenceReelProps {
     chapters: VideoChapter[];

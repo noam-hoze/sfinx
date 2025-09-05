@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { GapAnalysis as GapAnalysisType } from "../../../lib/interview/types";
+import { GapAnalysis as GapAnalysisType } from "../../../lib";
 
 interface GapAnalysisProps {
     gaps: GapAnalysisType;

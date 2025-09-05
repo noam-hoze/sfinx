@@ -20,15 +20,10 @@ const initialState: InterviewState = {
     candidateName: "Gal",
     startTime: null,
     endTime: null,
-    // Avatar state
-    avatarVisible: false,
-    avatarPosition: {
-        x: typeof window !== "undefined" ? window.innerWidth - 400 : 800,
-        y: 100,
-    },
-    isAvatarSpeaking: false,
     // Editor state
     currentCode: "",
+    // Submission state
+    submission: null,
 };
 
 function interviewReducer(
@@ -81,40 +76,16 @@ function interviewReducer(
                 ),
             };
 
-        case "SHOW_AVATAR":
-            return {
-                ...state,
-                avatarVisible: true,
-            };
-
-        case "HIDE_AVATAR":
-            return {
-                ...state,
-                avatarVisible: false,
-            };
-
-        case "UPDATE_AVATAR_POSITION":
-            return {
-                ...state,
-                avatarPosition: action.payload,
-            };
-
-        case "START_AVATAR_SPEAKING":
-            return {
-                ...state,
-                isAvatarSpeaking: true,
-            };
-
-        case "STOP_AVATAR_SPEAKING":
-            return {
-                ...state,
-                isAvatarSpeaking: false,
-            };
-
         case "UPDATE_CURRENT_CODE":
             return {
                 ...state,
                 currentCode: action.payload,
+            };
+
+        case "UPDATE_SUBMISSION":
+            return {
+                ...state,
+                submission: action.payload,
             };
 
         default:
@@ -172,29 +143,12 @@ export function useInterview() {
         );
     };
 
-    // Avatar methods
-    const showAvatar = () => {
-        dispatch({ type: "SHOW_AVATAR" });
-    };
-
-    const hideAvatar = () => {
-        dispatch({ type: "HIDE_AVATAR" });
-    };
-
-    const updateAvatarPosition = (x: number, y: number) => {
-        dispatch({ type: "UPDATE_AVATAR_POSITION", payload: { x, y } });
-    };
-
-    const startAvatarSpeaking = () => {
-        dispatch({ type: "START_AVATAR_SPEAKING" });
-    };
-
-    const stopAvatarSpeaking = () => {
-        dispatch({ type: "STOP_AVATAR_SPEAKING" });
-    };
-
     const updateCurrentCode = (code: string) => {
         dispatch({ type: "UPDATE_CURRENT_CODE", payload: code });
+    };
+
+    const updateSubmission = (code: string) => {
+        dispatch({ type: "UPDATE_SUBMISSION", payload: code });
     };
 
     return {
@@ -204,11 +158,7 @@ export function useInterview() {
         nextTask,
         updateTaskStatus,
         getCurrentTask,
-        showAvatar,
-        hideAvatar,
-        updateAvatarPosition,
-        startAvatarSpeaking,
-        stopAvatarSpeaking,
         updateCurrentCode,
+        updateSubmission,
     };
 }

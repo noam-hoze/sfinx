@@ -1,5 +1,5 @@
 import React from "react";
-import { CandidateProfile } from "../../../lib/interview/types";
+import { CandidateProfile } from "../../../lib";
 import PersistenceFlow from "./PersistenceFlow";
 import LearningToActionTimeline from "./LearningToActionTimeline";
 import ConfidenceBuildingCurve from "./ConfidenceBuildingCurve";
@@ -75,7 +75,6 @@ const CandidateStory: React.FC<CandidateStoryProps> = ({
                     <LearningToActionTimeline onVideoJump={onVideoJump} />
                     <ConfidenceBuildingCurve onVideoJump={onVideoJump} />
                 </div>
-
             </div>
         </div>
     );

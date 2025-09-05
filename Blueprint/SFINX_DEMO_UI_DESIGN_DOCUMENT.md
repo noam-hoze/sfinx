@@ -62,7 +62,7 @@ This update integrates **Learning Capability telemetry** and a new **AI Intervie
 -   **Workflow:**
     -   Candidate receives task from AI interviewer.
     -   Candidate writes code in IDE.
-    -   Candidate can also type a request in sidebar (_“Fix the counter bug”_).
+    -   Candidate can also type a request in sidebar (_"Help with API integration"_).
     -   AI applies edit → editor flashes red (deletion) and green (addition).
     -   Candidate accepts → code updates.
 -   **Style:** A professional, multi-pane IDE layout similar to Cursor. Clean, minimal, and functional.

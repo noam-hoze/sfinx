@@ -18,6 +18,7 @@ interface EditorPanelProps {
     activeTab?: "editor" | "preview";
     onTabSwitch?: (tab: "editor" | "preview") => void;
     onRunCode?: () => void;
+    readOnly?: boolean;
 }
 
 const EditorPanel: React.FC<EditorPanelProps> = ({
@@ -33,6 +34,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     activeTab = "editor",
     onTabSwitch,
     onRunCode,
+    readOnly = false,
 }) => {
     const [currentCode, setCurrentCode] = useState(propCurrentCode || "");
 
@@ -201,7 +203,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                                     : "text-gray-600 hover:text-deep-slate hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700"
                             }`}
                         >
-                            {tab === "editor" ? "Counter.tsx" : "Preview"}
+                            {tab === "editor" ? "UserList.tsx" : "Preview"}
                         </button>
                     ))}
                 </div>
@@ -234,6 +236,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                             wordWrap: "on",
                             tabSize: 2,
                             insertSpaces: true,
+                            readOnly: readOnly,
                         }}
                     />
                 ) : (

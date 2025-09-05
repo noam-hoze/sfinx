@@ -15,12 +15,10 @@ export interface InterviewState {
     candidateName: string;
     startTime: Date | null;
     endTime: Date | null;
-    // Avatar state
-    avatarVisible: boolean;
-    avatarPosition: { x: number; y: number };
-    isAvatarSpeaking: boolean;
     // Editor state
     currentCode: string;
+    // Submission state
+    submission: string | null;
 }
 
 export interface InterviewMessage {
@@ -41,12 +39,6 @@ export interface InterviewContextType {
     addMessage: (message: InterviewMessage) => void;
     updateTaskStatus: (taskId: string, status: "started" | "completed") => void;
     getCurrentTask: () => InterviewTask | null;
-    // Avatar methods
-    showAvatar: () => void;
-    hideAvatar: () => void;
-    updateAvatarPosition: (x: number, y: number) => void;
-    startAvatarSpeaking: () => void;
-    stopAvatarSpeaking: () => void;
 }
 
 export const GAL_TASKS: InterviewTask[] = [
@@ -65,36 +57,7 @@ export const GAL_TASKS: InterviewTask[] = [
         completed: false,
         started: false,
     },
-    {
-        id: "task2-counter-debug",
-        title: "Debug Counter Component",
-        description:
-            "You are given a React component with a failing test. The test expects a button click to update the counter, but it stays at 0. Fix the bug so that the test passes.",
-        requirements: [
-            "Identify the state management issue",
-            "Implement useState correctly",
-            "Update the onClick handler properly",
-            "Ensure the test passes",
-        ],
-        completed: false,
-        started: false,
-    },
 ];
-
-export const BUGGY_COUNTER_CODE = `function Counter() {
-  let count = 0;
-
-  function increment() {
-    count++;
-  }
-
-  return (
-    <div>
-      <p>{count}</p>
-      <button onClick={increment}>Add</button>
-    </div>
-  );
-}`;
 
 // Telemetry/CPS (Candidate Profile Story) Types
 export interface CandidateProfile {
@@ -103,7 +66,6 @@ export interface CandidateProfile {
     matchScore: number; // 0-100
     confidence: "High" | "Medium" | "Low";
     story: string; // Narrative summary of candidate's performance
-    avatarUrl?: string;
 }
 
 export interface GapAnalysis {

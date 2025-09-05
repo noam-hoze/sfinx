@@ -13,7 +13,7 @@ export const galProfile: CandidateProfile = {
     name: "Gal Aaroni",
     matchScore: 92,
     confidence: "High",
-    story: "Gal showcased excellent React proficiency by rapidly building a UserList component with clean API integration, proper error handling, and polished styling. They demonstrated strong debugging skills by quickly identifying and fixing a state management bug in the Counter component, showing methodical problem-solving and clean code practices throughout the session.",
+    story: "Gal showcased excellent React proficiency by rapidly building a UserList component with clean API integration, proper error handling, and polished styling. They demonstrated methodical problem-solving and clean code practices throughout the session.",
 };
 
 export const galGaps: GapAnalysis = {
@@ -50,14 +50,6 @@ export const galEvidence: EvidenceClip[] = [
         duration: 45, // 0:45
         description: "Implementation of loading and error states for API calls",
         startTime: 120,
-    },
-    {
-        id: "clip3",
-        title: "Counter Debug Solution",
-        thumbnailUrl: "/mock/clip3.jpg",
-        duration: 60, // 1:00
-        description: "Efficient identification and fix of state management bug",
-        startTime: 165,
     },
 ];
 
@@ -117,54 +109,23 @@ export const galChapters: VideoChapter[] = [
     },
     {
         id: "chapter3",
-        title: "Counter Component Debugging",
+        title: "Testing & Final Polish",
         startTime: 165, // 2:45
-        endTime: 260, // 4:20
-        description:
-            "Debugging the state management issue in the Counter component",
+        endTime: 235, // 3:55
+        description: "Final testing, code cleanup, and session wrap-up",
         thumbnailUrl: "/mock/chapter3.jpg",
         captions: [
             {
-                text: "Analyzing counter behavior",
+                text: "Running comprehensive tests",
                 startTime: 170,
                 endTime: 185,
             },
             {
-                text: "Identifying state management issue",
+                text: "Code cleanup and optimization",
                 startTime: 190,
                 endTime: 205,
             },
-            {
-                text: "Implementing fix for counter logic",
-                startTime: 210,
-                endTime: 225,
-            },
-            {
-                text: "Testing solution thoroughly",
-                startTime: 230,
-                endTime: 245,
-            },
-        ],
-    },
-    {
-        id: "chapter4",
-        title: "Testing & Final Polish",
-        startTime: 260, // 4:20
-        endTime: 330, // 5:30
-        description: "Final testing, code cleanup, and session wrap-up",
-        thumbnailUrl: "/mock/chapter4.jpg",
-        captions: [
-            {
-                text: "Running comprehensive tests",
-                startTime: 265,
-                endTime: 280,
-            },
-            {
-                text: "Code cleanup and optimization",
-                startTime: 285,
-                endTime: 300,
-            },
-            { text: "Final code review", startTime: 305, endTime: 320 },
+            { text: "Final code review", startTime: 210, endTime: 225 },
         ],
     },
 ];
@@ -177,23 +138,23 @@ export const galWorkstyle: WorkstyleMetrics = {
         evidenceLinks: [45, 75, 120, 135], // 4 examples - very iterative
     },
     debugLoops: {
-        value: 90,
-        level: "Fast",
-        color: "blue",
-        evidenceLinks: [170, 190], // 2 examples - efficient debugging
+        value: 75,
+        level: "Moderate",
+        color: "yellow",
+        evidenceLinks: [95, 120], // API debugging examples
     },
     refactorCleanups: {
         value: 88,
         level: "Strong",
         color: "blue",
-        evidenceLinks: [210, 255, 300, 315, 330], // 5 examples - thorough cleanup
+        evidenceLinks: [190, 205, 210, 220, 230], // 5 examples - thorough cleanup
     },
     aiAssistUsage: {
         value: 15,
         level: "Minimal",
         color: "white",
         isFairnessFlag: false,
-        evidenceLinks: [30], // 1 example - minimal usage
+        evidenceLinks: [25], // 1 example - minimal usage
     },
 };
 

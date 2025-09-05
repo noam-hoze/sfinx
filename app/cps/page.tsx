@@ -7,7 +7,7 @@ import WorkstyleDashboard from "./components/WorkstyleDashboard";
 import PersistenceFlow from "./components/PersistenceFlow";
 import LearningToActionTimeline from "./components/LearningToActionTimeline";
 import ConfidenceBuildingCurve from "./components/ConfidenceBuildingCurve";
-import { galTelemetryData } from "../../lib/telemetry/mockData";
+import { galTelemetryData } from "../../lib";
 
 export default function TelemetryPage() {
     const { candidate, gaps, evidence, chapters, workstyle } = galTelemetryData;

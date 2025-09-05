@@ -9,7 +9,7 @@ import React, {
     useRef,
 } from "react";
 import { useConversation } from "@elevenlabs/react";
-import { useInterview } from "../../../../lib/interview";
+import { useInterview } from "../../../../lib";
 import AnimatedWaveform from "./AnimatedWaveform";
 
 interface RealTimeConversationProps {
@@ -28,10 +28,6 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         const [connectionStatus, setConnectionStatus] =
             useState("Disconnected");
         const { state } = useInterview();
-
-        // Auto KB_UPDATE refs
-        const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-        const lastSentCodeRef = useRef<string>("");
 
         const conversation = useConversation({
             onConnect: () => {
@@ -132,6 +128,10 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
 
             return data.signedUrl;
         }, []);
+
+        // KB update refs
+        const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+        const lastSentCodeRef = useRef<string>("");
 
         const startConversation = useCallback(async () => {
             try {
@@ -254,26 +254,20 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                     return;
                 }
 
-                const kb = {
-                    current_code_summary: state.currentCode,
-                };
-
+                const kb = { current_code_summary: state.currentCode };
                 const text = `KB_UPDATE: ${JSON.stringify(kb)}`;
-
-                // Use sendContextualUpdate (primary method)
                 await conversation.sendContextualUpdate(text);
-
                 console.log("✅ KB_UPDATE sent:", kb.current_code_summary);
             } catch (error) {
                 console.error("❌ Error sending KB_UPDATE:", error);
             }
         };
 
-
         // Expose methods to parent component
         useImperativeHandle(ref, () => ({
             startConversation,
             stopConversation,
+            sendContextualUpdate: conversation.sendContextualUpdate,
         }));
 
         // Cleanup on unmount

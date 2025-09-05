@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { WorkstyleMetrics } from "../../../lib/interview/types";
+import { WorkstyleMetrics } from "../../../lib";
 
 interface WorkstyleDashboardProps {
     workstyle: WorkstyleMetrics;
