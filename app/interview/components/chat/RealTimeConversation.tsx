@@ -166,7 +166,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                 }
                 setConnectionStatus("Connection failed");
             }
-        }, [getSignedUrl]);
+        }, [getSignedUrl, conversation]);
 
         useEffect(() => {
             if (isRecording) {
@@ -177,7 +177,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             } else {
                 console.log("⏸️ isRecording is false, not connecting");
             }
-        }, [isRecording]);
+        }, [isRecording, connectToElevenLabs]);
 
         const disconnectFromConversation = useCallback(() => {
             console.log("🔌 Disconnecting from conversation...");
@@ -196,37 +196,26 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             disconnectFromConversation();
         }, [disconnectFromConversation]);
 
-        const sendCodeUpdate = useCallback(async (code: string) => {
-            try {
-                const response = await fetch("/api/convai/code-update", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        code: code,
-                    }),
-                });
+        // Removed broken sendCodeUpdate - use conversation.sendContextualUpdate instead
 
-                if (response.ok) {
-                    console.log(
-                        "✅ Code update sent successfully to Eleven Labs"
-                    );
-                } else {
-                    console.error(
-                        "❌ Failed to send code update to Eleven Labs"
-                    );
-                }
+        // Minimal test function - exactly as requested
+        const testSendMessage = useCallback(async () => {
+            try {
+                console.log("🧪 Testing Eleven Labs message sending...");
+                await conversation.sendContextualUpdate(
+                    "I'm 62 years old"
+                );
+                console.log("✅ sendContextualUpdate completed");
             } catch (error) {
-                console.error("❌ Network error sending code update:", error);
+                console.error("❌ Error testing message send:", error);
             }
-        }, []);
+        }, [conversation]);
 
         // Expose methods to parent component
         useImperativeHandle(ref, () => ({
             startConversation,
             stopConversation,
-            sendCodeUpdate,
+            testSendMessage, // Only working method
         }));
 
         // Cleanup on unmount

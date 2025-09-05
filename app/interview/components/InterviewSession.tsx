@@ -56,6 +56,15 @@ const InterviewerContent = () => {
         []
     );
 
+    const handleTestMessage = useCallback(async () => {
+        try {
+            console.log("🧪 Testing Eleven Labs message sending...");
+            await realTimeConversationRef.current?.testSendMessage();
+        } catch (error) {
+            console.error("Failed to test message:", error);
+        }
+    }, []);
+
     function getInitialCode(): string {
         return `// Welcome to your coding interview!
 // Create a UserList component that fetches users from an API
@@ -164,20 +173,7 @@ render(UserList);`;
         }
     };
 
-    // Send code updates to Eleven Labs every 5 seconds during active interview
-    useEffect(() => {
-        if (!isInterviewActive) return;
-
-        const interval = setInterval(async () => {
-            if (realTimeConversationRef.current?.sendCodeUpdate) {
-                await realTimeConversationRef.current.sendCodeUpdate(
-                    currentCode
-                );
-            }
-        }, 5000); // Send every 5 seconds
-
-        return () => clearInterval(interval);
-    }, [isInterviewActive, currentCode]);
+    // Removed automatic code sending - use manual testSendMessage instead
 
     return (
         <div className="h-screen flex flex-col bg-soft-white text-deep-slate dark:bg-gray-900 dark:text-white">
@@ -227,6 +223,14 @@ render(UserList);`;
                                 title="Stop Interview"
                             >
                                 Stop Interview
+                            </button>
+                            <button
+                                onClick={handleTestMessage}
+                                disabled={!isInterviewActive}
+                                className="px-4 py-2 text-sm font-medium rounded-full bg-blue-50 text-blue-700 hover:bg-blue-100 disabled:bg-gray-100 disabled:text-gray-400 transition-all duration-200 hover:shadow-sm disabled:hover:shadow-none disabled:cursor-not-allowed dark:bg-blue-900/10 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                                title="Test Message Sending"
+                            >
+                                Test Message
                             </button>
                         </div>
 
