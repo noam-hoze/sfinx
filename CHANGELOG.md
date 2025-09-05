@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.3.0] - 2025-09-04
+
+### Added
+
+-   **Coding Timer System**: Complete 30-minute timer implementation with visual countdown
+-   **Start/Stop/Submit Controls**: Interactive buttons for coding session management
+-   **Editor Access Control**: Editor becomes read-only until coding session starts
+-   **Timer Visual Feedback**: Timer display with red warning when < 5 minutes remain
+-   **KB Submission System**: ElevenLabs KB variables for code submission tracking
+-   **Session State Management**: Proper timer cleanup and state synchronization
+
+### Enhanced
+
+-   **Interview Flow**: Streamlined coding session with clear start/stop/submit progression
+-   **User Experience**: Visual feedback and conditional UI based on session state
+-   **Performance**: Efficient timer implementation without unnecessary re-renders
+
+### Technical
+
+-   **Timer Architecture**: Direct interval management without useEffect abuse
+-   **State Synchronization**: Proper cleanup of timers across component lifecycle
+-   **ElevenLabs Integration**: Enhanced KB variable management for coding sessions
+
 ## [1.2.0] - 2025-09-04
 
 ### Added
