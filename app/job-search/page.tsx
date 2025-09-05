@@ -7,8 +7,9 @@ import { companiesData, Company } from "../../lib/job-search/mockData";
 export default function JobSearchPage() {
     const [searchRole, setSearchRole] = useState("");
     const [searchLocation, setSearchLocation] = useState("");
+    const [searchCompany, setSearchCompany] = useState("");
 
-    // Filter companies based on role and location
+    // Filter companies based on role, location, and company name
     const filteredCompanies = useMemo(() => {
         return companiesData.filter((company: Company) => {
             const roleMatch =
@@ -23,9 +24,18 @@ export default function JobSearchPage() {
                     loc.toLowerCase().includes(searchLocation.toLowerCase())
                 );
 
-            return roleMatch && locationMatch;
+            const companyMatch =
+                !searchCompany ||
+                company.name
+                    .toLowerCase()
+                    .includes(searchCompany.toLowerCase()) ||
+                company.industry
+                    .toLowerCase()
+                    .includes(searchCompany.toLowerCase());
+
+            return roleMatch && locationMatch && companyMatch;
         });
-    }, [searchRole, searchLocation]);
+    }, [searchRole, searchLocation, searchCompany]);
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -37,13 +47,13 @@ export default function JobSearchPage() {
                     </h1>
                     <p className="text-gray-600">
                         Discover companies hiring for your role in your
-                        preferred location
+                        preferred location and industry
                     </p>
                 </div>
 
                 {/* Search Filters */}
                 <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 mb-8 shadow-sm">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {/* Role Search */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -54,6 +64,22 @@ export default function JobSearchPage() {
                                 placeholder="e.g. Software Engineer, Product Manager..."
                                 value={searchRole}
                                 onChange={(e) => setSearchRole(e.target.value)}
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all duration-300 bg-white/50 backdrop-blur-sm"
+                            />
+                        </div>
+
+                        {/* Company Search */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Company / Industry
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="e.g. Google, Tech, Finance..."
+                                value={searchCompany}
+                                onChange={(e) =>
+                                    setSearchCompany(e.target.value)
+                                }
                                 className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all duration-300 bg-white/50 backdrop-blur-sm"
                             />
                         </div>
