@@ -98,16 +98,6 @@ const GapAnalysis: React.FC<GapAnalysisProps> = ({ gaps }) => {
                     </div>
                 ))}
             </div>
-
-            <div className="mt-4 pt-4 border-t border-gray-100">
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>Gaps identified during coding session</span>
-                    <span>
-                        {gaps.gaps.length}{" "}
-                        {gaps.gaps.length === 1 ? "gap" : "gaps"} found
-                    </span>
-                </div>
-            </div>
         </div>
     );
 };

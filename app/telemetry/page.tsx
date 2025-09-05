@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import EvidenceReel from "./components/EvidenceReel";
 import GapAnalysis from "./components/GapAnalysis";
 import WorkstyleDashboard from "./components/WorkstyleDashboard";
@@ -12,14 +12,17 @@ import { galTelemetryData } from "../../lib/telemetry/mockData";
 export default function TelemetryPage() {
     const { candidate, gaps, evidence, chapters, workstyle } = galTelemetryData;
     const [currentVideoTime, setCurrentVideoTime] = React.useState(0);
+    const [activeTab, setActiveTab] = useState<"benchmarks" | "insights">(
+        "benchmarks"
+    );
 
     const onVideoJump = (timestamp: number) => {
         setCurrentVideoTime(timestamp);
     };
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="max-w-7xl mx-auto p-4">
+        <div className="h-screen bg-gray-50 overflow-hidden">
+            <div className="max-w-7xl mx-auto p-4 h-full">
                 {/* Minimal Header */}
                 <div className="mb-8 text-center">
                     <h1 className="text-2xl font-semibold text-gray-800 tracking-tight">
@@ -28,7 +31,7 @@ export default function TelemetryPage() {
                 </div>
 
                 {/* Main Content - Left: Analytics Panels, Right: Video */}
-                <div className="flex flex-col xl:flex-row gap-4 xl:gap-6">
+                <div className="flex flex-col xl:flex-row gap-4 xl:gap-6 h-[calc(100vh-8rem)]">
                     {/* Left Side - Analytics Panels + Behavioral Graphs */}
                     <div className="w-full xl:w-80 xl:flex-shrink-0 order-2 xl:order-1">
                         {/* Candidate Profile - Minimal Apple Style */}
@@ -58,18 +61,43 @@ export default function TelemetryPage() {
                             </div>
                         </div>
 
-                        <div className="space-y-3 max-h-[calc(100vh-16rem)] overflow-y-auto">
-                            <GapAnalysis gaps={gaps} />
-                            <WorkstyleDashboard workstyle={workstyle} />
+                        {/* Apple-Style Tabs */}
+                        <div className="bg-white/40 backdrop-blur-sm rounded-2xl border border-white/20 p-1 shadow-sm mb-2">
+                            <div className="flex">
+                                <button
+                                    onClick={() => setActiveTab("benchmarks")}
+                                    className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ease-out ${
+                                        activeTab === "benchmarks"
+                                            ? "bg-blue-500 text-white shadow-md"
+                                            : "text-gray-600 hover:text-gray-900 hover:bg-white/40"
+                                    }`}
+                                >
+                                    Benchmarks
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab("insights")}
+                                    className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ease-out ${
+                                        activeTab === "insights"
+                                            ? "bg-blue-500 text-white shadow-md"
+                                            : "text-gray-600 hover:text-gray-900 hover:bg-white/40"
+                                    }`}
+                                >
+                                    Insights
+                                </button>
+                            </div>
+                        </div>
 
-                            {/* Behavioral Graphs */}
-                            <div className="bg-white rounded-lg p-2">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <h2 className="text-sm font-semibold text-gray-900">
-                                        Behavior
-                                    </h2>
+                        {/* Tab Content */}
+                        <div className="space-y-3 max-h-[calc(100vh-18rem)] overflow-y-auto">
+                            {activeTab === "benchmarks" && (
+                                <div className="space-y-3 animate-in slide-in-from-right-2 duration-300">
+                                    <WorkstyleDashboard workstyle={workstyle} />
+                                    <GapAnalysis gaps={gaps} />
                                 </div>
-                                <div className="space-y-3">
+                            )}
+
+                            {activeTab === "insights" && (
+                                <div className="space-y-3 animate-in slide-in-from-left-2 duration-300">
                                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
                                         <PersistenceFlow
                                             onVideoJump={onVideoJump}
@@ -86,12 +114,12 @@ export default function TelemetryPage() {
                                         />
                                     </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                     </div>
 
                     {/* Right Side - Evidence Reel (Main Focus) */}
-                    <div className="flex-1 xl:max-w-4xl mx-auto xl:mx-0 order-1 xl:order-2">
+                    <div className="flex-1 xl:max-w-4xl mx-auto xl:mx-0 order-1 xl:order-2 h-full">
                         <EvidenceReel
                             chapters={chapters}
                             evidence={evidence}
