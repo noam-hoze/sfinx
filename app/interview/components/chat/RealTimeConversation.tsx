@@ -6,6 +6,7 @@ import React, {
     useCallback,
     forwardRef,
     useImperativeHandle,
+    useRef,
 } from "react";
 import { useConversation } from "@elevenlabs/react";
 import { useInterview } from "../../../../lib/interview";
@@ -27,6 +28,10 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         const [connectionStatus, setConnectionStatus] =
             useState("Disconnected");
         const { state } = useInterview();
+
+        // Auto KB_UPDATE refs
+        const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+        const lastSentCodeRef = useRef<string>("");
 
         const conversation = useConversation({
             onConnect: () => {
@@ -179,10 +184,53 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             } else {
                 console.log("⏸️ isRecording is false, not connecting");
             }
-        }, [isRecording]);
+        }, [isRecording]); // eslint-disable-line react-hooks/exhaustive-deps
+
+        // Auto KB_UPDATE on code changes
+        useEffect(() => {
+            if (conversation.status !== "connected") {
+                return;
+            }
+
+            // Skip if code hasn't changed
+            if (lastSentCodeRef.current === state.currentCode) {
+                return;
+            }
+
+            // Clear previous timeout
+            if (updateTimeoutRef.current) {
+                clearTimeout(updateTimeoutRef.current);
+            }
+
+            // Set new timeout for throttled update
+            updateTimeoutRef.current = setTimeout(async () => {
+                try {
+                    const kb = { current_code_summary: state.currentCode };
+                    const text = `KB_UPDATE: ${JSON.stringify(kb)}`;
+                    await conversation.sendContextualUpdate(text);
+                    lastSentCodeRef.current = state.currentCode;
+                    console.log("✅ Auto KB_UPDATE sent");
+                } catch (error) {
+                    console.error("❌ Auto KB_UPDATE failed:", error);
+                }
+            }, 1500);
+
+            // Cleanup timeout on unmount
+            return () => {
+                if (updateTimeoutRef.current) {
+                    clearTimeout(updateTimeoutRef.current);
+                }
+            };
+        }, [state.currentCode, conversation.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
         const disconnectFromConversation = useCallback(() => {
             console.log("🔌 Disconnecting from conversation...");
+
+            // Clear any pending KB_UPDATE timeout
+            if (updateTimeoutRef.current) {
+                clearTimeout(updateTimeoutRef.current);
+                updateTimeoutRef.current = null;
+            }
 
             console.log("🔚 Ending ElevenLabs session");
             conversation.endSession();
@@ -221,33 +269,11 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             }
         };
 
-        // Optional: one-shot verifier
-        const askAboutCode = async () => {
-            try {
-                if (conversation.status !== "connected") {
-                    console.warn("⏳ Not connected yet; skipping question.");
-                    return;
-                }
-
-                // Use sendUserMessage if available, otherwise skip
-                if (typeof conversation.sendUserMessage === "function") {
-                    await conversation.sendUserMessage(
-                        "What does the code I just sent do?"
-                    );
-                } else {
-                    console.warn("⚠️ sendUserMessage not available");
-                }
-            } catch (error) {
-                console.error("❌ Error asking about code:", error);
-            }
-        };
 
         // Expose methods to parent component
         useImperativeHandle(ref, () => ({
             startConversation,
             stopConversation,
-            testSendMessage, // KB_UPDATE sender
-            askAboutCode, // Code question asker
         }));
 
         // Cleanup on unmount
