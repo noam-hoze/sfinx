@@ -166,8 +166,8 @@ render(UserList);`;
                     {/* Left Section - Logo */}
                     <div className="flex items-center">
                         <img
-                            src="/sfinx-logo.png"
-                            alt="Sfinx Logo"
+                            src="/meta-logo.png"
+                            alt="Meta Logo"
                             className="h-20 w-auto"
                         />
                     </div>

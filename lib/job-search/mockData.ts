@@ -18,7 +18,7 @@ export const companiesData: Company[] = [
     {
         id: "google",
         name: "Google",
-        logo: "G",
+        logo: "/company-logos/google-logo.png",
         industry: "Technology",
         locations: [
             "Mountain View, CA",
@@ -57,7 +57,7 @@ export const companiesData: Company[] = [
     {
         id: "meta",
         name: "Meta",
-        logo: "M",
+        logo: "/company-logos/meta-logo.png",
         industry: "Social Media",
         locations: ["Menlo Park, CA", "Seattle, WA", "New York, NY", "Remote"],
         size: "large",
@@ -91,7 +91,7 @@ export const companiesData: Company[] = [
     {
         id: "netflix",
         name: "Netflix",
-        logo: "N",
+        logo: "/company-logos/netflix-logo.png",
         industry: "Entertainment",
         locations: ["Los Angeles, CA", "San Francisco, CA", "Remote"],
         size: "large",
@@ -120,7 +120,7 @@ export const companiesData: Company[] = [
     {
         id: "airbnb",
         name: "Airbnb",
-        logo: "A",
+        logo: "/company-logos/airbnb-logo.png",
         industry: "Hospitality",
         locations: [
             "San Francisco, CA",
@@ -154,7 +154,7 @@ export const companiesData: Company[] = [
     {
         id: "stripe",
         name: "Stripe",
-        logo: "S",
+        logo: "/company-logos/stripe-logo.png",
         industry: "Fintech",
         locations: [
             "San Francisco, CA",
@@ -193,7 +193,7 @@ export const companiesData: Company[] = [
     {
         id: "spotify",
         name: "Spotify",
-        logo: "S",
+        logo: "/company-logos/spotify-logo.png",
         industry: "Music Streaming",
         locations: [
             "Stockholm, SE",
@@ -227,7 +227,7 @@ export const companiesData: Company[] = [
     {
         id: "slack",
         name: "Slack",
-        logo: "S",
+        logo: "/company-logos/slack-logo.png",
         industry: "Communication",
         locations: [
             "San Francisco, CA",
@@ -266,7 +266,7 @@ export const companiesData: Company[] = [
     {
         id: "uber",
         name: "Uber",
-        logo: "U",
+        logo: "/company-logos/uber-logo.png",
         industry: "Transportation",
         locations: [
             "San Francisco, CA",
@@ -300,7 +300,7 @@ export const companiesData: Company[] = [
     {
         id: "dropbox",
         name: "Dropbox",
-        logo: "D",
+        logo: "/company-logos/dropbox-logo.png",
         industry: "Cloud Storage",
         locations: [
             "San Francisco, CA",
@@ -339,7 +339,7 @@ export const companiesData: Company[] = [
     {
         id: "twitter",
         name: "Twitter",
-        logo: "X",
+        logo: "/company-logos/twitter-logo.png",
         industry: "Social Media",
         locations: [
             "San Francisco, CA",
@@ -373,7 +373,7 @@ export const companiesData: Company[] = [
     {
         id: "notion",
         name: "Notion",
-        logo: "N",
+        logo: "/company-logos/notion-logo.png",
         industry: "Productivity",
         locations: ["San Francisco, CA", "New York, NY", "Tokyo, JP", "Remote"],
         size: "medium",
@@ -407,7 +407,7 @@ export const companiesData: Company[] = [
     {
         id: "zoom",
         name: "Zoom",
-        logo: "Z",
+        logo: "/company-logos/zoom-logo.png",
         industry: "Video Communication",
         locations: ["San Jose, CA", "New York, NY", "Austin, TX", "Remote"],
         size: "large",
@@ -436,7 +436,7 @@ export const companiesData: Company[] = [
     {
         id: "figma",
         name: "Figma",
-        logo: "F",
+        logo: "/company-logos/figma-logo.png",
         industry: "Design Tools",
         locations: [
             "San Francisco, CA",
@@ -470,7 +470,7 @@ export const companiesData: Company[] = [
     {
         id: "github",
         name: "GitHub",
-        logo: "G",
+        logo: "/company-logos/google-logo.png",
         industry: "Developer Tools",
         locations: ["San Francisco, CA", "New York, NY", "Remote"],
         size: "medium",
