@@ -66,18 +66,59 @@ const InterviewerContent = () => {
         [timerInterval]
     );
 
-    const handleStartCoding = () => {
+    const handleStartCoding = async () => {
         setTimeLeft(30 * 60); // Reset to 30 minutes
         setIsTimerRunning(true);
         setIsCodingStarted(true);
 
+        // Send is_coding status to ElevenLabs KB
+        if (realTimeConversationRef.current) {
+            const kb = {
+                is_coding: true,
+            };
+            const text = `KB_UPDATE: ${JSON.stringify(kb)}`;
+            try {
+                await realTimeConversationRef.current.sendContextualUpdate(
+                    text
+                );
+                console.log("✅ Coding status sent to ElevenLabs KB");
+            } catch (error) {
+                console.error(
+                    "❌ Failed to send coding status to ElevenLabs KB:",
+                    error
+                );
+            }
+        }
+
         // Start timer only when user clicks
-        const interval = setInterval(() => {
+        const interval = setInterval(async () => {
             setTimeLeft((time) => {
                 if (time <= 1) {
                     // Time's up - cleanup
                     setIsTimerRunning(false);
                     setIsCodingStarted(false);
+
+                    // Send coding stopped status when time expires
+                    if (realTimeConversationRef.current) {
+                        const kb = {
+                            is_coding: false,
+                        };
+                        const text = `KB_UPDATE: ${JSON.stringify(kb)}`;
+                        realTimeConversationRef.current
+                            .sendContextualUpdate(text)
+                            .then(() =>
+                                console.log(
+                                    "✅ Timer expired - coding stopped status sent to ElevenLabs KB"
+                                )
+                            )
+                            .catch((error: any) =>
+                                console.error(
+                                    "❌ Failed to send timer expired status to ElevenLabs KB:",
+                                    error
+                                )
+                            );
+                    }
+
                     clearInterval(interval);
                     return 0;
                 }
@@ -88,9 +129,28 @@ const InterviewerContent = () => {
         setTimerInterval(interval);
     };
 
-    const handleStopCoding = () => {
+    const handleStopCoding = async () => {
         setIsTimerRunning(false);
         setIsCodingStarted(false);
+
+        // Send is_coding status to ElevenLabs KB
+        if (realTimeConversationRef.current) {
+            const kb = {
+                is_coding: false,
+            };
+            const text = `KB_UPDATE: ${JSON.stringify(kb)}`;
+            try {
+                await realTimeConversationRef.current.sendContextualUpdate(
+                    text
+                );
+                console.log("✅ Coding stopped status sent to ElevenLabs KB");
+            } catch (error) {
+                console.error(
+                    "❌ Failed to send coding stopped status to ElevenLabs KB:",
+                    error
+                );
+            }
+        }
 
         // Clear timer interval
         if (timerInterval) {
@@ -109,6 +169,7 @@ const InterviewerContent = () => {
                 const kb = {
                     submission: state.currentCode,
                     has_submitted: "true",
+                    is_coding: false,
                 };
                 const text = `KB_UPDATE: ${JSON.stringify(kb)}`;
                 await realTimeConversationRef.current.sendContextualUpdate(
