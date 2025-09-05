@@ -34,6 +34,11 @@ const ChatPanel = () => {
             if (event.data.type === "recording-status") {
                 setIsRecording(event.data.isRecording);
             }
+
+            // Handle clear chat command
+            if (event.data.type === "clear-chat") {
+                setTranscriptions([]);
+            }
         };
 
         window.addEventListener("message", handleTranscription);
@@ -81,7 +86,7 @@ const ChatPanel = () => {
                                 Your chat will appear here
                             </p>
                             <p className="text-xs mt-1">
-                                Start interview to begin 
+                                Start interview to begin
                             </p>
                         </div>
                     ) : (

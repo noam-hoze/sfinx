@@ -38,6 +38,8 @@ const InterviewerContent = () => {
         async (action: "start" | "stop") => {
             if (action === "start") {
                 try {
+                    // Clear chat panel before starting new interview
+                    window.postMessage({ type: "clear-chat" }, "*");
                     await realTimeConversationRef.current?.startConversation();
                     setIsInterviewActive(true);
                 } catch (error) {
