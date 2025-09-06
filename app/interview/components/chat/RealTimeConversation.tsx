@@ -15,12 +15,18 @@ import AnimatedWaveform from "./AnimatedWaveform";
 interface RealTimeConversationProps {
     onStartConversation?: () => void;
     onEndConversation?: () => void;
+    onInterviewConcluded?: () => void;
     isInterviewActive?: boolean;
 }
 
 const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
     (
-        { onStartConversation, onEndConversation, isInterviewActive = false },
+        {
+            onStartConversation,
+            onEndConversation,
+            onInterviewConcluded,
+            isInterviewActive = false,
+        },
         ref
     ) => {
         const [isConnected, setIsConnected] = useState(false);
@@ -28,6 +34,9 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         const [connectionStatus, setConnectionStatus] =
             useState("Disconnected");
         const [micMuted, setMicMuted] = useState(false);
+        const [lastAiResponse, setLastAiResponse] = useState<string>("");
+        const [isClosingMessagePlaying, setIsClosingMessagePlaying] =
+            useState(false);
         const { state } = useInterview();
 
         const conversation = useConversation({
@@ -69,15 +78,35 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
 
                 // Send transcription data to ChatPanel
                 if (message.message) {
+                    const isAiMessage = message.source !== "user";
+                    const messageText = message.message;
+
                     window.parent.postMessage(
                         {
                             type: "transcription",
-                            text: message.message,
-                            speaker: message.source === "user" ? "user" : "ai",
+                            text: messageText,
+                            speaker: isAiMessage ? "ai" : "user",
                             timestamp: new Date(),
                         },
                         "*"
                     );
+
+                    // Track AI responses for automatic interview ending
+                    if (isAiMessage) {
+                        setLastAiResponse(messageText);
+
+                        // Check if this is the closing message
+                        if (
+                            messageText.includes(
+                                "The next steps will be shared with you shortly."
+                            )
+                        ) {
+                            console.log(
+                                "🎯 Detected closing message - preparing to end interview"
+                            );
+                            setIsClosingMessagePlaying(true);
+                        }
+                    }
                 }
             },
             onError: (error: any) => {
@@ -308,9 +337,50 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             startConversation,
             stopConversation,
             sendContextualUpdate: conversation.sendContextualUpdate,
+            sendUserMessage,
             micMuted,
             toggleMicMute,
         }));
+
+        // Monitor AI speaking state to detect when closing message audio ends
+        useEffect(() => {
+            if (isClosingMessagePlaying && !conversation.isSpeaking) {
+                console.log(
+                    "🎯 Closing message audio finished - triggering interview end"
+                );
+                setIsClosingMessagePlaying(false);
+
+                // Wait 1 second then stop the interview
+                setTimeout(() => {
+                    console.log(
+                        "⏰ 1 second delay complete - stopping interview"
+                    );
+                    console.log(
+                        "🎉 AUTOMATIC INTERVIEW END: Interview ended automatically after closing message"
+                    );
+                    // Notify parent that interview has concluded automatically
+                    onInterviewConcluded?.();
+                    stopConversation();
+                }, 1000);
+            }
+        }, [
+            conversation.isSpeaking,
+            isClosingMessagePlaying,
+            stopConversation,
+            onInterviewConcluded,
+        ]);
+
+        // Reset closing message state when new AI responses arrive
+        useEffect(() => {
+            if (
+                lastAiResponse &&
+                !lastAiResponse.includes(
+                    "The next steps will be shared with you shortly."
+                )
+            ) {
+                setIsClosingMessagePlaying(false);
+            }
+        }, [lastAiResponse]);
 
         // Cleanup on unmount
         useEffect(() => {

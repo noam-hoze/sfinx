@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { Moon, Sun } from "lucide-react";
 import Image from "next/image";
@@ -14,7 +14,7 @@ const InterviewerContent = () => {
     const { state, getCurrentTask, updateCurrentCode, updateSubmission } =
         useInterview();
     const searchParams = useSearchParams();
-    const companyLogo = searchParams.get("logo") || "/meta-logo.png";
+    const companyLogo = searchParams.get("logo") || "/logos/meta-logo.png";
     const [showDiff, setShowDiff] = useState(false);
     const [originalCode, setOriginalCode] = useState("");
     const [modifiedCode, setModifiedCode] = useState("");
@@ -33,7 +33,10 @@ const InterviewerContent = () => {
     );
     const [isCodingStarted, setIsCodingStarted] = useState(false);
     const [micMuted, setMicMuted] = useState(false);
+    const [showCompletionScreen, setShowCompletionScreen] = useState(false);
+    const [interviewConcluded, setInterviewConcluded] = useState(false);
     const realTimeConversationRef = useRef<any>(null);
+    const router = useRouter();
 
     const toggleMicMute = useCallback(() => {
         if (realTimeConversationRef.current?.toggleMicMute) {
@@ -257,6 +260,16 @@ render(UserList);`;
         }
     }, [state.currentTaskId, getCurrentTask]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // Handle interview conclusion and completion screen
+    useEffect(() => {
+        if (interviewConcluded) {
+            setShowCompletionScreen(true);
+            setTimeout(() => {
+                router.push("/job-search");
+            }, 2000);
+        }
+    }, [interviewConcluded, router]);
+
     // Load theme preference and apply to document
     useEffect(() => {
         const savedTheme = localStorage.getItem("sfinx-theme");
@@ -321,6 +334,41 @@ render(UserList);`;
             setActiveTab(tab);
         }
     };
+
+    // Completion Screen Component
+    const CompletionScreen = () => (
+        <div
+            className={`fixed inset-0 z-50 flex items-center justify-center bg-white transition-opacity duration-1000 ${
+                showCompletionScreen
+                    ? "opacity-100"
+                    : "opacity-0 pointer-events-none"
+            }`}
+        >
+            <div className="text-center px-6">
+                <div className="mb-8">
+                    <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+                        <svg
+                            className="w-12 h-12 text-blue-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={1.5}
+                                d="M5 13l4 4L19 7"
+                            />
+                        </svg>
+                    </div>
+                </div>
+                <h1 className="text-4xl font-light text-gray-900 mb-4 tracking-tight">
+                    Thank you for your time Gal
+                </h1>
+                <p className="text-xl text-gray-600 font-light">Good luck!</p>
+            </div>
+        </div>
+    );
 
     return (
         <div className="h-screen flex flex-col bg-soft-white text-deep-slate dark:bg-gray-900 dark:text-white">
@@ -492,8 +540,20 @@ render(UserList);`;
                                         }}
                                         onEndConversation={() => {
                                             console.log("Conversation ended");
+                                            setIsInterviewActive(false);
                                             setIsAgentConnected(false);
+                                            setIsTimerRunning(false);
+                                            setIsCodingStarted(false);
+
+                                            // Clean up timer interval
+                                            if (timerInterval) {
+                                                clearInterval(timerInterval);
+                                                setTimerInterval(null);
+                                            }
                                         }}
+                                        onInterviewConcluded={() =>
+                                            setInterviewConcluded(true)
+                                        }
                                     />
                                 </div>
                             </div>
@@ -509,6 +569,9 @@ render(UserList);`;
                     </Panel>
                 </PanelGroup>
             </div>
+
+            {/* Completion Screen */}
+            <CompletionScreen />
         </div>
     );
 };
