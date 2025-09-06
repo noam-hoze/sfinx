@@ -72,6 +72,7 @@ export async function GET(
                 confidence: telemetry.confidence,
                 story: telemetry.story,
             },
+            videoUrl: interviewSession.videoUrl,
             gaps: {
                 gaps:
                     telemetry.gapAnalysis?.gaps.map((gap: any) => ({

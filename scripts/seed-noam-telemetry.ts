@@ -90,7 +90,6 @@ async function seedNoamTelemetry() {
                 id: "noam-interview-session-id",
                 candidateId: "noam-user-id",
                 applicationId: "noam-application-id",
-                videoUrl: "/video/noam-interview.mp4",
                 status: "COMPLETED",
                 duration: 235,
             },

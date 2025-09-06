@@ -9,6 +9,7 @@ interface EvidenceReelProps {
     evidence: EvidenceClip[];
     jumpToTime?: number;
     onChapterClick?: (timestamp: number) => void;
+    videoUrl?: string | null;
 }
 
 const EvidenceReel: React.FC<EvidenceReelProps> = ({
@@ -16,6 +17,7 @@ const EvidenceReel: React.FC<EvidenceReelProps> = ({
     evidence,
     jumpToTime,
     onChapterClick,
+    videoUrl,
 }) => {
     const [currentTime, setCurrentTime] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -107,66 +109,103 @@ const EvidenceReel: React.FC<EvidenceReelProps> = ({
             {/* Video Player Section */}
             <div className="relative">
                 <div
-                    className="aspect-video bg-black relative cursor-pointer"
-                    onClick={handlePlayPause}
+                    className="aspect-video bg-black relative"
+                    style={{ cursor: videoUrl ? "pointer" : "default" }}
+                    onClick={videoUrl ? handlePlayPause : undefined}
                 >
-                    <video
-                        ref={videoRef}
-                        className="w-full h-full object-cover"
-                        controls={false}
-                        preload="metadata"
-                        playsInline
-                        onTimeUpdate={(e) => {
-                            const video = e.target as HTMLVideoElement;
-                            const newTime = Math.floor(video.currentTime);
+                    {videoUrl ? (
+                        <video
+                            ref={videoRef}
+                            className="w-full h-full object-cover"
+                            controls={false}
+                            preload="metadata"
+                            playsInline
+                            onTimeUpdate={(e) => {
+                                const video = e.target as HTMLVideoElement;
+                                const newTime = Math.floor(video.currentTime);
 
-                            // Only update if time changed by at least 1 second
-                            if (newTime !== Math.floor(currentTime)) {
-                                setCurrentTime(video.currentTime);
+                                // Only update if time changed by at least 1 second
+                                if (newTime !== Math.floor(currentTime)) {
+                                    setCurrentTime(video.currentTime);
 
-                                // Update active chapter based on current time
-                                const currentChapter = chapters.find(
-                                    (chapter) =>
-                                        video.currentTime >=
-                                            chapter.startTime &&
-                                        video.currentTime < chapter.endTime
-                                );
-                                if (
-                                    currentChapter &&
-                                    currentChapter.id !== activeChapter
-                                ) {
-                                    setActiveChapter(currentChapter.id);
+                                    // Update active chapter based on current time
+                                    const currentChapter = chapters.find(
+                                        (chapter) =>
+                                            video.currentTime >=
+                                                chapter.startTime &&
+                                            video.currentTime < chapter.endTime
+                                    );
+                                    if (
+                                        currentChapter &&
+                                        currentChapter.id !== activeChapter
+                                    ) {
+                                        setActiveChapter(currentChapter.id);
+                                    }
                                 }
-                            }
-                        }}
-                        onPlay={() => setIsPlaying(true)}
-                        onPause={() => setIsPlaying(false)}
-                        onLoadedMetadata={(e) => {
-                            const video = e.target as HTMLVideoElement;
-                            console.log(
-                                "Video loaded:",
-                                video.duration,
-                                "seconds"
-                            );
-                        }}
-                        onError={(e) => {
-                            const video = e.target as HTMLVideoElement;
-                            console.error("Video error:", video.error);
-                            console.error("Video src:", video.currentSrc);
-                        }}
-                        onLoadStart={() => {
-                            console.log("Video load started");
-                        }}
-                        onCanPlay={() => {
-                            console.log("Video can play");
-                        }}
-                    >
-                        <source src="/noam-interview.mp4" type="video/mp4" />
-                        Your browser does not support the video tag.
-                    </video>
+                            }}
+                            onPlay={() => setIsPlaying(true)}
+                            onPause={() => setIsPlaying(false)}
+                            onLoadedMetadata={(e) => {
+                                const video = e.target as HTMLVideoElement;
+                                console.log(
+                                    "Video loaded:",
+                                    video.duration,
+                                    "seconds"
+                                );
+                            }}
+                            onError={(e) => {
+                                const video = e.target as HTMLVideoElement;
+                                console.error("Video error:", video.error);
+                                console.error("Video src:", video.currentSrc);
+                            }}
+                            onLoadStart={() => {
+                                console.log(
+                                    "EvidenceReel: Video load started for:",
+                                    videoUrl
+                                );
+                                console.log(
+                                    "EvidenceReel: videoUrl prop:",
+                                    videoUrl
+                                );
+                            }}
+                            onCanPlay={() => {
+                                console.log("Video can play");
+                            }}
+                        >
+                            <source src={videoUrl} type="video/mp4" />
+                            Your browser does not support the video tag.
+                        </video>
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-900">
+                            <div className="text-center text-white">
+                                <div className="w-16 h-16 mx-auto mb-4 bg-gray-700 rounded-full flex items-center justify-center">
+                                    <svg
+                                        className="w-8 h-8 text-gray-400"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                        />
+                                    </svg>
+                                </div>
+                                <p className="text-lg font-medium text-gray-300">
+                                    No Video Available
+                                </p>
+                                <p className="text-sm text-gray-500 mt-2">
+                                    This candidate hasn't completed an interview
+                                    yet
+                                </p>
+                            </div>
+                        </div>
+                    )}
 
-                    {/* Custom Play/Pause Overlay */}
-                    {!isPlaying && (
+                    {/* Custom Play/Pause Overlay - only show if video exists */}
+                    {videoUrl && !isPlaying && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/10 backdrop-blur-[2px]">
                             <button
                                 onClick={(e) => {
@@ -180,8 +219,8 @@ const EvidenceReel: React.FC<EvidenceReelProps> = ({
                         </div>
                     )}
 
-                    {/* Video Caption Overlay */}
-                    {currentCaption && (
+                    {/* Video Caption Overlay - only show if video exists */}
+                    {videoUrl && currentCaption && (
                         <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-20">
                             <div className="bg-white/10 backdrop-blur-md rounded-2xl px-6 py-3 border border-white/20 shadow-2xl">
                                 <p className="text-white text-sm font-medium tracking-wide opacity-90">
@@ -192,100 +231,105 @@ const EvidenceReel: React.FC<EvidenceReelProps> = ({
                     )}
                 </div>
 
-                {/* Video Controls */}
-                <div className="bg-gray-900 p-6">
-                    <div className="flex items-center justify-between mb-3">
-                        <button
-                            onClick={handlePlayPause}
-                            className="w-10 h-10 bg-white/15 hover:bg-white/25 rounded-full flex items-center justify-center text-white transition-all duration-300 ease-out hover:scale-105 shadow-xl shadow-black/10 backdrop-blur-sm border border-white/5"
-                        >
-                            {isPlaying ? (
-                                <div className="flex gap-0.5">
-                                    <div className="w-1 h-4 bg-white rounded-sm"></div>
-                                    <div className="w-1 h-4 bg-white rounded-sm"></div>
-                                </div>
-                            ) : (
-                                <div className="w-0 h-0 border-l-[8px] border-l-white border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent ml-0.5"></div>
-                            )}
-                        </button>
+                {/* Video Controls - only show if video exists */}
+                {videoUrl && (
+                    <div className="bg-gray-900 p-6">
+                        <div className="flex items-center justify-between mb-3">
+                            <button
+                                onClick={handlePlayPause}
+                                className="w-10 h-10 bg-white/15 hover:bg-white/25 rounded-full flex items-center justify-center text-white transition-all duration-300 ease-out hover:scale-105 shadow-xl shadow-black/10 backdrop-blur-sm border border-white/5"
+                            >
+                                {isPlaying ? (
+                                    <div className="flex gap-0.5">
+                                        <div className="w-1 h-4 bg-white rounded-sm"></div>
+                                        <div className="w-1 h-4 bg-white rounded-sm"></div>
+                                    </div>
+                                ) : (
+                                    <div className="w-0 h-0 border-l-[8px] border-l-white border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent ml-0.5"></div>
+                                )}
+                            </button>
 
-                        <div className="flex-1 mx-4">
-                            <div className="relative">
-                                <div
-                                    className="w-full h-2 bg-white/20 rounded-full cursor-pointer"
-                                    onClick={(e) => {
-                                        if (videoRef.current) {
-                                            const rect =
-                                                e.currentTarget.getBoundingClientRect();
-                                            const clickX =
-                                                e.clientX - rect.left;
-                                            const percentage =
-                                                clickX / rect.width;
-                                            const newTime =
-                                                percentage * totalDuration;
-                                            videoRef.current.currentTime =
-                                                newTime;
-                                        }
-                                    }}
-                                >
+                            <div className="flex-1 mx-4">
+                                <div className="relative">
                                     <div
-                                        className="h-2 bg-red-500 rounded-full transition-all duration-300 shadow-sm"
-                                        style={{
-                                            width: `${
-                                                (currentTime / totalDuration) *
-                                                100
-                                            }%`,
+                                        className="w-full h-2 bg-white/20 rounded-full cursor-pointer"
+                                        onClick={(e) => {
+                                            if (videoRef.current) {
+                                                const rect =
+                                                    e.currentTarget.getBoundingClientRect();
+                                                const clickX =
+                                                    e.clientX - rect.left;
+                                                const percentage =
+                                                    clickX / rect.width;
+                                                const newTime =
+                                                    percentage * totalDuration;
+                                                videoRef.current.currentTime =
+                                                    newTime;
+                                            }
                                         }}
-                                    ></div>
-                                </div>
+                                    >
+                                        <div
+                                            className="h-2 bg-red-500 rounded-full transition-all duration-300 shadow-sm"
+                                            style={{
+                                                width: `${
+                                                    (currentTime /
+                                                        totalDuration) *
+                                                    100
+                                                }%`,
+                                            }}
+                                        ></div>
+                                    </div>
 
-                                {/* Chapter markers on progress bar */}
-                                {chapters.map((chapter, index) => (
-                                    <div
-                                        key={chapter.id}
-                                        className="absolute top-0 w-2 h-2 bg-yellow-400 rounded-full transform -translate-x-1 -translate-y-0.5 shadow-sm cursor-pointer hover:bg-yellow-300 transition-colors"
-                                        style={{
-                                            left: `${
-                                                (chapter.startTime /
-                                                    totalDuration) *
-                                                100
-                                            }%`,
-                                        }}
-                                    ></div>
-                                ))}
+                                    {/* Chapter markers on progress bar */}
+                                    {chapters.map((chapter, index) => (
+                                        <div
+                                            key={chapter.id}
+                                            className="absolute top-0 w-2 h-2 bg-yellow-400 rounded-full transform -translate-x-1 -translate-y-0.5 shadow-sm cursor-pointer hover:bg-yellow-300 transition-colors"
+                                            style={{
+                                                left: `${
+                                                    (chapter.startTime /
+                                                        totalDuration) *
+                                                    100
+                                                }%`,
+                                            }}
+                                        ></div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="text-white text-sm font-mono">
+                                {formatTime(currentTime)} /{" "}
+                                {formatTime(totalDuration)}
                             </div>
                         </div>
 
-                        <div className="text-white text-sm font-mono">
-                            {formatTime(currentTime)} /{" "}
-                            {formatTime(totalDuration)}
+                        {/* Chapter Navigation */}
+                        <div className="relative">
+                            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                                {chapters.map((chapter) => (
+                                    <button
+                                        key={chapter.id}
+                                        onClick={() =>
+                                            handleChapterClick(chapter)
+                                        }
+                                        className={`flex-shrink-0 p-2 rounded-lg text-xs text-left transition-all duration-300 ease-out min-w-[100px] ${
+                                            activeChapter === chapter.id
+                                                ? "bg-blue-600 text-white shadow-lg"
+                                                : "bg-white/10 text-white/80 hover:bg-white/20 hover:shadow-md"
+                                        }`}
+                                    >
+                                        <div className="font-medium truncate">
+                                            {chapter.title}
+                                        </div>
+                                        <div className="opacity-75 text-[10px]">
+                                            {formatTime(chapter.startTime)}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
-
-                    {/* Chapter Navigation */}
-                    <div className="relative">
-                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                            {chapters.map((chapter) => (
-                                <button
-                                    key={chapter.id}
-                                    onClick={() => handleChapterClick(chapter)}
-                                    className={`flex-shrink-0 p-2 rounded-lg text-xs text-left transition-all duration-300 ease-out min-w-[100px] ${
-                                        activeChapter === chapter.id
-                                            ? "bg-blue-600 text-white shadow-lg"
-                                            : "bg-white/10 text-white/80 hover:bg-white/20 hover:shadow-md"
-                                    }`}
-                                >
-                                    <div className="font-medium truncate">
-                                        {chapter.title}
-                                    </div>
-                                    <div className="opacity-75 text-[10px]">
-                                        {formatTime(chapter.startTime)}
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+                )}
             </div>
         </div>
     );

@@ -40,6 +40,10 @@ function TelemetryContent() {
 
                 if (response.ok) {
                     const data = await response.json();
+                    console.log(
+                        "CPS: Received telemetry data with videoUrl:",
+                        data.videoUrl
+                    );
                     setTelemetryData(data);
                     setError(null);
                 } else if (response.status === 404) {
@@ -62,7 +66,7 @@ function TelemetryContent() {
         fetchTelemetryData();
     }, [candidateId]);
 
-    const { candidate, gaps, evidence, chapters, workstyle } =
+    const { candidate, gaps, evidence, chapters, workstyle, videoUrl } =
         telemetryData || {};
 
     const onVideoJump = (timestamp: number) => {
@@ -278,6 +282,7 @@ function TelemetryContent() {
                             evidence={evidence || []}
                             jumpToTime={currentVideoTime}
                             onChapterClick={onVideoJump}
+                            videoUrl={videoUrl}
                         />
                     </div>
                 </div>
