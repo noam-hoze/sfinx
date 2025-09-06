@@ -1,42 +1,86 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { companiesData, Company, useJobApplication } from "../../lib";
+import { useJobApplication, AuthGuard } from "../../lib";
 
-export default function JobSearchPage() {
+interface Job {
+    id: string;
+    title: string;
+    type: string;
+    location: string;
+    salary: string | null;
+}
+
+interface Company {
+    id: string;
+    name: string;
+    logo: string | null;
+    industry: string;
+    locations: string[];
+    cultureTags: string[];
+    size: string;
+    jobs: Job[];
+}
+
+function JobSearchContent() {
     const { isCompanyApplied } = useJobApplication();
     const [searchRole, setSearchRole] = useState("");
     const [searchLocation, setSearchLocation] = useState("");
     const [searchCompany, setSearchCompany] = useState("");
+    const [companies, setCompanies] = useState<Company[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-    // Filter companies based on role, location, and company name
-    const filteredCompanies = useMemo(() => {
-        return companiesData.filter((company: Company) => {
-            const roleMatch =
-                !searchRole ||
-                company.openRoles.some((role: any) =>
-                    role.title.toLowerCase().includes(searchRole.toLowerCase())
+    // Fetch companies from API
+    useEffect(() => {
+        const fetchCompanies = async () => {
+            console.log("🔄 Starting to fetch companies...");
+            try {
+                const params = new URLSearchParams();
+                if (searchRole) params.append("role", searchRole);
+                if (searchLocation) params.append("location", searchLocation);
+                if (searchCompany) params.append("company", searchCompany);
+
+                const url = `/api/companies?${params.toString()}`;
+                console.log("📡 Fetching from:", url);
+
+                const response = await fetch(url);
+                console.log("📥 Response status:", response.status);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log("✅ Data received:", data);
+                    setCompanies(data.companies);
+                    setError(null);
+                } else {
+                    console.error(
+                        "❌ Response not ok:",
+                        response.status,
+                        response.statusText
+                    );
+                    const errorText = await response.text();
+                    console.error("❌ Error response:", errorText);
+                    setError(
+                        `Failed to load companies: ${response.status} ${response.statusText}`
+                    );
+                }
+            } catch (error) {
+                console.error("💥 Error fetching companies:", error);
+                setError(
+                    "Failed to load companies. Please check your connection and try again."
                 );
+            } finally {
+                console.log("🏁 Setting loading to false");
+                setLoading(false);
+            }
+        };
 
-            const locationMatch =
-                !searchLocation ||
-                company.locations.some((loc: string) =>
-                    loc.toLowerCase().includes(searchLocation.toLowerCase())
-                );
-
-            const companyMatch =
-                !searchCompany ||
-                company.name
-                    .toLowerCase()
-                    .includes(searchCompany.toLowerCase()) ||
-                company.industry
-                    .toLowerCase()
-                    .includes(searchCompany.toLowerCase());
-
-            return roleMatch && locationMatch && companyMatch;
-        });
+        fetchCompanies();
     }, [searchRole, searchLocation, searchCompany]);
+
+    // Since we're already filtering on the server side, we can just use the companies directly
+    const filteredCompanies = companies;
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -111,107 +155,150 @@ export default function JobSearchPage() {
                 </div>
 
                 {/* Companies Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                    {filteredCompanies.map(
-                        (company: Company, index: number) => {
-                            const isMeta = company.id === "meta";
-                            const CompanyCard = (
-                                <div
-                                    key={company.id}
-                                    className={`group bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:bg-white/80 hover:shadow-lg transition-all duration-300 ease-out hover:scale-105 ${
-                                        isMeta
-                                            ? "cursor-pointer ring-2 ring-blue-500/20 hover:ring-blue-500/40"
-                                            : "cursor-pointer"
-                                    }`}
-                                    style={{
-                                        animationDelay: `${index * 50}ms`,
-                                        animation:
-                                            "fadeInUp 0.5s ease-out forwards",
-                                    }}
-                                >
-                                    {/* Company Logo */}
-                                    <div className="relative w-24 h-24 mx-auto mb-4 bg-white rounded-xl flex items-center justify-center p-3">
-                                        <img
-                                            src={company.logo}
-                                            alt={`${company.name} logo`}
-                                            className="w-full h-full object-contain"
-                                        />
-                                        {isCompanyApplied(company.id) && (
-                                            <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                                                <svg
-                                                    className="w-4 h-4 text-white"
-                                                    fill="currentColor"
-                                                    viewBox="0 0 20 20"
-                                                >
-                                                    <path
-                                                        fillRule="evenodd"
-                                                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                                        clipRule="evenodd"
-                                                    />
-                                                </svg>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Company Info */}
-                                    <div className="text-center">
-                                        <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-                                            {company.name}
-                                        </h3>
-                                        <p className="text-sm text-gray-600 mb-2">
-                                            {company.industry}
-                                        </p>
-                                        <p className="text-xs text-gray-500">
-                                            {company.size} •{" "}
-                                            {company.openRoles.length} open
-                                            roles
-                                        </p>
-                                    </div>
-
-                                    {/* Locations */}
-                                    <div className="mt-3 flex flex-wrap gap-1 justify-center">
-                                        {company.locations
-                                            .slice(0, 2)
-                                            .map(
-                                                (
-                                                    location: string,
-                                                    idx: number
-                                                ) => (
-                                                    <span
-                                                        key={idx}
-                                                        className="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full"
+                {loading ? (
+                    <div className="text-center py-12">
+                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                        <p className="mt-4 text-gray-600">
+                            Loading companies...
+                        </p>
+                    </div>
+                ) : error ? (
+                    <div className="text-center py-12">
+                        <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
+                            <svg
+                                className="w-8 h-8 text-red-600"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
+                                />
+                            </svg>
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">
+                            Error Loading Companies
+                        </h3>
+                        <p className="text-gray-600 mb-4">{error}</p>
+                        <button
+                            onClick={() => {
+                                setLoading(true);
+                                setError(null);
+                                // Trigger a re-fetch by updating the search state
+                                setSearchRole((prev) => prev);
+                            }}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                            Try Again
+                        </button>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                        {filteredCompanies.map(
+                            (company: Company, index: number) => {
+                                const isMeta = company.id === "meta";
+                                const CompanyCard = (
+                                    <div
+                                        key={company.id}
+                                        className={`group bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:bg-white/80 hover:shadow-lg transition-all duration-300 ease-out hover:scale-105 ${
+                                            isMeta
+                                                ? "cursor-pointer ring-2 ring-blue-500/20 hover:ring-blue-500/40"
+                                                : "cursor-pointer"
+                                        }`}
+                                        style={{
+                                            animationDelay: `${index * 50}ms`,
+                                            animation:
+                                                "fadeInUp 0.5s ease-out forwards",
+                                        }}
+                                    >
+                                        {/* Company Logo */}
+                                        <div className="relative w-24 h-24 mx-auto mb-4 bg-white rounded-xl flex items-center justify-center p-3">
+                                            <img
+                                                src={company.logo || ""}
+                                                alt={`${company.name} logo`}
+                                                className="w-full h-full object-contain"
+                                            />
+                                            {isCompanyApplied(company.id) && (
+                                                <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                                                    <svg
+                                                        className="w-4 h-4 text-white"
+                                                        fill="currentColor"
+                                                        viewBox="0 0 20 20"
                                                     >
-                                                        {location}
-                                                    </span>
-                                                )
+                                                        <path
+                                                            fillRule="evenodd"
+                                                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                                            clipRule="evenodd"
+                                                        />
+                                                    </svg>
+                                                </div>
                                             )}
-                                        {company.locations.length > 2 && (
-                                            <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                                                +{company.locations.length - 2}
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            );
+                                        </div>
 
-                            return (
-                                <Link
-                                    key={company.id}
-                                    href={`/interview?company=${encodeURIComponent(
-                                        company.name
-                                    )}&logo=${encodeURIComponent(
-                                        company.logo
-                                    )}`}
-                                >
-                                    {CompanyCard}
-                                </Link>
-                            );
-                        }
-                    )}
-                </div>
+                                        {/* Company Info */}
+                                        <div className="text-center">
+                                            <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+                                                {company.name}
+                                            </h3>
+                                            <p className="text-sm text-gray-600 mb-2">
+                                                {company.industry}
+                                            </p>
+                                            <p className="text-xs text-gray-500">
+                                                {company.size} •{" "}
+                                                {company.jobs.length} open roles
+                                            </p>
+                                        </div>
+
+                                        {/* Locations */}
+                                        <div className="mt-3 flex flex-wrap gap-1 justify-center">
+                                            {company.locations
+                                                .slice(0, 2)
+                                                .map(
+                                                    (
+                                                        location: string,
+                                                        idx: number
+                                                    ) => (
+                                                        <span
+                                                            key={idx}
+                                                            className="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full"
+                                                        >
+                                                            {location}
+                                                        </span>
+                                                    )
+                                                )}
+                                            {company.locations.length > 2 && (
+                                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+                                                    +
+                                                    {company.locations.length -
+                                                        2}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+
+                                return (
+                                    <Link
+                                        key={company.id}
+                                        href={`/interview?company=${encodeURIComponent(
+                                            company.name
+                                        )}&logo=${encodeURIComponent(
+                                            company.logo || ""
+                                        )}`}
+                                    >
+                                        {CompanyCard}
+                                    </Link>
+                                );
+                            }
+                        )}
+                    </div>
+                )}
 
                 {/* No Results */}
-                {filteredCompanies.length === 0 && (
+                {!loading && !error && filteredCompanies.length === 0 && (
                     <div className="text-center py-12">
                         <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
                             <svg
@@ -251,5 +338,13 @@ export default function JobSearchPage() {
                 }
             `}</style>
         </div>
+    );
+}
+
+export default function JobSearchPage() {
+    return (
+        <AuthGuard requiredRole="CANDIDATE">
+            <JobSearchContent />
+        </AuthGuard>
     );
 }

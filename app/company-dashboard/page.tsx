@@ -1,4 +1,6 @@
-export default function CompanyDashboard() {
+import { AuthGuard } from "../../lib";
+
+function CompanyDashboardContent() {
     return (
         <main className="min-h-screen bg-gray-50 p-8">
             <div className="max-w-7xl mx-auto">
@@ -13,5 +15,13 @@ export default function CompanyDashboard() {
                 </div>
             </div>
         </main>
+    );
+}
+
+export default function CompanyDashboard() {
+    return (
+        <AuthGuard requiredRole="COMPANY">
+            <CompanyDashboardContent />
+        </AuthGuard>
     );
 }

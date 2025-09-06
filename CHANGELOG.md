@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.6.0] - 2025-01-15
+
+### Added
+
+-   **Database Integration**: Complete PostgreSQL database setup with Prisma ORM
+-   **Mock Data Population**: Automated database seeding script with 14 companies and 42 jobs
+-   **Database-Driven Job Search**: Job search page now pulls data from database instead of mock files
+-   **Role-Based Authentication**: Comprehensive authentication system with strict role separation
+-   **Protected Pages**: Page-level access control for different user types (Candidate, Company, Admin)
+-   **API Endpoints**: RESTful API routes for companies and jobs data retrieval
+-   **Company Dashboard Protection**: Dedicated dashboard for company users with role-based access
+-   **CPS Page Protection**: Candidate Performance System accessible only to company users
+
+### Enhanced
+
+-   **Job Search Experience**: Real-time database queries with filtering and search capabilities
+-   **Authentication Flow**: Enhanced session management with automatic role-based redirects
+-   **Data Architecture**: Structured database schema with proper relationships and constraints
+-   **Error Handling**: Robust error handling for database operations and API failures
+
+### Technical
+
+-   **Prisma Schema**: Complete database schema with Company, Job, and User models
+-   **Database Migrations**: Automated migration system for schema updates
+-   **API Route Architecture**: Clean separation between frontend and backend data access
+-   **Type Safety**: Full TypeScript integration with database models and API responses
+-   **Authentication Guards**: Reusable AuthGuard component for route protection
+-   **Role-Based Access Control**: Strict enforcement of user permissions across all pages
+
+### Security
+
+-   **Page-Level Protection**: All sensitive pages now require proper authentication and role verification
+-   **Cross-Role Isolation**: Complete separation between candidate and company user experiences
+-   **Admin Override**: Administrative users maintain access to all system features
+
 ## [1.5.0] - 2025-01-14
 
 ### Added
@@ -233,3 +268,4 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 [1.2.0]: https://github.com/noam-hoze/sfinx/compare/v1.1.0...v1.2.0
 [1.4.0]: https://github.com/noam-hoze/sfinx/compare/v1.2.0...v1.4.0
 [1.5.0]: https://github.com/noam-hoze/sfinx/compare/v1.4.0...v1.5.0
+[1.6.0]: https://github.com/noam-hoze/sfinx/compare/v1.5.0...v1.6.0

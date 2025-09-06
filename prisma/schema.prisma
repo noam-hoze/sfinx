@@ -114,3 +114,43 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+}
+
+model Company {
+  id          String      @id @default(cuid())
+  name        String
+  logo        String?
+  industry    String
+  locations   String[]    // Array of locations
+  cultureTags String[]    // Array of culture tags
+  size        CompanySize
+  website     String?
+  description String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  jobs Job[]
+
+  @@unique([name])
+}
+
+model Job {
+  id          String   @id @default(cuid())
+  title       String
+  type        JobType
+  location    String
+  salary      String?
+  description String?
+  requirements String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  companyId   String
+  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}

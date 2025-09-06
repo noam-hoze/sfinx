@@ -7,9 +7,9 @@ import WorkstyleDashboard from "./components/WorkstyleDashboard";
 import PersistenceFlow from "./components/PersistenceFlow";
 import LearningToActionTimeline from "./components/LearningToActionTimeline";
 import ConfidenceBuildingCurve from "./components/ConfidenceBuildingCurve";
-import { galTelemetryData } from "../../lib";
+import { galTelemetryData, AuthGuard } from "../../lib";
 
-export default function TelemetryPage() {
+function TelemetryContent() {
     const { candidate, gaps, evidence, chapters, workstyle } = galTelemetryData;
     const [currentVideoTime, setCurrentVideoTime] = React.useState(0);
     const [activeTab, setActiveTab] = useState<"benchmarks" | "insights">(
@@ -141,5 +141,13 @@ export default function TelemetryPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function TelemetryPage() {
+    return (
+        <AuthGuard requiredRole="COMPANY">
+            <TelemetryContent />
+        </AuthGuard>
     );
 }
