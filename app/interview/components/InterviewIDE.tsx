@@ -58,6 +58,9 @@ const InterviewerContent = () => {
         async (action: "start" | "stop") => {
             if (action === "start") {
                 try {
+                    // Reset editor code to initial state for new interview
+                    updateCurrentCode(getInitialCode());
+
                     // Clear chat panel before starting new interview
                     window.postMessage({ type: "clear-chat" }, "*");
                     await realTimeConversationRef.current?.startConversation();
@@ -83,7 +86,7 @@ const InterviewerContent = () => {
                 }
             }
         },
-        [timerInterval]
+        [timerInterval, updateCurrentCode]
     );
 
     const handleStartCoding = async () => {
