@@ -5,7 +5,7 @@ import {
     EvidenceClip,
     VideoChapter,
     WorkstyleMetrics,
-} from "../interview/types";
+} from "../contexts/types";
 
 // Mock data for Gal's Candidate Profile Story
 export const galProfile: CandidateProfile = {

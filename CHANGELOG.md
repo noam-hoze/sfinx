@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.4.0] - 2025-01-12
+
+### Added
+
+-   **Applied Company Tracking**: Green checkmark indicator for companies where interviews have been completed
+-   **Job Application State Management**: Global context for tracking applied companies across pages
+-   **Interview Conclusion Integration**: Automatic marking of companies as applied when interviews complete
+-   **Persistent Application Status**: Applied company status survives browser sessions via localStorage
+
+### Enhanced
+
+-   **Interview Page Access Control**: Now requires company name parameter for proper state management
+-   **Navigation Improvements**: Updated company card links to pass company name alongside logo
+-   **State Persistence**: Applied status automatically saved and restored across sessions
+
+### Technical
+
+-   **Global Context Architecture**: New JobApplicationContext for cross-page state management
+-   **LocalStorage Integration**: Persistent storage of applied company status
+-   **Clean State Management**: Minimal, surgical implementation following project conventions
+
 ## [1.3.1] - 2025-09-05
 
 ### Fixed

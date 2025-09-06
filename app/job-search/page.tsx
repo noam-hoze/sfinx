@@ -2,9 +2,10 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
-import { companiesData, Company } from "../../lib";
+import { companiesData, Company, useJobApplication } from "../../lib";
 
 export default function JobSearchPage() {
+    const { isCompanyApplied } = useJobApplication();
     const [searchRole, setSearchRole] = useState("");
     const [searchLocation, setSearchLocation] = useState("");
     const [searchCompany, setSearchCompany] = useState("");
@@ -129,12 +130,27 @@ export default function JobSearchPage() {
                                     }}
                                 >
                                     {/* Company Logo */}
-                                    <div className="w-24 h-24 mx-auto mb-4 bg-white rounded-xl flex items-center justify-center p-3">
+                                    <div className="relative w-24 h-24 mx-auto mb-4 bg-white rounded-xl flex items-center justify-center p-3">
                                         <img
                                             src={company.logo}
                                             alt={`${company.name} logo`}
                                             className="w-full h-full object-contain"
                                         />
+                                        {isCompanyApplied(company.id) && (
+                                            <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                                                <svg
+                                                    className="w-4 h-4 text-white"
+                                                    fill="currentColor"
+                                                    viewBox="0 0 20 20"
+                                                >
+                                                    <path
+                                                        fillRule="evenodd"
+                                                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                                        clipRule="evenodd"
+                                                    />
+                                                </svg>
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Company Info */}
@@ -181,7 +197,9 @@ export default function JobSearchPage() {
                             return (
                                 <Link
                                     key={company.id}
-                                    href={`/interview?logo=${encodeURIComponent(
+                                    href={`/interview?company=${encodeURIComponent(
+                                        company.name
+                                    )}&logo=${encodeURIComponent(
                                         company.logo
                                     )}`}
                                 >

@@ -8,12 +8,19 @@ import Image from "next/image";
 import EditorPanel from "./editor/EditorPanel";
 import ChatPanel from "./chat/ChatPanel";
 import RealTimeConversation from "./chat/RealTimeConversation";
-import { InterviewProvider, useInterview } from "../../../lib";
+import {
+    InterviewProvider,
+    useInterview,
+    useJobApplication,
+    companiesData,
+} from "../../../lib";
 
 const InterviewerContent = () => {
     const { state, getCurrentTask, updateCurrentCode, updateSubmission } =
         useInterview();
+    const { markCompanyApplied } = useJobApplication();
     const searchParams = useSearchParams();
+    const companyName = searchParams.get("company");
     const companyLogo = searchParams.get("logo") || "/logos/meta-logo.png";
     const [showDiff, setShowDiff] = useState(false);
     const [originalCode, setOriginalCode] = useState("");
@@ -37,6 +44,13 @@ const InterviewerContent = () => {
     const [interviewConcluded, setInterviewConcluded] = useState(false);
     const realTimeConversationRef = useRef<any>(null);
     const router = useRouter();
+
+    // Require company name parameter
+    useEffect(() => {
+        if (!companyName) {
+            router.push("/job-search");
+        }
+    }, [companyName, router]);
 
     const toggleMicMute = useCallback(() => {
         if (realTimeConversationRef.current?.toggleMicMute) {
@@ -262,13 +276,19 @@ render(UserList);`;
 
     // Handle interview conclusion and completion screen
     useEffect(() => {
-        if (interviewConcluded) {
+        if (interviewConcluded && companyName) {
+            // Find company by name and mark as applied
+            const company = companiesData.find((c) => c.name === companyName);
+            if (company) {
+                markCompanyApplied(company.id);
+            }
+
             setShowCompletionScreen(true);
             setTimeout(() => {
                 router.push("/job-search");
             }, 2000);
         }
-    }, [interviewConcluded, router]);
+    }, [interviewConcluded, companyName, router, markCompanyApplied]);
 
     // Load theme preference and apply to document
     useEffect(() => {
