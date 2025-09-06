@@ -32,7 +32,27 @@ const InterviewerContent = () => {
         null
     );
     const [isCodingStarted, setIsCodingStarted] = useState(false);
+    const [micMuted, setMicMuted] = useState(false);
     const realTimeConversationRef = useRef<any>(null);
+
+    const toggleMicMute = useCallback(() => {
+        if (realTimeConversationRef.current?.toggleMicMute) {
+            realTimeConversationRef.current.toggleMicMute();
+        }
+    }, []);
+
+    // Listen for mic state changes from RealTimeConversation
+    useEffect(() => {
+        const handleMicStateChange = (event: MessageEvent) => {
+            if (event.data.type === "mic-state-changed") {
+                setMicMuted(event.data.micMuted);
+            }
+        };
+
+        window.addEventListener("message", handleMicStateChange);
+        return () =>
+            window.removeEventListener("message", handleMicStateChange);
+    }, []);
 
     const handleInterviewButtonClick = useCallback(
         async (action: "start" | "stop") => {
@@ -463,7 +483,10 @@ render(UserList);`;
 
                             {/* Transcription Display (Bottom Three Quarters - 75%) */}
                             <div className="flex-[3] h-full overflow-hidden">
-                                <ChatPanel />
+                                <ChatPanel
+                                    micMuted={micMuted}
+                                    onToggleMicMute={toggleMicMute}
+                                />
                             </div>
                         </div>
                     </Panel>

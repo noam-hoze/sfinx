@@ -10,7 +10,12 @@ interface TranscriptionMessage {
     timestamp: Date;
 }
 
-const ChatPanel = () => {
+interface ChatPanelProps {
+    micMuted?: boolean;
+    onToggleMicMute?: () => void;
+}
+
+const ChatPanel = ({ micMuted = false, onToggleMicMute }: ChatPanelProps) => {
     const [transcriptions, setTranscriptions] = useState<
         TranscriptionMessage[]
     >([]);
@@ -67,11 +72,33 @@ const ChatPanel = () => {
                         </h3>
                     </div>
                     <div className="flex items-center space-x-2">
-                        {isRecording ? (
-                            <Mic className="w-4 h-4 text-red-500 animate-pulse" />
-                        ) : (
-                            <MicOff className="w-4 h-4 text-gray-400" />
-                        )}
+                        <button
+                            onClick={onToggleMicMute}
+                            className={`relative p-1 rounded-full transition-all duration-200 ${
+                                micMuted
+                                    ? "bg-red-100 hover:bg-red-200 dark:bg-red-900/20 dark:hover:bg-red-900/30"
+                                    : "hover:bg-gray-200 dark:hover:bg-gray-700"
+                            }`}
+                            title={
+                                micMuted
+                                    ? "Unmute microphone"
+                                    : "Mute microphone"
+                            }
+                        >
+                            {micMuted ? (
+                                <>
+                                    <MicOff className="w-4 h-4 text-red-600 dark:text-red-400" />
+                                    {/* Red slash indicator */}
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <div className="w-5 h-0.5 bg-red-600 dark:bg-red-400 rotate-45 transform origin-center"></div>
+                                    </div>
+                                </>
+                            ) : isRecording ? (
+                                <Mic className="w-4 h-4 text-red-500 animate-pulse" />
+                            ) : (
+                                <Mic className="w-4 h-4 text-gray-400" />
+                            )}
+                        </button>
                     </div>
                 </div>
             </div>

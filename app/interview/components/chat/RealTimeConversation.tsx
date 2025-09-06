@@ -27,9 +27,11 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         const [isRecording, setIsRecording] = useState(false);
         const [connectionStatus, setConnectionStatus] =
             useState("Disconnected");
+        const [micMuted, setMicMuted] = useState(false);
         const { state } = useInterview();
 
         const conversation = useConversation({
+            micMuted,
             onConnect: () => {
                 console.log("✅ Connected to Eleven Labs");
                 setIsConnected(true);
@@ -246,6 +248,22 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             disconnectFromConversation();
         }, [disconnectFromConversation]);
 
+        // Toggle mic mute function
+        const toggleMicMute = useCallback(() => {
+            setMicMuted((prev) => {
+                const newValue = !prev;
+                // Notify parent component about mic state change
+                window.parent.postMessage(
+                    {
+                        type: "mic-state-changed",
+                        micMuted: newValue,
+                    },
+                    "*"
+                );
+                return newValue;
+            });
+        }, []);
+
         // Minimal test function - exactly as requested
         const testSendMessage = async () => {
             try {
@@ -268,6 +286,8 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             startConversation,
             stopConversation,
             sendContextualUpdate: conversation.sendContextualUpdate,
+            micMuted,
+            toggleMicMute,
         }));
 
         // Cleanup on unmount
