@@ -8,7 +8,8 @@
         "start": "next start",
         "lint": "next lint",
         "test": "vitest run",
-        "reset-db": "tsx scripts/reset-db.ts"
+        "reset-db": "tsx scripts/reset-db.ts",
+        "reset-db-with-new-schema": "tsx scripts/reset-db-with-new-schema.ts"
     },
     "dependencies": {
         "@elevenlabs/react": "^0.6.1",
