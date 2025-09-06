@@ -194,11 +194,25 @@ const InterviewerContent = () => {
                     has_submitted: "true",
                     is_coding: false,
                 };
+                console.log("📤 has_submitted flag sent:", kb.has_submitted);
                 const text = `KB_UPDATE: ${JSON.stringify(kb)}`;
                 await realTimeConversationRef.current.sendContextualUpdate(
                     text
                 );
                 console.log("✅ Submission sent to ElevenLabs KB");
+
+                // Send "I'm done" user message (special message, not shown in chat)
+                const messageSent =
+                    await realTimeConversationRef.current.sendUserMessage(
+                        "I'm done"
+                    );
+                if (messageSent) {
+                    console.log(
+                        "✅ Special 'I'm done' message sent and received successfully"
+                    );
+                } else {
+                    console.error("❌ Failed to send 'I'm done' message");
+                }
             }
 
             setIsTimerRunning(false);

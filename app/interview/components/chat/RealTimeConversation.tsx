@@ -281,6 +281,28 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             }
         };
 
+        // Send user message method
+        const sendUserMessage = useCallback(
+            async (message: string) => {
+                try {
+                    if (conversation.status !== "connected") {
+                        console.warn(
+                            "⏳ Conversation not connected, cannot send message"
+                        );
+                        return false;
+                    }
+
+                    await conversation.sendUserMessage(message);
+                    console.log("✅ User message sent successfully:", message);
+                    return true;
+                } catch (error) {
+                    console.error("❌ Failed to send user message:", error);
+                    return false;
+                }
+            },
+            [conversation]
+        );
+
         // Expose methods to parent component
         useImperativeHandle(ref, () => ({
             startConversation,
