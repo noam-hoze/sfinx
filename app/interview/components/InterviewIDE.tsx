@@ -42,6 +42,7 @@ const InterviewerContent = () => {
     const [micMuted, setMicMuted] = useState(false);
     const [showCompletionScreen, setShowCompletionScreen] = useState(false);
     const [interviewConcluded, setInterviewConcluded] = useState(false);
+    const [applicationCreated, setApplicationCreated] = useState(false);
     const realTimeConversationRef = useRef<any>(null);
     const router = useRouter();
 
@@ -276,19 +277,63 @@ render(UserList);`;
 
     // Handle interview conclusion and completion screen
     useEffect(() => {
-        if (interviewConcluded && companyName) {
-            // Find company by name and mark as applied
-            const company = companiesData.find((c) => c.name === companyName);
-            if (company) {
-                markCompanyApplied(company.id);
-            }
+        const createApplicationRecord = async () => {
+            if (interviewConcluded && companyName && !applicationCreated) {
+                try {
+                    // Find company by name
+                    const company = companiesData.find(
+                        (c) => c.name === companyName
+                    );
+                    if (!company) {
+                        console.error("Company not found:", companyName);
+                        return;
+                    }
 
-            setShowCompletionScreen(true);
-            setTimeout(() => {
-                router.push("/job-search");
-            }, 2000);
-        }
-    }, [interviewConcluded, companyName, router, markCompanyApplied]);
+                    // Create application record in database
+                    const response = await fetch("/api/applications/create", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            companyId: company.id,
+                            jobTitle: "Frontend Developer", // Default job title for interview
+                        }),
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log("✅ Application created successfully");
+
+                        // Update local state as well
+                        markCompanyApplied(company.id);
+                        setApplicationCreated(true);
+                    } else {
+                        const error = await response.json();
+                        console.error(
+                            "❌ Failed to create application:",
+                            error
+                        );
+                    }
+                } catch (error) {
+                    console.error("❌ Error creating application:", error);
+                }
+
+                setShowCompletionScreen(true);
+                setTimeout(() => {
+                    router.push("/job-search");
+                }, 2000);
+            }
+        };
+
+        createApplicationRecord();
+    }, [
+        interviewConcluded,
+        companyName,
+        applicationCreated,
+        router,
+        markCompanyApplied,
+    ]);
 
     // Load theme preference and apply to document
     useEffect(() => {

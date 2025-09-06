@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../../../lib/auth";
 
 const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
     try {
+        const session = await getServerSession(authOptions);
+        const userId = (session?.user as any)?.id;
+
         const { searchParams } = new URL(request.url);
         const searchRole = searchParams.get("role") || "";
         const searchLocation = searchParams.get("location") || "";
@@ -16,6 +21,28 @@ export async function GET(request: NextRequest) {
                 jobs: true,
             },
         });
+
+        // Get user's applied company IDs if user is logged in
+        let appliedCompanyIds: string[] = [];
+        if (userId) {
+            const applications = await (prisma as any).application.findMany({
+                where: {
+                    candidateId: userId,
+                },
+                include: {
+                    job: {
+                        include: {
+                            company: true,
+                        },
+                    },
+                },
+            });
+            appliedCompanyIds = Array.from(
+                new Set(
+                    applications.map((app: any) => app.job.company.id as string)
+                )
+            );
+        }
 
         // Apply filters
         const filteredCompanies = companies.filter((company: any) => {
@@ -43,9 +70,17 @@ export async function GET(request: NextRequest) {
             return roleMatch && locationMatch && companyMatch;
         });
 
+        // Add applied status to each company
+        const companiesWithAppliedStatus = filteredCompanies.map(
+            (company: any) => ({
+                ...company,
+                hasApplied: appliedCompanyIds.includes(company.id),
+            })
+        );
+
         return NextResponse.json({
-            companies: filteredCompanies,
-            total: filteredCompanies.length,
+            companies: companiesWithAppliedStatus,
+            total: companiesWithAppliedStatus.length,
         });
     } catch (error) {
         console.error("Error fetching companies:", error);

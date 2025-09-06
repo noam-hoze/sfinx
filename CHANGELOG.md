@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.7.0] - 2025-01-15
+
+### Added
+
+-   **Application Database Integration**: Complete application tracking system with database persistence
+-   **Interview Completion Flow**: Automatic application creation when interviews are completed
+-   **Company Dashboard Integration**: Real-time display of applied candidates for company users
+-   **Job-Specific Applications**: Link applications to specific jobs within companies
+-   **Application Status Tracking**: PENDING status for newly created applications
+
+### Enhanced
+
+-   **Authentication Context**: Improved session handling to prevent unnecessary API calls on login pages
+-   **Database Relationships**: Proper linking between applications, jobs, and companies
+-   **API Error Handling**: Robust error handling for application creation and retrieval
+-   **User Experience**: Seamless flow from interview completion to application tracking
+
+### Fixed
+
+-   **401 Errors on Login**: Removed unnecessary API calls when users are not authenticated
+-   **Duplicate API Calls**: Prevented multiple application creation attempts
+-   **Company Dashboard Data**: Fixed relationship issues between companies and applications
+-   **Prisma Type Issues**: Resolved TypeScript errors with Prisma client usage
+
+### Technical
+
+-   **Application API**: New `/api/applications/create` endpoint for application management
+-   **Enhanced Company Candidates API**: Updated to work with proper database relationships
+-   **Session-Based Context Loading**: Only load user data when authenticated
+-   **Database Schema Integration**: Full integration with existing Prisma models
+
 ## [1.6.1] - 2025-01-15
 
 ### Added
@@ -293,5 +324,6 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 [1.2.0]: https://github.com/noam-hoze/sfinx/compare/v1.1.0...v1.2.0
 [1.4.0]: https://github.com/noam-hoze/sfinx/compare/v1.2.0...v1.4.0
 [1.5.0]: https://github.com/noam-hoze/sfinx/compare/v1.4.0...v1.5.0
+[1.7.0]: https://github.com/noam-hoze/sfinx/compare/v1.6.1...v1.7.0
 [1.6.1]: https://github.com/noam-hoze/sfinx/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/noam-hoze/sfinx/compare/v1.5.0...v1.6.0

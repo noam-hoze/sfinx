@@ -7,18 +7,21 @@ import React, {
     ReactNode,
     useEffect,
 } from "react";
+import { useSession } from "next-auth/react";
 
 interface JobApplicationState {
     appliedCompanies: string[]; // Array of company IDs
+    loading: boolean;
 }
 
 interface JobApplicationAction {
-    type: "MARK_APPLIED" | "LOAD_FROM_STORAGE";
-    payload?: string;
+    type: "MARK_APPLIED" | "LOAD_FROM_DATABASE" | "SET_LOADING";
+    payload?: string | string[];
 }
 
 const initialState: JobApplicationState = {
     appliedCompanies: [],
+    loading: true,
 };
 
 function jobApplicationReducer(
@@ -29,6 +32,7 @@ function jobApplicationReducer(
         case "MARK_APPLIED":
             if (
                 action.payload &&
+                typeof action.payload === "string" &&
                 !state.appliedCompanies.includes(action.payload)
             ) {
                 return {
@@ -41,20 +45,21 @@ function jobApplicationReducer(
             }
             return state;
 
-        case "LOAD_FROM_STORAGE":
-            const stored = localStorage.getItem("sfinx-applied-companies");
-            if (stored) {
-                try {
-                    const appliedCompanies = JSON.parse(stored);
-                    return { appliedCompanies };
-                } catch (error) {
-                    console.error(
-                        "Failed to parse applied companies from storage:",
-                        error
-                    );
-                }
+        case "LOAD_FROM_DATABASE":
+            if (Array.isArray(action.payload)) {
+                return {
+                    ...state,
+                    appliedCompanies: action.payload,
+                    loading: false,
+                };
             }
             return state;
+
+        case "SET_LOADING":
+            return {
+                ...state,
+                loading: true,
+            };
 
         default:
             return state;
@@ -69,19 +74,38 @@ const JobApplicationContext = createContext<{
 
 export function JobApplicationProvider({ children }: { children: ReactNode }) {
     const [state, dispatch] = useReducer(jobApplicationReducer, initialState);
+    const { data: session, status } = useSession();
 
-    // Load from localStorage on mount
+    // Load applied companies from database when user is authenticated
     useEffect(() => {
-        dispatch({ type: "LOAD_FROM_STORAGE" });
-    }, []);
+        const fetchAppliedCompanies = async () => {
+            // Only fetch if user is authenticated
+            if (status === "authenticated" && session?.user) {
+                try {
+                    const response = await fetch("/api/user/applications");
+                    if (response.ok) {
+                        const data = await response.json();
+                        dispatch({
+                            type: "LOAD_FROM_DATABASE",
+                            payload: data.appliedCompanyIds,
+                        });
+                    } else {
+                        console.error("Failed to fetch applied companies");
+                        dispatch({ type: "LOAD_FROM_DATABASE", payload: [] });
+                    }
+                } catch (error) {
+                    console.error("Error fetching applied companies:", error);
+                    dispatch({ type: "LOAD_FROM_DATABASE", payload: [] });
+                }
+            } else if (status === "unauthenticated") {
+                // Clear data when user logs out
+                dispatch({ type: "LOAD_FROM_DATABASE", payload: [] });
+            }
+            // If status is "loading", do nothing - wait for authentication status
+        };
 
-    // Save to localStorage when state changes
-    useEffect(() => {
-        localStorage.setItem(
-            "sfinx-applied-companies",
-            JSON.stringify(state.appliedCompanies)
-        );
-    }, [state.appliedCompanies]);
+        fetchAppliedCompanies();
+    }, [session, status]);
 
     const markCompanyApplied = (companyId: string) => {
         dispatch({ type: "MARK_APPLIED", payload: companyId });

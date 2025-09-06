@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useJobApplication, AuthGuard } from "../../lib";
+import { AuthGuard } from "../../lib";
 
 interface Job {
     id: string;
@@ -22,10 +22,10 @@ interface Company {
     cultureTags: string[];
     size: string;
     jobs: Job[];
+    hasApplied: boolean;
 }
 
 function JobSearchContent() {
-    const { isCompanyApplied } = useJobApplication();
     const [searchRole, setSearchRole] = useState("");
     const [searchLocation, setSearchLocation] = useState("");
     const [searchCompany, setSearchCompany] = useState("");
@@ -91,10 +91,6 @@ function JobSearchContent() {
                     <h1 className="text-3xl font-semibold text-gray-800 tracking-tight mb-2">
                         Find My Next Job
                     </h1>
-                    <p className="text-gray-600">
-                        Discover companies hiring for your role in your
-                        preferred location and industry
-                    </p>
                 </div>
 
                 {/* Search Filters */}
@@ -224,7 +220,7 @@ function JobSearchContent() {
                                                 height={72}
                                                 className="object-contain"
                                             />
-                                            {isCompanyApplied(company.id) && (
+                                            {company.hasApplied && (
                                                 <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
                                                     <svg
                                                         className="w-4 h-4 text-white"
