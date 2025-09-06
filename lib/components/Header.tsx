@@ -4,13 +4,20 @@ import React from "react";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { Menu } from "@headlessui/react";
 
 export default function Header() {
     const { data: session } = useSession();
     const router = useRouter();
+    const pathname = usePathname();
+
+    const noHeaderPaths = ["/login", "/signup"];
+
+    if (noHeaderPaths.includes(pathname)) {
+        return null;
+    }
 
     // Debug session data
     console.log("Header - Session user:", session?.user);
