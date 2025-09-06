@@ -67,7 +67,7 @@ const PersistenceFlow: React.FC<PersistenceFlowProps> = ({ onVideoJump }) => {
                 </BarChart>
             </ResponsiveContainer>
             <div className="text-xs text-gray-500 text-center mt-1">
-                Gal tried 6 approaches - persistence pays off!
+                Noam tried 6 approaches - persistence pays off!
             </div>
         </div>
     );

@@ -7,16 +7,16 @@ import {
     WorkstyleMetrics,
 } from "../contexts/types";
 
-// Mock data for Gal's Candidate Profile Story
-export const galProfile: CandidateProfile = {
-    id: "gal-001",
-    name: "Gal Aaroni",
+// Mock data for Noam's Candidate Profile Story
+export const noamProfile: CandidateProfile = {
+    id: "noam-001",
+    name: "Noam Hoze",
     matchScore: 92,
     confidence: "High",
-    story: "Gal showcased excellent React proficiency by rapidly building a UserList component with clean API integration, proper error handling, and polished styling. They demonstrated methodical problem-solving and clean code practices throughout the session.",
+    story: "Noam showcased excellent React proficiency by rapidly building a UserList component with clean API integration, proper error handling, and polished styling. They demonstrated methodical problem-solving and clean code practices throughout the session.",
 };
 
-export const galGaps: GapAnalysis = {
+export const noamGaps: GapAnalysis = {
     gaps: [
         {
             severity: "Minor",
@@ -33,7 +33,7 @@ export const galGaps: GapAnalysis = {
     ],
 };
 
-export const galEvidence: EvidenceClip[] = [
+export const noamEvidence: EvidenceClip[] = [
     {
         id: "clip1",
         title: "Rapid UserList Implementation",
@@ -53,7 +53,7 @@ export const galEvidence: EvidenceClip[] = [
     },
 ];
 
-export const galChapters: VideoChapter[] = [
+export const noamChapters: VideoChapter[] = [
     {
         id: "chapter1",
         title: "Session Setup & Introduction",
@@ -130,7 +130,7 @@ export const galChapters: VideoChapter[] = [
     },
 ];
 
-export const galWorkstyle: WorkstyleMetrics = {
+export const noamWorkstyle: WorkstyleMetrics = {
     iterationSpeed: {
         value: 85,
         level: "High",
@@ -159,12 +159,12 @@ export const galWorkstyle: WorkstyleMetrics = {
 };
 
 // Complete telemetry data object
-export const galTelemetryData: TelemetryData = {
-    candidate: galProfile,
-    gaps: galGaps,
-    evidence: galEvidence,
-    chapters: galChapters,
-    workstyle: galWorkstyle,
+export const noamTelemetryData: TelemetryData = {
+    candidate: noamProfile,
+    gaps: noamGaps,
+    evidence: noamEvidence,
+    chapters: noamChapters,
+    workstyle: noamWorkstyle,
     hasFairnessFlag: false,
 };
 

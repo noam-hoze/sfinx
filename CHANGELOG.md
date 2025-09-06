@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.8.0] - 2025-01-15
+
+### Added
+
+-   **Complete Telemetry Database System**: Full telemetry data storage with InterviewSession, TelemetryData, WorkstyleMetrics, GapAnalysis, EvidenceClip, and VideoChapter tables
+-   **Candidate Telemetry API**: New `/api/candidates/[id]/telemetry` endpoint for retrieving candidate telemetry data from database
+-   **Database Seed System**: Comprehensive seeding for Noam's complete telemetry profile (21 records)
+-   **Dynamic Profile Images**: CPS page now displays actual candidate images from database instead of hardcoded paths
+
+### Enhanced
+
+-   **CPS Page Database Integration**: Candidate Profile Story page now fetches real telemetry data instead of mock data
+-   **Company Dashboard Navigation**: Clickable candidate cards navigate to CPS page with dynamic data loading
+-   **Prisma Client Optimization**: Proper singleton pattern across all API routes to prevent connection issues
+-   **API Response Structure**: Enhanced telemetry API returns complete candidate profile with image, metrics, and evidence data
+
+### Fixed
+
+-   **Prisma Connection Errors**: Resolved "Engine is not yet connected" errors with proper client instantiation
+-   **TypeScript Type Errors**: Fixed implicit 'any' type errors in telemetry data mapping
+-   **Profile Image Sources**: CPS page now uses dynamic database images with proper fallbacks
+-   **API Response Consistency**: Telemetry API now includes all required candidate profile fields
+
+### Technical
+
+-   **Database Schema Extensions**: Added 8 new telemetry-related tables with proper relationships
+-   **API Route Optimization**: All API routes now use singleton Prisma client pattern
+-   **Type Safety Improvements**: Enhanced TypeScript types for telemetry data structures
+-   **Data Flow Architecture**: Complete pipeline from database → API → frontend for telemetry data
+
 ## [1.7.0] - 2025-01-15
 
 ### Added
@@ -257,7 +287,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ### Changed
 
--   **Candidate Names**: Updated from generic "Candidate A/B/C" to real names (Gal, Alon, Noam) throughout codebase
+-   **Candidate Names**: Updated from generic "Candidate A/B/C" to real names (Noam, Alon, Gal) throughout codebase
 -   **Interview Flow**: Streamlined from experience questions to direct task presentation
 -   **System Prompts**: Enhanced with realistic interviewer behavior and progressive assistance guidelines
 

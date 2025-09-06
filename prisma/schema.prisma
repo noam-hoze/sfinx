@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -23,8 +20,7 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -37,58 +33,39 @@ model Session {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-enum UserRole {
-  CANDIDATE
-  COMPANY
-  ADMIN
-}
-
-enum CompanySize {
-  STARTUP      // 1-10 employees
-  SMALL        // 11-50 employees
-  MEDIUM       // 51-200 employees
-  LARGE        // 201-1000 employees
-  ENTERPRISE   // 1000+ employees
-}
-
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?
-  role          UserRole  @default(CANDIDATE)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  accounts Account[]
-  sessions Session[]
-
-  // Relations to specific user types
-  candidateProfile CandidateProfile?
-  companyProfile   CompanyProfile?
-
-  // Applications (for candidates)
-  applications     Application[]
+  id                String             @id @default(cuid())
+  name              String?
+  email             String             @unique
+  emailVerified     DateTime?
+  image             String?
+  password          String?
+  role              UserRole           @default(CANDIDATE)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  accounts          Account[]
+  applications      Application[]
+  candidateProfile  CandidateProfile?
+  companyProfile    CompanyProfile?
+  interviewSessions InterviewSession[]
+  sessions          Session[]
 }
 
 model CandidateProfile {
-  id          String   @id @default(cuid())
-  userId      String   @unique
-  jobTitle    String?
-  location    String?
-  bio         String?
-  resume      String?  // File path or URL
-  linkedin    String?
-  github      String?
-  portfolio   String?
-  experience  String?  // Years of experience
-  skills      String[] // Array of skills
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  jobTitle   String?
+  location   String?
+  bio        String?
+  resume     String?
+  linkedin   String?
+  github     String?
+  portfolio  String?
+  experience String?
+  skills     String[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model CompanyProfile {
@@ -101,13 +78,12 @@ model CompanyProfile {
   website     String?
   linkedin    String?
   industry    String?
-  founded     Int?       // Year founded
-  description String?    // Detailed company description
-  benefits    String[]   // Array of benefits offered
+  founded     Int?
+  description String?
+  benefits    String[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model VerificationToken {
@@ -118,46 +94,174 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-enum JobType {
-  FULL_TIME
-  PART_TIME
-  CONTRACT
-}
-
 model Company {
   id          String      @id @default(cuid())
-  name        String
+  name        String      @unique
   logo        String?
   industry    String
-  locations   String[]    // Array of locations
-  cultureTags String[]    // Array of culture tags
+  locations   String[]
+  cultureTags String[]
   size        CompanySize
   website     String?
   description String?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
-
-  jobs Job[]
-
-  @@unique([name])
+  jobs        Job[]
 }
 
 model Job {
-  id          String   @id @default(cuid())
-  title       String
-  type        JobType
-  location    String
-  salary      String?
-  description String?
+  id           String        @id @default(cuid())
+  title        String
+  type         JobType
+  location     String
+  salary       String?
+  description  String?
   requirements String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  companyId   String
-  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  companyId    String
   applications Application[]
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model Application {
+  id               String            @id @default(cuid())
+  status           ApplicationStatus @default(PENDING)
+  appliedAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  candidateId      String
+  jobId            String
+  candidate        User              @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job              Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  interviewSession InterviewSession?
+
+  @@unique([candidateId, jobId])
+}
+
+model InterviewSession {
+  id            String         @id @default(cuid())
+  candidateId   String
+  applicationId String         @unique
+  videoUrl      String?
+  startedAt     DateTime       @default(now())
+  completedAt   DateTime?
+  duration      Int?
+  status        String         @default("IN_PROGRESS")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  application   Application    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  candidate     User           @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  telemetryData TelemetryData?
+
+  @@unique([candidateId, applicationId])
+}
+
+model TelemetryData {
+  id                 String            @id @default(cuid())
+  interviewSessionId String            @unique
+  matchScore         Int
+  confidence         String
+  story              String
+  hasFairnessFlag    Boolean           @default(false)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  evidenceClips      EvidenceClip[]
+  gapAnalysis        GapAnalysis?
+  interviewSession   InterviewSession  @relation(fields: [interviewSessionId], references: [id], onDelete: Cascade)
+  videoChapters      VideoChapter[]
+  workstyleMetrics   WorkstyleMetrics?
+}
+
+model WorkstyleMetrics {
+  id               String        @id @default(cuid())
+  telemetryDataId  String        @unique
+  iterationSpeed   Int
+  debugLoops       Int
+  refactorCleanups Int
+  aiAssistUsage    Int
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  telemetryData    TelemetryData @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
+}
+
+model GapAnalysis {
+  id              String        @id @default(cuid())
+  telemetryDataId String        @unique
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  gaps            Gap[]         @relation("GapAnalysisGaps")
+  telemetryData   TelemetryData @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
+}
+
+model Gap {
+  id            String      @id @default(cuid())
+  gapAnalysisId String
+  severity      String
+  description   String
+  color         String
+  evidenceLinks Int[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  gapAnalysis   GapAnalysis @relation("GapAnalysisGaps", fields: [gapAnalysisId], references: [id], onDelete: Cascade)
+}
+
+model EvidenceClip {
+  id              String        @id @default(cuid())
+  telemetryDataId String
+  title           String
+  thumbnailUrl    String?
+  duration        Int
+  description     String
+  startTime       Int?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  telemetryData   TelemetryData @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
+}
+
+model VideoChapter {
+  id              String         @id @default(cuid())
+  telemetryDataId String
+  title           String
+  startTime       Int
+  endTime         Int
+  description     String
+  thumbnailUrl    String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  captions        VideoCaption[] @relation("VideoChapterCaptions")
+  telemetryData   TelemetryData  @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
+}
+
+model VideoCaption {
+  id             String       @id @default(cuid())
+  videoChapterId String
+  text           String
+  startTime      Int
+  endTime        Int
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  videoChapter   VideoChapter @relation("VideoChapterCaptions", fields: [videoChapterId], references: [id], onDelete: Cascade)
+}
+
+enum UserRole {
+  CANDIDATE
+  COMPANY
+  ADMIN
+}
+
+enum CompanySize {
+  STARTUP
+  SMALL
+  MEDIUM
+  LARGE
+  ENTERPRISE
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
 }
 
 enum ApplicationStatus {
@@ -166,19 +270,4 @@ enum ApplicationStatus {
   INTERVIEWING
   ACCEPTED
   REJECTED
-}
-
-model Application {
-  id          String            @id @default(cuid())
-  status      ApplicationStatus @default(PENDING)
-  appliedAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-
-  candidateId String
-  candidate   User              @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-
-  jobId       String
-  job         Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
-
-  @@unique([candidateId, jobId])
 }

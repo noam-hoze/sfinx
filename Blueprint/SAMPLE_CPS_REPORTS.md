@@ -5,7 +5,7 @@ Reports combine a **score summary**, **gap analysis**, and **evidence snippets**
 
 ---
 
-## Gal – The Star
+## Noam – The Star
 
 **MatchScore:** 92%  
 **Confidence:** High  

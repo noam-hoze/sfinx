@@ -428,7 +428,7 @@ render(UserList);`;
                     </div>
                 </div>
                 <h1 className="text-4xl font-light text-gray-900 mb-4 tracking-tight">
-                    Thank you for your time Gal
+                    Thank you for your time Noam
                 </h1>
                 <p className="text-xl text-gray-600 font-light">Good luck!</p>
             </div>

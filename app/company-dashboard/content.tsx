@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 interface Candidate {
     id: string;
@@ -16,6 +17,7 @@ interface Candidate {
 }
 
 function CompanyDashboardContent() {
+    const router = useRouter();
     const [jobRoleFilter, setJobRoleFilter] = useState("");
     const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [loading, setLoading] = useState(true);
@@ -65,6 +67,10 @@ function CompanyDashboardContent() {
             default:
                 return "bg-gray-100 text-gray-800";
         }
+    };
+
+    const handleCandidateClick = (candidateId: string) => {
+        router.push(`/cps?candidateId=${candidateId}`);
     };
 
     return (
@@ -127,7 +133,8 @@ function CompanyDashboardContent() {
                     {candidates.map((candidate, index) => (
                         <div
                             key={candidate.id}
-                            className="group bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:bg-white/80 hover:shadow-lg transition-all duration-300 ease-out hover:scale-105"
+                            onClick={() => handleCandidateClick(candidate.id)}
+                            className="group bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:bg-white/80 hover:shadow-lg transition-all duration-300 ease-out hover:scale-105 cursor-pointer"
                             style={{
                                 animationDelay: `${index * 50}ms`,
                                 animation: "fadeInUp 0.5s ease-out forwards",
@@ -138,7 +145,7 @@ function CompanyDashboardContent() {
                                 <Image
                                     src={
                                         candidate.image ||
-                                        "/images/gal-profile.jpeg"
+                                        "/images/noam-profile.jpeg"
                                     }
                                     alt={`${candidate.name} profile`}
                                     width={64}

@@ -5,7 +5,7 @@ import {
     InterviewState,
     InterviewMessage,
     InterviewTask,
-    GAL_TASKS,
+    NOAM_TASKS,
 } from "./types";
 
 interface InterviewAction {
@@ -15,9 +15,9 @@ interface InterviewAction {
 
 const initialState: InterviewState = {
     currentTaskId: null,
-    tasks: GAL_TASKS,
+    tasks: NOAM_TASKS,
     isActive: false,
-    candidateName: "Gal",
+    candidateName: "Noam",
     startTime: null,
     endTime: null,
     // Editor state

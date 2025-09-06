@@ -41,7 +41,7 @@ export interface InterviewContextType {
     getCurrentTask: () => InterviewTask | null;
 }
 
-export const GAL_TASKS: InterviewTask[] = [
+export const NOAM_TASKS: InterviewTask[] = [
     {
         id: "task1-userlist",
         title: "Build UserList Component",

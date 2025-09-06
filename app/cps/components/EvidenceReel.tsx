@@ -161,7 +161,7 @@ const EvidenceReel: React.FC<EvidenceReelProps> = ({
                             console.log("Video can play");
                         }}
                     >
-                        <source src="/gal-interview.mp4" type="video/mp4" />
+                        <source src="/noam-interview.mp4" type="video/mp4" />
                         Your browser does not support the video tag.
                     </video>
 
