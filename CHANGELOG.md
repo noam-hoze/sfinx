@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.8.1] - 2025-01-15
+
+### Fixed
+
+-   **Interview Conclusion Telemetry**: Separated telemetry creation into single event handler to prevent duplicate API calls
+-   **Application Creation API**: Removed `(prisma as any)` type casting that was causing 500 errors
+-   **Candidate Telemetry API**: Fixed 404 errors by querying for telemetry data existence instead of session status
+
+### Technical
+
+-   **Type Safety**: Proper Prisma client usage without type casting bypasses
+-   **API Reliability**: More robust telemetry data retrieval with flexible query conditions
+
 ## [1.8.0] - 2025-01-15
 
 ### Added
@@ -354,6 +367,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 [1.2.0]: https://github.com/noam-hoze/sfinx/compare/v1.1.0...v1.2.0
 [1.4.0]: https://github.com/noam-hoze/sfinx/compare/v1.2.0...v1.4.0
 [1.5.0]: https://github.com/noam-hoze/sfinx/compare/v1.4.0...v1.5.0
+[1.8.1]: https://github.com/noam-hoze/sfinx/compare/v1.8.0...v1.8.1
+[1.8.0]: https://github.com/noam-hoze/sfinx/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/noam-hoze/sfinx/compare/v1.6.1...v1.7.0
 [1.6.1]: https://github.com/noam-hoze/sfinx/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/noam-hoze/sfinx/compare/v1.5.0...v1.6.0

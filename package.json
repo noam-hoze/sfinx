@@ -9,7 +9,7 @@
         "lint": "next lint",
         "test": "vitest run",
         "reset-db": "tsx scripts/reset-db.ts",
-        "reset-db-with-new-schema": "tsx scripts/reset-db-with-new-schema.ts"
+        "reset-db-with-new-schema": "tsx scripts/reset-db-with-new-schema.ts && npx prisma studio"
     },
     "dependencies": {
         "@elevenlabs/react": "^0.6.1",

@@ -9,13 +9,13 @@ import WorkstyleDashboard from "./components/WorkstyleDashboard";
 import PersistenceFlow from "./components/PersistenceFlow";
 import LearningToActionTimeline from "./components/LearningToActionTimeline";
 import ConfidenceBuildingCurve from "./components/ConfidenceBuildingCurve";
-import { noamTelemetryData, AuthGuard } from "../../lib";
+import { AuthGuard } from "../../lib";
 
 function TelemetryContent() {
     const searchParams = useSearchParams();
     const candidateId = searchParams.get("candidateId");
 
-    const [telemetryData, setTelemetryData] = useState<any>(noamTelemetryData);
+    const [telemetryData, setTelemetryData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentVideoTime, setCurrentVideoTime] = React.useState(0);
@@ -26,8 +26,8 @@ function TelemetryContent() {
     useEffect(() => {
         const fetchTelemetryData = async () => {
             if (!candidateId) {
-                // Use default mock data if no candidate ID provided
-                setTelemetryData(noamTelemetryData);
+                // Show empty data if no candidate ID provided
+                setTelemetryData(null);
                 setLoading(false);
                 return;
             }
@@ -43,17 +43,17 @@ function TelemetryContent() {
                     setTelemetryData(data);
                     setError(null);
                 } else if (response.status === 404) {
-                    // No telemetry data found, use mock data as fallback
-                    setTelemetryData(noamTelemetryData);
-                    setError(null);
+                    // No telemetry data found - show empty data
+                    setTelemetryData(null);
+                    setError("No telemetry data available for this candidate");
                 } else {
                     setError("Failed to load telemetry data");
+                    setTelemetryData(null);
                 }
             } catch (error) {
                 console.error("Error fetching telemetry:", error);
                 setError("Failed to load telemetry data");
-                // Fallback to mock data
-                setTelemetryData(noamTelemetryData);
+                setTelemetryData(null);
             } finally {
                 setLoading(false);
             }
@@ -62,7 +62,8 @@ function TelemetryContent() {
         fetchTelemetryData();
     }, [candidateId]);
 
-    const { candidate, gaps, evidence, chapters, workstyle } = telemetryData;
+    const { candidate, gaps, evidence, chapters, workstyle } =
+        telemetryData || {};
 
     const onVideoJump = (timestamp: number) => {
         setCurrentVideoTime(timestamp);
@@ -76,6 +77,38 @@ function TelemetryContent() {
                     <p className="mt-4 text-gray-600">
                         Loading candidate telemetry...
                     </p>
+                </div>
+            </div>
+        );
+    }
+
+    if (!telemetryData) {
+        return (
+            <div className="h-screen bg-gray-50 overflow-hidden flex items-center justify-center">
+                <div className="text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                        <svg
+                            className="w-8 h-8 text-gray-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                            />
+                        </svg>
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        No Telemetry Data Available
+                    </h3>
+                    <p className="text-gray-600 mb-4">
+                        This candidate has not completed an interview yet, or
+                        telemetry data could not be loaded.
+                    </p>
+                    {error && <p className="text-red-600 text-sm">{error}</p>}
                 </div>
             </div>
         );
@@ -196,14 +229,23 @@ function TelemetryContent() {
                         <div className="space-y-3 max-h-[calc(100vh-18rem)] overflow-y-auto border-t border-l border-r border-white/40 border-b-2 border-b-white/60 rounded-2xl bg-white/20 backdrop-blur-sm p-3 shadow-sm">
                             {activeTab === "benchmarks" && (
                                 <div className="space-y-3 animate-in slide-in-from-right-2 duration-300">
-                                    <WorkstyleDashboard
-                                        workstyle={workstyle}
-                                        onVideoJump={onVideoJump}
-                                    />
-                                    <GapAnalysis
-                                        gaps={gaps}
-                                        onVideoJump={onVideoJump}
-                                    />
+                                    {workstyle && (
+                                        <WorkstyleDashboard
+                                            workstyle={workstyle}
+                                            onVideoJump={onVideoJump}
+                                        />
+                                    )}
+                                    {gaps && (
+                                        <GapAnalysis
+                                            gaps={gaps}
+                                            onVideoJump={onVideoJump}
+                                        />
+                                    )}
+                                    {!workstyle && !gaps && (
+                                        <div className="text-center py-8 text-gray-500">
+                                            No benchmark data available
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -232,8 +274,8 @@ function TelemetryContent() {
                     {/* Cell 3 - Video (bottom-right) */}
                     <div className="w-full xl:w-auto h-full">
                         <EvidenceReel
-                            chapters={chapters}
-                            evidence={evidence}
+                            chapters={chapters || []}
+                            evidence={evidence || []}
                             jumpToTime={currentVideoTime}
                             onChapterClick={onVideoJump}
                         />

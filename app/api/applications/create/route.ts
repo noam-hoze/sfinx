@@ -75,14 +75,12 @@ export async function POST(request: NextRequest) {
         }
 
         // Check if application already exists
-        const existingApplication = await (prisma as any).application.findFirst(
-            {
-                where: {
-                    candidateId: userId,
-                    jobId: job.id,
-                },
-            }
-        );
+        const existingApplication = await prisma.application.findFirst({
+            where: {
+                candidateId: userId,
+                jobId: job.id,
+            },
+        });
 
         if (existingApplication) {
             return NextResponse.json({
@@ -93,7 +91,7 @@ export async function POST(request: NextRequest) {
 
         // Create the application
         console.log("🚀 Creating application...");
-        const application = await (prisma as any).application.create({
+        const application = await prisma.application.create({
             data: {
                 candidateId: userId,
                 jobId: job.id,

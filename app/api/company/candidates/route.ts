@@ -13,51 +13,69 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 export async function GET(request: NextRequest) {
     try {
+        console.log("🔍 Company candidates API called");
+
         const session = await getServerSession(authOptions);
+        console.log("🔍 Session:", session ? "Found" : "Not found");
 
         if (!(session?.user as any)?.id) {
+            console.log("❌ No user ID in session");
             return NextResponse.json(
                 { error: "Unauthorized" },
                 { status: 401 }
             );
         }
 
+        const userId = (session!.user as any).id;
+        console.log("✅ User ID:", userId);
+
         // Get the user's company profile
+        console.log("🏢 Looking for company profile...");
         const companyProfile = await prisma.companyProfile.findUnique({
-            where: { userId: (session!.user as any).id },
+            where: { userId: userId },
         });
 
         if (!companyProfile) {
+            console.log("❌ Company profile not found for user:", userId);
             return NextResponse.json(
                 { error: "Company profile not found" },
                 { status: 404 }
             );
         }
 
+        console.log("✅ Company profile found:", companyProfile.companyName);
+
         const { searchParams } = new URL(request.url);
         const jobRole = searchParams.get("jobRole") || "";
 
         // Find the company by name
+        console.log("🏢 Looking for company:", companyProfile.companyName);
         const company = await prisma.company.findUnique({
             where: { name: companyProfile.companyName },
         });
 
         if (!company) {
+            console.log("❌ Company not found:", companyProfile.companyName);
             return NextResponse.json(
                 { error: "Company not found" },
                 { status: 404 }
             );
         }
 
+        console.log("✅ Company found:", company.id);
+
         // Find all jobs for this company
+        console.log("💼 Looking for jobs...");
         const jobs = await prisma.job.findMany({
             where: { companyId: company.id },
             select: { id: true },
         });
 
+        console.log("✅ Found", jobs.length, "jobs");
         const jobIds = jobs.map((job) => job.id);
 
         // Get all applications for this company's jobs
+        console.log("📋 Looking for applications...");
         const applications = await (prisma as any).application.findMany({
             where: {
                 jobId: { in: jobIds },
@@ -75,6 +93,8 @@ export async function GET(request: NextRequest) {
                 },
             },
         });
+
+        console.log("✅ Found", applications.length, "applications");
 
         // Filter by job role if provided
         let filteredApplications = applications;
@@ -102,7 +122,12 @@ export async function GET(request: NextRequest) {
             total: candidates.length,
         });
     } catch (error) {
-        console.error("Error fetching company candidates:", error);
+        console.error("❌ Error fetching company candidates:", error);
+        console.error("❌ Error details:", {
+            name: error?.name,
+            message: error?.message,
+            stack: error?.stack,
+        });
         return NextResponse.json(
             { error: "Failed to fetch candidates" },
             { status: 500 }

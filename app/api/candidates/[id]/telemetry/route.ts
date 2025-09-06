@@ -16,11 +16,13 @@ export async function GET(
     try {
         const candidateId = params.id;
 
-        // Get the most recent interview session for this candidate
+        // Get the most recent interview session for this candidate that has telemetry data
         const interviewSession = await prisma.interviewSession.findFirst({
             where: {
                 candidateId: candidateId,
-                status: "COMPLETED",
+                telemetryData: {
+                    isNot: null,
+                },
             },
             include: {
                 telemetryData: {

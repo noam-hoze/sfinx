@@ -41,8 +41,12 @@ const InterviewerContent = () => {
     const [isCodingStarted, setIsCodingStarted] = useState(false);
     const [micMuted, setMicMuted] = useState(false);
     const [showCompletionScreen, setShowCompletionScreen] = useState(false);
-    const [interviewConcluded, setInterviewConcluded] = useState(false);
     const [applicationCreated, setApplicationCreated] = useState(false);
+    const [interviewSessionId, setInterviewSessionId] = useState<string | null>(
+        null
+    );
+    const [interviewConcluded, setInterviewConcluded] = useState(false);
+    const [telemetryCreated, setTelemetryCreated] = useState(false);
     const realTimeConversationRef = useRef<any>(null);
     const router = useRouter();
 
@@ -131,6 +135,9 @@ const InterviewerContent = () => {
                                             await sessionResponse.json();
                                         console.log(
                                             "✅ Interview session created:",
+                                            sessionData.interviewSession.id
+                                        );
+                                        setInterviewSessionId(
                                             sessionData.interviewSession.id
                                         );
                                     } else {
@@ -276,6 +283,66 @@ const InterviewerContent = () => {
         }
     };
 
+    // Separate function for telemetry creation - called only once
+    const createInterviewTelemetry = useCallback(async () => {
+        if (!interviewSessionId || telemetryCreated) {
+            console.log(
+                telemetryCreated
+                    ? "⏭️ Telemetry already created"
+                    : "⏭️ No session ID for telemetry"
+            );
+            return;
+        }
+
+        console.log(
+            "🚀 Creating telemetry data for interview session:",
+            interviewSessionId
+        );
+
+        try {
+            const telemetryResponse = await fetch(
+                "/api/interviews/session/telemetry",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        interviewSessionId: interviewSessionId,
+                    }),
+                }
+            );
+
+            if (telemetryResponse.ok) {
+                const telemetryData = await telemetryResponse.json();
+                console.log(
+                    "✅ Telemetry data created:",
+                    telemetryData.telemetryData.id
+                );
+                setTelemetryCreated(true);
+            } else {
+                console.error("❌ Failed to create telemetry data");
+                // Log error details but don't throw
+                try {
+                    const errorData = await telemetryResponse.json();
+                    console.error("❌ Error response details:", errorData);
+                } catch (parseError) {
+                    console.error(
+                        "❌ Response status:",
+                        telemetryResponse.status
+                    );
+                }
+            }
+        } catch (error: any) {
+            console.error("❌ Error creating telemetry data:", error);
+            console.error("❌ Error details:", {
+                name: error?.name,
+                message: error?.message,
+                stack: error?.stack,
+            });
+        }
+    }, [interviewSessionId, telemetryCreated]);
+
     const handleSubmit = async () => {
         try {
             // Update local state
@@ -373,6 +440,7 @@ render(UserList);`;
                     );
                 }
 
+                // Show completion screen and navigate back
                 setShowCompletionScreen(true);
                 setTimeout(() => {
                     router.push("/job-search");
@@ -664,9 +732,11 @@ render(UserList);`;
                                                 setTimerInterval(null);
                                             }
                                         }}
-                                        onInterviewConcluded={() =>
-                                            setInterviewConcluded(true)
-                                        }
+                                        onInterviewConcluded={() => {
+                                            // Create telemetry data once when interview concludes
+                                            createInterviewTelemetry();
+                                            setInterviewConcluded(true);
+                                        }}
                                     />
                                 </div>
                             </div>
