@@ -25,13 +25,6 @@ model Account {
   @@unique([provider, providerAccountId])
 }
 
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
 
 model User {
   id                String             @id @default(cuid())
@@ -48,7 +41,6 @@ model User {
   candidateProfile  CandidateProfile?
   companyProfile    CompanyProfile?
   interviewSessions InterviewSession[]
-  sessions          Session[]
 }
 
 model CandidateProfile {
@@ -134,7 +126,7 @@ model Application {
   jobId            String
   candidate        User              @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   job              Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  interviewSession InterviewSession?
+  interviewSessions InterviewSession[]
 
   @@unique([candidateId, jobId])
 }
@@ -142,7 +134,7 @@ model Application {
 model InterviewSession {
   id            String         @id @default(cuid())
   candidateId   String
-  applicationId String         @unique
+  applicationId String
   videoUrl      String?
   startedAt     DateTime       @default(now())
   completedAt   DateTime?
@@ -153,8 +145,6 @@ model InterviewSession {
   application   Application    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   candidate     User           @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   telemetryData TelemetryData?
-
-  @@unique([candidateId, applicationId])
 }
 
 model TelemetryData {
