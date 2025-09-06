@@ -43,7 +43,7 @@ const EvidenceReel: React.FC<EvidenceReelProps> = ({
                 setActiveChapter(currentChapter.id);
             }
         }
-    }, [jumpToTime, chapters]);
+    }, [jumpToTime, chapters, currentTime]);
 
     const totalDuration = chapters[chapters.length - 1]?.endTime || 330;
 

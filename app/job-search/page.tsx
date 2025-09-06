@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useJobApplication, AuthGuard } from "../../lib";
 
 interface Job {
@@ -88,7 +89,7 @@ function JobSearchContent() {
                 {/* Header */}
                 <div className="text-center mb-8">
                     <h1 className="text-3xl font-semibold text-gray-800 tracking-tight mb-2">
-                        Find Your Dream Job
+                        Find My Next Job
                     </h1>
                     <p className="text-gray-600">
                         Discover companies hiring for your role in your
@@ -216,10 +217,12 @@ function JobSearchContent() {
                                     >
                                         {/* Company Logo */}
                                         <div className="relative w-24 h-24 mx-auto mb-4 bg-white rounded-xl flex items-center justify-center p-3">
-                                            <img
+                                            <Image
                                                 src={company.logo || ""}
                                                 alt={`${company.name} logo`}
-                                                className="w-full h-full object-contain"
+                                                width={72}
+                                                height={72}
+                                                className="object-contain"
                                             />
                                             {isCompanyApplied(company.id) && (
                                                 <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">

@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.6.1] - 2025-01-15
+
+### Added
+
+- **Profile Image Upload**: Complete profile image upload system with API endpoint and file handling
+- **Company Dashboard Settings**: Dedicated settings page for company dashboard users
+- **User Settings Page**: New settings page for user profile management
+- **Header Component**: New reusable Header component for consistent navigation
+- **Profile Image Storage**: Organized profile image storage in public/uploads/profiles/
+
+### Enhanced
+
+- **Company Dashboard**: Improved company dashboard with settings access
+- **CPS Evidence Reel**: Enhanced evidence reel component functionality
+- **Job Search Page**: Updated job search page with latest improvements
+- **Authentication System**: Enhanced authentication flow and user management
+- **Layout Structure**: Improved overall app layout and navigation
+
+### Technical
+
+- **Database Check Script**: Enhanced database verification and health check functionality
+- **API Architecture**: New upload API endpoint with proper file handling
+- **Component Organization**: Better component structure and reusability
+- **File Upload System**: Secure file upload handling for profile images
+
 ## [1.6.0] - 2025-01-15
 
 ### Added

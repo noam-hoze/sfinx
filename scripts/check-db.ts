@@ -41,6 +41,23 @@ async function checkDatabase() {
         // Check Job table
         const jobCount = await prisma.job.count();
         console.log(`📊 Job table: ${jobCount} records`);
+
+        // Check User table
+        const userCount = await prisma.user.count();
+        console.log(`📊 User table: ${userCount} records`);
+
+        if (userCount > 0) {
+            const users = await prisma.user.findMany({
+                take: 5,
+                select: { id: true, email: true, name: true, image: true },
+            });
+            console.log("   Sample users:");
+            users.forEach((user) => {
+                console.log(
+                    `     - ${user.email}: image=${user.image || "null"}`
+                );
+            });
+        }
     } catch (error) {
         console.error("❌ Error checking database:", error);
     } finally {

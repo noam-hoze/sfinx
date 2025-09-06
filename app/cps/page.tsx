@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import EvidenceReel from "./components/EvidenceReel";
 import GapAnalysis from "./components/GapAnalysis";
 import WorkstyleDashboard from "./components/WorkstyleDashboard";
@@ -41,10 +42,12 @@ function TelemetryContent() {
                         <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 mb-4 shadow-sm">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-4">
-                                    <img
+                                    <Image
                                         src="/gal-profile.jpeg"
                                         alt={`${candidate.name} profile`}
-                                        className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm"
+                                        width={48}
+                                        height={48}
+                                        className="rounded-full object-cover border-2 border-white shadow-sm"
                                     />
                                     <div>
                                         <h2 className="text-lg font-medium text-gray-900">

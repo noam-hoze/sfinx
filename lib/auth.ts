@@ -44,6 +44,7 @@ export const authOptions: NextAuthOptions = {
                     email: user.email,
                     name: user.name,
                     role: user.role,
+                    image: user.image,
                 } as any;
             },
         }),
@@ -52,16 +53,37 @@ export const authOptions: NextAuthOptions = {
         strategy: "jwt",
     },
     callbacks: {
-        async jwt({ token, user }) {
+        async jwt({ token, user, trigger, session }) {
+            console.log("JWT callback triggered:", { user, trigger, session });
             if (user) {
                 token.role = (user as any).role;
+                token.image = (user as any).image;
+                console.log("JWT token updated with image:", token.image);
+            }
+            // Handle session update
+            if (trigger === "update" && session?.image) {
+                token.image = session.image;
+                console.log(
+                    "JWT token updated via session update:",
+                    token.image
+                );
             }
             return token;
         },
         async session({ session, token }) {
+            console.log("Session callback triggered with token:", {
+                sub: token.sub,
+                role: token.role,
+                image: token.image,
+            });
             if (session.user) {
                 (session.user as any).id = token.sub!;
                 (session.user as any).role = token.role as string;
+                (session.user as any).image = token.image as string;
+                console.log(
+                    "Session updated with image:",
+                    (session.user as any).image
+                );
             }
             return session;
         },

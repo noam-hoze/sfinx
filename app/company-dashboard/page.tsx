@@ -9,8 +9,8 @@ function CompanyDashboardContent() {
                 </h1>
                 <div className="bg-white rounded-lg shadow p-6">
                     <p className="text-gray-600">
-                        Welcome to your company dashboard. This is where you'll
-                        manage your hiring process.
+                        Welcome to your company dashboard. This is where
+                        you&apos;ll manage your hiring process.
                     </p>
                 </div>
             </div>
