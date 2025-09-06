@@ -13,9 +13,13 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 export async function POST(request: NextRequest) {
     try {
+        console.log("🔍 Application creation API called");
+
         const session = await getServerSession(authOptions);
+        console.log("🔍 Session:", session ? "Found" : "Not found");
 
         if (!(session?.user as any)?.id) {
+            console.log("❌ No user ID in session");
             return NextResponse.json(
                 { error: "Unauthorized" },
                 { status: 401 }
@@ -23,9 +27,12 @@ export async function POST(request: NextRequest) {
         }
 
         const userId = (session!.user as any).id;
+        console.log("✅ User ID:", userId);
         const { companyId, jobTitle } = await request.json();
+        console.log("📋 Request data:", { companyId, jobTitle });
 
         if (!companyId || !jobTitle) {
+            console.log("❌ Missing required fields");
             return NextResponse.json(
                 { error: "Company ID and job title are required" },
                 { status: 400 }
@@ -33,16 +40,19 @@ export async function POST(request: NextRequest) {
         }
 
         // Find the company by ID
+        console.log("🏢 Looking for company:", companyId);
         const company = await prisma.company.findUnique({
             where: { id: companyId },
         });
 
         if (!company) {
+            console.log("❌ Company not found:", companyId);
             return NextResponse.json(
                 { error: "Company not found" },
                 { status: 404 }
             );
         }
+        console.log("✅ Company found:", company.name);
 
         // Find or create a job for this company with the specified title
         let job = await prisma.job.findFirst({
@@ -82,6 +92,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Create the application
+        console.log("🚀 Creating application...");
         const application = await (prisma as any).application.create({
             data: {
                 candidateId: userId,
@@ -90,12 +101,18 @@ export async function POST(request: NextRequest) {
             },
         });
 
+        console.log("✅ Application created:", application.id);
         return NextResponse.json({
             message: "Application created successfully",
             application,
         });
     } catch (error) {
-        console.error("Error creating application:", error);
+        console.error("❌ Error creating application:", error);
+        console.error("❌ Error details:", {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+        });
         return NextResponse.json(
             { error: "Failed to create application" },
             { status: 500 }
