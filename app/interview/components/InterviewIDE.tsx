@@ -76,6 +76,82 @@ const InterviewerContent = () => {
         async (action: "start" | "stop") => {
             if (action === "start") {
                 try {
+                    // Create application if it doesn't exist
+                    if (!applicationCreated && companyName) {
+                        console.log("🚀 Creating application for interview...");
+                        const company = companiesData.find(
+                            (c) => c.name === companyName
+                        );
+                        if (company) {
+                            try {
+                                const response = await fetch(
+                                    "/api/applications/create",
+                                    {
+                                        method: "POST",
+                                        headers: {
+                                            "Content-Type": "application/json",
+                                        },
+                                        body: JSON.stringify({
+                                            companyId: company.id,
+                                            jobTitle: "Frontend Developer",
+                                        }),
+                                    }
+                                );
+
+                                if (response.ok) {
+                                    const data = await response.json();
+                                    console.log(
+                                        "✅ Application created for interview:",
+                                        data.application.id
+                                    );
+                                    setApplicationCreated(true);
+
+                                    // Now create interview session
+                                    console.log(
+                                        "🚀 Creating interview session..."
+                                    );
+                                    const sessionResponse = await fetch(
+                                        "/api/interviews/session",
+                                        {
+                                            method: "POST",
+                                            headers: {
+                                                "Content-Type":
+                                                    "application/json",
+                                            },
+                                            body: JSON.stringify({
+                                                applicationId:
+                                                    data.application.id,
+                                                companyId: company.id,
+                                            }),
+                                        }
+                                    );
+
+                                    if (sessionResponse.ok) {
+                                        const sessionData =
+                                            await sessionResponse.json();
+                                        console.log(
+                                            "✅ Interview session created:",
+                                            sessionData.interviewSession.id
+                                        );
+                                    } else {
+                                        console.error(
+                                            "❌ Failed to create interview session"
+                                        );
+                                    }
+                                } else {
+                                    console.error(
+                                        "❌ Failed to create application for interview"
+                                    );
+                                }
+                            } catch (error) {
+                                console.error(
+                                    "❌ Error creating application/interview session:",
+                                    error
+                                );
+                            }
+                        }
+                    }
+
                     // Reset editor code to initial state for new interview
                     updateCurrentCode(getInitialCode());
 
@@ -277,46 +353,24 @@ render(UserList);`;
 
     // Handle interview conclusion and completion screen
     useEffect(() => {
-        const createApplicationRecord = async () => {
-            if (interviewConcluded && companyName && !applicationCreated) {
+        const handleInterviewConclusion = async () => {
+            if (interviewConcluded && companyName) {
                 try {
-                    // Find company by name
+                    // Find company by name to update local state
                     const company = companiesData.find(
                         (c) => c.name === companyName
                     );
-                    if (!company) {
-                        console.error("Company not found:", companyName);
-                        return;
-                    }
-
-                    // Create application record in database
-                    const response = await fetch("/api/applications/create", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify({
-                            companyId: company.id,
-                            jobTitle: "Frontend Developer", // Default job title for interview
-                        }),
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        console.log("✅ Application created successfully");
-
-                        // Update local state as well
+                    if (company) {
+                        // Update local state to mark company as applied
                         markCompanyApplied(company.id);
-                        setApplicationCreated(true);
-                    } else {
-                        const error = await response.json();
-                        console.error(
-                            "❌ Failed to create application:",
-                            error
-                        );
                     }
+
+                    console.log("✅ Interview completed successfully");
                 } catch (error) {
-                    console.error("❌ Error creating application:", error);
+                    console.error(
+                        "❌ Error handling interview conclusion:",
+                        error
+                    );
                 }
 
                 setShowCompletionScreen(true);
@@ -326,14 +380,8 @@ render(UserList);`;
             }
         };
 
-        createApplicationRecord();
-    }, [
-        interviewConcluded,
-        companyName,
-        applicationCreated,
-        router,
-        markCompanyApplied,
-    ]);
+        handleInterviewConclusion();
+    }, [interviewConcluded, companyName, router, markCompanyApplied]);
 
     // Load theme preference and apply to document
     useEffect(() => {
