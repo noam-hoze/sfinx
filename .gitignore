@@ -1,9 +1,9 @@
 .next
 node_modules
-.env
+#.env
 # .env.local
-.env.production
-.env.development
+#.env.production
+#.env.development
 pnpm-lock.yaml
 npm-lock.json
 dist
@@ -12,3 +12,5 @@ dist
 app/api/debug/seed/ok
 
 
+
+/lib/generated/prisma

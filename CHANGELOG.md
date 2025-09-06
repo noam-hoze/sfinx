@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.5.0] - 2025-01-14
+
+### Added
+
+-   **Role-Based Redirection**: Automatic redirection from root page based on user type
+-   **Company Dashboard**: New dashboard page for company users with basic structure
+-   **User Authentication Flow**: Enhanced root page with session-based routing
+
+### Enhanced
+
+-   **Navigation Flow**: Seamless user experience with automatic role-based page routing
+-   **Authentication Integration**: Improved integration with NextAuth session management
+
+### Technical
+
+-   **Client-Side Routing**: useSession hook integration for role-based navigation
+-   **Loading States**: Professional loading indicator during redirection process
+
 ## [1.4.0] - 2025-01-12
 
 ### Added
@@ -213,3 +231,5 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 [1.0.0]: https://github.com/noam-hoze/sfinx/compare/v0.3.0...v1.0.0
 [1.1.0]: https://github.com/noam-hoze/sfinx/compare/v1.0.0...v1.1.0
 [1.2.0]: https://github.com/noam-hoze/sfinx/compare/v1.1.0...v1.2.0
+[1.4.0]: https://github.com/noam-hoze/sfinx/compare/v1.2.0...v1.4.0
+[1.5.0]: https://github.com/noam-hoze/sfinx/compare/v1.4.0...v1.5.0
