@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, Video, VideoOff } from "lucide-react";
 import Image from "next/image";
 import EditorPanel from "./editor/EditorPanel";
 import ChatPanel from "./chat/ChatPanel";
@@ -47,6 +47,19 @@ const InterviewerContent = () => {
     );
     const [interviewConcluded, setInterviewConcluded] = useState(false);
     const [telemetryCreated, setTelemetryCreated] = useState(false);
+
+    // Debug: Monitor interviewSessionId changes
+    useEffect(() => {
+        console.log("🔄 interviewSessionId changed to:", interviewSessionId);
+    }, [interviewSessionId]);
+    const [isRecording, setIsRecording] = useState(false);
+    const [recordingPermissionGranted, setRecordingPermissionGranted] =
+        useState(false);
+    const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
+    const [recordingUploaded, setRecordingUploaded] = useState(false);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const recordedChunksRef = useRef<Blob[]>([]);
+    const interviewSessionIdRef = useRef<string | null>(null); // Use ref to avoid stale closures
     const realTimeConversationRef = useRef<any>(null);
     const router = useRouter();
 
@@ -62,6 +75,372 @@ const InterviewerContent = () => {
             realTimeConversationRef.current.toggleMicMute();
         }
     }, []);
+
+    // Function to upload recording to server and update database
+    const uploadRecordingToServer = useCallback(
+        async (blob: Blob) => {
+            console.log(
+                "🔍 uploadRecordingToServer called with sessionId:",
+                interviewSessionIdRef.current,
+                "uploaded:",
+                recordingUploaded
+            );
+
+            if (!interviewSessionIdRef.current || recordingUploaded) {
+                console.log(
+                    "⏭️ Cannot upload: sessionId=",
+                    interviewSessionIdRef.current,
+                    "uploaded=",
+                    recordingUploaded
+                );
+                return;
+            }
+
+            try {
+                console.log("📤 Starting server upload process...");
+
+                // Upload recording
+                const formData = new FormData();
+                formData.append(
+                    "recording",
+                    blob,
+                    `interview-${interviewSessionIdRef.current}.webm`
+                );
+
+                console.log(
+                    "📤 Sending upload request to /api/interviews/session/screen-recording"
+                );
+                const uploadResponse = await fetch(
+                    "/api/interviews/session/screen-recording",
+                    {
+                        method: "POST",
+                        body: formData,
+                    }
+                );
+
+                console.log(
+                    "📤 Upload response status:",
+                    uploadResponse.status
+                );
+
+                if (!uploadResponse.ok) {
+                    const errorText = await uploadResponse.text();
+                    console.error("❌ Upload failed:", errorText);
+                    throw new Error(
+                        `Failed to upload recording: ${uploadResponse.status}`
+                    );
+                }
+
+                const uploadData = await uploadResponse.json();
+                console.log("✅ Recording uploaded:", uploadData.recordingUrl);
+
+                // Update interview session with recording URL
+                console.log(
+                    "📤 Sending update request to:",
+                    `/api/interviews/session/${interviewSessionIdRef.current}`
+                );
+                const updateResponse = await fetch(
+                    `/api/interviews/session/${interviewSessionIdRef.current}`,
+                    {
+                        method: "PATCH",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            videoUrl: uploadData.recordingUrl,
+                        }),
+                    }
+                );
+
+                console.log(
+                    "📤 Update response status:",
+                    updateResponse.status
+                );
+
+                if (!updateResponse.ok) {
+                    const errorText = await updateResponse.text();
+                    console.error("❌ Update failed:", errorText);
+                    throw new Error(
+                        `Failed to update interview session: ${updateResponse.status}`
+                    );
+                }
+
+                const updateData = await updateResponse.json();
+                console.log("✅ Interview session updated successfully");
+                console.log("📋 Updated session data:", updateData);
+                setRecordingUploaded(true);
+            } catch (error) {
+                console.error("❌ Error in uploadRecordingToServer:", error);
+            }
+        },
+        [recordingUploaded]
+    );
+
+    // Screen recording functions
+    const requestRecordingPermission = useCallback(async () => {
+        try {
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+                video: true,
+                audio: true,
+            });
+            setRecordingPermissionGranted(true);
+
+            // Create MediaRecorder with fallback mime types
+            let mimeType = "video/webm;codecs=vp9";
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+                console.log("⚠️ VP9 not supported, trying VP8...");
+                mimeType = "video/webm;codecs=vp8";
+                if (!MediaRecorder.isTypeSupported(mimeType)) {
+                    console.log("⚠️ VP8 not supported, trying basic webm...");
+                    mimeType = "video/webm";
+                    if (!MediaRecorder.isTypeSupported(mimeType)) {
+                        console.log("⚠️ WebM not supported, using default");
+                        mimeType = "";
+                    }
+                }
+            }
+
+            console.log("🎥 Using mime type:", mimeType);
+
+            const mediaRecorder = new MediaRecorder(
+                stream,
+                mimeType ? { mimeType } : {}
+            );
+
+            mediaRecorderRef.current = mediaRecorder;
+            recordedChunksRef.current = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                console.log(
+                    "📡 ondataavailable fired, data size:",
+                    event.data.size
+                );
+                if (event.data.size > 0) {
+                    recordedChunksRef.current.push(event.data);
+                    console.log(
+                        "📊 Chunks array length:",
+                        recordedChunksRef.current.length
+                    );
+                }
+            };
+
+            mediaRecorder.onstop = async () => {
+                console.log(
+                    "🛑 MediaRecorder stopped, processing recorded chunks..."
+                );
+                console.log(
+                    "📊 Recorded chunks count:",
+                    recordedChunksRef.current.length
+                );
+
+                if (recordedChunksRef.current.length === 0) {
+                    console.log("❌ No recorded chunks available");
+                    return;
+                }
+
+                const blob = new Blob(recordedChunksRef.current, {
+                    type: "video/webm",
+                });
+
+                console.log("📁 Created blob of size:", blob.size, "bytes");
+
+                // Create object URL for the recording
+                const url = URL.createObjectURL(blob);
+                setRecordingUrl(url);
+
+                // Store the blob for later upload (will be triggered by event handler)
+                // Keep it as an array to maintain consistency
+                recordedChunksRef.current = [blob];
+                console.log("✅ Recording captured, ready for upload");
+
+                // Auto-upload and update database when recording is ready
+                console.log(
+                    "🔍 onstop: interviewSessionId =",
+                    interviewSessionIdRef.current,
+                    "recordingUploaded =",
+                    recordingUploaded
+                );
+                if (interviewSessionIdRef.current && !recordingUploaded) {
+                    console.log(
+                        "🚀 Auto-uploading recording for session:",
+                        interviewSessionIdRef.current
+                    );
+                    await uploadRecordingToServer(blob);
+                } else {
+                    console.log(
+                        "⏭️ Cannot auto-upload: sessionId=",
+                        interviewSessionIdRef.current,
+                        "uploaded=",
+                        recordingUploaded
+                    );
+                }
+            };
+
+            return true;
+        } catch (error) {
+            console.error("Error requesting recording permission:", error);
+            setRecordingPermissionGranted(false);
+            return false;
+        }
+    }, [recordingUploaded, uploadRecordingToServer]);
+
+    const startRecording = useCallback(async () => {
+        if (!recordingPermissionGranted) {
+            const permissionGranted = await requestRecordingPermission();
+            if (!permissionGranted) return;
+        }
+
+        if (mediaRecorderRef.current && !isRecording) {
+            recordedChunksRef.current = [];
+            // Start recording with a timeslice to ensure periodic data collection
+            mediaRecorderRef.current.start(1000); // Collect data every 1 second
+            setIsRecording(true);
+            console.log("✅ Screen recording started");
+        }
+    }, [recordingPermissionGranted, isRecording, requestRecordingPermission]);
+
+    const stopRecording = useCallback(async () => {
+        if (mediaRecorderRef.current && isRecording) {
+            // Request any remaining data before stopping
+            if (mediaRecorderRef.current.state === "recording") {
+                mediaRecorderRef.current.requestData();
+            }
+
+            mediaRecorderRef.current.stop();
+            setIsRecording(false);
+
+            // Stop all tracks to end the stream
+            if (mediaRecorderRef.current.stream) {
+                mediaRecorderRef.current.stream
+                    .getTracks()
+                    .forEach((track) => track.stop());
+            }
+
+            console.log("✅ Screen recording stopped");
+        }
+    }, [isRecording]);
+
+    // Event handler for inserting recording URL (called manually, not in useEffect)
+    const insertRecordingUrl = useCallback(async () => {
+        console.log("🚀 insertRecordingUrl called");
+        console.log("📋 Current state:", {
+            interviewSessionId,
+            recordingUrl,
+            recordingUploaded,
+            recordedChunksLength: recordedChunksRef.current.length,
+        });
+
+        if (!interviewSessionId) {
+            console.log("⏭️ No interview session ID available yet");
+            return;
+        }
+
+        if (!recordingUrl) {
+            console.log("⏭️ No recording available to upload");
+            return;
+        }
+
+        if (recordingUploaded) {
+            console.log("⏭️ Recording already uploaded");
+            return;
+        }
+
+        // Get the stored blob from recordedChunksRef
+        if (recordedChunksRef.current.length === 0) {
+            console.log("⏭️ No recording blob available");
+            return;
+        }
+
+        const blob = recordedChunksRef.current[0];
+        if (!(blob instanceof Blob)) {
+            console.log("⏭️ Invalid recording blob");
+            return;
+        }
+
+        console.log("📁 Blob details:", {
+            size: blob.size,
+            type: blob.type,
+        });
+
+        console.log(
+            "🚀 Event handler: Inserting recording URL for session:",
+            interviewSessionId
+        );
+
+        try {
+            console.log("📤 Starting upload process...");
+
+            // Upload recording
+            const formData = new FormData();
+            formData.append(
+                "recording",
+                blob,
+                `interview-${interviewSessionId}.webm`
+            );
+
+            console.log(
+                "📤 Sending upload request to /api/interviews/session/screen-recording"
+            );
+            const uploadResponse = await fetch(
+                "/api/interviews/session/screen-recording",
+                {
+                    method: "POST",
+                    body: formData,
+                }
+            );
+
+            console.log("📤 Upload response status:", uploadResponse.status);
+
+            if (!uploadResponse.ok) {
+                const errorText = await uploadResponse.text();
+                console.error("❌ Upload failed:", errorText);
+                throw new Error(
+                    `Failed to upload recording: ${uploadResponse.status}`
+                );
+            }
+
+            const uploadData = await uploadResponse.json();
+            console.log("✅ Recording uploaded:", uploadData.recordingUrl);
+
+            // Update interview session with recording URL
+            console.log(
+                "📤 Sending update request to:",
+                `/api/interviews/session/${interviewSessionId}`
+            );
+            const updateResponse = await fetch(
+                `/api/interviews/session/${interviewSessionId}`,
+                {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                        videoUrl: uploadData.recordingUrl,
+                    }),
+                }
+            );
+
+            console.log("📤 Update response status:", updateResponse.status);
+
+            if (!updateResponse.ok) {
+                const errorText = await updateResponse.text();
+                console.error("❌ Update failed:", errorText);
+                throw new Error(
+                    `Failed to update interview session: ${updateResponse.status}`
+                );
+            }
+
+            const updateData = await updateResponse.json();
+            console.log("✅ Interview session updated successfully");
+            console.log("📋 Updated session data:", updateData);
+            setRecordingUploaded(true);
+        } catch (error) {
+            console.error(
+                "❌ Error in insertRecordingUrl event handler:",
+                error
+            );
+        }
+    }, [interviewSessionId, recordingUrl, recordingUploaded]);
 
     // Listen for mic state changes from RealTimeConversation
     useEffect(() => {
@@ -137,9 +516,15 @@ const InterviewerContent = () => {
                                             "✅ Interview session created:",
                                             sessionData.interviewSession.id
                                         );
+                                        console.log(
+                                            "🔄 Setting interviewSessionId to:",
+                                            sessionData.interviewSession.id
+                                        );
                                         setInterviewSessionId(
                                             sessionData.interviewSession.id
                                         );
+                                        interviewSessionIdRef.current =
+                                            sessionData.interviewSession.id;
                                     } else {
                                         console.error(
                                             "❌ Failed to create interview session"
@@ -164,6 +549,10 @@ const InterviewerContent = () => {
 
                     // Clear chat panel before starting new interview
                     window.postMessage({ type: "clear-chat" }, "*");
+
+                    // Start screen recording
+                    await startRecording();
+
                     await realTimeConversationRef.current?.startConversation();
                     setIsInterviewActive(true);
                 } catch (error) {
@@ -172,6 +561,7 @@ const InterviewerContent = () => {
             } else {
                 try {
                     await realTimeConversationRef.current?.stopConversation();
+                    await stopRecording();
                     setIsInterviewActive(false);
                     setIsAgentConnected(false);
                     setIsTimerRunning(false);
@@ -187,7 +577,14 @@ const InterviewerContent = () => {
                 }
             }
         },
-        [timerInterval, updateCurrentCode]
+        [
+            timerInterval,
+            updateCurrentCode,
+            applicationCreated,
+            companyName,
+            startRecording,
+            stopRecording,
+        ]
     );
 
     const handleStartCoding = async () => {
@@ -347,6 +744,9 @@ const InterviewerContent = () => {
         try {
             // Update local state
             updateSubmission(state.currentCode);
+
+            // Stop screen recording (upload will happen automatically in onstop handler)
+            await stopRecording();
 
             // Send submission to ElevenLabs KB
             if (realTimeConversationRef.current) {
@@ -578,6 +978,26 @@ render(UserList);`;
 
                     {/* Right Section - Controls */}
                     <div className="flex items-center space-x-4">
+                        {/* Recording Indicator */}
+                        {(isRecording || recordingPermissionGranted) && (
+                            <div className="flex items-center space-x-2">
+                                <div
+                                    className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${
+                                        isRecording
+                                            ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+                                            : "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                                    }`}
+                                >
+                                    {isRecording ? (
+                                        <Video className="w-3 h-3" />
+                                    ) : (
+                                        <VideoOff className="w-3 h-3" />
+                                    )}
+                                    <span>REC</span>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Timer Display */}
                         {isCodingStarted && (
                             <div
