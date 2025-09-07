@@ -77,7 +77,7 @@ export default function Header() {
                                     </span>
                                 )}
                             </Menu.Button>
-                            <Menu.Items className="absolute left-1/2 -translate-x-1/2 mt-2 origin-top-right divide-y divide-gray-100 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none w-20">
+                            <Menu.Items className="absolute left-1/2 -translate-x-1/2 mt-2 origin-top-right divide-y divide-gray-100 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none w-20 z-50">
                                 <div className="px-1 py-1 ">
                                     <Menu.Item>
                                         {({ active }) => (
