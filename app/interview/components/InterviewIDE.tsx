@@ -1018,22 +1018,22 @@ render(UserList);`;
                 <div className="flex items-center justify-between max-w-8xl mx-auto">
                     {/* Left Section - Logo */}
                     <div className="flex items-center">
+                        <h1 className="text-xl font-medium text-gray-900 dark:text-white tracking-tight">
+                            Front-end Developer Interview
+                        </h1>
+                    </div>
+
+                    {/* Center Section - Title */}
+                    <div className="flex-1 flex justify-center items-center">
                         <div className="relative h-20 w-20">
                             <Image
                                 src={companyLogo}
                                 alt="Company Logo"
                                 fill
                                 sizes="80px"
-                                className="object-contain"
+                                className="object-contain scale-125"
                             />
                         </div>
-                    </div>
-
-                    {/* Center Section - Title */}
-                    <div className="flex-1 flex justify-center items-center">
-                        <h1 className="text-xl font-medium text-gray-900 dark:text-white tracking-tight">
-                            Front-end Developer Interview
-                        </h1>
                     </div>
 
                     {/* Right Section - Controls */}
