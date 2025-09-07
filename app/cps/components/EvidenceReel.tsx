@@ -11,11 +11,6 @@ type Props = {
     videoUrl?: string | null;
     jumpToTime?: number;
     duration?: number;
-    chapters?: Array<{
-        id: string;
-        title: string;
-        startTime: number;
-    }>;
     evidence?: any[]; // Keep for backward compatibility but not used
     onChapterClick?: (timestamp: number) => void; // Keep for backward compatibility but not used
 };
@@ -24,7 +19,6 @@ export default function EvidenceReel({
     videoUrl,
     jumpToTime,
     duration,
-    chapters,
 }: Props) {
     const playerRef = useRef<any>(null);
     const lastJumpTimeRef = useRef<number | null>(null);
@@ -46,67 +40,49 @@ export default function EvidenceReel({
         }
     }, [jumpToTime]); // Only depend on jumpToTime, not currentTime
 
-    // Build a Blob URL for WebVTT chapters
-    const chaptersUrl = useMemo(() => {
-        console.log("Chapters data:", chapters);
-        console.log("Duration:", duration);
+    const subtitleTrackUrl = useMemo(() => {
+        const vtt = `WEBVTT
 
-        if (!chapters || chapters.length === 0) return undefined;
+00:38.000 --> 00:45.000
+The user verifies that useState is working correctly
 
-        // Validate chapters data
-        const validChapters = chapters.filter(
-            (chapter) =>
-                chapter &&
-                typeof chapter.startTime === "number" &&
-                !isNaN(chapter.startTime) &&
-                chapter.startTime >= 0 &&
-                chapter.title
-        );
+02:07.000 --> 02:16.000
+The user checks if the list is displaying
 
-        if (validChapters.length === 0) return undefined;
+04:00.000 --> 04:06.000
+The user checks if the list is displaying and gets an error
 
-        const formatTime = (s: number) => {
-            // Ensure s is a valid finite number
-            const time = Math.max(0, Math.min(s, 86400)); // Clamp between 0 and 24 hours
-            const h = Math.floor(time / 3600);
-            const m = Math.floor((time % 3600) / 60);
-            const sec = Math.floor(time % 60);
-            const ms = Math.floor((time % 1) * 1000);
-            // Always include hours for consistent WebVTT format
-            return `${String(h).padStart(2, "0")}:${String(m).padStart(
-                2,
-                "0"
-            )}:${String(sec).padStart(2, "0")}.${String(ms).padStart(3, "0")}`;
-        };
+04:20.000 --> 04:26.000
+The user fixes the error
 
-        let vtt = "WEBVTT\n\n";
-        for (let i = 0; i < validChapters.length; i++) {
-            const start = formatTime(validChapters[i].startTime);
-            let endTime: number;
 
-            if (i < validChapters.length - 1) {
-                // Use next chapter's start time
-                endTime = Math.max(
-                    validChapters[i].startTime + 1,
-                    validChapters[i + 1].startTime
-                );
-            } else {
-                // Last chapter - use duration or add 30 seconds
-                endTime =
-                    duration &&
-                    !isNaN(duration) &&
-                    duration > validChapters[i].startTime
-                        ? duration
-                        : validChapters[i].startTime + 30;
-            }
-
-            const end = formatTime(endTime);
-            vtt += `${start} --> ${end}\n${validChapters[i].title}\n\n`;
-        }
-        console.log("Generated VTT content:", vtt);
+`;
         const blob = new Blob([vtt], { type: "text/vtt" });
         return URL.createObjectURL(blob);
-    }, [chapters, duration]);
+    }, []);
+
+    // Build a Blob URL for WebVTT chapters
+    const chaptersUrl = useMemo(() => {
+        const vtt = `WEBVTT
+
+00:00.000 --> 00:18.000
+Intro
+
+00:18.000 --> 00:40.000
+1st Iteration
+
+00:40.000 --> 02:16.000
+2nd Iteration
+
+02:16.000 --> 04:05.000
+3rd Iteration
+
+04:05.000 --> 04:42.000
+4th Iteration
+`;
+        const blob = new Blob([vtt], { type: "text/vtt" });
+        return URL.createObjectURL(blob);
+    }, []);
 
     // Cleanup blob URL on unmount
     useEffect(
@@ -130,27 +106,19 @@ export default function EvidenceReel({
                     preload="metadata"
                     crossOrigin="anonymous"
                     ref={playerRef}
+                    data-captions
                 >
                     <MediaProvider />
 
                     {/* Inline chapters track (no public file needed) */}
+                    <Track kind="chapters" src={chaptersUrl} default />
+
+                    {/* Demo subtitles track */}
                     <Track
-                        kind="chapters"
-                        src={URL.createObjectURL(
-                            new Blob(
-                                [
-                                    `WEBVTT
-
-00:00.000 --> 00:18.000
-Intro
-
-00:18.000 --> 04:42.000
-Coding
-`,
-                                ],
-                                { type: "text/vtt" }
-                            )
-                        )}
+                        kind="subtitles"
+                        src={subtitleTrackUrl}
+                        label="English"
+                        language="en"
                         default
                     />
 

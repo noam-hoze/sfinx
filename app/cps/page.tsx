@@ -512,7 +512,6 @@ function TelemetryContent() {
                     {/* Cell 3 - Video (bottom-right) */}
                     <div className="w-full xl:w-auto h-full">
                         <EvidenceReel
-                            chapters={chapters || []}
                             jumpToTime={currentVideoTime}
                             videoUrl={videoUrl}
                             duration={duration}
