@@ -163,13 +163,15 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         // KB update refs
         const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
         const lastSentCodeRef = useRef<string>("");
+        const micStreamRef = useRef<MediaStream | null>(null);
 
         const startConversation = useCallback(async () => {
             try {
                 console.log("🎤 Interviewer: Requesting audio permissions...");
-                await navigator.mediaDevices.getUserMedia({
+                const micStream = await navigator.mediaDevices.getUserMedia({
                     audio: true,
                 });
+                micStreamRef.current = micStream;
                 console.log("✅ Interviewer: Audio permissions granted");
 
                 setIsRecording(true);
@@ -261,6 +263,19 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             if (updateTimeoutRef.current) {
                 clearTimeout(updateTimeoutRef.current);
                 updateTimeoutRef.current = null;
+            }
+
+            // Stop microphone stream tracks
+            if (micStreamRef.current) {
+                console.log("🎤 Stopping microphone tracks...");
+                micStreamRef.current.getTracks().forEach((track) => {
+                    console.log(
+                        `🛑 Stopping microphone track: ${track.kind} - ${track.label}`
+                    );
+                    track.stop();
+                });
+                micStreamRef.current = null;
+                console.log("✅ Microphone tracks stopped");
             }
 
             console.log("🔚 Ending ElevenLabs session");
@@ -385,6 +400,17 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         // Cleanup on unmount
         useEffect(() => {
             return () => {
+                // Stop microphone stream tracks on unmount
+                if (micStreamRef.current) {
+                    console.log("🔄 Unmounting: Stopping microphone tracks...");
+                    micStreamRef.current.getTracks().forEach((track) => {
+                        console.log(
+                            `🛑 Stopping microphone track on unmount: ${track.kind} - ${track.label}`
+                        );
+                        track.stop();
+                    });
+                    micStreamRef.current = null;
+                }
                 disconnectFromConversation();
             };
         }, []); // eslint-disable-line react-hooks/exhaustive-deps
