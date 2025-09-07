@@ -1,14 +1,26 @@
 "use client";
 
+import React, { useRef, useEffect } from "react";
+
 interface EvidenceReelProps {
     chapters?: any[]; // Keep for compatibility but not used
     evidence?: any[]; // Keep for compatibility but not used
-    jumpToTime?: number; // Keep for compatibility but not used
+    jumpToTime?: number;
     onChapterClick?: (timestamp: number) => void; // Keep for compatibility but not used
     videoUrl?: string | null;
 }
 
-const EvidenceReel: React.FC<EvidenceReelProps> = ({ videoUrl }) => {
+const EvidenceReel: React.FC<EvidenceReelProps> = ({
+    videoUrl,
+    jumpToTime,
+}) => {
+    const videoRef = useRef<HTMLVideoElement>(null);
+
+    useEffect(() => {
+        if (videoRef.current && jumpToTime !== undefined) {
+            videoRef.current.currentTime = jumpToTime;
+        }
+    }, [jumpToTime]);
     if (!videoUrl) {
         return (
             <div className="bg-white rounded-xl shadow-xl border border-gray-300 overflow-hidden">
@@ -44,6 +56,7 @@ const EvidenceReel: React.FC<EvidenceReelProps> = ({ videoUrl }) => {
     return (
         <div className="bg-white rounded-xl shadow-xl border border-gray-300 overflow-hidden">
             <video
+                ref={videoRef}
                 className="w-full aspect-video object-cover"
                 controls
                 preload="metadata"
