@@ -14,6 +14,7 @@ import {
     useJobApplication,
     companiesData,
 } from "../../../lib";
+import { useElevenLabsStateMachine } from "../../../lib/hooks/useElevenLabsStateMachine";
 
 const InterviewerContent = () => {
     const { state, getCurrentTask, updateCurrentCode, updateSubmission } =
@@ -22,6 +23,71 @@ const InterviewerContent = () => {
     const searchParams = useSearchParams();
     const companyName = searchParams.get("company");
     const companyLogo = searchParams.get("logo") || "/logos/meta-logo.png";
+
+    // Callbacks for state machine
+    const onElevenLabsUpdate = useCallback(async (text: string) => {
+        if (realTimeConversationRef.current?.sendContextualUpdate) {
+            try {
+                await realTimeConversationRef.current.sendContextualUpdate(
+                    text
+                );
+                console.log("✅ Sent ElevenLabs KB update:", text);
+            } catch (error) {
+                console.error("❌ Failed to send ElevenLabs update:", error);
+                throw error;
+            }
+        } else {
+            console.warn("⚠️ ElevenLabs conversation not available for update");
+        }
+    }, []);
+
+    const onSendUserMessage = useCallback(async (message: string) => {
+        if (realTimeConversationRef.current?.sendUserMessage) {
+            try {
+                const messageSent =
+                    await realTimeConversationRef.current.sendUserMessage(
+                        message
+                    );
+                if (messageSent) {
+                    console.log(
+                        "✅ AI usage notification message sent successfully"
+                    );
+                    return true;
+                } else {
+                    console.error(
+                        "❌ Failed to send AI usage notification message"
+                    );
+                    return false;
+                }
+            } catch (error) {
+                console.error(
+                    "❌ Error sending AI usage notification message:",
+                    error
+                );
+                return false;
+            }
+        } else {
+            console.warn(
+                "⚠️ RealTimeConversation not available for sending user message"
+            );
+            return false;
+        }
+    }, []);
+
+    // Initialize state machine (will be passed to RealTimeConversation)
+    const {
+        setCodingState,
+        handleSubmission: stateMachineHandleSubmission,
+        kbVariables,
+        processAIMessage,
+        handleUserTranscript,
+        incrementAITurns,
+        updateKBVariables,
+    } = useElevenLabsStateMachine(
+        onElevenLabsUpdate,
+        onSendUserMessage,
+        state.candidateName
+    );
     const [showDiff, setShowDiff] = useState(false);
     const [originalCode, setOriginalCode] = useState("");
     const [modifiedCode, setModifiedCode] = useState("");
@@ -60,6 +126,7 @@ const InterviewerContent = () => {
     const [recordingUploaded, setRecordingUploaded] = useState(false);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const recordedChunksRef = useRef<Blob[]>([]);
+    const selectedMimeTypeRef = useRef<string>("");
     const interviewSessionIdRef = useRef<string | null>(null); // Use ref to avoid stale closures
     const realTimeConversationRef = useRef<any>(null);
     const router = useRouter();
@@ -248,6 +315,9 @@ const InterviewerContent = () => {
             mediaRecorderRef.current = mediaRecorder;
             recordedChunksRef.current = [];
 
+            // Store the selected MIME type for consistent Blob creation
+            selectedMimeTypeRef.current = mimeType;
+
             mediaRecorder.ondataavailable = (event) => {
                 console.log(
                     "📡 ondataavailable fired, data size:",
@@ -277,7 +347,7 @@ const InterviewerContent = () => {
                 }
 
                 const blob = new Blob(recordedChunksRef.current, {
-                    type: "video/mp4",
+                    type: selectedMimeTypeRef.current || "video/mp4",
                 });
 
                 console.log("📁 Created blob of size:", blob.size, "bytes");
@@ -656,24 +726,8 @@ const InterviewerContent = () => {
         setIsTimerRunning(true);
         setIsCodingStarted(true);
 
-        // Send is_coding status to ElevenLabs KB
-        if (realTimeConversationRef.current) {
-            const kb = {
-                is_coding: true,
-            };
-            const text = `KB_UPDATE: ${JSON.stringify(kb)}`;
-            try {
-                await realTimeConversationRef.current.sendContextualUpdate(
-                    text
-                );
-                console.log("✅ Coding status sent to ElevenLabs KB");
-            } catch (error) {
-                console.error(
-                    "❌ Failed to send coding status to ElevenLabs KB:",
-                    error
-                );
-            }
-        }
+        // Use state machine to set coding state
+        await setCodingState(true);
 
         // Start timer only when user clicks
         const interval = setInterval(async () => {
@@ -683,26 +737,19 @@ const InterviewerContent = () => {
                     setIsTimerRunning(false);
                     setIsCodingStarted(false);
 
-                    // Send coding stopped status when time expires
-                    if (realTimeConversationRef.current) {
-                        const kb = {
-                            is_coding: false,
-                        };
-                        const text = `KB_UPDATE: ${JSON.stringify(kb)}`;
-                        realTimeConversationRef.current
-                            .sendContextualUpdate(text)
-                            .then(() =>
-                                console.log(
-                                    "✅ Timer expired - coding stopped status sent to ElevenLabs KB"
-                                )
+                    // Use state machine to stop coding when time expires
+                    setCodingState(false)
+                        .then(() =>
+                            console.log(
+                                "✅ Timer expired - coding stopped via state machine"
                             )
-                            .catch((error: any) =>
-                                console.error(
-                                    "❌ Failed to send timer expired status to ElevenLabs KB:",
-                                    error
-                                )
-                            );
-                    }
+                        )
+                        .catch((error: any) =>
+                            console.error(
+                                "❌ Failed to send timer expired status via state machine:",
+                                error
+                            )
+                        );
 
                     clearInterval(interval);
                     return 0;
@@ -718,24 +765,8 @@ const InterviewerContent = () => {
         setIsTimerRunning(false);
         setIsCodingStarted(false);
 
-        // Send is_coding status to ElevenLabs KB
-        if (realTimeConversationRef.current) {
-            const kb = {
-                is_coding: false,
-            };
-            const text = `KB_UPDATE: ${JSON.stringify(kb)}`;
-            try {
-                await realTimeConversationRef.current.sendContextualUpdate(
-                    text
-                );
-                console.log("✅ Coding stopped status sent to ElevenLabs KB");
-            } catch (error) {
-                console.error(
-                    "❌ Failed to send coding stopped status to ElevenLabs KB:",
-                    error
-                );
-            }
-        }
+        // Use state machine to stop coding
+        await setCodingState(false);
 
         // Clear timer interval
         if (timerInterval) {
@@ -812,21 +843,12 @@ const InterviewerContent = () => {
             // Stop screen recording (upload will happen automatically in onstop handler)
             await stopRecording();
 
-            // Send submission to ElevenLabs KB
-            if (realTimeConversationRef.current) {
-                const kb = {
-                    submission: state.currentCode,
-                    has_submitted: "true",
-                    is_coding: false,
-                };
-                console.log("📤 has_submitted flag sent:", kb.has_submitted);
-                const text = `KB_UPDATE: ${JSON.stringify(kb)}`;
-                await realTimeConversationRef.current.sendContextualUpdate(
-                    text
-                );
-                console.log("✅ Submission sent to ElevenLabs KB");
+            // Use state machine to handle submission
+            await stateMachineHandleSubmission(state.currentCode);
+            console.log("✅ Submission handled via state machine");
 
-                // Send "I'm done" user message (special message, not shown in chat)
+            // Send "I'm done" user message (special message, not shown in chat)
+            if (realTimeConversationRef.current) {
                 const messageSent =
                     await realTimeConversationRef.current.sendUserMessage(
                         "I'm done"
@@ -1185,6 +1207,8 @@ render(UserList);`;
                                 onTabSwitch={handleTabSwitch}
                                 onRunCode={handleRunCode}
                                 readOnly={!isCodingStarted}
+                                onElevenLabsUpdate={onElevenLabsUpdate}
+                                updateKBVariables={updateKBVariables}
                             />
                         </div>
                     </Panel>
@@ -1220,6 +1244,14 @@ render(UserList);`;
                                     <RealTimeConversation
                                         ref={realTimeConversationRef}
                                         isInterviewActive={isInterviewActive}
+                                        candidateName={state.candidateName}
+                                        processAIMessage={processAIMessage}
+                                        handleUserTranscript={
+                                            handleUserTranscript
+                                        }
+                                        incrementAITurns={incrementAITurns}
+                                        updateKBVariables={updateKBVariables}
+                                        kbVariables={kbVariables}
                                         onStartConversation={() => {
                                             console.log("Conversation started");
                                             setIsAgentConnected(true);

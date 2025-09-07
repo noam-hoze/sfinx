@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
 import { Play, RotateCcw } from "lucide-react";
 import CodePreview from "./CodePreview";
@@ -19,6 +19,8 @@ interface EditorPanelProps {
     onTabSwitch?: (tab: "editor" | "preview") => void;
     onRunCode?: () => void;
     readOnly?: boolean;
+    onElevenLabsUpdate?: (text: string) => Promise<void>;
+    updateKBVariables?: (updates: any) => Promise<void>;
 }
 
 const EditorPanel: React.FC<EditorPanelProps> = ({
@@ -35,18 +37,33 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     onTabSwitch,
     onRunCode,
     readOnly = false,
+    onElevenLabsUpdate,
+    updateKBVariables,
 }) => {
     const [currentCode, setCurrentCode] = useState(propCurrentCode || "");
 
     // State for theme to avoid SSR issues
     const [editorTheme, setEditorTheme] = useState("sfinx-light");
 
+    // Simple AI detection - no complex hooks needed
+
+    // Refs for paste detection
+    const previousCodeRef = useRef<string>(propCurrentCode || "");
+    const lastChangeTimeRef = useRef<number>(0); // Start at 0 so first paste has large timeSinceLastChange
+    const pasteStartTimeRef = useRef<number>(0);
+    const lastPasteDetectionTimeRef = useRef<number>(0);
+
     // Update local state when prop changes
     useEffect(() => {
         if (propCurrentCode && propCurrentCode !== currentCode) {
             setCurrentCode(propCurrentCode);
+            previousCodeRef.current = propCurrentCode;
+            // Reset timestamp when code is first loaded
+            lastChangeTimeRef.current = Date.now();
         }
     }, [propCurrentCode, currentCode]);
+
+    // Removed complex AI detection updates - keeping it simple
 
     // Set theme on client side to avoid SSR issues
     useEffect(() => {
@@ -83,6 +100,10 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     const handleEditorDidMount = (editor: any, monaco: any) => {
         editorRef.current = editor;
 
+        // Initialize timestamps when editor is ready
+        lastChangeTimeRef.current = Date.now();
+        pasteStartTimeRef.current = Date.now();
+
         // Configure Monaco editor themes
         monaco.editor.defineTheme("sfinx-light", {
             base: "vs",
@@ -107,12 +128,40 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
         monaco.editor.setTheme(isDark ? "sfinx-dark" : "sfinx-light");
     };
 
-    const handleCodeChange = (value: string | undefined) => {
-        if (value !== undefined) {
-            setCurrentCode(value);
-            onCodeChange?.(value);
-        }
-    };
+    const handleCodeChange = useCallback(
+        (value: string | undefined) => {
+            if (value !== undefined) {
+                const now = Date.now();
+                const previousCode = previousCodeRef.current;
+
+                // Calculate the change
+                const charactersAdded = value.length - previousCode.length;
+
+                // Update timestamp BEFORE calculating time since last change
+                const previousTime = lastChangeTimeRef.current;
+                const timeSinceLastChange = now - previousTime;
+
+                // Simple AI detection: check if paste > 50 chars
+                if (value.length > 50) {
+                    console.log(
+                        "🚨 Large paste detected - requesting state machine to set using_ai: true"
+                    );
+                    updateKBVariables?.({ using_ai: true });
+                }
+
+                // Update refs
+                previousCodeRef.current = value;
+                lastChangeTimeRef.current = now;
+                if (charactersAdded > 10) {
+                    pasteStartTimeRef.current = now;
+                }
+
+                setCurrentCode(value);
+                onCodeChange?.(value);
+            }
+        },
+        [onCodeChange, onElevenLabsUpdate]
+    );
 
     const runCode = () => {
         // Trigger the preview tab creation and switching

@@ -17,6 +17,13 @@ interface RealTimeConversationProps {
     onEndConversation?: () => void;
     onInterviewConcluded?: () => void;
     isInterviewActive?: boolean;
+    candidateName?: string;
+    // State machine functions passed from parent
+    processAIMessage?: (message: string) => Promise<string>;
+    handleUserTranscript?: (transcript: string) => Promise<void>;
+    incrementAITurns?: () => void;
+    updateKBVariables?: (updates: any) => Promise<void>;
+    kbVariables?: any;
 }
 
 const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
@@ -26,6 +33,12 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             onEndConversation,
             onInterviewConcluded,
             isInterviewActive = false,
+            candidateName = "Candidate",
+            processAIMessage,
+            handleUserTranscript,
+            incrementAITurns,
+            updateKBVariables,
+            kbVariables,
         },
         ref
     ) => {
@@ -39,12 +52,22 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             useState(false);
         const { state } = useInterview();
 
+        // State machine functions are now passed as props from parent
+
         const conversation = useConversation({
             micMuted,
             onConnect: () => {
                 console.log("✅ Connected to Eleven Labs");
                 setIsConnected(true);
                 setConnectionStatus("Connected");
+
+                // Prime KB variables immediately on connect
+                updateKBVariables?.({
+                    candidate_name: candidateName,
+                    is_coding: false,
+                    has_submitted: false,
+                    current_code_summary: state.currentCode ?? "",
+                });
 
                 // Notify ChatPanel about recording status
                 window.parent.postMessage(
@@ -73,13 +96,35 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
 
                 onEndConversation?.();
             },
-            onMessage: (message) => {
+            onMessage: async (message) => {
                 console.log("📨 Message:", message);
 
                 // Send transcription data to ChatPanel
                 if (message.message) {
                     const isAiMessage = message.source !== "user";
-                    const messageText = message.message;
+                    let messageText = message.message;
+
+                    if (isAiMessage) {
+                        // Process AI message through state machine to handle SYS tags
+                        if (processAIMessage) {
+                            messageText = await processAIMessage(messageText);
+                        }
+                        // Skip empty messages after SYS tag processing
+                        if (!messageText.trim()) {
+                            console.log(
+                                "🔇 Skipping empty AI message after SYS tag processing"
+                            );
+                            return;
+                        }
+                        if (incrementAITurns) {
+                            incrementAITurns();
+                        }
+                    } else {
+                        // Handle user transcripts through state machine
+                        if (handleUserTranscript) {
+                            await handleUserTranscript(messageText);
+                        }
+                    }
 
                     window.parent.postMessage(
                         {
@@ -219,7 +264,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             }
         }, [isRecording]); // eslint-disable-line react-hooks/exhaustive-deps
 
-        // Auto KB_UPDATE on code changes
+        // Auto KB_UPDATE on code changes (using state machine)
         useEffect(() => {
             if (conversation.status !== "connected") {
                 return;
@@ -238,13 +283,16 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             // Set new timeout for throttled update
             updateTimeoutRef.current = setTimeout(async () => {
                 try {
-                    const kb = { current_code_summary: state.currentCode };
-                    const text = `KB_UPDATE: ${JSON.stringify(kb)}`;
-                    await conversation.sendContextualUpdate(text);
+                    // Update through state machine to maintain consistency
+                    await updateKBVariables?.({
+                        current_code_summary: state.currentCode,
+                    });
                     lastSentCodeRef.current = state.currentCode;
-                    console.log("✅ Auto KB_UPDATE sent");
+                    console.log(
+                        "✅ Code summary KB_UPDATE sent via state machine"
+                    );
                 } catch (error) {
-                    console.error("❌ Auto KB_UPDATE failed:", error);
+                    console.error("❌ Code summary KB_UPDATE failed:", error);
                 }
             }, 1500);
 
@@ -309,21 +357,6 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         }, []);
 
         // Minimal test function - exactly as requested
-        const testSendMessage = async () => {
-            try {
-                if (conversation.status !== "connected") {
-                    console.warn("⏳ Not connected yet; skipping KB update.");
-                    return;
-                }
-
-                const kb = { current_code_summary: state.currentCode };
-                const text = `KB_UPDATE: ${JSON.stringify(kb)}`;
-                await conversation.sendContextualUpdate(text);
-                console.log("✅ KB_UPDATE sent:", kb.current_code_summary);
-            } catch (error) {
-                console.error("❌ Error sending KB_UPDATE:", error);
-            }
-        };
 
         // Send user message method
         const sendUserMessage = useCallback(
