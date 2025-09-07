@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useEffect, useMemo } from "react";
+import React, { useRef, useEffect, useMemo, useState } from "react";
 import { MediaPlayer, MediaProvider, Track } from "@vidstack/react";
 import {
     DefaultVideoLayout,
@@ -16,6 +16,8 @@ type Props = {
         title: string;
         startTime: number;
     }>;
+    evidence?: any[]; // Keep for backward compatibility but not used
+    onChapterClick?: (timestamp: number) => void; // Keep for backward compatibility but not used
 };
 
 export default function EvidenceReel({
@@ -25,12 +27,28 @@ export default function EvidenceReel({
     chapters,
 }: Props) {
     const playerRef = useRef<any>(null);
+    const [currentTime, setCurrentTime] = useState(0);
 
     useEffect(() => {
-        if (playerRef.current && typeof jumpToTime === "number") {
-            playerRef.current.remote?.seek(jumpToTime);
+        if (
+            playerRef.current &&
+            typeof jumpToTime === "number" &&
+            jumpToTime !== currentTime
+        ) {
+            // Try to seek using the player's remote control
+            if (playerRef.current.remote) {
+                playerRef.current.remote.seek(jumpToTime);
+            } else if (playerRef.current.currentTime !== undefined) {
+                // Fallback: directly set currentTime
+                playerRef.current.currentTime = jumpToTime;
+            }
+            setCurrentTime(jumpToTime);
         }
-    }, [jumpToTime]);
+    }, [jumpToTime, currentTime]);
+
+    const handleTimeUpdate = (time: number) => {
+        setCurrentTime(time);
+    };
 
     // Build a Blob URL for WebVTT chapters
     const chaptersUrl = useMemo(() => {
@@ -115,6 +133,8 @@ export default function EvidenceReel({
                     playsInline
                     preload="metadata"
                     crossOrigin="anonymous"
+                    ref={playerRef}
+                    onTimeUpdate={(e) => handleTimeUpdate(e.currentTime)}
                 >
                     <MediaProvider />
 

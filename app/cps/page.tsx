@@ -513,9 +513,7 @@ function TelemetryContent() {
                     <div className="w-full xl:w-auto h-full">
                         <EvidenceReel
                             chapters={chapters || []}
-                            evidence={evidence || []}
                             jumpToTime={currentVideoTime}
-                            onChapterClick={onVideoJump}
                             videoUrl={videoUrl}
                             duration={duration}
                         />
