@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { WorkstyleMetrics } from "../../../lib";
+import { Info } from "lucide-react";
 
 interface WorkstyleDashboardProps {
     workstyle: WorkstyleMetrics;
@@ -17,6 +18,22 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
     const [clickedTimestamp, setClickedTimestamp] = useState<number | null>(
         null
     );
+
+    const getTooltipText = (key: string) => {
+        switch (key) {
+            case "iterationSpeed":
+                return "Measures how quickly the candidate moves through development cycles.";
+            case "debugLoops":
+                return "Tracks the frequency and duration of debugging sessions.";
+            case "refactorCleanups":
+                return "Shows how often the candidate refactors and cleans up their code.";
+            case "aiAssistUsage":
+                return "Indicates the extent to which the candidate uses AI-powered assistance.";
+            default:
+                return "";
+        }
+    };
+
     const getColorClass = (color: string) => {
         switch (color) {
             case "blue":
@@ -69,6 +86,12 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                                 <span className="text-sm font-medium text-gray-700">
                                     {metric.label}
                                 </span>
+                                <div className="group relative flex items-center">
+                                    <Info size={14} className="text-gray-400" />
+                                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 bg-white text-black text-xs rounded py-2 px-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none border border-gray-200 shadow-lg z-10 whitespace-normal">
+                                        {getTooltipText(metric.key)}
+                                    </div>
+                                </div>
                             </div>
                             <div className="flex items-center gap-2">
                                 {editMode ? (

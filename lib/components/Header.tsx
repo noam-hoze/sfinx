@@ -13,7 +13,7 @@ export default function Header() {
     const router = useRouter();
     const pathname = usePathname();
 
-    const noHeaderPaths = ["/login", "/signup"];
+    const noHeaderPaths = ["/", "/login", "/signup"];
 
     if (noHeaderPaths.includes(pathname)) {
         return null;

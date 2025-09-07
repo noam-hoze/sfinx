@@ -9,6 +9,7 @@ import {
     ResponsiveContainer,
     Dot,
 } from "recharts";
+import { Info } from "lucide-react";
 
 interface LearningToActionTimelineProps {
     onVideoJump: (timestamp: number) => void;
@@ -49,8 +50,15 @@ const LearningToActionTimeline: React.FC<LearningToActionTimelineProps> = ({
 
     return (
         <div className="bg-white rounded-lg p-3 h-48">
-            <h3 className="text-xs font-semibold text-gray-900 mb-2">
+            <h3 className="text-xs font-semibold text-gray-900 mb-2 flex items-center gap-1">
                 Learning-to-Action Timeline
+                <div className="group relative flex items-center">
+                    <Info size={12} className="text-gray-400" />
+                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 bg-white text-black text-xs rounded py-2 px-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none border border-gray-200 shadow-lg z-10 whitespace-normal">
+                        Visualizes the candidate's journey from research to
+                        implementation.
+                    </div>
+                </div>
             </h3>
             <ResponsiveContainer width="100%" height="70%">
                 <LineChart
