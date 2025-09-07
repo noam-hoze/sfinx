@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { LiveProvider, LiveError, LivePreview } from "react-live";
 
 interface CodePreviewProps {
@@ -19,6 +19,35 @@ const CodePreview: React.FC<CodePreviewProps> = ({
         "idle" | "success" | "error"
     >("idle");
 
+    // Use the code directly - it should include the render() call
+    const wrappedCode = React.useMemo(
+        () =>
+            code ||
+            `
+const DefaultComponent = () => {
+  return (
+    <div className="p-8 text-center text-gray-500">
+      <div className="text-4xl mb-4">👋</div>
+      <div className="text-lg">Write some React code and click Run to see it execute!</div>
+    </div>
+  );
+};
+
+render(DefaultComponent);
+`,
+        [code]
+    );
+
+    const liveProviderScope = useMemo(
+        () => ({
+            React,
+            useState: React.useState,
+            useEffect: React.useEffect,
+            useRef: React.useRef,
+        }),
+        []
+    );
+
     useEffect(() => {
         if (isActive && code) {
             setIsExecuting(true);
@@ -36,22 +65,6 @@ const CodePreview: React.FC<CodePreviewProps> = ({
 
     if (!isActive) return null;
 
-    // Use the code directly - it should include the render() call
-    const wrappedCode =
-        code ||
-        `
-const DefaultComponent = () => {
-  return (
-    <div className="p-8 text-center text-gray-500">
-      <div className="text-4xl mb-4">👋</div>
-      <div className="text-lg">Write some React code and click Run to see it execute!</div>
-    </div>
-  );
-};
-
-render(DefaultComponent);
-`;
-
     return (
         <div className="h-full flex flex-col">
             {/* Preview Content */}
@@ -62,11 +75,7 @@ render(DefaultComponent);
             >
                 <LiveProvider
                     code={wrappedCode}
-                    scope={{
-                        React,
-                        useState: React.useState,
-                        useEffect: React.useEffect,
-                    }}
+                    scope={liveProviderScope}
                     noInline={true}
                 >
                     <LiveError
