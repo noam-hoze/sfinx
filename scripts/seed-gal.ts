@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-async function seedGal() {
+export async function seedGal() {
     try {
         console.log("👤 Creating Gal candidate user...");
 
@@ -51,5 +51,3 @@ async function seedGal() {
         await prisma.$disconnect();
     }
 }
-
-seedGal();

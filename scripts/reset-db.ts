@@ -5,6 +5,10 @@ import { companiesData } from "../lib/data/job-search-data";
 import { noamTelemetryData } from "../lib/data/telemetry-data";
 import bcrypt from "bcryptjs";
 
+// Import seed functions
+import { seedGal } from "./seed-gal";
+import { seedSarah } from "./seed-sarah";
+
 const prisma = new PrismaClient();
 
 // Map mock data size to Prisma enum
@@ -161,6 +165,10 @@ async function resetDatabase() {
         });
 
         console.log(`✅ Created test candidate: ${testCandidate.email}`);
+
+        // Create additional candidates using existing seed scripts
+        await seedGal();
+        await seedSarah();
 
         // Find a job at "Meta" to apply to
         const metaJob = await prisma.job.findFirst({

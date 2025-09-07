@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-async function seedSarah() {
+export async function seedSarah() {
     try {
         console.log("👤 Creating Sarah candidate user...");
 
@@ -51,5 +51,3 @@ async function seedSarah() {
         await prisma.$disconnect();
     }
 }
-
-seedSarah();
