@@ -2,6 +2,7 @@
 
 import { PrismaClient, CompanySize, JobType, UserRole } from "@prisma/client";
 import { companiesData } from "../lib/data/job-search-data";
+import { noamTelemetryData } from "../lib/data/telemetry-data";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -159,6 +160,115 @@ async function resetDatabase() {
         });
 
         console.log(`✅ Created test candidate: ${testCandidate.email}`);
+
+        // Find a job at "Meta" to apply to
+        const metaJob = await prisma.job.findFirst({
+            where: {
+                company: {
+                    name: "Meta",
+                },
+            },
+        });
+
+        if (!metaJob) {
+            console.error(
+                "Could not find any jobs at Meta to create an application for."
+            );
+            process.exit(1);
+        }
+
+        console.log(
+            `👤 Creating application and interview session for ${testCandidate.name} at Meta...`
+        );
+
+        // Create Application
+        const application = await prisma.application.create({
+            data: {
+                candidateId: testCandidate.id,
+                jobId: metaJob.id,
+                status: "PENDING",
+            },
+        });
+
+        // Create Interview Session
+        const interviewSession = await prisma.interviewSession.create({
+            data: {
+                candidateId: testCandidate.id,
+                applicationId: application.id,
+                videoUrl: "uploads/recordings/recording-1757254076264.mp4",
+                status: "IN_PROGRESS",
+            },
+        });
+
+        // --- Seeding Data for Telemetry ---
+        const {
+            candidate: candidateInfo,
+            gaps,
+            evidence,
+            chapters,
+            workstyle,
+            hasFairnessFlag,
+        } = noamTelemetryData;
+
+        // Create Telemetry Data with all nested relations
+        await prisma.telemetryData.create({
+            data: {
+                interviewSessionId: interviewSession.id,
+                matchScore: candidateInfo.matchScore,
+                confidence: candidateInfo.confidence,
+                story: candidateInfo.story,
+                hasFairnessFlag,
+                workstyleMetrics: {
+                    create: {
+                        iterationSpeed: workstyle.iterationSpeed.value,
+                        debugLoops: workstyle.debugLoops.value,
+                        refactorCleanups: workstyle.refactorCleanups.value,
+                        aiAssistUsage: workstyle.aiAssistUsage.value,
+                    },
+                },
+                gapAnalysis: {
+                    create: {
+                        gaps: {
+                            create: gaps.gaps.map((g) => ({
+                                severity: g.severity,
+                                description: g.description,
+                                color: g.color,
+                                evidenceLinks: g.evidenceLinks,
+                            })),
+                        },
+                    },
+                },
+                evidenceClips: {
+                    create: evidence.map((e) => ({
+                        title: e.title,
+                        description: e.description,
+                        startTime: e.startTime,
+                        duration: e.duration,
+                        thumbnailUrl: e.thumbnailUrl,
+                    })),
+                },
+                videoChapters: {
+                    create: chapters.map((c) => ({
+                        title: c.title,
+                        startTime: c.startTime,
+                        endTime: c.endTime,
+                        description: c.description,
+                        thumbnailUrl: c.thumbnailUrl,
+                        captions: {
+                            create: (c.captions || []).map((cap) => ({
+                                text: cap.text,
+                                startTime: cap.startTime,
+                                endTime: cap.endTime,
+                            })),
+                        },
+                    })),
+                },
+            },
+        });
+
+        console.log(
+            `✅ Seeded telemetry data for interview session ${interviewSession.id}`
+        );
 
         // Print summary
         const companyCount = await prisma.company.count();

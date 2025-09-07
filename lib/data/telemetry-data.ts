@@ -11,24 +11,18 @@ import {
 export const noamProfile: CandidateProfile = {
     id: "noam-001",
     name: "Noam Hoze",
-    matchScore: 92,
+    matchScore: 82,
     confidence: "High",
-    story: "Noam showcased excellent React proficiency by rapidly building a UserList component with clean API integration, proper error handling, and polished styling. They demonstrated methodical problem-solving and clean code practices throughout the session.",
+    story: "The candidate shows strong fundamental React skills and a methodical approach to debugging. They successfully implemented the feature but missed handling asynchronous loading and error states, which is a key area for improvement.",
 };
 
 export const noamGaps: GapAnalysis = {
     gaps: [
         {
-            severity: "Minor",
-            description: "Inconsistent CSS naming conventions",
+            severity: "Major",
+            description: "Not handling loading and error state",
             color: "yellow",
-            evidenceLinks: [85, 145, 220], // Multiple instances of naming issues
-        },
-        {
-            severity: "Minor",
-            description: "Limited test coverage for edge cases",
-            color: "yellow",
-            evidenceLinks: [95, 185], // Two instances of testing gaps
+            evidenceLinks: [],
         },
     ],
 };
@@ -36,96 +30,103 @@ export const noamGaps: GapAnalysis = {
 export const noamEvidence: EvidenceClip[] = [
     {
         id: "clip1",
-        title: "Rapid UserList Implementation",
+        title: "Iteration Speed",
         thumbnailUrl: "/mock/clip1.jpg",
-        duration: 75, // 1:15
-        description:
-            "Quick setup of UserList component with API integration and styling",
-        startTime: 75,
+        duration: 7,
+        description: "The user verifies that useState is working correctly.",
+        startTime: 38,
     },
     {
         id: "clip2",
-        title: "Clean Error Handling",
+        title: "Iteration Speed",
         thumbnailUrl: "/mock/clip2.jpg",
-        duration: 45, // 0:45
-        description: "Implementation of loading and error states for API calls",
-        startTime: 120,
+        duration: 9,
+        description: "The user checks if the list is displaying.",
+        startTime: 127,
+    },
+    {
+        id: "clip3",
+        title: "Debug Loop Start",
+        thumbnailUrl: "/mock/clip3.jpg",
+        duration: 6,
+        description:
+            "The user checks if the list is displaying and gets an error.",
+        startTime: 240,
+    },
+    {
+        id: "clip4",
+        title: "Debug Loop End",
+        thumbnailUrl: "/mock/clip4.jpg",
+        duration: 6,
+        description: "The user fixes the error.",
+        startTime: 260,
     },
 ];
 
 export const noamChapters: VideoChapter[] = [
     {
         id: "chapter1",
-        title: "Session Setup & Introduction",
+        title: "Intro",
         startTime: 0,
-        endTime: 75, // 1:15
-        description:
-            "Initial setup, task briefing, and environment configuration",
+        endTime: 18,
+        description: "Session Introduction",
         thumbnailUrl: "/mock/chapter1.jpg",
-        captions: [
-            {
-                text: "Setting up development environment",
-                startTime: 5,
-                endTime: 20,
-            },
-            {
-                text: "Reviewing project requirements",
-                startTime: 25,
-                endTime: 40,
-            },
-            {
-                text: "Exploring codebase structure",
-                startTime: 45,
-                endTime: 65,
-            },
-        ],
+        captions: [],
     },
     {
         id: "chapter2",
-        title: "UserList Component Development",
-        startTime: 75, // 1:15
-        endTime: 165, // 2:45
-        description:
-            "Building the UserList component with API integration and styling",
+        title: "1st Iteration",
+        startTime: 18,
+        endTime: 40,
+        description: "Implementing initial state.",
         thumbnailUrl: "/mock/chapter2.jpg",
         captions: [
             {
-                text: "Planning component architecture",
-                startTime: 80,
-                endTime: 95,
+                text: "The user verifies that useState is working correctly",
+                startTime: 38,
+                endTime: 45,
             },
-            {
-                text: "Implementing API data fetching",
-                startTime: 100,
-                endTime: 115,
-            },
-            {
-                text: "Adding loading and error states",
-                startTime: 120,
-                endTime: 135,
-            },
-            { text: "Styling responsive layout", startTime: 140, endTime: 155 },
         ],
     },
     {
         id: "chapter3",
-        title: "Testing & Final Polish",
-        startTime: 165, // 2:45
-        endTime: 235, // 3:55
-        description: "Final testing, code cleanup, and session wrap-up",
+        title: "2nd Iteration",
+        startTime: 40,
+        endTime: 136,
+        description: "Fetching and displaying data.",
         thumbnailUrl: "/mock/chapter3.jpg",
         captions: [
             {
-                text: "Running comprehensive tests",
-                startTime: 170,
-                endTime: 185,
+                text: "The user checks if the list is displaying",
+                startTime: 127,
+                endTime: 136,
             },
+        ],
+    },
+    {
+        id: "chapter4",
+        title: "3rd Iteration",
+        startTime: 136,
+        endTime: 245,
+        description: "Debugging a display issue.",
+        thumbnailUrl: "/mock/chapter4.jpg",
+        captions: [
             {
-                text: "Code cleanup and optimization",
-                startTime: 190,
-                endTime: 205,
+                text: "The user checks if the list is displaying and gets an error",
+                startTime: 240,
+                endTime: 246,
             },
-            { text: "Final code review", startTime: 210, endTime: 225 },
+        ],
+    },
+    {
+        id: "chapter5",
+        title: "4th Iteration",
+        startTime: 245,
+        endTime: 282,
+        description: "Finalizing the component.",
+        thumbnailUrl: "/mock/chapter5.jpg",
+        captions: [
+            { text: "The user fixes the error", startTime: 260, endTime: 266 },
         ],
     },
 ];
@@ -135,26 +136,26 @@ export const noamWorkstyle: WorkstyleMetrics = {
         value: 85,
         level: "High",
         color: "blue",
-        evidenceLinks: [45, 75, 120, 135], // 4 examples - very iterative
+        evidenceLinks: [38, 127, 242],
     },
     debugLoops: {
-        value: 75,
-        level: "Moderate",
-        color: "yellow",
-        evidenceLinks: [95, 120], // API debugging examples
+        value: 10,
+        level: "Fast",
+        color: "blue",
+        evidenceLinks: [240, 260],
     },
     refactorCleanups: {
-        value: 88,
+        value: 100,
         level: "Strong",
         color: "blue",
-        evidenceLinks: [190, 205, 210, 220, 230], // 5 examples - thorough cleanup
+        evidenceLinks: [],
     },
     aiAssistUsage: {
-        value: 15,
+        value: 0,
         level: "Minimal",
         color: "white",
         isFairnessFlag: false,
-        evidenceLinks: [25], // 1 example - minimal usage
+        evidenceLinks: [],
     },
 };
 

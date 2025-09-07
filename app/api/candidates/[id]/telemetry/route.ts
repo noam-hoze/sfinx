@@ -62,38 +62,40 @@ export async function GET(
         const telemetry = interviewSession.telemetryData;
         const candidate = interviewSession.candidate;
 
-        // Parse stored workstyle evidence links from story field
-        let storedWorkstyleLinks = {};
-        let actualStory = "";
-        try {
-            if (telemetry.story) {
-                if (telemetry.story.startsWith("{")) {
-                    const parts = telemetry.story.split("\n\n", 2);
-                    if (parts.length > 1) {
-                        storedWorkstyleLinks = JSON.parse(parts[0]);
-                        actualStory = parts[1];
-                    } else {
-                        storedWorkstyleLinks = JSON.parse(telemetry.story);
-                    }
-                } else {
-                    actualStory = telemetry.story;
-                }
+        // BUNDLE evidenceLinks from evidenceClips table
+        const evidenceClips = interviewSession.telemetryData.evidenceClips;
+
+        const iterationSpeedLinks: number[] = [];
+        const debugLoopsLinks: number[] = [];
+        const refactorCleanupsLinks: number[] = [];
+        const aiAssistUsageLinks: number[] = [];
+
+        evidenceClips.forEach((clip: any) => {
+            if (clip.startTime === null || clip.startTime === undefined) return;
+
+            if (clip.title.includes("Iteration Speed")) {
+                iterationSpeedLinks.push(clip.startTime);
             }
-        } catch (e) {
-            // If parsing fails, use defaults and keep the story as is
-            storedWorkstyleLinks = {};
-            actualStory = telemetry.story || "";
-        }
+            if (clip.title.includes("Debug Loop")) {
+                debugLoopsLinks.push(clip.startTime);
+            }
+            if (clip.title.includes("Refactor")) {
+                refactorCleanupsLinks.push(clip.startTime);
+            }
+            if (clip.title.includes("AI Assist")) {
+                aiAssistUsageLinks.push(clip.startTime);
+            }
+        });
 
         // Transform the data to match the expected frontend format
         const transformedData = {
             candidate: {
                 id: candidate.id,
-                name: candidate.name || "Anonymous",
+                name: candidate.name,
                 image: candidate.image,
                 matchScore: telemetry.matchScore,
                 confidence: telemetry.confidence,
-                story: actualStory,
+                story: telemetry.story || null,
             },
             videoUrl: interviewSession.videoUrl,
             duration: interviewSession.duration,
@@ -109,7 +111,7 @@ export async function GET(
             evidence: telemetry.evidenceClips.map((clip: any) => ({
                 id: clip.id,
                 title: clip.title,
-                thumbnailUrl: clip.thumbnailUrl || "/mock/clip.jpg",
+                thumbnailUrl: clip.thumbnailUrl,
                 duration: clip.duration,
                 description: clip.description,
                 startTime: clip.startTime,
@@ -120,7 +122,7 @@ export async function GET(
                 startTime: chapter.startTime,
                 endTime: chapter.endTime,
                 description: chapter.description,
-                thumbnailUrl: chapter.thumbnailUrl || "/mock/chapter.jpg",
+                thumbnailUrl: chapter.thumbnailUrl,
                 captions: chapter.captions.map((caption: any) => ({
                     text: caption.text,
                     startTime: caption.startTime,
@@ -145,8 +147,7 @@ export async function GET(
                                     60
                                   ? "yellow"
                                   : "red",
-                          evidenceLinks: (storedWorkstyleLinks as any)
-                              ?.iterationSpeed || [45, 75, 120, 135],
+                          evidenceLinks: iterationSpeedLinks,
                       },
                       debugLoops: {
                           value: telemetry.workstyleMetrics.debugLoops,
@@ -162,8 +163,7 @@ export async function GET(
                                   : telemetry.workstyleMetrics.debugLoops <= 60
                                   ? "yellow"
                                   : "red",
-                          evidenceLinks: (storedWorkstyleLinks as any)
-                              ?.debugLoops || [95, 120],
+                          evidenceLinks: debugLoopsLinks,
                       },
                       refactorCleanups: {
                           value: telemetry.workstyleMetrics.refactorCleanups,
@@ -181,8 +181,7 @@ export async function GET(
                                         .refactorCleanups >= 60
                                   ? "yellow"
                                   : "red",
-                          evidenceLinks: (storedWorkstyleLinks as any)
-                              ?.refactorCleanups || [190, 205, 210, 220, 230],
+                          evidenceLinks: refactorCleanupsLinks,
                       },
                       aiAssistUsage: {
                           value: telemetry.workstyleMetrics.aiAssistUsage,
@@ -202,8 +201,7 @@ export async function GET(
                                   : "red",
                           isFairnessFlag:
                               telemetry.workstyleMetrics.aiAssistUsage > 50,
-                          evidenceLinks: (storedWorkstyleLinks as any)
-                              ?.aiAssistUsage || [25],
+                          evidenceLinks: aiAssistUsageLinks,
                       },
                   }
                 : null,
@@ -311,36 +309,46 @@ export async function PUT(
                 });
             }
 
-            // Store evidence links in the story field as JSON
-            const evidenceLinksData = {
-                iterationSpeed:
-                    body.workstyle.iterationSpeed?.evidenceLinks || [],
-                debugLoops: body.workstyle.debugLoops?.evidenceLinks || [],
-                refactorCleanups:
-                    body.workstyle.refactorCleanups?.evidenceLinks || [],
-                aiAssistUsage:
-                    body.workstyle.aiAssistUsage?.evidenceLinks || [],
-            };
-
-            // Get current story to preserve it if it's not JSON
-            const currentStory = interviewSession.telemetryData.story;
-            let storyToSave = currentStory;
-
-            if (currentStory && !currentStory.startsWith("{")) {
-                // Preserve existing story and add evidence links as JSON prefix
-                storyToSave =
-                    JSON.stringify(evidenceLinksData) + "\n\n" + currentStory;
-            } else {
-                // Replace or set evidence links JSON
-                storyToSave = JSON.stringify(evidenceLinksData);
-            }
-
-            await prisma.telemetryData.update({
-                where: { id: telemetryId },
-                data: {
-                    story: storyToSave,
+            // Delete all existing clips for this telemetry data
+            await prisma.evidenceClip.deleteMany({
+                where: {
+                    telemetryDataId: telemetryId,
+                    // TODO: maybe filter by workstyle-related titles?
                 },
             });
+
+            // Create new clips from the body
+            const workstyleMetricsToUpdate = [
+                {
+                    title: "Iteration Speed",
+                    data: body.workstyle.iterationSpeed,
+                },
+                { title: "Debug Loop", data: body.workstyle.debugLoops },
+                {
+                    title: "Refactor & Cleanups",
+                    data: body.workstyle.refactorCleanups,
+                },
+                {
+                    title: "AI Assist Usage",
+                    data: body.workstyle.aiAssistUsage,
+                },
+            ];
+
+            for (const metric of workstyleMetricsToUpdate) {
+                if (metric.data && metric.data.evidenceLinks) {
+                    for (const timestamp of metric.data.evidenceLinks) {
+                        await prisma.evidenceClip.create({
+                            data: {
+                                telemetryDataId: telemetryId,
+                                title: metric.title,
+                                startTime: timestamp,
+                                description: `Evidence for ${metric.title}`, // Placeholder
+                                duration: 5, // Placeholder
+                            },
+                        });
+                    }
+                }
+            }
         }
 
         // Update gaps if provided

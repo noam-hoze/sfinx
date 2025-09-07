@@ -186,35 +186,7 @@ function TelemetryContent() {
     }
 
     if (!telemetryData) {
-        return (
-            <div className="h-screen bg-gray-50 overflow-hidden flex items-center justify-center">
-                <div className="text-center">
-                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                        <svg
-                            className="w-8 h-8 text-gray-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                            />
-                        </svg>
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        No Telemetry Data Available
-                    </h3>
-                    <p className="text-gray-600 mb-4">
-                        This candidate has not completed an interview yet, or
-                        telemetry data could not be loaded.
-                    </p>
-                    {error && <p className="text-red-600 text-sm">{error}</p>}
-                </div>
-            </div>
-        );
+        return <div className="h-screen bg-gray-50 overflow-hidden"></div>;
     }
 
     if (error) {
@@ -342,16 +314,17 @@ function TelemetryContent() {
                         <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 mb-4 shadow-sm">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-4">
-                                    <Image
-                                        src={
-                                            candidate.image ||
-                                            "/images/noam-profile.jpeg"
-                                        }
-                                        alt={`${candidate.name} profile`}
-                                        width={48}
-                                        height={48}
-                                        className="rounded-full object-cover border-2 border-white shadow-sm"
-                                    />
+                                    {candidate.image ? (
+                                        <Image
+                                            src={candidate.image}
+                                            alt={`${candidate.name} profile`}
+                                            width={48}
+                                            height={48}
+                                            className="rounded-full object-cover border-2 border-white shadow-sm"
+                                        />
+                                    ) : (
+                                        <div className="w-12 h-12 rounded-full bg-gray-300 border-2 border-white shadow-sm" />
+                                    )}
                                     <div>
                                         {editMode ? (
                                             <input
@@ -372,7 +345,7 @@ function TelemetryContent() {
                                             />
                                         ) : (
                                             <h2 className="text-lg font-medium text-gray-900">
-                                                {candidate.name}
+                                                {candidate.name || ""}
                                             </h2>
                                         )}
                                         <p className="text-sm text-gray-600">
@@ -479,11 +452,6 @@ function TelemetryContent() {
                                             }}
                                         />
                                     )}
-                                    {!workstyle && !gaps && (
-                                        <div className="text-center py-8 text-gray-500">
-                                            No benchmark data available
-                                        </div>
-                                    )}
                                 </div>
                             )}
 
@@ -515,6 +483,7 @@ function TelemetryContent() {
                             jumpToTime={currentVideoTime}
                             videoUrl={videoUrl}
                             duration={duration}
+                            chapters={chapters}
                         />
                     </div>
                 </div>
