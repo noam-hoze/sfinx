@@ -25,6 +25,7 @@ function TelemetryContent() {
     const [editMode, setEditMode] = useState(false);
     const [saving, setSaving] = useState(false);
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
+    const [saveSuccess, setSaveSuccess] = useState(false);
 
     useEffect(() => {
         const fetchTelemetryData = async () => {
@@ -126,6 +127,7 @@ function TelemetryContent() {
         }
 
         setValidationErrors([]);
+        setSaveSuccess(false);
         setSaving(true);
         try {
             const response = await fetch(
@@ -141,6 +143,9 @@ function TelemetryContent() {
 
             if (response.ok) {
                 setEditMode(false);
+                setSaveSuccess(true);
+                // Clear success message after 3 seconds
+                setTimeout(() => setSaveSuccess(false), 3000);
                 // Refresh data after save
                 const fetchResponse = await fetch(
                     `/api/candidates/${candidateId}/telemetry`
@@ -285,6 +290,30 @@ function TelemetryContent() {
                             </div>
                         </div>
                     </div>
+
+                    {/* Success Message */}
+                    {saveSuccess && (
+                        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <div className="flex items-center gap-2 text-green-800">
+                                <svg
+                                    className="w-5 h-5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M5 13l4 4L19 7"
+                                    />
+                                </svg>
+                                <span className="font-medium">
+                                    Changes saved successfully!
+                                </span>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Validation Errors */}
                     {validationErrors.length > 0 && (

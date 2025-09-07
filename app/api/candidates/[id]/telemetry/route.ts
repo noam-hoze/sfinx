@@ -62,6 +62,29 @@ export async function GET(
         const telemetry = interviewSession.telemetryData;
         const candidate = interviewSession.candidate;
 
+        // Parse stored workstyle evidence links from story field
+        let storedWorkstyleLinks = {};
+        let actualStory = "";
+        try {
+            if (telemetry.story) {
+                if (telemetry.story.startsWith("{")) {
+                    const parts = telemetry.story.split("\n\n", 2);
+                    if (parts.length > 1) {
+                        storedWorkstyleLinks = JSON.parse(parts[0]);
+                        actualStory = parts[1];
+                    } else {
+                        storedWorkstyleLinks = JSON.parse(telemetry.story);
+                    }
+                } else {
+                    actualStory = telemetry.story;
+                }
+            }
+        } catch (e) {
+            // If parsing fails, use defaults and keep the story as is
+            storedWorkstyleLinks = {};
+            actualStory = telemetry.story || "";
+        }
+
         // Transform the data to match the expected frontend format
         const transformedData = {
             candidate: {
@@ -70,7 +93,7 @@ export async function GET(
                 image: candidate.image,
                 matchScore: telemetry.matchScore,
                 confidence: telemetry.confidence,
-                story: telemetry.story,
+                story: actualStory,
             },
             videoUrl: interviewSession.videoUrl,
             gaps: {
@@ -121,7 +144,8 @@ export async function GET(
                                     60
                                   ? "yellow"
                                   : "red",
-                          evidenceLinks: [45, 75, 120, 135], // Default links, can be overridden by frontend
+                          evidenceLinks: (storedWorkstyleLinks as any)
+                              ?.iterationSpeed || [45, 75, 120, 135],
                       },
                       debugLoops: {
                           value: telemetry.workstyleMetrics.debugLoops,
@@ -137,7 +161,8 @@ export async function GET(
                                   : telemetry.workstyleMetrics.debugLoops <= 60
                                   ? "yellow"
                                   : "red",
-                          evidenceLinks: [95, 120], // Default links, can be overridden by frontend
+                          evidenceLinks: (storedWorkstyleLinks as any)
+                              ?.debugLoops || [95, 120],
                       },
                       refactorCleanups: {
                           value: telemetry.workstyleMetrics.refactorCleanups,
@@ -155,7 +180,8 @@ export async function GET(
                                         .refactorCleanups >= 60
                                   ? "yellow"
                                   : "red",
-                          evidenceLinks: [190, 205, 210, 220, 230], // Default links, can be overridden by frontend
+                          evidenceLinks: (storedWorkstyleLinks as any)
+                              ?.refactorCleanups || [190, 205, 210, 220, 230],
                       },
                       aiAssistUsage: {
                           value: telemetry.workstyleMetrics.aiAssistUsage,
@@ -175,7 +201,8 @@ export async function GET(
                                   : "red",
                           isFairnessFlag:
                               telemetry.workstyleMetrics.aiAssistUsage > 50,
-                          evidenceLinks: [25], // Default links, can be overridden by frontend
+                          evidenceLinks: (storedWorkstyleLinks as any)
+                              ?.aiAssistUsage || [25],
                       },
                   }
                 : null,
@@ -283,9 +310,36 @@ export async function PUT(
                 });
             }
 
-            // Update evidence links in the telemetry data JSON if needed
-            // Note: Since evidence links are stored in the frontend transformation,
-            // we don't need to update the database directly. The frontend will handle this.
+            // Store evidence links in the story field as JSON
+            const evidenceLinksData = {
+                iterationSpeed:
+                    body.workstyle.iterationSpeed?.evidenceLinks || [],
+                debugLoops: body.workstyle.debugLoops?.evidenceLinks || [],
+                refactorCleanups:
+                    body.workstyle.refactorCleanups?.evidenceLinks || [],
+                aiAssistUsage:
+                    body.workstyle.aiAssistUsage?.evidenceLinks || [],
+            };
+
+            // Get current story to preserve it if it's not JSON
+            const currentStory = interviewSession.telemetryData.story;
+            let storyToSave = currentStory;
+
+            if (currentStory && !currentStory.startsWith("{")) {
+                // Preserve existing story and add evidence links as JSON prefix
+                storyToSave =
+                    JSON.stringify(evidenceLinksData) + "\n\n" + currentStory;
+            } else {
+                // Replace or set evidence links JSON
+                storyToSave = JSON.stringify(evidenceLinksData);
+            }
+
+            await prisma.telemetryData.update({
+                where: { id: telemetryId },
+                data: {
+                    story: storyToSave,
+                },
+            });
         }
 
         // Update gaps if provided
