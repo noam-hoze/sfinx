@@ -229,89 +229,9 @@ function TelemetryContent() {
                 {/* 2x2 Grid Layout */}
                 <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] xl:grid-rows-[auto_1fr] gap-4 xl:gap-6 h-[calc(100vh-2rem)]">
                     {/* Cell 0 - Empty (top-left) */}
-                    <div className="hidden xl:block"></div>
-
-                    {/* Cell 1 - Candidate Telemetry (top-right) */}
-                    <div className="text-center xl:text-center xl:flex xl:items-center xl:justify-center">
-                        <div className="flex items-center justify-between w-full">
-                            <h1 className="text-2xl font-semibold text-gray-800 tracking-tight">
-                                Candidate Profile Story
-                            </h1>
-                            <div className="flex gap-2">
-                                {!editMode ? (
-                                    <button
-                                        onClick={() => {
-                                            setEditMode(true);
-                                            setValidationErrors([]);
-                                        }}
-                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                                    >
-                                        Edit
-                                    </button>
-                                ) : (
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => setEditMode(false)}
-                                            className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium"
-                                            disabled={saving}
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            onClick={handleSave}
-                                            disabled={saving}
-                                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50"
-                                        >
-                                            {saving ? "Saving..." : "Save"}
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Success Message */}
-                    {saveSuccess && (
-                        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                            <div className="flex items-center gap-2 text-green-800">
-                                <svg
-                                    className="w-5 h-5"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M5 13l4 4L19 7"
-                                    />
-                                </svg>
-                                <span className="font-medium">
-                                    Changes saved successfully!
-                                </span>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Validation Errors */}
-                    {validationErrors.length > 0 && (
-                        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                            <h4 className="text-red-800 font-medium mb-2">
-                                Please fix the following errors:
-                            </h4>
-                            <ul className="list-disc list-inside text-red-700 text-sm">
-                                {validationErrors.map((error, index) => (
-                                    <li key={index}>{error}</li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-
-                    {/* Cell 2 - Left Panel (bottom-left) */}
-                    <div className="w-full xl:w-auto">
+                    <div className="xl:block">
                         {/* Candidate Profile - Minimal Apple Style */}
-                        <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 mb-4 shadow-sm">
+                        <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-4 shadow-sm">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-4">
                                     {candidate.image ? (
@@ -393,7 +313,90 @@ function TelemetryContent() {
                                 </div>
                             </div>
                         </div>
+                    </div>
 
+                    {/* Cell 1 - Candidate Telemetry (top-right) */}
+                    <div className="flex items-center justify-between w-full">
+                        <div className="w-1/3"></div>
+                        <div className="w-1/3 text-center">
+                            <h1 className="text-2xl font-semibold text-gray-800 tracking-tight">
+                                Candidate Profile Story
+                            </h1>
+                        </div>
+                        <div className="w-1/3 flex justify-end">
+                            <div className="flex gap-2">
+                                {!editMode ? (
+                                    <button
+                                        onClick={() => {
+                                            setEditMode(true);
+                                            setValidationErrors([]);
+                                        }}
+                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                                    >
+                                        Edit
+                                    </button>
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setEditMode(false)}
+                                            className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium"
+                                            disabled={saving}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={handleSave}
+                                            disabled={saving}
+                                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50"
+                                        >
+                                            {saving ? "Saving..." : "Save"}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Success Message */}
+                    {saveSuccess && (
+                        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <div className="flex items-center gap-2 text-green-800">
+                                <svg
+                                    className="w-5 h-5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M5 13l4 4L19 7"
+                                    />
+                                </svg>
+                                <span className="font-medium">
+                                    Changes saved successfully!
+                                </span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Validation Errors */}
+                    {validationErrors.length > 0 && (
+                        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <h4 className="text-red-800 font-medium mb-2">
+                                Please fix the following errors:
+                            </h4>
+                            <ul className="list-disc list-inside text-red-700 text-sm">
+                                {validationErrors.map((error, index) => (
+                                    <li key={index}>{error}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
+                    {/* Cell 2 - Left Panel (bottom-left) */}
+                    <div className="w-full xl:w-auto">
                         {/* Apple-Style Tabs */}
                         <div className="bg-white/40 backdrop-blur-sm rounded-2xl border border-white/20 p-1 shadow-sm mb-2">
                             <div className="flex">
