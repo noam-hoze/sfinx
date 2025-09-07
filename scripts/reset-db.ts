@@ -136,6 +136,7 @@ async function resetDatabase() {
                 email: "noam.hoze@gmail.com",
                 password: hashedPassword, // Uses same hashed password "sfinx"
                 role: UserRole.CANDIDATE,
+                image: "/uploads/profiles/cmf7m2a0d0000sb9b4xc7l81k-1757125432914.jpeg",
             },
         });
 

@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -6,16 +7,22 @@ async function seedNoamTelemetry() {
     try {
         console.log("🌱 Starting Noam telemetry data seeding...");
 
+        const hashedPassword = await bcrypt.hash("sfinx", 12);
+
         // 1. Create User
         const user = await prisma.user.upsert({
-            where: { email: "noam.hoze@example.com" },
-            update: {},
+            where: { email: "noam@gmail.com" },
+            update: {
+                image: "/uploads/profiles/cmf7m2a0d0000sb9b4xc7l81k-1757125432914.jpeg",
+                password: hashedPassword,
+            },
             create: {
                 id: "noam-user-id",
                 name: "Noam Hoze",
-                email: "noam.hoze@example.com",
-                password: "$2b$10$hashedpassword", // This would be properly hashed
+                email: "noam@gmail.com",
+                password: hashedPassword,
                 role: "CANDIDATE",
+                image: "/uploads/profiles/cmf7m2a0d0000sb9b4xc7l81k-1757125432914.jpeg",
             },
         });
         console.log("✅ User created:", user.id);
