@@ -27,13 +27,13 @@ export default function EvidenceReel({
     chapters,
 }: Props) {
     const playerRef = useRef<any>(null);
-    const [currentTime, setCurrentTime] = useState(0);
+    const lastJumpTimeRef = useRef<number | null>(null);
 
     useEffect(() => {
         if (
             playerRef.current &&
             typeof jumpToTime === "number" &&
-            jumpToTime !== currentTime
+            jumpToTime !== lastJumpTimeRef.current
         ) {
             // Try to seek using the player's remote control
             if (playerRef.current.remote) {
@@ -42,13 +42,9 @@ export default function EvidenceReel({
                 // Fallback: directly set currentTime
                 playerRef.current.currentTime = jumpToTime;
             }
-            setCurrentTime(jumpToTime);
+            lastJumpTimeRef.current = jumpToTime;
         }
-    }, [jumpToTime, currentTime]);
-
-    const handleTimeUpdate = (time: number) => {
-        setCurrentTime(time);
-    };
+    }, [jumpToTime]); // Only depend on jumpToTime, not currentTime
 
     // Build a Blob URL for WebVTT chapters
     const chaptersUrl = useMemo(() => {
@@ -134,7 +130,6 @@ export default function EvidenceReel({
                     preload="metadata"
                     crossOrigin="anonymous"
                     ref={playerRef}
-                    onTimeUpdate={(e) => handleTimeUpdate(e.currentTime)}
                 >
                     <MediaProvider />
 
