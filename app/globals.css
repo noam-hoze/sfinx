@@ -1,3 +1,8 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Debug: Highlight vidstack player */
+media-player {
+  outline: 2px solid lime !important;
+}

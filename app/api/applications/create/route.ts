@@ -107,9 +107,9 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error("❌ Error creating application:", error);
         console.error("❌ Error details:", {
-            name: error.name,
-            message: error.message,
-            stack: error.stack,
+            name: error instanceof Error ? error.name : "Unknown",
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
         });
         return NextResponse.json(
             { error: "Failed to create application" },

@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+// Vidstack CSS must be loaded BEFORE Tailwind/globals.css
+import "vidstack/player/styles/base.css";
+import "vidstack/player/styles/default/theme.css";
+import "vidstack/player/styles/default/layouts/video.css";
 import "./globals.css";
 import { JobApplicationProvider } from "../lib";
 import Providers from "./providers";

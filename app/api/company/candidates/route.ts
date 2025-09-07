@@ -124,9 +124,9 @@ export async function GET(request: NextRequest) {
     } catch (error) {
         console.error("❌ Error fetching company candidates:", error);
         console.error("❌ Error details:", {
-            name: error?.name,
-            message: error?.message,
-            stack: error?.stack,
+            name: error instanceof Error ? error.name : "Unknown",
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
         });
         return NextResponse.json(
             { error: "Failed to fetch candidates" },

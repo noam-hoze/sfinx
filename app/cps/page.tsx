@@ -70,8 +70,15 @@ function TelemetryContent() {
         fetchTelemetryData();
     }, [candidateId]);
 
-    const { candidate, gaps, evidence, chapters, workstyle, videoUrl } =
-        telemetryData || {};
+    const {
+        candidate,
+        gaps,
+        evidence,
+        chapters,
+        workstyle,
+        videoUrl,
+        duration,
+    } = telemetryData || {};
 
     const onVideoJump = (timestamp: number) => {
         setCurrentVideoTime(timestamp);
@@ -510,6 +517,7 @@ function TelemetryContent() {
                             jumpToTime={currentVideoTime}
                             onChapterClick={onVideoJump}
                             videoUrl={videoUrl}
+                            duration={duration}
                         />
                     </div>
                 </div>

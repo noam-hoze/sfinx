@@ -11,6 +11,7 @@ dist
 # API keys and sensitive files
 app/api/debug/seed/ok
 
-
-
 /lib/generated/prisma
+
+*.mp4
+*.webm

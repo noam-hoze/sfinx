@@ -1,72 +1,158 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useMemo } from "react";
+import { MediaPlayer, MediaProvider, Track } from "@vidstack/react";
+import {
+    DefaultVideoLayout,
+    defaultLayoutIcons,
+} from "@vidstack/react/player/layouts/default";
 
-interface EvidenceReelProps {
-    chapters?: any[]; // Keep for compatibility but not used
-    evidence?: any[]; // Keep for compatibility but not used
-    jumpToTime?: number;
-    onChapterClick?: (timestamp: number) => void; // Keep for compatibility but not used
+type Props = {
     videoUrl?: string | null;
-}
+    jumpToTime?: number;
+    duration?: number;
+    chapters?: Array<{
+        id: string;
+        title: string;
+        startTime: number;
+    }>;
+};
 
-const EvidenceReel: React.FC<EvidenceReelProps> = ({
+export default function EvidenceReel({
     videoUrl,
     jumpToTime,
-}) => {
-    const videoRef = useRef<HTMLVideoElement>(null);
+    duration,
+    chapters,
+}: Props) {
+    const playerRef = useRef<any>(null);
 
     useEffect(() => {
-        if (videoRef.current && jumpToTime !== undefined) {
-            videoRef.current.currentTime = jumpToTime;
+        if (playerRef.current && typeof jumpToTime === "number") {
+            playerRef.current.remote?.seek(jumpToTime);
         }
     }, [jumpToTime]);
-    if (!videoUrl) {
-        return (
-            <div className="bg-white rounded-xl shadow-xl border border-gray-300 overflow-hidden">
-                <div className="aspect-video bg-gray-900 flex items-center justify-center">
-                    <div className="text-center text-white">
-                        <div className="w-16 h-16 mx-auto mb-4 bg-gray-700 rounded-full flex items-center justify-center">
-                            <svg
-                                className="w-8 h-8 text-gray-400"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                                />
-                            </svg>
-                        </div>
-                        <p className="text-lg font-medium text-gray-300">
-                            No Video Available
-                        </p>
-                        <p className="text-sm text-gray-500 mt-2">
-                            This candidate hasn't completed an interview yet
-                        </p>
-                    </div>
-                </div>
-            </div>
+
+    // Build a Blob URL for WebVTT chapters
+    const chaptersUrl = useMemo(() => {
+        console.log("Chapters data:", chapters);
+        console.log("Duration:", duration);
+
+        if (!chapters || chapters.length === 0) return undefined;
+
+        // Validate chapters data
+        const validChapters = chapters.filter(
+            (chapter) =>
+                chapter &&
+                typeof chapter.startTime === "number" &&
+                !isNaN(chapter.startTime) &&
+                chapter.startTime >= 0 &&
+                chapter.title
         );
-    }
+
+        if (validChapters.length === 0) return undefined;
+
+        const formatTime = (s: number) => {
+            // Ensure s is a valid finite number
+            const time = Math.max(0, Math.min(s, 86400)); // Clamp between 0 and 24 hours
+            const h = Math.floor(time / 3600);
+            const m = Math.floor((time % 3600) / 60);
+            const sec = Math.floor(time % 60);
+            const ms = Math.floor((time % 1) * 1000);
+            // Always include hours for consistent WebVTT format
+            return `${String(h).padStart(2, "0")}:${String(m).padStart(
+                2,
+                "0"
+            )}:${String(sec).padStart(2, "0")}.${String(ms).padStart(3, "0")}`;
+        };
+
+        let vtt = "WEBVTT\n\n";
+        for (let i = 0; i < validChapters.length; i++) {
+            const start = formatTime(validChapters[i].startTime);
+            let endTime: number;
+
+            if (i < validChapters.length - 1) {
+                // Use next chapter's start time
+                endTime = Math.max(
+                    validChapters[i].startTime + 1,
+                    validChapters[i + 1].startTime
+                );
+            } else {
+                // Last chapter - use duration or add 30 seconds
+                endTime =
+                    duration &&
+                    !isNaN(duration) &&
+                    duration > validChapters[i].startTime
+                        ? duration
+                        : validChapters[i].startTime + 30;
+            }
+
+            const end = formatTime(endTime);
+            vtt += `${start} --> ${end}\n${validChapters[i].title}\n\n`;
+        }
+        console.log("Generated VTT content:", vtt);
+        const blob = new Blob([vtt], { type: "text/vtt" });
+        return URL.createObjectURL(blob);
+    }, [chapters, duration]);
+
+    // Cleanup blob URL on unmount
+    useEffect(
+        () => () => {
+            if (chaptersUrl) URL.revokeObjectURL(chaptersUrl);
+        },
+        [chaptersUrl]
+    );
+
+    if (!videoUrl)
+        return <div className="aspect-video bg-gray-900 rounded-xl" />;
 
     return (
         <div className="bg-white rounded-xl shadow-xl border border-gray-300 overflow-hidden">
-            <video
-                ref={videoRef}
-                className="w-full aspect-video object-cover"
-                controls
-                preload="metadata"
-                playsInline
-            >
-                <source src={videoUrl} type="video/mp4" />
-                Your browser does not support the video tag.
-            </video>
+            <div className="relative w-full">
+                <MediaPlayer
+                    className="vds-theme"
+                    src={videoUrl}
+                    streamType="on-demand"
+                    playsInline
+                    preload="metadata"
+                    crossOrigin="anonymous"
+                >
+                    <MediaProvider />
+
+                    {/* Inline chapters track (no public file needed) */}
+                    <Track
+                        kind="chapters"
+                        src={URL.createObjectURL(
+                            new Blob(
+                                [
+                                    `WEBVTT
+
+00:00.000 --> 00:05.000
+Intro
+
+00:05.000 --> 00:15.000
+Funny Scene
+
+00:15.000 --> 00:25.000
+Ending
+`,
+                                ],
+                                { type: "text/vtt" }
+                            )
+                        )}
+                        default
+                    />
+
+                    {/* Vidstack UI */}
+                    <DefaultVideoLayout icons={defaultLayoutIcons} />
+                </MediaPlayer>
+
+                {duration && (
+                    <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-sm font-mono z-10 pointer-events-none">
+                        Duration: {Math.floor(duration / 60)}:
+                        {String(duration % 60).padStart(2, "0")}
+                    </div>
+                )}
+            </div>
         </div>
     );
-};
-
-export default EvidenceReel;
+}

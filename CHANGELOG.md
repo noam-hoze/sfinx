@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.9.2] - 2025-09-06
+
+### Added
+
+-   **Video Format Conversion**: MP4 conversion utility for screen recordings using ffmpeg
+-   **Test Video Stack Page**: New test page for VidStack video player implementation
+-   **Recording File Management**: Organized storage of WebM and MP4 recording files
+
+### Enhanced
+
+-   **API Improvements**: Updates to applications, candidates, and company API routes
+-   **UI Components**: Enhanced EvidenceReel and CPS page components
+-   **Layout Optimization**: Improved global CSS and app layout structure
+
+### Technical
+
+-   **Video Processing**: FFmpeg integration for WebM to MP4 conversion with optimized settings
+-   **File Storage**: Enhanced recording file management in public/uploads/recordings/
+-   **Component Architecture**: Improved component structure and performance
+
 ## [1.9.1] - 2025-09-06
 
 ### Enhanced
@@ -416,6 +436,8 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 [1.2.0]: https://github.com/noam-hoze/sfinx/compare/v1.1.0...v1.2.0
 [1.4.0]: https://github.com/noam-hoze/sfinx/compare/v1.2.0...v1.4.0
 [1.5.0]: https://github.com/noam-hoze/sfinx/compare/v1.4.0...v1.5.0
+[1.9.2]: https://github.com/noam-hoze/sfinx/compare/v1.9.1...v1.9.2
+[1.9.1]: https://github.com/noam-hoze/sfinx/compare/v1.9.0...v1.9.1
 [1.9.0]: https://github.com/noam-hoze/sfinx/compare/v1.8.1...v1.9.0
 [1.8.1]: https://github.com/noam-hoze/sfinx/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/noam-hoze/sfinx/compare/v1.7.0...v1.8.0
