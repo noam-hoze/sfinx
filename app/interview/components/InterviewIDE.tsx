@@ -55,6 +55,7 @@ const InterviewerContent = () => {
     const [isRecording, setIsRecording] = useState(false);
     const [recordingPermissionGranted, setRecordingPermissionGranted] =
         useState(false);
+    const [micPermissionGranted, setMicPermissionGranted] = useState(false);
     const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
     const [recordingUploaded, setRecordingUploaded] = useState(false);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -104,7 +105,7 @@ const InterviewerContent = () => {
                 formData.append(
                     "recording",
                     blob,
-                    `interview-${interviewSessionIdRef.current}.webm`
+                    `interview-${interviewSessionIdRef.current}.mp4`
                 );
 
                 console.log(
@@ -179,31 +180,68 @@ const InterviewerContent = () => {
     // Screen recording functions
     const requestRecordingPermission = useCallback(async () => {
         try {
-            const stream = await navigator.mediaDevices.getDisplayMedia({
+            // Get display media (screen + system audio)
+            const displayStream = await navigator.mediaDevices.getDisplayMedia({
                 video: true,
                 audio: true,
             });
+
+            // Get microphone audio
+            const micStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                },
+                video: false,
+            });
+
+            // Combine audio tracks from both streams
+            const combinedStream = new MediaStream();
+
+            // Add video track from display
+            displayStream.getVideoTracks().forEach((track) => {
+                console.log("🎥 Added video track:", track.label);
+                combinedStream.addTrack(track);
+            });
+
+            // Add system audio track from display
+            displayStream.getAudioTracks().forEach((track) => {
+                console.log("🔊 Added system audio track:", track.label);
+                combinedStream.addTrack(track);
+            });
+
+            // Add microphone audio track
+            micStream.getAudioTracks().forEach((track) => {
+                console.log("🎤 Added microphone audio track:", track.label);
+                combinedStream.addTrack(track);
+            });
+
+            console.log(
+                "🎵 Combined stream tracks:",
+                combinedStream
+                    .getTracks()
+                    .map((track) => `${track.kind}: ${track.label}`)
+            );
+
+            setMicPermissionGranted(true);
             setRecordingPermissionGranted(true);
 
             // Create MediaRecorder with fallback mime types
-            let mimeType = "video/webm;codecs=vp9";
+            let mimeType = "video/mp4;codecs=avc1";
             if (!MediaRecorder.isTypeSupported(mimeType)) {
-                console.log("⚠️ VP9 not supported, trying VP8...");
-                mimeType = "video/webm;codecs=vp8";
+                console.log("⚠️ H.264 not supported, trying basic mp4...");
+                mimeType = "video/mp4";
                 if (!MediaRecorder.isTypeSupported(mimeType)) {
-                    console.log("⚠️ VP8 not supported, trying basic webm...");
-                    mimeType = "video/webm";
-                    if (!MediaRecorder.isTypeSupported(mimeType)) {
-                        console.log("⚠️ WebM not supported, using default");
-                        mimeType = "";
-                    }
+                    console.log("⚠️ MP4 not supported, using default");
+                    mimeType = "";
                 }
             }
 
             console.log("🎥 Using mime type:", mimeType);
 
             const mediaRecorder = new MediaRecorder(
-                stream,
+                combinedStream,
                 mimeType ? { mimeType } : {}
             );
 
@@ -239,7 +277,7 @@ const InterviewerContent = () => {
                 }
 
                 const blob = new Blob(recordedChunksRef.current, {
-                    type: "video/webm",
+                    type: "video/mp4",
                 });
 
                 console.log("📁 Created blob of size:", blob.size, "bytes");
@@ -276,10 +314,32 @@ const InterviewerContent = () => {
                 }
             };
 
+            // Add cleanup handlers for when recording stops
+            combinedStream.getTracks().forEach((track) => {
+                track.onended = () => {
+                    console.log("🎵 Track ended:", track.kind, track.label);
+                };
+            });
+
             return true;
         } catch (error) {
-            console.error("Error requesting recording permission:", error);
+            console.error("❌ Error requesting recording permission:", error);
+
+            // Provide more specific error messages
+            if (error instanceof Error) {
+                if (error.name === "NotAllowedError") {
+                    console.error(
+                        "❌ Permission denied for screen recording or microphone"
+                    );
+                } else if (error.name === "NotFoundError") {
+                    console.error("❌ No screen or microphone found");
+                } else if (error.name === "NotReadableError") {
+                    console.error("❌ Screen or microphone is already in use");
+                }
+            }
+
             setRecordingPermissionGranted(false);
+            setMicPermissionGranted(false);
             return false;
         }
     }, [recordingUploaded, uploadRecordingToServer]);
@@ -375,7 +435,7 @@ const InterviewerContent = () => {
             formData.append(
                 "recording",
                 blob,
-                `interview-${interviewSessionId}.webm`
+                `interview-${interviewSessionId}.mp4`
             );
 
             console.log(
@@ -981,6 +1041,7 @@ render(UserList);`;
                         {/* Recording Indicator */}
                         {(isRecording || recordingPermissionGranted) && (
                             <div className="flex items-center space-x-2">
+                                {/* Screen Recording Indicator */}
                                 <div
                                     className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${
                                         isRecording
@@ -995,6 +1056,26 @@ render(UserList);`;
                                     )}
                                     <span>REC</span>
                                 </div>
+
+                                {/* Microphone Indicator */}
+                                {micPermissionGranted && (
+                                    <div
+                                        className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${
+                                            isRecording
+                                                ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+                                                : "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                                        }`}
+                                    >
+                                        <div
+                                            className={`w-2 h-2 rounded-full ${
+                                                isRecording
+                                                    ? "bg-red-500 animate-pulse"
+                                                    : "bg-green-500"
+                                            }`}
+                                        ></div>
+                                        <span>MIC</span>
+                                    </div>
+                                )}
                             </div>
                         )}
 

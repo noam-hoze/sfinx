@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 
         // Generate unique filename
         const timestamp = Date.now();
-        const filename = `recording-${timestamp}.webm`;
+        const filename = `recording-${timestamp}.mp4`;
         const filepath = join(recordingsDir, filename);
 
         console.log("💾 Saving file to:", filepath);

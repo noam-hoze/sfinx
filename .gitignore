@@ -14,4 +14,3 @@ app/api/debug/seed/ok
 /lib/generated/prisma
 
 *.mp4
-*.webm
