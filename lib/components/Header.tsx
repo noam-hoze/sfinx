@@ -56,7 +56,7 @@ export default function Header() {
                 <div className="flex items-center">
                     {session?.user && (
                         <Menu as="div" className="relative">
-                            <Menu.Button className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden relative">
+                            <Menu.Button className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden relative scale-150">
                                 {session.user.image ? (
                                     <Image
                                         key={session.user.image} // Force re-render when image changes
