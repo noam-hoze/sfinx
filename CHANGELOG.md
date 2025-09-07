@@ -10,7 +10,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 -   **Code Formatting**: Improved code formatting and readability in telemetry API route with consistent quote usage and line breaks
 
-## [1.9.0] - 2025-01-27
+## [1.9.0] - 2025-09-06
 
 ### Added
 
@@ -53,7 +53,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 -   **File Upload Security**: Proper file handling with size validation and secure storage paths
 -   **Authentication Integration**: Framework ready for re-enabling authentication on recording endpoints
 
-## [1.8.1] - 2025-01-15
+## [1.8.1] - 2025-09-06
 
 ### Fixed
 
@@ -66,7 +66,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 -   **Type Safety**: Proper Prisma client usage without type casting bypasses
 -   **API Reliability**: More robust telemetry data retrieval with flexible query conditions
 
-## [1.8.0] - 2025-01-15
+## [1.8.0] - 2025-09-06
 
 ### Added
 
@@ -96,7 +96,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 -   **Type Safety Improvements**: Enhanced TypeScript types for telemetry data structures
 -   **Data Flow Architecture**: Complete pipeline from database → API → frontend for telemetry data
 
-## [1.7.0] - 2025-01-15
+## [1.7.0] - 2025-09-06
 
 ### Added
 
@@ -127,7 +127,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 -   **Session-Based Context Loading**: Only load user data when authenticated
 -   **Database Schema Integration**: Full integration with existing Prisma models
 
-## [1.6.1] - 2025-01-15
+## [1.6.1] - 2025-09-06
 
 ### Added
 
@@ -152,7 +152,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 -   **Component Organization**: Better component structure and reusability
 -   **File Upload System**: Secure file upload handling for profile images
 
-## [1.6.0] - 2025-01-15
+## [1.6.0] - 2025-09-06
 
 ### Added
 
@@ -187,7 +187,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 -   **Cross-Role Isolation**: Complete separation between candidate and company user experiences
 -   **Admin Override**: Administrative users maintain access to all system features
 
-## [1.5.0] - 2025-01-14
+## [1.5.0] - 2025-09-06
 
 ### Added
 
@@ -205,7 +205,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 -   **Client-Side Routing**: useSession hook integration for role-based navigation
 -   **Loading States**: Professional loading indicator during redirection process
 
-## [1.4.0] - 2025-01-12
+## [1.4.0] - 2025-09-06
 
 ### Added
 
