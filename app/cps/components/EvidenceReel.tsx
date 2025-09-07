@@ -126,14 +126,11 @@ export default function EvidenceReel({
                                 [
                                     `WEBVTT
 
-00:00.000 --> 00:05.000
+00:00.000 --> 00:18.000
 Intro
 
-00:05.000 --> 00:15.000
-Funny Scene
-
-00:15.000 --> 00:25.000
-Ending
+00:18.000 --> 04:42.000
+Coding
 `,
                                 ],
                                 { type: "text/vtt" }

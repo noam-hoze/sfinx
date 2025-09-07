@@ -55,8 +55,11 @@ const ConfidenceBuildingCurve: React.FC<ConfidenceBuildingCurveProps> = ({
                 <div className="group relative flex items-center">
                     <Info size={12} className="text-gray-400" />
                     <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 bg-white text-black text-xs rounded py-2 px-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none border border-gray-200 shadow-lg z-10 whitespace-normal">
-                        Tracks the candidate's confidence levels throughout the
-                        task.
+                        Confidence over time during the task. Dips typically
+                        mark blockers or wrong turns; rises follow breakthroughs
+                        and verified results. A healthy curve shows recovery
+                        after setbacks and steady growth toward mastery by
+                        session end.
                     </div>
                 </div>
             </h3>

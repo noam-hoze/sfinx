@@ -55,8 +55,12 @@ const LearningToActionTimeline: React.FC<LearningToActionTimelineProps> = ({
                 <div className="group relative flex items-center">
                     <Info size={12} className="text-gray-400" />
                     <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 bg-white text-black text-xs rounded py-2 px-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none border border-gray-200 shadow-lg z-10 whitespace-normal">
-                        Visualizes the candidate's journey from research to
-                        implementation.
+                        Information retrieval and hypothesis testing during
+                        problem solving. We track doc/IDE opens, internal
+                        searches, and external lookups (counts and dwell; no
+                        content). Strong signals: diverse sources, purposeful
+                        lookups, and quick conversion from learning to working
+                        code.
                     </div>
                 </div>
             </h3>

@@ -22,13 +22,13 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
     const getTooltipText = (key: string) => {
         switch (key) {
             case "iterationSpeed":
-                return "Measures how quickly the candidate moves through development cycles.";
+                return "Velocity of meaningful change cycles (edit → run/test → result). Measured from saves/runs and test outcomes—time‑to‑first‑success, median/p95 cycle time, and iterations per 10 minutes. Faster, consistent cycles score higher.";
             case "debugLoops":
-                return "Tracks the frequency and duration of debugging sessions.";
+                return "Tracks sequences from failing to passing states (problem isolation → fix). Uses error/test status transitions and repeated attempts; fewer, well‑structured loops with quick isolation and a high fix rate indicate effective debugging.";
             case "refactorCleanups":
-                return "Shows how often the candidate refactors and cleans up their code.";
+                return "Structural and code‑quality improvements beyond immediate correctness. Diff heuristics (rename/extract, dead‑code deletion), LOC/complexity deltas, and lint fixes after pass state are considered; thoughtful cleanups improve maintainability.";
             case "aiAssistUsage":
-                return "Indicates the extent to which the candidate uses AI-powered assistance.";
+                return "Transparent view of AI involvement versus original work. Signals include prompts per session, adoption rate, edit distance, and the percent of final code that is AI‑originated; balanced, edited use is fine while heavy reliance is flagged.";
             default:
                 return "";
         }
