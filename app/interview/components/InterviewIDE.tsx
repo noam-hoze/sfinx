@@ -345,7 +345,7 @@ const InterviewerContent = () => {
     }, [recordingUploaded, uploadRecordingToServer]);
 
     const startRecording = useCallback(async () => {
-        if (!recordingPermissionGranted) {
+        if (!recordingPermissionGranted || !mediaRecorderRef.current) {
             const permissionGranted = await requestRecordingPermission();
             if (!permissionGranted) return;
         }
@@ -375,6 +375,10 @@ const InterviewerContent = () => {
                     .getTracks()
                     .forEach((track) => track.stop());
             }
+
+            // Clean up MediaRecorder and chunks
+            mediaRecorderRef.current = null;
+            recordedChunksRef.current = [];
 
             console.log("✅ Screen recording stopped");
         }
