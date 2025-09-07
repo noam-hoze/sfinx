@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.9.1] - 2025-09-06
+
+### Enhanced
+
+-   **Code Formatting**: Improved code formatting and readability in telemetry API route with consistent quote usage and line breaks
+
 ## [1.9.0] - 2025-01-27
 
 ### Added
