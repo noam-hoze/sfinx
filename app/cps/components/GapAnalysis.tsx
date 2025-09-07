@@ -4,9 +4,16 @@ import { GapAnalysis as GapAnalysisType } from "../../../lib";
 interface GapAnalysisProps {
     gaps: GapAnalysisType;
     onVideoJump: (timestamp: number) => void;
+    editMode?: boolean;
+    onUpdateGaps?: (gaps: GapAnalysisType) => void;
 }
 
-const GapAnalysis: React.FC<GapAnalysisProps> = ({ gaps, onVideoJump }) => {
+const GapAnalysis: React.FC<GapAnalysisProps> = ({
+    gaps,
+    onVideoJump,
+    editMode = false,
+    onUpdateGaps,
+}) => {
     const [clickedTimestamp, setClickedTimestamp] = useState<number | null>(
         null
     );
@@ -94,12 +101,180 @@ const GapAnalysis: React.FC<GapAnalysisProps> = ({ gaps, onVideoJump }) => {
                                     </span>
                                 </div>
 
-                                <p className="text-gray-700 text-sm leading-relaxed">
-                                    {gap.description}
-                                </p>
+                                {editMode ? (
+                                    <textarea
+                                        value={gap.description}
+                                        onChange={(e) => {
+                                            const updatedGaps = gaps.gaps.map(
+                                                (g, index) =>
+                                                    index ===
+                                                    gaps.gaps.indexOf(gap)
+                                                        ? {
+                                                              ...g,
+                                                              description:
+                                                                  e.target
+                                                                      .value,
+                                                          }
+                                                        : g
+                                            );
+                                            onUpdateGaps?.({
+                                                ...gaps,
+                                                gaps: updatedGaps,
+                                            });
+                                        }}
+                                        className="text-gray-700 text-sm leading-relaxed bg-white/50 border border-gray-300 rounded px-2 py-1 w-full resize-none"
+                                        rows={2}
+                                        placeholder="Gap description"
+                                    />
+                                ) : (
+                                    <p className="text-gray-700 text-sm leading-relaxed">
+                                        {gap.description}
+                                    </p>
+                                )}
 
                                 {/* Video Evidence Links */}
-                                {gap.evidenceLinks &&
+                                {editMode ? (
+                                    <div className="mt-2 space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs text-gray-500">
+                                                Evidence Links:
+                                            </span>
+                                            <button
+                                                onClick={() => {
+                                                    const updatedGaps =
+                                                        gaps.gaps.map(
+                                                            (g, index) =>
+                                                                index ===
+                                                                gaps.gaps.indexOf(
+                                                                    gap
+                                                                )
+                                                                    ? {
+                                                                          ...g,
+                                                                          evidenceLinks:
+                                                                              [
+                                                                                  ...(g.evidenceLinks ||
+                                                                                      []),
+                                                                                  0,
+                                                                              ],
+                                                                      }
+                                                                    : g
+                                                        );
+                                                    onUpdateGaps?.({
+                                                        ...gaps,
+                                                        gaps: updatedGaps,
+                                                    });
+                                                }}
+                                                className="text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
+                                            >
+                                                + Add
+                                            </button>
+                                        </div>
+                                        {(gap.evidenceLinks || []).length >
+                                            0 && (
+                                            <div className="flex flex-wrap gap-2">
+                                                {gap.evidenceLinks.map(
+                                                    (timestamp, index) => (
+                                                        <div
+                                                            key={index}
+                                                            className="flex items-center gap-1"
+                                                        >
+                                                            <input
+                                                                type="number"
+                                                                value={
+                                                                    timestamp
+                                                                }
+                                                                onChange={(
+                                                                    e
+                                                                ) => {
+                                                                    const newTimestamp =
+                                                                        parseInt(
+                                                                            e
+                                                                                .target
+                                                                                .value
+                                                                        ) || 0;
+                                                                    const updatedGaps =
+                                                                        gaps.gaps.map(
+                                                                            (
+                                                                                g,
+                                                                                gapIndex
+                                                                            ) =>
+                                                                                gapIndex ===
+                                                                                gaps.gaps.indexOf(
+                                                                                    gap
+                                                                                )
+                                                                                    ? {
+                                                                                          ...g,
+                                                                                          evidenceLinks:
+                                                                                              g.evidenceLinks.map(
+                                                                                                  (
+                                                                                                      t,
+                                                                                                      linkIndex
+                                                                                                  ) =>
+                                                                                                      linkIndex ===
+                                                                                                      index
+                                                                                                          ? newTimestamp
+                                                                                                          : t
+                                                                                              ),
+                                                                                      }
+                                                                                    : g
+                                                                        );
+                                                                    onUpdateGaps?.(
+                                                                        {
+                                                                            ...gaps,
+                                                                            gaps: updatedGaps,
+                                                                        }
+                                                                    );
+                                                                }}
+                                                                className="w-16 text-xs border border-gray-300 rounded px-1 py-1 text-center"
+                                                                placeholder="0"
+                                                                min="0"
+                                                            />
+                                                            <button
+                                                                onClick={() => {
+                                                                    const updatedGaps =
+                                                                        gaps.gaps.map(
+                                                                            (
+                                                                                g,
+                                                                                gapIndex
+                                                                            ) =>
+                                                                                gapIndex ===
+                                                                                gaps.gaps.indexOf(
+                                                                                    gap
+                                                                                )
+                                                                                    ? {
+                                                                                          ...g,
+                                                                                          evidenceLinks:
+                                                                                              g.evidenceLinks.filter(
+                                                                                                  (
+                                                                                                      _,
+                                                                                                      linkIndex
+                                                                                                  ) =>
+                                                                                                      linkIndex !==
+                                                                                                      index
+                                                                                              ),
+                                                                                      }
+                                                                                    : g
+                                                                        );
+                                                                    onUpdateGaps?.(
+                                                                        {
+                                                                            ...gaps,
+                                                                            gaps: updatedGaps,
+                                                                        }
+                                                                    );
+                                                                }}
+                                                                className="text-xs text-red-500 hover:text-red-700"
+                                                                title="Remove link"
+                                                            >
+                                                                ×
+                                                            </button>
+                                                        </div>
+                                                    )
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    gap.evidenceLinks &&
                                     gap.evidenceLinks.length > 0 && (
                                         <div className="flex gap-1 mt-2">
                                             {gap.evidenceLinks.map(
@@ -131,7 +306,8 @@ const GapAnalysis: React.FC<GapAnalysisProps> = ({ gaps, onVideoJump }) => {
                                                 )
                                             )}
                                         </div>
-                                    )}
+                                    )
+                                )}
                             </div>
                         </div>
                     </div>

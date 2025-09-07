@@ -22,6 +22,9 @@ function TelemetryContent() {
     const [activeTab, setActiveTab] = useState<"benchmarks" | "insights">(
         "benchmarks"
     );
+    const [editMode, setEditMode] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
     useEffect(() => {
         const fetchTelemetryData = async () => {
@@ -71,6 +74,90 @@ function TelemetryContent() {
 
     const onVideoJump = (timestamp: number) => {
         setCurrentVideoTime(timestamp);
+    };
+
+    const validateData = () => {
+        const errors: string[] = [];
+
+        if (!telemetryData.candidate.name.trim()) {
+            errors.push("Candidate name is required");
+        }
+
+        if (
+            telemetryData.candidate.matchScore < 0 ||
+            telemetryData.candidate.matchScore > 100
+        ) {
+            errors.push("Match score must be between 0 and 100");
+        }
+
+        if (telemetryData.workstyle) {
+            const workstyleKeys = [
+                "iterationSpeed",
+                "debugLoops",
+                "refactorCleanups",
+                "aiAssistUsage",
+            ];
+            workstyleKeys.forEach((key) => {
+                const value = telemetryData.workstyle[key]?.value;
+                if (value !== undefined && (value < 0 || value > 100)) {
+                    errors.push(`${key} must be between 0 and 100`);
+                }
+            });
+        }
+
+        if (telemetryData.gaps?.gaps) {
+            telemetryData.gaps.gaps.forEach((gap: any, index: number) => {
+                if (!gap.description.trim()) {
+                    errors.push(`Gap ${index + 1} description is required`);
+                }
+            });
+        }
+
+        return errors;
+    };
+
+    const handleSave = async () => {
+        if (!candidateId || !telemetryData) return;
+
+        const errors = validateData();
+        if (errors.length > 0) {
+            setValidationErrors(errors);
+            return;
+        }
+
+        setValidationErrors([]);
+        setSaving(true);
+        try {
+            const response = await fetch(
+                `/api/candidates/${candidateId}/telemetry`,
+                {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(telemetryData),
+                }
+            );
+
+            if (response.ok) {
+                setEditMode(false);
+                // Refresh data after save
+                const fetchResponse = await fetch(
+                    `/api/candidates/${candidateId}/telemetry`
+                );
+                if (fetchResponse.ok) {
+                    const updatedData = await fetchResponse.json();
+                    setTelemetryData(updatedData);
+                }
+            } else {
+                throw new Error("Failed to save changes");
+            }
+        } catch (error) {
+            console.error("Error saving telemetry data:", error);
+            setError("Failed to save changes");
+        } finally {
+            setSaving(false);
+        }
     };
 
     if (loading) {
@@ -162,10 +249,56 @@ function TelemetryContent() {
 
                     {/* Cell 1 - Candidate Telemetry (top-right) */}
                     <div className="text-center xl:text-center xl:flex xl:items-center xl:justify-center">
-                        <h1 className="text-2xl font-semibold text-gray-800 tracking-tight">
-                            Candidate Profile Story
-                        </h1>
+                        <div className="flex items-center justify-between w-full">
+                            <h1 className="text-2xl font-semibold text-gray-800 tracking-tight">
+                                Candidate Profile Story
+                            </h1>
+                            <div className="flex gap-2">
+                                {!editMode ? (
+                                    <button
+                                        onClick={() => {
+                                            setEditMode(true);
+                                            setValidationErrors([]);
+                                        }}
+                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                                    >
+                                        Edit
+                                    </button>
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setEditMode(false)}
+                                            className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium"
+                                            disabled={saving}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={handleSave}
+                                            disabled={saving}
+                                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50"
+                                        >
+                                            {saving ? "Saving..." : "Save"}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
+
+                    {/* Validation Errors */}
+                    {validationErrors.length > 0 && (
+                        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <h4 className="text-red-800 font-medium mb-2">
+                                Please fix the following errors:
+                            </h4>
+                            <ul className="list-disc list-inside text-red-700 text-sm">
+                                {validationErrors.map((error, index) => (
+                                    <li key={index}>{error}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
 
                     {/* Cell 2 - Left Panel (bottom-left) */}
                     <div className="w-full xl:w-auto">
@@ -184,21 +317,70 @@ function TelemetryContent() {
                                         className="rounded-full object-cover border-2 border-white shadow-sm"
                                     />
                                     <div>
-                                        <h2 className="text-lg font-medium text-gray-900">
-                                            {candidate.name}
-                                        </h2>
+                                        {editMode ? (
+                                            <input
+                                                type="text"
+                                                value={candidate.name}
+                                                onChange={(e) => {
+                                                    setTelemetryData({
+                                                        ...telemetryData,
+                                                        candidate: {
+                                                            ...candidate,
+                                                            name: e.target
+                                                                .value,
+                                                        },
+                                                    });
+                                                }}
+                                                className="text-lg font-medium text-gray-900 bg-white/50 border border-gray-300 rounded px-2 py-1 w-full"
+                                                placeholder="Candidate name"
+                                            />
+                                        ) : (
+                                            <h2 className="text-lg font-medium text-gray-900">
+                                                {candidate.name}
+                                            </h2>
+                                        )}
                                         <p className="text-sm text-gray-600">
                                             Software Engineer
                                         </p>
                                     </div>
                                 </div>
                                 <div className="text-right">
-                                    <div className="text-2xl font-semibold text-blue-600">
-                                        {candidate.matchScore}%
-                                    </div>
-                                    <div className="text-xs text-gray-500 font-medium">
-                                        Match Score
-                                    </div>
+                                    {editMode ? (
+                                        <div>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="100"
+                                                value={candidate.matchScore}
+                                                onChange={(e) => {
+                                                    setTelemetryData({
+                                                        ...telemetryData,
+                                                        candidate: {
+                                                            ...candidate,
+                                                            matchScore:
+                                                                parseInt(
+                                                                    e.target
+                                                                        .value
+                                                                ) || 0,
+                                                        },
+                                                    });
+                                                }}
+                                                className="text-2xl font-semibold text-blue-600 bg-white/50 border border-gray-300 rounded px-2 py-1 w-16 text-center"
+                                            />
+                                            <div className="text-xs text-gray-500 font-medium mt-1">
+                                                Match Score
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            <div className="text-2xl font-semibold text-blue-600">
+                                                {candidate.matchScore}%
+                                            </div>
+                                            <div className="text-xs text-gray-500 font-medium">
+                                                Match Score
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -237,12 +419,28 @@ function TelemetryContent() {
                                         <WorkstyleDashboard
                                             workstyle={workstyle}
                                             onVideoJump={onVideoJump}
+                                            editMode={editMode}
+                                            onUpdateWorkstyle={(
+                                                updatedWorkstyle
+                                            ) => {
+                                                setTelemetryData({
+                                                    ...telemetryData,
+                                                    workstyle: updatedWorkstyle,
+                                                });
+                                            }}
                                         />
                                     )}
                                     {gaps && (
                                         <GapAnalysis
                                             gaps={gaps}
                                             onVideoJump={onVideoJump}
+                                            editMode={editMode}
+                                            onUpdateGaps={(updatedGaps) => {
+                                                setTelemetryData({
+                                                    ...telemetryData,
+                                                    gaps: updatedGaps,
+                                                });
+                                            }}
                                         />
                                     )}
                                     {!workstyle && !gaps && (

@@ -121,7 +121,7 @@ export async function GET(
                                     60
                                   ? "yellow"
                                   : "red",
-                          evidenceLinks: [45, 75, 120, 135],
+                          evidenceLinks: [45, 75, 120, 135], // Default links, can be overridden by frontend
                       },
                       debugLoops: {
                           value: telemetry.workstyleMetrics.debugLoops,
@@ -137,7 +137,7 @@ export async function GET(
                                   : telemetry.workstyleMetrics.debugLoops <= 60
                                   ? "yellow"
                                   : "red",
-                          evidenceLinks: [95, 120],
+                          evidenceLinks: [95, 120], // Default links, can be overridden by frontend
                       },
                       refactorCleanups: {
                           value: telemetry.workstyleMetrics.refactorCleanups,
@@ -155,7 +155,7 @@ export async function GET(
                                         .refactorCleanups >= 60
                                   ? "yellow"
                                   : "red",
-                          evidenceLinks: [190, 205, 210, 220, 230],
+                          evidenceLinks: [190, 205, 210, 220, 230], // Default links, can be overridden by frontend
                       },
                       aiAssistUsage: {
                           value: telemetry.workstyleMetrics.aiAssistUsage,
@@ -175,7 +175,7 @@ export async function GET(
                                   : "red",
                           isFairnessFlag:
                               telemetry.workstyleMetrics.aiAssistUsage > 50,
-                          evidenceLinks: [25],
+                          evidenceLinks: [25], // Default links, can be overridden by frontend
                       },
                   }
                 : null,
@@ -187,6 +187,141 @@ export async function GET(
         console.error("Error fetching candidate telemetry:", error);
         return NextResponse.json(
             { error: "Failed to fetch telemetry data" },
+            { status: 500 }
+        );
+    } finally {
+        await prisma.$disconnect();
+    }
+}
+
+export async function PUT(
+    request: NextRequest,
+    { params }: { params: { id: string } }
+) {
+    try {
+        const candidateId = params.id;
+        const body = await request.json();
+
+        // Get the most recent interview session for this candidate
+        const interviewSession = await prisma.interviewSession.findFirst({
+            where: {
+                candidateId: candidateId,
+                telemetryData: {
+                    isNot: null,
+                },
+            },
+            include: {
+                telemetryData: {
+                    include: {
+                        workstyleMetrics: true,
+                        gapAnalysis: {
+                            include: {
+                                gaps: true,
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: {
+                createdAt: "desc",
+            },
+        });
+
+        if (!interviewSession || !interviewSession.telemetryData) {
+            return NextResponse.json(
+                { error: "No telemetry data found for this candidate" },
+                { status: 404 }
+            );
+        }
+
+        const telemetryId = interviewSession.telemetryData.id;
+
+        // Update telemetry data
+        if (body.candidate) {
+            await prisma.telemetryData.update({
+                where: { id: telemetryId },
+                data: {
+                    matchScore: body.candidate.matchScore,
+                },
+            });
+
+            // Update candidate name
+            await prisma.user.update({
+                where: { id: candidateId },
+                data: {
+                    name: body.candidate.name,
+                },
+            });
+        }
+
+        // Update workstyle metrics if provided
+        if (body.workstyle && interviewSession.telemetryData.workstyleMetrics) {
+            const workstyleData: any = {};
+
+            if (body.workstyle.iterationSpeed?.value !== undefined) {
+                workstyleData.iterationSpeed =
+                    body.workstyle.iterationSpeed.value;
+            }
+            if (body.workstyle.debugLoops?.value !== undefined) {
+                workstyleData.debugLoops = body.workstyle.debugLoops.value;
+            }
+            if (body.workstyle.refactorCleanups?.value !== undefined) {
+                workstyleData.refactorCleanups =
+                    body.workstyle.refactorCleanups.value;
+            }
+            if (body.workstyle.aiAssistUsage?.value !== undefined) {
+                workstyleData.aiAssistUsage =
+                    body.workstyle.aiAssistUsage.value;
+            }
+
+            if (Object.keys(workstyleData).length > 0) {
+                await prisma.workstyleMetrics.update({
+                    where: {
+                        id: interviewSession.telemetryData.workstyleMetrics.id,
+                    },
+                    data: workstyleData,
+                });
+            }
+
+            // Update evidence links in the telemetry data JSON if needed
+            // Note: Since evidence links are stored in the frontend transformation,
+            // we don't need to update the database directly. The frontend will handle this.
+        }
+
+        // Update gaps if provided
+        if (
+            body.gaps &&
+            body.gaps.gaps &&
+            interviewSession.telemetryData.gapAnalysis
+        ) {
+            // Delete existing gaps
+            await prisma.gap.deleteMany({
+                where: {
+                    gapAnalysisId:
+                        interviewSession.telemetryData.gapAnalysis.id,
+                },
+            });
+
+            // Create new gaps
+            for (const gap of body.gaps.gaps) {
+                await prisma.gap.create({
+                    data: {
+                        gapAnalysisId:
+                            interviewSession.telemetryData.gapAnalysis.id,
+                        severity: gap.severity,
+                        description: gap.description,
+                        color: gap.color,
+                        evidenceLinks: gap.evidenceLinks || [],
+                    },
+                });
+            }
+        }
+
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        console.error("Error updating candidate telemetry:", error);
+        return NextResponse.json(
+            { error: "Failed to update telemetry data" },
             { status: 500 }
         );
     } finally {
