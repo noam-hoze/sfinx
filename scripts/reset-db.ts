@@ -7,7 +7,7 @@ import bcrypt from "bcryptjs";
 
 // Import seed functions
 import { seedGal } from "./seed-gal";
-import { seedSarah } from "./seed-sarah";
+import { seedMark } from "./seed-mark";
 import { seedNoam } from "./seed-noam";
 
 const prisma = new PrismaClient();
@@ -135,7 +135,7 @@ async function resetDatabase() {
 
         // Create additional candidates using existing seed scripts
         await seedGal();
-        await seedSarah();
+        await seedMark();
         await seedNoam();
 
         // Print summary
