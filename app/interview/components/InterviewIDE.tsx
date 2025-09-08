@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { Moon, Sun, Video, VideoOff } from "lucide-react";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 import EditorPanel from "./editor/EditorPanel";
 import ChatPanel from "./chat/ChatPanel";
 import RealTimeConversation from "./chat/RealTimeConversation";
@@ -24,6 +25,9 @@ const InterviewerContent = () => {
     const searchParams = useSearchParams();
     const companyName = searchParams.get("company");
     const companyLogo = searchParams.get("logo") || "/logos/meta-logo.png";
+    const { data: session } = useSession();
+    const candidateNameFromSession =
+        (session?.user as any)?.name || "Candidate";
 
     // Callbacks for state machine
     const onElevenLabsUpdate = useCallback(async (text: string) => {
@@ -85,7 +89,7 @@ const InterviewerContent = () => {
     } = useElevenLabsStateMachine(
         onElevenLabsUpdate,
         onSendUserMessage,
-        state.candidateName
+        candidateNameFromSession
     );
     const [showDiff, setShowDiff] = useState(false);
     const [originalCode, setOriginalCode] = useState("");
@@ -1029,7 +1033,7 @@ render(UserList);`;
                     </div>
                 </div>
                 <h1 className="text-4xl font-light text-gray-900 mb-4 tracking-tight">
-                    Thank you for your time Noam
+                    {`Thank you for your time ${candidateNameFromSession}`}
                 </h1>
                 <p className="text-xl text-gray-600 font-light">Good luck!</p>
             </div>
@@ -1200,7 +1204,6 @@ render(UserList);`;
                                 onCodeChange={handleCodeChange}
                                 onApplyChanges={handleApplyChanges}
                                 onRejectChanges={handleRejectChanges}
-                                isDarkMode={isDarkMode}
                                 availableTabs={availableTabs}
                                 activeTab={activeTab}
                                 onTabSwitch={handleTabSwitch}
@@ -1243,7 +1246,7 @@ render(UserList);`;
                                     <RealTimeConversation
                                         ref={realTimeConversationRef}
                                         isInterviewActive={isInterviewActive}
-                                        candidateName={state.candidateName}
+                                        candidateName={candidateNameFromSession}
                                         handleUserTranscript={
                                             handleUserTranscript
                                         }
