@@ -1,6 +1,7 @@
 // Simple centralized logger with optional output controlled via env flags
 
 type LogMethod = (...args: any[]) => void;
+type LogMethodWithOverride = (...args: any[]) => void;
 
 function resolveEnabled(): boolean {
     // Prefer explicit flags; supports both server and client builds
@@ -19,11 +20,21 @@ let enabled = false; //resolveEnabled();
 
 const noop: LogMethod = () => {};
 
-function createMethod(method: keyof Console): LogMethod {
+function createMethod(method: keyof Console): LogMethodWithOverride {
     return (...args: any[]) => {
-        if (!enabled) return;
+        // Check if the last argument is a boolean override flag
+        const lastArg = args[args.length - 1];
+        const hasOverride = typeof lastArg === "boolean";
+        const override = hasOverride ? lastArg : false;
+
+        // Log if either globally enabled OR override is true
+        if (!enabled && !override) return;
+
+        // Remove override flag from args if present before logging
+        const logArgs = hasOverride ? args.slice(0, -1) : args;
+
         // eslint-disable-next-line no-console
-        (console[method] as LogMethod)(...args);
+        (console[method] as LogMethod)(...logArgs);
     };
 }
 

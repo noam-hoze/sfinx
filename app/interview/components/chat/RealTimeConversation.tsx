@@ -20,9 +20,7 @@ interface RealTimeConversationProps {
     isInterviewActive?: boolean;
     candidateName?: string;
     // State machine functions passed from parent
-    processAIMessage?: (message: string) => Promise<string>;
     handleUserTranscript?: (transcript: string) => Promise<void>;
-    incrementAITurns?: () => void;
     updateKBVariables?: (updates: any) => Promise<void>;
     kbVariables?: any;
 }
@@ -35,9 +33,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             onInterviewConcluded,
             isInterviewActive = false,
             candidateName = "Candidate",
-            processAIMessage,
             handleUserTranscript,
-            incrementAITurns,
             updateKBVariables,
             kbVariables,
         },
@@ -98,7 +94,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                 onEndConversation?.();
             },
             onMessage: async (message) => {
-                logger.info("📨 Message:", message);
+                console.log("📨 Message:", message);
 
                 // Send transcription data to ChatPanel
                 if (message.message) {
@@ -106,19 +102,22 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                     let messageText = message.message;
 
                     if (isAiMessage) {
-                        // Process AI message through state machine to handle SYS tags
-                        if (processAIMessage) {
-                            messageText = await processAIMessage(messageText);
-                        }
-                        // Skip empty messages after SYS tag processing
-                        if (!messageText.trim()) {
-                            logger.info(
-                                "🔇 Skipping empty AI message after SYS tag processing"
+                        // Track AI responses for automatic interview ending
+                        setLastAiResponse(messageText);
+
+                        if (
+                            messageText
+                                .toLowerCase()
+                                .includes(
+                                    "the next steps will be shared with you shortly."
+                                )
+                        ) {
+                            console.log(
+                                "🎯 Detected closing message - preparing to end interview"
                             );
-                            return;
-                        }
-                        if (incrementAITurns) {
-                            incrementAITurns();
+                            setIsClosingMessagePlaying(true);
+                        } else {
+                            console.log("❌ Closing message pattern not found");
                         }
                     } else {
                         // Handle user transcripts through state machine
@@ -136,23 +135,6 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                         },
                         "*"
                     );
-
-                    // Track AI responses for automatic interview ending
-                    if (isAiMessage) {
-                        setLastAiResponse(messageText);
-
-                        // Check if this is the closing message
-                        if (
-                            messageText.includes(
-                                "The next steps will be shared with you shortly."
-                            )
-                        ) {
-                            logger.info(
-                                "🎯 Detected closing message - preparing to end interview"
-                            );
-                            setIsClosingMessagePlaying(true);
-                        }
-                    }
                 }
             },
             onError: (error: any) => {
@@ -418,18 +400,6 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             stopConversation,
             onInterviewConcluded,
         ]);
-
-        // Reset closing message state when new AI responses arrive
-        useEffect(() => {
-            if (
-                lastAiResponse &&
-                !lastAiResponse.includes(
-                    "The next steps will be shared with you shortly."
-                )
-            ) {
-                setIsClosingMessagePlaying(false);
-            }
-        }, [lastAiResponse]);
 
         // Cleanup on unmount
         useEffect(() => {
