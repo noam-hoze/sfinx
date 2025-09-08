@@ -15,6 +15,7 @@ import {
     companiesData,
 } from "../../../lib";
 import { useElevenLabsStateMachine } from "../../../lib/hooks/useElevenLabsStateMachine";
+import { logger } from "../../../lib";
 
 const InterviewerContent = () => {
     const { state, getCurrentTask, updateCurrentCode, updateSubmission } =
@@ -31,13 +32,13 @@ const InterviewerContent = () => {
                 await realTimeConversationRef.current.sendContextualUpdate(
                     text
                 );
-                console.log("✅ Sent ElevenLabs KB update:", text);
+                logger.info("✅ Sent ElevenLabs KB update:", text);
             } catch (error) {
-                console.error("❌ Failed to send ElevenLabs update:", error);
+                logger.error("❌ Failed to send ElevenLabs update:", error);
                 throw error;
             }
         } else {
-            console.warn("⚠️ ElevenLabs conversation not available for update");
+            logger.warn("⚠️ ElevenLabs conversation not available for update");
         }
     }, []);
 
@@ -49,25 +50,25 @@ const InterviewerContent = () => {
                         message
                     );
                 if (messageSent) {
-                    console.log(
+                    logger.info(
                         "✅ AI usage notification message sent successfully"
                     );
                     return true;
                 } else {
-                    console.error(
+                    logger.error(
                         "❌ Failed to send AI usage notification message"
                     );
                     return false;
                 }
             } catch (error) {
-                console.error(
+                logger.error(
                     "❌ Error sending AI usage notification message:",
                     error
                 );
                 return false;
             }
         } else {
-            console.warn(
+            logger.warn(
                 "⚠️ RealTimeConversation not available for sending user message"
             );
             return false;
@@ -79,9 +80,7 @@ const InterviewerContent = () => {
         setCodingState,
         handleSubmission: stateMachineHandleSubmission,
         kbVariables,
-        processAIMessage,
         handleUserTranscript,
-        incrementAITurns,
         updateKBVariables,
     } = useElevenLabsStateMachine(
         onElevenLabsUpdate,
@@ -116,7 +115,7 @@ const InterviewerContent = () => {
 
     // Debug: Monitor interviewSessionId changes
     useEffect(() => {
-        console.log("🔄 interviewSessionId changed to:", interviewSessionId);
+        logger.info("🔄 interviewSessionId changed to:", interviewSessionId);
     }, [interviewSessionId]);
     const [isRecording, setIsRecording] = useState(false);
     const [recordingPermissionGranted, setRecordingPermissionGranted] =
@@ -147,7 +146,7 @@ const InterviewerContent = () => {
     // Function to upload recording to server and update database
     const uploadRecordingToServer = useCallback(
         async (blob: Blob) => {
-            console.log(
+            logger.info(
                 "🔍 uploadRecordingToServer called with sessionId:",
                 interviewSessionIdRef.current,
                 "uploaded:",
@@ -155,7 +154,7 @@ const InterviewerContent = () => {
             );
 
             if (!interviewSessionIdRef.current || recordingUploaded) {
-                console.log(
+                logger.info(
                     "⏭️ Cannot upload: sessionId=",
                     interviewSessionIdRef.current,
                     "uploaded=",
@@ -165,7 +164,7 @@ const InterviewerContent = () => {
             }
 
             try {
-                console.log("📤 Starting server upload process...");
+                logger.info("📤 Starting server upload process...");
 
                 // Upload recording
                 const formData = new FormData();
@@ -175,7 +174,7 @@ const InterviewerContent = () => {
                     `interview-${interviewSessionIdRef.current}.mp4`
                 );
 
-                console.log(
+                logger.info(
                     "📤 Sending upload request to /api/interviews/session/screen-recording"
                 );
                 const uploadResponse = await fetch(
@@ -186,24 +185,24 @@ const InterviewerContent = () => {
                     }
                 );
 
-                console.log(
+                logger.info(
                     "📤 Upload response status:",
                     uploadResponse.status
                 );
 
                 if (!uploadResponse.ok) {
                     const errorText = await uploadResponse.text();
-                    console.error("❌ Upload failed:", errorText);
+                    logger.error("❌ Upload failed:", errorText);
                     throw new Error(
                         `Failed to upload recording: ${uploadResponse.status}`
                     );
                 }
 
                 const uploadData = await uploadResponse.json();
-                console.log("✅ Recording uploaded:", uploadData.recordingUrl);
+                logger.info("✅ Recording uploaded:", uploadData.recordingUrl);
 
                 // Update interview session with recording URL
-                console.log(
+                logger.info(
                     "📤 Sending update request to:",
                     `/api/interviews/session/${interviewSessionIdRef.current}`
                 );
@@ -220,25 +219,25 @@ const InterviewerContent = () => {
                     }
                 );
 
-                console.log(
+                logger.info(
                     "📤 Update response status:",
                     updateResponse.status
                 );
 
                 if (!updateResponse.ok) {
                     const errorText = await updateResponse.text();
-                    console.error("❌ Update failed:", errorText);
+                    logger.error("❌ Update failed:", errorText);
                     throw new Error(
                         `Failed to update interview session: ${updateResponse.status}`
                     );
                 }
 
                 const updateData = await updateResponse.json();
-                console.log("✅ Interview session updated successfully");
-                console.log("📋 Updated session data:", updateData);
+                logger.info("✅ Interview session updated successfully");
+                logger.info("📋 Updated session data:", updateData);
                 setRecordingUploaded(true);
             } catch (error) {
-                console.error("❌ Error in uploadRecordingToServer:", error);
+                logger.error("❌ Error in uploadRecordingToServer:", error);
             }
         },
         [recordingUploaded]
@@ -268,23 +267,23 @@ const InterviewerContent = () => {
 
             // Add video track from display
             displayStream.getVideoTracks().forEach((track) => {
-                console.log("🎥 Added video track:", track.label);
+                logger.info("🎥 Added video track:", track.label);
                 combinedStream.addTrack(track);
             });
 
             // Add system audio track from display
             displayStream.getAudioTracks().forEach((track) => {
-                console.log("🔊 Added system audio track:", track.label);
+                logger.info("🔊 Added system audio track:", track.label);
                 combinedStream.addTrack(track);
             });
 
             // Add microphone audio track
             micStream.getAudioTracks().forEach((track) => {
-                console.log("🎤 Added microphone audio track:", track.label);
+                logger.info("🎤 Added microphone audio track:", track.label);
                 combinedStream.addTrack(track);
             });
 
-            console.log(
+            logger.info(
                 "🎵 Combined stream tracks:",
                 combinedStream
                     .getTracks()
@@ -297,15 +296,15 @@ const InterviewerContent = () => {
             // Create MediaRecorder with fallback mime types
             let mimeType = "video/mp4;codecs=avc1";
             if (!MediaRecorder.isTypeSupported(mimeType)) {
-                console.log("⚠️ H.264 not supported, trying basic mp4...");
+                logger.info("⚠️ H.264 not supported, trying basic mp4...");
                 mimeType = "video/mp4";
                 if (!MediaRecorder.isTypeSupported(mimeType)) {
-                    console.log("⚠️ MP4 not supported, using default");
+                    logger.info("⚠️ MP4 not supported, using default");
                     mimeType = "";
                 }
             }
 
-            console.log("🎥 Using mime type:", mimeType);
+            logger.info("🎥 Using mime type:", mimeType);
 
             const mediaRecorder = new MediaRecorder(
                 combinedStream,
@@ -319,13 +318,13 @@ const InterviewerContent = () => {
             selectedMimeTypeRef.current = mimeType;
 
             mediaRecorder.ondataavailable = (event) => {
-                console.log(
+                logger.info(
                     "📡 ondataavailable fired, data size:",
                     event.data.size
                 );
                 if (event.data.size > 0) {
                     recordedChunksRef.current.push(event.data);
-                    console.log(
+                    logger.info(
                         "📊 Chunks array length:",
                         recordedChunksRef.current.length
                     );
@@ -333,16 +332,16 @@ const InterviewerContent = () => {
             };
 
             mediaRecorder.onstop = async () => {
-                console.log(
+                logger.info(
                     "🛑 MediaRecorder stopped, processing recorded chunks..."
                 );
-                console.log(
+                logger.info(
                     "📊 Recorded chunks count:",
                     recordedChunksRef.current.length
                 );
 
                 if (recordedChunksRef.current.length === 0) {
-                    console.log("❌ No recorded chunks available");
+                    logger.warn("❌ No recorded chunks available");
                     return;
                 }
 
@@ -350,7 +349,7 @@ const InterviewerContent = () => {
                     type: selectedMimeTypeRef.current || "video/mp4",
                 });
 
-                console.log("📁 Created blob of size:", blob.size, "bytes");
+                logger.info("📁 Created blob of size:", blob.size, "bytes");
 
                 // Create object URL for the recording
                 const url = URL.createObjectURL(blob);
@@ -359,23 +358,23 @@ const InterviewerContent = () => {
                 // Store the blob for later upload (will be triggered by event handler)
                 // Keep it as an array to maintain consistency
                 recordedChunksRef.current = [blob];
-                console.log("✅ Recording captured, ready for upload");
+                logger.info("✅ Recording captured, ready for upload");
 
                 // Auto-upload and update database when recording is ready
-                console.log(
+                logger.info(
                     "🔍 onstop: interviewSessionId =",
                     interviewSessionIdRef.current,
                     "recordingUploaded =",
                     recordingUploaded
                 );
                 if (interviewSessionIdRef.current && !recordingUploaded) {
-                    console.log(
+                    logger.info(
                         "🚀 Auto-uploading recording for session:",
                         interviewSessionIdRef.current
                     );
                     await uploadRecordingToServer(blob);
                 } else {
-                    console.log(
+                    logger.info(
                         "⏭️ Cannot auto-upload: sessionId=",
                         interviewSessionIdRef.current,
                         "uploaded=",
@@ -387,24 +386,24 @@ const InterviewerContent = () => {
             // Add cleanup handlers for when recording stops
             combinedStream.getTracks().forEach((track) => {
                 track.onended = () => {
-                    console.log("🎵 Track ended:", track.kind, track.label);
+                    logger.info("🎵 Track ended:", track.kind, track.label);
                 };
             });
 
             return true;
         } catch (error) {
-            console.error("❌ Error requesting recording permission:", error);
+            logger.error("❌ Error requesting recording permission:", error);
 
             // Provide more specific error messages
             if (error instanceof Error) {
                 if (error.name === "NotAllowedError") {
-                    console.error(
+                    logger.error(
                         "❌ Permission denied for screen recording or microphone"
                     );
                 } else if (error.name === "NotFoundError") {
-                    console.error("❌ No screen or microphone found");
+                    logger.error("❌ No screen or microphone found");
                 } else if (error.name === "NotReadableError") {
-                    console.error("❌ Screen or microphone is already in use");
+                    logger.error("❌ Screen or microphone is already in use");
                 }
             }
 
@@ -425,7 +424,7 @@ const InterviewerContent = () => {
             // Start recording with a timeslice to ensure periodic data collection
             mediaRecorderRef.current.start(1000); // Collect data every 1 second
             setIsRecording(true);
-            console.log("✅ Screen recording started");
+            logger.info("✅ Screen recording started");
         }
     }, [recordingPermissionGranted, isRecording, requestRecordingPermission]);
 
@@ -450,14 +449,14 @@ const InterviewerContent = () => {
             mediaRecorderRef.current = null;
             recordedChunksRef.current = [];
 
-            console.log("✅ Screen recording stopped");
+            logger.info("✅ Screen recording stopped");
         }
     }, [isRecording]);
 
     // Event handler for inserting recording URL (called manually, not in useEffect)
     const insertRecordingUrl = useCallback(async () => {
-        console.log("🚀 insertRecordingUrl called");
-        console.log("📋 Current state:", {
+        logger.info("🚀 insertRecordingUrl called");
+        logger.info("📋 Current state:", {
             interviewSessionId,
             recordingUrl,
             recordingUploaded,
@@ -465,44 +464,44 @@ const InterviewerContent = () => {
         });
 
         if (!interviewSessionId) {
-            console.log("⏭️ No interview session ID available yet");
+            logger.info("⏭️ No interview session ID available yet");
             return;
         }
 
         if (!recordingUrl) {
-            console.log("⏭️ No recording available to upload");
+            logger.info("⏭️ No recording available to upload");
             return;
         }
 
         if (recordingUploaded) {
-            console.log("⏭️ Recording already uploaded");
+            logger.info("⏭️ Recording already uploaded");
             return;
         }
 
         // Get the stored blob from recordedChunksRef
         if (recordedChunksRef.current.length === 0) {
-            console.log("⏭️ No recording blob available");
+            logger.warn("⏭️ No recording blob available");
             return;
         }
 
         const blob = recordedChunksRef.current[0];
         if (!(blob instanceof Blob)) {
-            console.log("⏭️ Invalid recording blob");
+            logger.warn("⏭️ Invalid recording blob");
             return;
         }
 
-        console.log("📁 Blob details:", {
+        logger.info("📁 Blob details:", {
             size: blob.size,
             type: blob.type,
         });
 
-        console.log(
+        logger.info(
             "🚀 Event handler: Inserting recording URL for session:",
             interviewSessionId
         );
 
         try {
-            console.log("📤 Starting upload process...");
+            logger.info("📤 Starting upload process...");
 
             // Upload recording
             const formData = new FormData();
@@ -512,7 +511,7 @@ const InterviewerContent = () => {
                 `interview-${interviewSessionId}.mp4`
             );
 
-            console.log(
+            logger.info(
                 "📤 Sending upload request to /api/interviews/session/screen-recording"
             );
             const uploadResponse = await fetch(
@@ -523,21 +522,21 @@ const InterviewerContent = () => {
                 }
             );
 
-            console.log("📤 Upload response status:", uploadResponse.status);
+            logger.info("📤 Upload response status:", uploadResponse.status);
 
             if (!uploadResponse.ok) {
                 const errorText = await uploadResponse.text();
-                console.error("❌ Upload failed:", errorText);
+                logger.error("❌ Upload failed:", errorText);
                 throw new Error(
                     `Failed to upload recording: ${uploadResponse.status}`
                 );
             }
 
             const uploadData = await uploadResponse.json();
-            console.log("✅ Recording uploaded:", uploadData.recordingUrl);
+            logger.info("✅ Recording uploaded:", uploadData.recordingUrl);
 
             // Update interview session with recording URL
-            console.log(
+            logger.info(
                 "📤 Sending update request to:",
                 `/api/interviews/session/${interviewSessionId}`
             );
@@ -554,22 +553,22 @@ const InterviewerContent = () => {
                 }
             );
 
-            console.log("📤 Update response status:", updateResponse.status);
+            logger.info("📤 Update response status:", updateResponse.status);
 
             if (!updateResponse.ok) {
                 const errorText = await updateResponse.text();
-                console.error("❌ Update failed:", errorText);
+                logger.error("❌ Update failed:", errorText);
                 throw new Error(
                     `Failed to update interview session: ${updateResponse.status}`
                 );
             }
 
             const updateData = await updateResponse.json();
-            console.log("✅ Interview session updated successfully");
-            console.log("📋 Updated session data:", updateData);
+            logger.info("✅ Interview session updated successfully");
+            logger.info("📋 Updated session data:", updateData);
             setRecordingUploaded(true);
         } catch (error) {
-            console.error(
+            logger.error(
                 "❌ Error in insertRecordingUrl event handler:",
                 error
             );
@@ -595,7 +594,7 @@ const InterviewerContent = () => {
                 try {
                     // Create application if it doesn't exist
                     if (!applicationCreated && companyName) {
-                        console.log("🚀 Creating application for interview...");
+                        logger.info("🚀 Creating application for interview...");
                         const company = companiesData.find(
                             (c) => c.name === companyName
                         );
@@ -617,14 +616,14 @@ const InterviewerContent = () => {
 
                                 if (response.ok) {
                                     const data = await response.json();
-                                    console.log(
+                                    logger.info(
                                         "✅ Application created for interview:",
                                         data.application.id
                                     );
                                     setApplicationCreated(true);
 
                                     // Now create interview session
-                                    console.log(
+                                    logger.info(
                                         "🚀 Creating interview session..."
                                     );
                                     const sessionResponse = await fetch(
@@ -646,11 +645,11 @@ const InterviewerContent = () => {
                                     if (sessionResponse.ok) {
                                         const sessionData =
                                             await sessionResponse.json();
-                                        console.log(
+                                        logger.info(
                                             "✅ Interview session created:",
                                             sessionData.interviewSession.id
                                         );
-                                        console.log(
+                                        logger.info(
                                             "🔄 Setting interviewSessionId to:",
                                             sessionData.interviewSession.id
                                         );
@@ -1245,19 +1244,17 @@ render(UserList);`;
                                         ref={realTimeConversationRef}
                                         isInterviewActive={isInterviewActive}
                                         candidateName={state.candidateName}
-                                        processAIMessage={processAIMessage}
                                         handleUserTranscript={
                                             handleUserTranscript
                                         }
-                                        incrementAITurns={incrementAITurns}
                                         updateKBVariables={updateKBVariables}
                                         kbVariables={kbVariables}
                                         onStartConversation={() => {
-                                            console.log("Conversation started");
+                                            logger.info("Conversation started");
                                             setIsAgentConnected(true);
                                         }}
                                         onEndConversation={() => {
-                                            console.log("Conversation ended");
+                                            logger.info("Conversation ended");
                                             setIsInterviewActive(false);
                                             setIsAgentConnected(false);
                                             setIsTimerRunning(false);

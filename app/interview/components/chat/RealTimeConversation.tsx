@@ -11,6 +11,7 @@ import React, {
 import { useConversation } from "@elevenlabs/react";
 import { useInterview } from "../../../../lib";
 import AnimatedWaveform from "./AnimatedWaveform";
+import { logger } from "../../../../lib";
 
 interface RealTimeConversationProps {
     onStartConversation?: () => void;
@@ -57,7 +58,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         const conversation = useConversation({
             micMuted,
             onConnect: () => {
-                console.log("✅ Connected to Eleven Labs");
+                logger.info("✅ Connected to Eleven Labs");
                 setIsConnected(true);
                 setConnectionStatus("Connected");
 
@@ -81,7 +82,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                 onStartConversation?.();
             },
             onDisconnect: (event) => {
-                console.log("❌ Disconnected from Eleven Labs:", event);
+                logger.info("❌ Disconnected from Eleven Labs:", event);
                 setIsConnected(false);
                 setConnectionStatus("Disconnected");
 
@@ -97,7 +98,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                 onEndConversation?.();
             },
             onMessage: async (message) => {
-                console.log("📨 Message:", message);
+                logger.info("📨 Message:", message);
 
                 // Send transcription data to ChatPanel
                 if (message.message) {
@@ -111,7 +112,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                         }
                         // Skip empty messages after SYS tag processing
                         if (!messageText.trim()) {
-                            console.log(
+                            logger.info(
                                 "🔇 Skipping empty AI message after SYS tag processing"
                             );
                             return;
@@ -146,7 +147,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                                 "The next steps will be shared with you shortly."
                             )
                         ) {
-                            console.log(
+                            logger.info(
                                 "🎯 Detected closing message - preparing to end interview"
                             );
                             setIsClosingMessagePlaying(true);
@@ -155,20 +156,20 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                 }
             },
             onError: (error: any) => {
-                console.error("🚨 Interviewer: Eleven Labs error:", error);
-                console.error("🚨 Interviewer: Error type:", typeof error);
-                console.error(
+                logger.error("🚨 Interviewer: Eleven Labs error:", error);
+                logger.error("🚨 Interviewer: Error type:", typeof error);
+                logger.error(
                     "🚨 Interviewer: Error properties:",
                     Object.keys(error)
                 );
 
                 // Handle WebSocket CloseEvent specifically
                 if (error && typeof error === "object" && "code" in error) {
-                    console.error(
+                    logger.error(
                         "🚨 Interviewer: WebSocket Close Code:",
                         error.code
                     );
-                    console.error(
+                    logger.error(
                         "🚨 Interviewer: WebSocket Reason:",
                         error.reason
                     );
@@ -182,21 +183,21 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         });
 
         const getSignedUrl = useCallback(async (): Promise<string> => {
-            console.log("🔗 Interviewer: Fetching signed URL...");
+            logger.info("🔗 Interviewer: Fetching signed URL...");
             const response = await fetch("/api/convai");
-            console.log("🔗 Interviewer: Response status:", response.status);
+            logger.info("🔗 Interviewer: Response status:", response.status);
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error("🔗 Interviewer: Error response:", errorText);
+                logger.error("🔗 Interviewer: Error response:", errorText);
                 throw new Error(
                     `Failed to get signed url: ${response.statusText} - ${errorText}`
                 );
             }
 
             const data = await response.json();
-            console.log("🔗 Interviewer: Response data:", data);
-            console.log("🔗 Interviewer: Signed URL:", data.signedUrl);
+            logger.info("🔗 Interviewer: Response data:", data);
+            logger.info("🔗 Interviewer: Signed URL:", data.signedUrl);
 
             if (!data.signedUrl) {
                 throw new Error("No signedUrl in response");
@@ -212,17 +213,17 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
 
         const startConversation = useCallback(async () => {
             try {
-                console.log("🎤 Interviewer: Requesting audio permissions...");
+                logger.info("🎤 Interviewer: Requesting audio permissions...");
                 const micStream = await navigator.mediaDevices.getUserMedia({
                     audio: true,
                 });
                 micStreamRef.current = micStream;
-                console.log("✅ Interviewer: Audio permissions granted");
+                logger.info("✅ Interviewer: Audio permissions granted");
 
                 setIsRecording(true);
-                console.log("✅ Interviewer: Audio setup complete");
+                logger.info("✅ Interviewer: Audio setup complete");
             } catch (error) {
-                console.error(
+                logger.error(
                     "❌ Failed to start audio or conversation:",
                     error
                 );
@@ -232,18 +233,18 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
 
         const connectToElevenLabs = useCallback(async () => {
             try {
-                console.log("Getting signed URL...");
+                logger.info("Getting signed URL...");
                 const signedUrl = await getSignedUrl();
-                console.log("Got signed URL:", signedUrl);
-                console.log("🎯 Interviewer: Starting ElevenLabs session...");
+                logger.info("Got signed URL:", signedUrl);
+                logger.info("🎯 Interviewer: Starting ElevenLabs session...");
 
                 // Remove delay to match test page
                 await conversation.startSession({ signedUrl });
-                console.log("Session started successfully");
+                logger.info("Session started successfully");
             } catch (error) {
-                console.error("Failed to start conversation session:", error);
+                logger.error("Failed to start conversation session:", error);
                 if (error instanceof Error) {
-                    console.error("Error details:", {
+                    logger.error("Error details:", {
                         message: error.message,
                         name: error.name,
                         stack: error.stack,
@@ -255,12 +256,12 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
 
         useEffect(() => {
             if (isRecording) {
-                console.log(
+                logger.info(
                     "🔄 isRecording is true, connecting to ElevenLabs..."
                 );
                 connectToElevenLabs();
             } else {
-                console.log("⏸️ isRecording is false, not connecting");
+                logger.info("⏸️ isRecording is false, not connecting");
             }
         }, [isRecording]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -288,11 +289,11 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                         current_code_summary: state.currentCode,
                     });
                     lastSentCodeRef.current = state.currentCode;
-                    console.log(
+                    logger.info(
                         "✅ Code summary KB_UPDATE sent via state machine"
                     );
                 } catch (error) {
-                    console.error("❌ Code summary KB_UPDATE failed:", error);
+                    logger.error("❌ Code summary KB_UPDATE failed:", error);
                 }
             }, 1500);
 
@@ -305,7 +306,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         }, [state.currentCode, conversation.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
         const disconnectFromConversation = useCallback(() => {
-            console.log("🔌 Disconnecting from conversation...");
+            logger.info("🔌 Disconnecting from conversation...");
 
             // Clear any pending KB_UPDATE timeout
             if (updateTimeoutRef.current) {
@@ -315,28 +316,28 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
 
             // Stop microphone stream tracks
             if (micStreamRef.current) {
-                console.log("🎤 Stopping microphone tracks...");
+                logger.info("🎤 Stopping microphone tracks...");
                 micStreamRef.current.getTracks().forEach((track) => {
-                    console.log(
+                    logger.info(
                         `🛑 Stopping microphone track: ${track.kind} - ${track.label}`
                     );
                     track.stop();
                 });
                 micStreamRef.current = null;
-                console.log("✅ Microphone tracks stopped");
+                logger.info("✅ Microphone tracks stopped");
             }
 
-            console.log("🔚 Ending ElevenLabs session");
+            logger.info("🔚 Ending ElevenLabs session");
             conversation.endSession();
             setIsRecording(false);
             setIsConnected(false);
             setConnectionStatus("Disconnected");
             onEndConversation?.();
-            console.log("✅ Disconnection complete");
+            logger.info("✅ Disconnection complete");
         }, [conversation, onEndConversation]);
 
         const stopConversation = useCallback(async () => {
-            console.log("🛑 Stop conversation called");
+            logger.info("🛑 Stop conversation called");
             disconnectFromConversation();
         }, [disconnectFromConversation]);
 
@@ -370,10 +371,10 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                     }
 
                     await conversation.sendUserMessage(message);
-                    console.log("✅ User message sent successfully:", message);
+                    logger.info("✅ User message sent successfully:", message);
                     return true;
                 } catch (error) {
-                    console.error("❌ Failed to send user message:", error);
+                    logger.error("❌ Failed to send user message:", error);
                     return false;
                 }
             },
@@ -393,17 +394,17 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         // Monitor AI speaking state to detect when closing message audio ends
         useEffect(() => {
             if (isClosingMessagePlaying && !conversation.isSpeaking) {
-                console.log(
+                logger.info(
                     "🎯 Closing message audio finished - triggering interview end"
                 );
                 setIsClosingMessagePlaying(false);
 
                 // Wait 1 second then stop the interview
                 setTimeout(() => {
-                    console.log(
+                    logger.info(
                         "⏰ 1 second delay complete - stopping interview"
                     );
-                    console.log(
+                    logger.info(
                         "🎉 AUTOMATIC INTERVIEW END: Interview ended automatically after closing message"
                     );
                     // Notify parent that interview has concluded automatically
@@ -435,9 +436,9 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             return () => {
                 // Stop microphone stream tracks on unmount
                 if (micStreamRef.current) {
-                    console.log("🔄 Unmounting: Stopping microphone tracks...");
+                    logger.info("🔄 Unmounting: Stopping microphone tracks...");
                     micStreamRef.current.getTracks().forEach((track) => {
-                        console.log(
+                        logger.info(
                             `🛑 Stopping microphone track on unmount: ${track.kind} - ${track.label}`
                         );
                         track.stop();

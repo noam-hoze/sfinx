@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../../../../lib/auth";
+import { logger } from "../../../../../lib";
 
 const globalForPrisma = globalThis as unknown as {
     prisma: PrismaClient | undefined;
@@ -16,14 +17,14 @@ export async function PATCH(
     { params }: { params: { sessionId: string } }
 ) {
     try {
-        console.log("🔍 Interview session update API called");
+        logger.info("🔍 Interview session update API called");
 
         const session = await getServerSession(authOptions);
-        console.log(
+        logger.info(
             "🔍 Session check:",
             session ? "Session found" : "No session"
         );
-        console.log("🔍 User ID:", (session?.user as any)?.id);
+        logger.info("🔍 User ID:", (session?.user as any)?.id);
 
         // Temporarily disable auth check for debugging
         // if (!(session?.user as any)?.id) {
@@ -37,7 +38,7 @@ export async function PATCH(
         const userId = (session!.user as any).id;
         const { sessionId } = params;
 
-        console.log("📋 Session ID:", sessionId);
+        logger.info("📋 Session ID:", sessionId);
 
         // Verify the interview session exists and belongs to the user
         const interviewSession = await prisma.interviewSession.findFirst({
@@ -48,7 +49,7 @@ export async function PATCH(
         });
 
         if (!interviewSession) {
-            console.log(
+            logger.warn(
                 "❌ Interview session not found or doesn't belong to user"
             );
             return NextResponse.json(
@@ -60,7 +61,7 @@ export async function PATCH(
         const { videoUrl } = await request.json();
 
         if (!videoUrl) {
-            console.log("❌ No video URL provided");
+            logger.warn("❌ No video URL provided");
             return NextResponse.json(
                 { error: "Video URL is required" },
                 { status: 400 }
@@ -77,7 +78,7 @@ export async function PATCH(
             },
         });
 
-        console.log(
+        logger.info(
             "✅ Interview session updated with recording URL:",
             updatedSession.id
         );
@@ -87,7 +88,7 @@ export async function PATCH(
             interviewSession: updatedSession,
         });
     } catch (error) {
-        console.error("❌ Error updating interview session:", error);
+        logger.error("❌ Error updating interview session:", error);
         return NextResponse.json(
             { error: "Failed to update interview session" },
             { status: 500 }

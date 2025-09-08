@@ -1,7 +1,39 @@
 "use client";
+/**
+ * useElevenLabsStateMachine
+ *
+ * Purpose
+ * - Minimal conduit between the app and ElevenLabs.
+ * - Owns the Knowledge Base (KB) variables, emits KB_UPDATE messages,
+ *   and on a rising edge of using_ai (false -> true) sends a hidden
+ *   user message to prompt the interviewer to ask exactly one question.
+ *
+ * What it does
+ * - Maintains kbVariables: { candidate_name, is_coding, using_ai, current_code_summary, has_submitted }.
+ * - updateKBVariables: merges updates, sanitizes booleans, and sends KB_UPDATE.
+ * - Rising edge handling: when using_ai flips to true, immediately sends one
+ *   special user message (not shown in the chat panel).
+ * - handleUserTranscript: forwards user speech only while coding (is_coding = true).
+ * - setCodingState / handleSubmission: keeps the KB coherent with the coding flow.
+ *
+ * What it does NOT do
+ * - No SYS tags, timers, or turn-counting.
+ * - No metrics/fairness/evidence tracking.
+ */
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useEffect } from "react";
+import { logger } from "../logger";
 
+const NUDGE_MESSAGE_TO_ASK_THE_CANDIDATE_A_QUESTION = `
+I just used external AI. Now your using_ai variable is 
+true. Ask me only one follow up question about the 
+current_code_summary. After you ask that question I'm going to respond, and
+then you will engage with me in a conversation about your question.`;
+
+/**
+ * KBVariables: canonical context mirrored to ElevenLabs via KB_UPDATE.
+ * All booleans are sanitized before sending.
+ */
 export interface KBVariables {
     candidate_name: string;
     is_coding: boolean;
@@ -10,51 +42,17 @@ export interface KBVariables {
     has_submitted: boolean;
 }
 
-export interface StateMachineState {
-    ai_session_active: boolean;
-    ai_turns: number;
-    user_turns: number;
-    silence_timer_active: boolean;
-    session_timer_active: boolean;
-    session_start_time: number;
-}
-
-export interface TimerConfig {
-    silence_timeout: number; // Default 7 seconds
-    session_timeout: number; // Default 120 seconds
-    max_ai_turns: number; // Default 2
-    max_user_turns: number; // Default 2
-}
-
+/**
+ * useElevenLabsStateMachine
+ * @param onElevenLabsUpdate  Sends raw text updates (e.g. `KB_UPDATE: {...}`) to ElevenLabs
+ * @param onSendUserMessage   Sends a hidden user message (not shown in chat panel)
+ * @param candidateName       Initial candidate name (kept in sync if it changes)
+ */
 export const useElevenLabsStateMachine = (
     onElevenLabsUpdate?: (text: string) => Promise<void>,
     onSendUserMessage?: (message: string) => Promise<boolean>,
     candidateName: string = "Candidate"
 ) => {
-    // Default timer configuration
-    const timerConfig: TimerConfig = {
-        silence_timeout: 7000, // 7 seconds
-        session_timeout: 120000, // 120 seconds
-        max_ai_turns: 2,
-        max_user_turns: 2,
-    };
-
-    // State machine state
-    const [state, setState] = useState<StateMachineState>({
-        ai_session_active: false,
-        ai_turns: 0,
-        user_turns: 0,
-        silence_timer_active: false,
-        session_timer_active: false,
-        session_start_time: 0,
-    });
-
-    // Ref to mirror ai_session_active for timer callbacks (avoids closure trap)
-    const aiSessionActiveRef = useRef(false);
-    useEffect(() => {
-        aiSessionActiveRef.current = state.ai_session_active;
-    }, [state.ai_session_active]);
-
     // KB Variables state
     const [kbVariables, setKBVariables] = useState<KBVariables>({
         candidate_name: candidateName,
@@ -64,11 +62,12 @@ export const useElevenLabsStateMachine = (
         has_submitted: false,
     });
 
-    // Timer refs
-    const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
-    const sessionTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-    // Update KB variables and send to ElevenLabs
+    /**
+     * updateKBVariables
+     * - Merge partial updates into KB, sanitize, and emit a KB_UPDATE to ElevenLabs.
+     * - Side effect: if using_ai transitions false -> true, send one hidden user message
+     *   to nudge the interviewer to ask a single question about current_code_summary.
+     */
     const updateKBVariables = useCallback(
         async (updates: Partial<KBVariables>) => {
             const newKB = { ...kbVariables, ...updates };
@@ -93,9 +92,9 @@ export const useElevenLabsStateMachine = (
                 try {
                     const text = `KB_UPDATE: ${JSON.stringify(sanitizedKB)}`;
                     await onElevenLabsUpdate(text);
-                    console.log("✅ KB variables updated:", sanitizedKB);
+                    logger.info("✅ KB variables updated:", sanitizedKB);
                 } catch (error) {
-                    console.error("❌ Failed to update KB variables:", error);
+                    logger.error("❌ Failed to update KB variables:", error);
                 }
             }
 
@@ -103,14 +102,14 @@ export const useElevenLabsStateMachine = (
             if (isUsingAIRisingEdge && onSendUserMessage) {
                 try {
                     await onSendUserMessage(
-                        "I just used external AI. Now your using_ai variable is true, so you should ask me only one question about the current_code_summary. Let's have a conversation about your question afterwards."
+                        NUDGE_MESSAGE_TO_ASK_THE_CANDIDATE_A_QUESTION
                     );
-                    console.log(
-                        "SENT - I just used external AI. Now your using_ai variable is true, so you should ask me only one question about the current_code_summary. Let's have a conversation about your question afterwards."
+                    logger.info(
+                        `✅ SENT - ${NUDGE_MESSAGE_TO_ASK_THE_CANDIDATE_A_QUESTION}`
                     );
                 } catch (err) {
-                    console.error(
-                        "❌ WAS NOT SENT - I just used external AI. Now your using_ai variable is true, so you should ask me only one question about the current_code_summary. Let's have a conversation about your question afterwards. userAI-usage notification message failed to send:"
+                    logger.error(
+                        `❌ WAS NOT SENT - ${NUDGE_MESSAGE_TO_ASK_THE_CANDIDATE_A_QUESTION}`
                     );
                 }
             }
@@ -118,296 +117,40 @@ export const useElevenLabsStateMachine = (
         [kbVariables, onElevenLabsUpdate]
     );
 
-    // Start silence timer
-    const startSilenceTimer = useCallback(() => {
-        console.log("⏰ Starting silence timer");
-
-        // Clear existing timer
-        if (silenceTimerRef.current) {
-            clearTimeout(silenceTimerRef.current);
-        }
-
-        setState((prev) => ({ ...prev, silence_timer_active: true }));
-
-        silenceTimerRef.current = setTimeout(async () => {
-            console.log("🚨 Silence timeout reached - injecting [[SYS:WRAP]]");
-
-            setState((prev) => ({ ...prev, silence_timer_active: false }));
-
-            // Only inject wrap if session is still active (use ref to avoid closure trap)
-            if (aiSessionActiveRef.current) {
-                await injectSilentMessage("[[SYS:WRAP]]");
-            }
-        }, timerConfig.silence_timeout);
-    }, [timerConfig.silence_timeout]);
-
-    // Start session timer
-    const startSessionTimer = useCallback(() => {
-        console.log("⏰ Starting session timer");
-
-        // Clear existing timer
-        if (sessionTimerRef.current) {
-            clearTimeout(sessionTimerRef.current);
-        }
-
-        setState((prev) => ({
-            ...prev,
-            session_timer_active: true,
-            session_start_time: Date.now(),
-        }));
-
-        sessionTimerRef.current = setTimeout(async () => {
-            console.log("🚨 Session timeout reached - injecting [[SYS:WRAP]]");
-
-            setState((prev) => ({ ...prev, session_timer_active: false }));
-
-            // Only inject wrap if session is still active (use ref to avoid closure trap)
-            if (aiSessionActiveRef.current) {
-                await injectSilentMessage("[[SYS:WRAP]]");
-            }
-        }, timerConfig.session_timeout);
-    }, [timerConfig.session_timeout]);
-
-    // Inject silent message to ElevenLabs
-    const injectSilentMessage = useCallback(
-        async (tag: string) => {
-            if (onSendUserMessage) {
-                console.log("📤 Injecting silent message:", tag);
-                await onSendUserMessage(tag);
-            }
-        },
-        [onSendUserMessage]
-    );
-
-    // Handle SYS tags from AI responses
-    const handleSYSTag = useCallback(
-        async (tag: string, aiMessage: string) => {
-            console.log("🎯 SYS Tag detected:", tag);
-
-            switch (tag) {
-                case "[[SYS:ARM_SILENCE_TIMER]]":
-                    startSilenceTimer();
-                    break;
-
-                case "[[SYS:ARM_SESSION_TIMER]]":
-                    console.log(
-                        "⏰ Session timer armed - activating AI session"
-                    );
-                    setState((prev) => ({ ...prev, ai_session_active: true }));
-                    startSessionTimer();
-                    break;
-
-                case "[[SYS:WRAP]]":
-                    console.log("🔄 SYS:WRAP received - closing session");
-
-                    // Reset using_ai and session state
-                    await updateKBVariables({ using_ai: false });
-                    setState((prev) => ({
-                        ...prev,
-                        ai_session_active: false,
-                        ai_turns: 0,
-                        user_turns: 0,
-                        silence_timer_active: false,
-                        session_timer_active: false,
-                    }));
-
-                    // Clear timers
-                    if (silenceTimerRef.current) {
-                        clearTimeout(silenceTimerRef.current);
-                        silenceTimerRef.current = null;
-                    }
-                    if (sessionTimerRef.current) {
-                        clearTimeout(sessionTimerRef.current);
-                        sessionTimerRef.current = null;
-                    }
-
-                    console.log(
-                        "✅ AI usage session closed, returned to Silent Mode"
-                    );
-                    break;
-
-                default:
-                    console.warn("⚠️ Unknown SYS tag:", tag);
-            }
-        },
-        [startSilenceTimer, startSessionTimer, updateKBVariables]
-    );
-
-    // Process AI message for SYS tags
-    const processAIMessage = useCallback(
-        async (message: string) => {
-            const sysTagPattern = /\[\[SYS:[^\]]+\]\]/g;
-            const sysTags = message.match(sysTagPattern);
-
-            if (sysTags) {
-                // Process each SYS tag
-                for (const tag of sysTags) {
-                    await handleSYSTag(tag, message);
-                }
-
-                // Strip SYS tags from the message before returning
-                const cleanMessage = message.replace(sysTagPattern, "").trim();
-                return cleanMessage;
-            }
-
-            return message;
-        },
-        [handleSYSTag]
-    );
-
-    // Handle user transcript
+    /**
+     * handleUserTranscript
+     * - Minimal gate: only forwards transcripts while coding.
+     */
     const handleUserTranscript = useCallback(
         async (transcript: string) => {
-            console.log("🎤 User transcript received:", transcript);
-
-            // Skip if transcript is non-semantic (punctuation, fillers, etc.)
-            if (isNonSemanticTranscript(transcript)) {
-                console.log("🔇 Skipping non-semantic transcript");
-                return;
-            }
-
-            // Track timing for session management
-            const now = Date.now();
-
-            // Clear silence timer since we have user input
-            if (silenceTimerRef.current) {
-                clearTimeout(silenceTimerRef.current);
-                silenceTimerRef.current = null;
-                setState((prev) => ({ ...prev, silence_timer_active: false }));
-            }
+            logger.info("🎤 User transcript received:", transcript);
 
             // Always forward meaningful questions during coding
-            if (
-                kbVariables.is_coding &&
-                isDirectMeaningfulQuestion(transcript)
-            ) {
-                console.log("✅ Forwarding meaningful question during coding");
-                await onSendUserMessage?.(transcript);
-            } else if (state.ai_session_active) {
-                // Check if transcript is semantically meaningful (not just "ok", "yes", etc.)
-                const isSemantic =
-                    transcript.trim().split(/\s+/).length >= 4 ||
-                    transcript.trim().length >= 20; // Or at least 20 characters
-
-                if (isSemantic) {
-                    // In AI Usage Session - forward normally and increment counter
-                    setState((prev) => {
-                        const newUserTurns = prev.user_turns + 1;
-
-                        // Check turn cap (only if session still active)
-                        if (
-                            newUserTurns >= timerConfig.max_user_turns &&
-                            aiSessionActiveRef.current
-                        ) {
-                            console.log(
-                                "🚨 User turn cap reached - injecting [[SYS:WRAP]]"
-                            );
-                            injectSilentMessage("[[SYS:WRAP]]");
-                        }
-
-                        return { ...prev, user_turns: newUserTurns };
-                    });
-                } else {
-                    console.log(
-                        "🔇 Skipping short/insemantic user turn:",
-                        transcript
-                    );
-                }
-
+            if (kbVariables.is_coding) {
+                logger.info("✅ Forwarding meaningful question during coding");
                 await onSendUserMessage?.(transcript);
             }
         },
-        [
-            kbVariables.is_coding,
-            state.ai_session_active,
-            timerConfig.max_user_turns,
-            onSendUserMessage,
-            injectSilentMessage,
-        ]
+        [kbVariables.is_coding, onSendUserMessage]
     );
 
-    // Check if transcript is non-semantic
-    const isNonSemanticTranscript = useCallback(
-        (transcript: string): boolean => {
-            const cleanTranscript = transcript.trim().toLowerCase();
-
-            // Skip if too short
-            if (cleanTranscript.length < 2) return true;
-
-            // Skip punctuation only
-            if (/^[.!?,\s]*$/.test(cleanTranscript)) return true;
-
-            // Skip common fillers
-            const fillers = [
-                "um",
-                "uh",
-                "like",
-                "you know",
-                "so",
-                "well",
-                "hmm",
-            ];
-            if (fillers.includes(cleanTranscript)) return true;
-
-            // Skip ellipses
-            if (/^\.{3,}$/.test(cleanTranscript)) return true;
-
-            return false;
-        },
-        []
-    );
-
-    // Check if transcript is a direct meaningful question
-    const isDirectMeaningfulQuestion = useCallback(
-        (transcript: string): boolean => {
-            const cleanTranscript = transcript.trim().toLowerCase();
-
-            // Must contain question words or end with question mark
-            const hasQuestionWord =
-                /\b(what|how|why|when|where|who|which|can|could|should|would|do|does|did|is|are|was|were)\b/.test(
-                    cleanTranscript
-                );
-            const endsWithQuestionMark = cleanTranscript.endsWith("?");
-
-            // Must be longer than a simple acknowledgment
-            const isSubstantial = cleanTranscript.length > 10;
-
-            return (hasQuestionWord || endsWithQuestionMark) && isSubstantial;
-        },
-        []
-    );
-
-    // Handle coding state changes
+    /**
+     * setCodingState
+     * - Toggles coding phase and mirrors to ElevenLabs via KB_UPDATE.
+     */
     const setCodingState = useCallback(
         async (isCoding: boolean) => {
             await updateKBVariables({
                 is_coding: isCoding,
             });
-
-            if (!isCoding) {
-                // Reset session state when stopping coding
-                setState((prev) => ({
-                    ...prev,
-                    ai_session_active: false,
-                    ai_turns: 0,
-                    user_turns: 0,
-                    silence_timer_active: false,
-                    session_timer_active: false,
-                }));
-
-                // Clear timers
-                if (silenceTimerRef.current) {
-                    clearTimeout(silenceTimerRef.current);
-                }
-                if (sessionTimerRef.current) {
-                    clearTimeout(sessionTimerRef.current);
-                }
-            }
         },
         [updateKBVariables]
     );
 
-    // Handle submission
+    /**
+     * handleSubmission
+     * - Sends the final code summary, marks submission, and ends coding.
+     */
     const handleSubmission = useCallback(
         async (code: string) => {
             await updateKBVariables({
@@ -415,64 +158,13 @@ export const useElevenLabsStateMachine = (
                 has_submitted: true,
                 is_coding: false,
             });
-
-            // Reset session state
-            setState((prev) => ({
-                ...prev,
-                ai_session_active: false,
-                ai_turns: 0,
-                user_turns: 0,
-                silence_timer_active: false,
-                session_timer_active: false,
-            }));
-
-            // Clear timers
-            if (silenceTimerRef.current) {
-                clearTimeout(silenceTimerRef.current);
-            }
-            if (sessionTimerRef.current) {
-                clearTimeout(sessionTimerRef.current);
-            }
         },
         [updateKBVariables]
     );
 
-    // Track AI turns (called when AI responds)
-    const incrementAITurns = useCallback(() => {
-        setState((prev) => {
-            // Only increment if session is active
-            if (!prev.ai_session_active) {
-                console.log(
-                    "⚠️ Skipping AI turn increment - no active session"
-                );
-                return prev;
-            }
-
-            const newAITurns = prev.ai_turns + 1;
-
-            // Check turn cap
-            if (newAITurns >= timerConfig.max_ai_turns) {
-                console.log("🚨 AI turn cap reached - injecting [[SYS:WRAP]]");
-                injectSilentMessage("[[SYS:WRAP]]");
-            }
-
-            return { ...prev, ai_turns: newAITurns };
-        });
-    }, [timerConfig.max_ai_turns, injectSilentMessage]);
-
-    // Cleanup on unmount
-    useEffect(() => {
-        return () => {
-            if (silenceTimerRef.current) {
-                clearTimeout(silenceTimerRef.current);
-            }
-            if (sessionTimerRef.current) {
-                clearTimeout(sessionTimerRef.current);
-            }
-        };
-    }, []);
-
-    // Update candidate name when it changes
+    /**
+     * Sync candidate name into ElevenLabs KB if the caller changes it.
+     */
     useEffect(() => {
         if (candidateName !== kbVariables.candidate_name) {
             updateKBVariables({ candidate_name: candidateName });
@@ -481,24 +173,12 @@ export const useElevenLabsStateMachine = (
 
     return {
         // State
-        state,
         kbVariables,
 
         // Actions
         updateKBVariables,
         handleUserTranscript,
-        processAIMessage,
         setCodingState,
         handleSubmission,
-        incrementAITurns,
-
-        // Timer controls
-        startSilenceTimer,
-        startSessionTimer,
-        injectSilentMessage,
-
-        // Utilities
-        isNonSemanticTranscript,
-        isDirectMeaningfulQuestion,
     };
 };

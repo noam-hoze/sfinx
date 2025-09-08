@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.10.0] - 2025-09-08
+
+### Changed
+
+-   AI usage flow simplified: EditorPanel sets `using_ai` on paste > 50; state machine now mirrors to ElevenLabs via KB_UPDATE and sends one hidden nudge message on rising edge.
+-   Removed SYS tags, timers, turns, fairness/metrics; lean `useElevenLabsStateMachine` with clear docs.
+
+### Added
+
+-   Inline documentation for `lib/hooks/useElevenLabsStateMachine.ts` and a constant nudge message string.
+
+### Fixed
+
+-   Consistent inclusion of `using_ai` in KB_UPDATEs to prevent accidental clearing by subsequent updates.
+
 ## [1.9.2] - 2025-09-06
 
 ### Added

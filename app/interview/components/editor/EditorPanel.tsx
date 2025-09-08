@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
 import { Play, RotateCcw } from "lucide-react";
 import CodePreview from "./CodePreview";
+import { logger } from "../../../../lib";
 
 interface EditorPanelProps {
     showDiff?: boolean;
@@ -143,7 +144,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
 
                 // Simple AI detection: check if paste > 50 chars
                 if (value.length > 50) {
-                    console.log(
+                    logger.info(
                         "🚨 Large paste detected - requesting state machine to set using_ai: true"
                     );
                     updateKBVariables?.({ using_ai: true });

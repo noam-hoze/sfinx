@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../../../lib/auth";
+import { logger } from "../../../../lib";
 
 const globalForPrisma = globalThis as unknown as {
     prisma: PrismaClient | undefined;
@@ -13,13 +14,13 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 export async function POST(request: NextRequest) {
     try {
-        console.log("🔍 Interview session creation API called");
+        logger.info("🔍 Interview session creation API called");
 
         const session = await getServerSession(authOptions);
-        console.log("🔍 Session:", session ? "Found" : "Not found");
+        logger.info("🔍 Session:", session ? "Found" : "Not found");
 
         if (!(session?.user as any)?.id) {
-            console.log("❌ No user ID in session");
+            logger.warn("❌ No user ID in session");
             return NextResponse.json(
                 { error: "Unauthorized" },
                 { status: 401 }
@@ -27,13 +28,13 @@ export async function POST(request: NextRequest) {
         }
 
         const userId = (session!.user as any).id;
-        console.log("✅ User ID:", userId);
+        logger.info("✅ User ID:", userId);
 
         const { applicationId, companyId } = await request.json();
-        console.log("📋 Request data:", { applicationId, companyId });
+        logger.info("📋 Request data:", { applicationId, companyId });
 
         if (!applicationId) {
-            console.log("❌ Missing applicationId");
+            logger.warn("❌ Missing applicationId");
             return NextResponse.json(
                 { error: "Application ID is required" },
                 { status: 400 }
@@ -49,7 +50,7 @@ export async function POST(request: NextRequest) {
         });
 
         if (!application) {
-            console.log("❌ Application not found or doesn't belong to user");
+            logger.warn("❌ Application not found or doesn't belong to user");
             return NextResponse.json(
                 { error: "Application not found" },
                 { status: 404 }
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Create new interview session
-        console.log("🚀 Creating interview session...");
+        logger.info("🚀 Creating interview session...");
         const interviewSession = await prisma.interviewSession.create({
             data: {
                 candidateId: userId,
@@ -85,14 +86,14 @@ export async function POST(request: NextRequest) {
             },
         });
 
-        console.log("✅ Interview session created:", interviewSession.id);
+        logger.info("✅ Interview session created:", interviewSession.id);
         return NextResponse.json({
             message: "Interview session created successfully",
             interviewSession,
         });
     } catch (error) {
-        console.error("❌ Error creating interview session:", error);
-        console.error("❌ Error details:", {
+        logger.error("❌ Error creating interview session:", error);
+        logger.error("❌ Error details:", {
             name: error?.name,
             message: error?.message,
             stack: error?.stack,

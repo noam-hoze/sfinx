@@ -7,6 +7,7 @@ import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { Menu } from "@headlessui/react";
+import { logger } from "../index";
 
 export default function Header() {
     const { data: session } = useSession();
@@ -19,10 +20,10 @@ export default function Header() {
         return null;
     }
 
-    // Debug session data
-    console.log("Header - Session user:", session?.user);
-    console.log("Header - Session user image:", session?.user?.image);
-    console.log(
+    // Debug session data (optional logging)
+    logger.info("Header - Session user:", session?.user);
+    logger.info("Header - Session user image:", session?.user?.image);
+    logger.info(
         "Header - Image source:",
         session?.user?.image
             ? `${window.location.origin}${session.user.image}`

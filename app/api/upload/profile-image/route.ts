@@ -4,6 +4,7 @@ import { authOptions } from "../../../../lib/auth";
 import { PrismaClient } from "@prisma/client";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
+import { logger } from "../../../../lib";
 
 const globalForPrisma = globalThis as unknown as {
     prisma: PrismaClient | undefined;
@@ -16,11 +17,11 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 export async function POST(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
-        console.log("Session:", session);
-        console.log("User ID:", (session?.user as any)?.id);
+        logger.info("Session:", session);
+        logger.info("User ID:", (session?.user as any)?.id);
 
         if (!(session?.user as any)?.id) {
-            console.error("No session or user ID found");
+            logger.error("No session or user ID found");
             return NextResponse.json(
                 { error: "Unauthorized" },
                 { status: 401 }
@@ -29,13 +30,13 @@ export async function POST(request: NextRequest) {
 
         const data = await request.formData();
         const file = data.get("image") as File;
-        console.log("File received:", file);
-        console.log("File name:", file?.name);
-        console.log("File size:", file?.size);
-        console.log("File type:", file?.type);
+        logger.info("File received:", file);
+        logger.info("File name:", file?.name);
+        logger.info("File size:", file?.size);
+        logger.info("File type:", file?.type);
 
         if (!file) {
-            console.error("No file provided");
+            logger.error("No file provided");
             return NextResponse.json(
                 { error: "No file provided" },
                 { status: 400 }
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ imageUrl });
     } catch (error) {
-        console.error("Upload error:", error);
+        logger.error("Upload error:", error);
         return NextResponse.json(
             { error: "Internal server error" },
             { status: 500 }

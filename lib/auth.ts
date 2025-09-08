@@ -3,6 +3,7 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
+import { logger } from "./logger";
 
 export const authOptions: NextAuthOptions = {
     adapter: PrismaAdapter(prisma),
@@ -52,16 +53,16 @@ export const authOptions: NextAuthOptions = {
     },
     callbacks: {
         async jwt({ token, user, trigger, session }) {
-            console.log("JWT callback triggered:", { user, trigger, session });
+            logger.info("JWT callback triggered:", { user, trigger, session });
             if (user) {
                 token.role = (user as any).role;
                 token.image = (user as any).image;
-                console.log("JWT token updated with image:", token.image);
+                logger.info("JWT token updated with image:", token.image);
             }
             // Handle session update
             if (trigger === "update" && session?.image) {
                 token.image = session.image;
-                console.log(
+                logger.info(
                     "JWT token updated via session update:",
                     token.image
                 );
@@ -69,7 +70,7 @@ export const authOptions: NextAuthOptions = {
             return token;
         },
         async session({ session, token }) {
-            console.log("Session callback triggered with token:", {
+            logger.info("Session callback triggered with token:", {
                 sub: token.sub,
                 role: token.role,
                 image: token.image,
@@ -78,7 +79,7 @@ export const authOptions: NextAuthOptions = {
                 (session.user as any).id = token.sub!;
                 (session.user as any).role = token.role as string;
                 (session.user as any).image = token.image as string;
-                console.log(
+                logger.info(
                     "Session updated with image:",
                     (session.user as any).image
                 );

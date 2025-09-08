@@ -2,16 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
+import { logger } from "../../../../lib";
 
 export async function POST(request: NextRequest) {
     try {
-        console.log("🔍 Application creation API called");
+        logger.info("🔍 Application creation API called");
 
         const session = await getServerSession(authOptions);
-        console.log("🔍 Session:", session ? "Found" : "Not found");
+        logger.info("🔍 Session:", session ? "Found" : "Not found");
 
         if (!(session?.user as any)?.id) {
-            console.log("❌ No user ID in session");
+            logger.warn("❌ No user ID in session");
             return NextResponse.json(
                 { error: "Unauthorized" },
                 { status: 401 }
@@ -19,12 +20,12 @@ export async function POST(request: NextRequest) {
         }
 
         const userId = (session!.user as any).id;
-        console.log("✅ User ID:", userId);
+        logger.info("✅ User ID:", userId);
         const { companyId, jobTitle } = await request.json();
-        console.log("📋 Request data:", { companyId, jobTitle });
+        logger.info("📋 Request data:", { companyId, jobTitle });
 
         if (!companyId || !jobTitle) {
-            console.log("❌ Missing required fields");
+            logger.warn("❌ Missing required fields");
             return NextResponse.json(
                 { error: "Company ID and job title are required" },
                 { status: 400 }
@@ -32,19 +33,19 @@ export async function POST(request: NextRequest) {
         }
 
         // Find the company by ID
-        console.log("🏢 Looking for company:", companyId);
+        logger.info("🏢 Looking for company:", companyId);
         const company = await prisma.company.findUnique({
             where: { id: companyId },
         });
 
         if (!company) {
-            console.log("❌ Company not found:", companyId);
+            logger.warn("❌ Company not found:", companyId);
             return NextResponse.json(
                 { error: "Company not found" },
                 { status: 404 }
             );
         }
-        console.log("✅ Company found:", company.name);
+        logger.info("✅ Company found:", company.name);
 
         // Find or create a job for this company with the specified title
         let job = await prisma.job.findFirst({
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Create the application
-        console.log("🚀 Creating application...");
+        logger.info("🚀 Creating application...");
         const application = await prisma.application.create({
             data: {
                 candidateId: userId,
@@ -91,14 +92,14 @@ export async function POST(request: NextRequest) {
             },
         });
 
-        console.log("✅ Application created:", application.id);
+        logger.info("✅ Application created:", application.id);
         return NextResponse.json({
             message: "Application created successfully",
             application,
         });
     } catch (error) {
-        console.error("❌ Error creating application:", error);
-        console.error("❌ Error details:", {
+        logger.error("❌ Error creating application:", error);
+        logger.error("❌ Error details:", {
             name: error instanceof Error ? error.name : "Unknown",
             message: error instanceof Error ? error.message : String(error),
             stack: error instanceof Error ? error.stack : undefined,

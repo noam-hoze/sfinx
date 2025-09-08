@@ -3,17 +3,18 @@ import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../../../../lib/auth";
+import { logger } from "../../../../../lib";
 
 export async function POST(request: NextRequest) {
     try {
-        console.log("🔍 Screen recording upload API called");
+        logger.info("🔍 Screen recording upload API called");
 
         const session = await getServerSession(authOptions);
-        console.log(
+        logger.info(
             "🔍 Session check:",
             session ? "Session found" : "No session"
         );
-        console.log("🔍 User ID:", (session?.user as any)?.id);
+        logger.info("🔍 User ID:", (session?.user as any)?.id);
 
         // Temporarily disable auth check for debugging
         // if (!(session?.user as any)?.id) {
@@ -27,8 +28,8 @@ export async function POST(request: NextRequest) {
         const formData = await request.formData();
         const recording = formData.get("recording") as File;
 
-        console.log("📁 Recording file received:", recording ? "Yes" : "No");
-        console.log(
+        logger.info("📁 Recording file received:", recording ? "Yes" : "No");
+        logger.info(
             "📁 File details:",
             recording
                 ? {
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
         );
 
         if (!recording) {
-            console.log("❌ No recording file provided");
+            logger.warn("❌ No recording file provided");
             return NextResponse.json(
                 { error: "Recording file is required" },
                 { status: 400 }
@@ -54,13 +55,13 @@ export async function POST(request: NextRequest) {
             "uploads",
             "recordings"
         );
-        console.log("📂 Creating directory:", recordingsDir);
+        logger.info("📂 Creating directory:", recordingsDir);
 
         try {
             await mkdir(recordingsDir, { recursive: true });
-            console.log("✅ Directory created successfully");
+            logger.info("✅ Directory created successfully");
         } catch (error) {
-            console.log(
+            logger.warn(
                 "⚠️ Directory creation error (might already exist):",
                 error
             );
@@ -71,20 +72,20 @@ export async function POST(request: NextRequest) {
         const filename = `recording-${timestamp}.mp4`;
         const filepath = join(recordingsDir, filename);
 
-        console.log("💾 Saving file to:", filepath);
+        logger.info("💾 Saving file to:", filepath);
 
         // Convert File to Buffer and save
         const bytes = await recording.arrayBuffer();
         const buffer = Buffer.from(bytes);
-        console.log("📊 Buffer size:", buffer.length);
+        logger.info("📊 Buffer size:", buffer.length);
 
         await writeFile(filepath, buffer);
-        console.log("✅ File written successfully");
+        logger.info("✅ File written successfully");
 
         // Create public URL for the recording
         const recordingUrl = `/uploads/recordings/${filename}`;
 
-        console.log("✅ Recording uploaded successfully:", recordingUrl);
+        logger.info("✅ Recording uploaded successfully:", recordingUrl);
 
         return NextResponse.json({
             message: "Recording uploaded successfully",
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
             filename,
         });
     } catch (error) {
-        console.error("❌ Error uploading recording:", error);
+        logger.error("❌ Error uploading recording:", error);
         return NextResponse.json(
             { error: "Failed to upload recording" },
             { status: 500 }

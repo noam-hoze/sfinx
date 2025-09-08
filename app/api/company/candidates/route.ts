@@ -2,16 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../../../lib/auth";
 import { prisma } from "../../../../lib/prisma";
+import { logger } from "../../../../lib";
 
 export async function GET(request: NextRequest) {
     try {
-        console.log("🔍 Company candidates API called");
+        logger.info("🔍 Company candidates API called");
 
         const session = await getServerSession(authOptions);
-        console.log("🔍 Session:", session ? "Found" : "Not found");
+        logger.info("🔍 Session:", session ? "Found" : "Not found");
 
         if (!(session?.user as any)?.id) {
-            console.log("❌ No user ID in session");
+            logger.warn("❌ No user ID in session");
             return NextResponse.json(
                 { error: "Unauthorized" },
                 { status: 401 }
@@ -19,55 +20,55 @@ export async function GET(request: NextRequest) {
         }
 
         const userId = (session!.user as any).id;
-        console.log("✅ User ID:", userId);
+        logger.info("✅ User ID:", userId);
 
         // Get the user's company profile
-        console.log("🏢 Looking for company profile...");
+        logger.info("🏢 Looking for company profile...");
         const companyProfile = await prisma.companyProfile.findUnique({
             where: { userId: userId },
         });
 
         if (!companyProfile) {
-            console.log("❌ Company profile not found for user:", userId);
+            logger.warn("❌ Company profile not found for user:", userId);
             return NextResponse.json(
                 { error: "Company profile not found" },
                 { status: 404 }
             );
         }
 
-        console.log("✅ Company profile found:", companyProfile.companyName);
+        logger.info("✅ Company profile found:", companyProfile.companyName);
 
         const { searchParams } = new URL(request.url);
         const jobRole = searchParams.get("jobRole") || "";
 
         // Find the company by name
-        console.log("🏢 Looking for company:", companyProfile.companyName);
+        logger.info("🏢 Looking for company:", companyProfile.companyName);
         const company = await prisma.company.findUnique({
             where: { name: companyProfile.companyName },
         });
 
         if (!company) {
-            console.log("❌ Company not found:", companyProfile.companyName);
+            logger.warn("❌ Company not found:", companyProfile.companyName);
             return NextResponse.json(
                 { error: "Company not found" },
                 { status: 404 }
             );
         }
 
-        console.log("✅ Company found:", company.id);
+        logger.info("✅ Company found:", company.id);
 
         // Find all jobs for this company
-        console.log("💼 Looking for jobs...");
+        logger.info("💼 Looking for jobs...");
         const jobs = await prisma.job.findMany({
             where: { companyId: company.id },
             select: { id: true },
         });
 
-        console.log("✅ Found", jobs.length, "jobs");
+        logger.info("✅ Found", jobs.length, "jobs");
         const jobIds = jobs.map((job) => job.id);
 
         // Get all applications for this company's jobs
-        console.log("📋 Looking for applications...");
+        logger.info("📋 Looking for applications...");
         const applications = await (prisma as any).application.findMany({
             where: {
                 jobId: { in: jobIds },
@@ -86,7 +87,7 @@ export async function GET(request: NextRequest) {
             },
         });
 
-        console.log("✅ Found", applications.length, "applications");
+        logger.info("✅ Found", applications.length, "applications");
 
         // Filter by job role if provided
         let filteredApplications = applications;
@@ -114,8 +115,8 @@ export async function GET(request: NextRequest) {
             total: candidates.length,
         });
     } catch (error) {
-        console.error("❌ Error fetching company candidates:", error);
-        console.error("❌ Error details:", {
+        logger.error("❌ Error fetching company candidates:", error);
+        logger.error("❌ Error details:", {
             name: error instanceof Error ? error.name : "Unknown",
             message: error instanceof Error ? error.message : String(error),
             stack: error instanceof Error ? error.stack : undefined,
