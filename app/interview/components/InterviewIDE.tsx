@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { Moon, Sun, Loader2 } from "lucide-react";
+import { Moon, Sun, Loader2, Camera, CameraOff } from "lucide-react";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import EditorPanel from "./editor/EditorPanel";
@@ -117,6 +117,10 @@ const InterviewerContent = () => {
     );
     const [interviewConcluded, setInterviewConcluded] = useState(false);
     const [telemetryCreated, setTelemetryCreated] = useState(false);
+    const [isCameraOn, setIsCameraOn] = useState(false);
+    const selfVideoRef = useRef<HTMLVideoElement | null>(null);
+    const cameraStreamRef = useRef<MediaStream | null>(null);
+    const cameraHideTimeoutRef = useRef<number | null>(null);
 
     // Debug: Monitor interviewSessionId changes
     useEffect(() => {
@@ -147,6 +151,72 @@ const InterviewerContent = () => {
             realTimeConversationRef.current.toggleMicMute();
         }
     }, []);
+
+    const startCamera = useCallback(async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: 320, height: 240, facingMode: "user" },
+                audio: false,
+            });
+            cameraStreamRef.current = stream;
+            setIsCameraOn(true);
+        } catch (error) {
+            logger.error("❌ Failed to start camera:", error);
+            setIsCameraOn(false);
+        }
+    }, []);
+
+    const stopCamera = useCallback(() => {
+        // Start fade-out first
+        setIsCameraOn(false);
+        if (cameraHideTimeoutRef.current) {
+            window.clearTimeout(cameraHideTimeoutRef.current);
+        }
+        // Delay stream teardown to allow smooth fade-out
+        cameraHideTimeoutRef.current = window.setTimeout(() => {
+            if (cameraStreamRef.current) {
+                cameraStreamRef.current.getTracks().forEach((t) => t.stop());
+                cameraStreamRef.current = null;
+            }
+            if (selfVideoRef.current) {
+                // @ts-ignore - srcObject is supported at runtime
+                selfVideoRef.current.srcObject = null;
+            }
+        }, 350);
+    }, []);
+
+    useEffect(() => {
+        if (isCameraOn && selfVideoRef.current && cameraStreamRef.current) {
+            try {
+                // @ts-ignore - srcObject is supported at runtime
+                selfVideoRef.current.srcObject = cameraStreamRef.current;
+                selfVideoRef.current.muted = true;
+                // @ts-ignore - playsInline exists at runtime
+                selfVideoRef.current.playsInline = true;
+                const playPromise = selfVideoRef.current.play();
+                if (playPromise && typeof playPromise.then === "function") {
+                    playPromise.catch(() => {});
+                }
+            } catch (_) {}
+        }
+    }, [isCameraOn]);
+
+    const toggleCamera = useCallback(() => {
+        if (isCameraOn) {
+            stopCamera();
+        } else {
+            startCamera();
+        }
+    }, [isCameraOn, startCamera, stopCamera]);
+
+    useEffect(() => {
+        return () => {
+            stopCamera();
+            if (cameraHideTimeoutRef.current) {
+                window.clearTimeout(cameraHideTimeoutRef.current);
+            }
+        };
+    }, [stopCamera]);
 
     // Function to upload recording to server and update database
     const uploadRecordingToServer = useCallback(
@@ -1085,6 +1155,26 @@ render(UserList);`;
 
                     {/* Right Section - Controls */}
                     <div className="flex items-center space-x-4">
+                        {/* Camera toggle (preview appears in editor bottom-right) */}
+                        <button
+                            onClick={toggleCamera}
+                            className={`p-2.5 rounded-full transition-all duration-200 hover:shadow-sm ${
+                                isCameraOn
+                                    ? "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20"
+                                    : "bg-gray-50 text-gray-600 hover:bg-gray-100 dark:bg-gray-800/50 dark:text-gray-300 dark:hover:bg-gray-700/70"
+                            }`}
+                            title={
+                                isCameraOn
+                                    ? "Turn camera off"
+                                    : "Turn camera on"
+                            }
+                        >
+                            {isCameraOn ? (
+                                <CameraOff className="w-5 h-5" />
+                            ) : (
+                                <Camera className="w-5 h-5" />
+                            )}
+                        </button>
                         {/* Timer Display */}
                         {isCodingStarted && (
                             <div
@@ -1174,7 +1264,7 @@ render(UserList);`;
                 <PanelGroup direction="horizontal">
                     {/* Middle Panel - Editor */}
                     <Panel defaultSize={70} minSize={50}>
-                        <div className="h-full border-r bg-white border-light-gray dark:bg-gray-800 dark:border-gray-700">
+                        <div className="h-full border-r bg-white border-light-gray dark:bg-gray-800 dark:border-gray-700 relative">
                             <EditorPanel
                                 showDiff={showDiff}
                                 originalCode={originalCode}
@@ -1191,6 +1281,21 @@ render(UserList);`;
                                 onElevenLabsUpdate={onElevenLabsUpdate}
                                 updateKBVariables={updateKBVariables}
                             />
+                            <div
+                                className={`absolute bottom-4 right-4 w-56 h-40 rounded-lg overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700 bg-black transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                                    isCameraOn
+                                        ? "opacity-100 translate-y-0 scale-100"
+                                        : "opacity-0 translate-y-2 scale-[0.98] pointer-events-none"
+                                }`}
+                            >
+                                <video
+                                    ref={selfVideoRef}
+                                    className="w-full h-full object-cover [transform:scaleX(-1)]"
+                                    muted
+                                    playsInline
+                                    autoPlay
+                                />
+                            </div>
                         </div>
                     </Panel>
 
