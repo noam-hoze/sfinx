@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.11.0] - 2025-09-08
+
+### Changed
+
+- **Interview Flow Simplification**: Removed manual stop interview functionality - interviews now run to natural completion only
+- **Timer Expiration Handling**: Timer expiration now performs the same cleanup as user submission (recording stop, state machine submission, "I'm done" message)
+- **UI Cleanup**: Removed REC/MIC recording indicators from header - recording still works but without visual indicators
+- **Start Button Behavior**: Start Interview button now disappears completely after clicking, preventing any manual stop controls
+
+### Enhanced
+
+- **Interview State Management**: Simplified interview lifecycle with guaranteed cleanup on both timer expiration and user submission
+- **Backend Order Assurance**: Confirmed application and interview session creation happens before any recording/frontend operations
+
+### Technical
+
+- **Interview Button Logic**: Removed conditional stop/start logic, simplified to one-way start trigger
+- **State Synchronization**: Ensured timer expiration and submission use identical cleanup procedures
+
 ## [1.10.0] - 2025-09-08
 
 ### Changed

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { Moon, Sun, Video, VideoOff } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import EditorPanel from "./editor/EditorPanel";
@@ -592,137 +592,104 @@ const InterviewerContent = () => {
             window.removeEventListener("message", handleMicStateChange);
     }, []);
 
-    const handleInterviewButtonClick = useCallback(
-        async (action: "start" | "stop") => {
-            if (action === "start") {
-                try {
-                    // Create application if it doesn't exist
-                    if (!applicationCreated && companyName) {
-                        logger.info("🚀 Creating application for interview...");
-                        const company = companiesData.find(
-                            (c) => c.name === companyName
+    const handleInterviewButtonClick = useCallback(async () => {
+        try {
+            // Create application if it doesn't exist
+            if (!applicationCreated && companyName) {
+                logger.info("🚀 Creating application for interview...");
+                const company = companiesData.find(
+                    (c) => c.name === companyName
+                );
+                if (company) {
+                    try {
+                        const response = await fetch(
+                            "/api/applications/create",
+                            {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({
+                                    companyId: company.id,
+                                    jobTitle: "Frontend Developer",
+                                }),
+                            }
                         );
-                        if (company) {
-                            try {
-                                const response = await fetch(
-                                    "/api/applications/create",
-                                    {
-                                        method: "POST",
-                                        headers: {
-                                            "Content-Type": "application/json",
-                                        },
-                                        body: JSON.stringify({
-                                            companyId: company.id,
-                                            jobTitle: "Frontend Developer",
-                                        }),
-                                    }
-                                );
 
-                                if (response.ok) {
-                                    const data = await response.json();
-                                    logger.info(
-                                        "✅ Application created for interview:",
-                                        data.application.id
-                                    );
-                                    setApplicationCreated(true);
+                        if (response.ok) {
+                            const data = await response.json();
+                            logger.info(
+                                "✅ Application created for interview:",
+                                data.application.id
+                            );
+                            setApplicationCreated(true);
 
-                                    // Now create interview session
-                                    logger.info(
-                                        "🚀 Creating interview session..."
-                                    );
-                                    const sessionResponse = await fetch(
-                                        "/api/interviews/session",
-                                        {
-                                            method: "POST",
-                                            headers: {
-                                                "Content-Type":
-                                                    "application/json",
-                                            },
-                                            body: JSON.stringify({
-                                                applicationId:
-                                                    data.application.id,
-                                                companyId: company.id,
-                                            }),
-                                        }
-                                    );
-
-                                    if (sessionResponse.ok) {
-                                        const sessionData =
-                                            await sessionResponse.json();
-                                        logger.info(
-                                            "✅ Interview session created:",
-                                            sessionData.interviewSession.id
-                                        );
-                                        logger.info(
-                                            "🔄 Setting interviewSessionId to:",
-                                            sessionData.interviewSession.id
-                                        );
-                                        setInterviewSessionId(
-                                            sessionData.interviewSession.id
-                                        );
-                                        interviewSessionIdRef.current =
-                                            sessionData.interviewSession.id;
-                                    } else {
-                                        console.error(
-                                            "❌ Failed to create interview session"
-                                        );
-                                    }
-                                } else {
-                                    console.error(
-                                        "❌ Failed to create application for interview"
-                                    );
+                            // Now create interview session
+                            logger.info("🚀 Creating interview session...");
+                            const sessionResponse = await fetch(
+                                "/api/interviews/session",
+                                {
+                                    method: "POST",
+                                    headers: {
+                                        "Content-Type": "application/json",
+                                    },
+                                    body: JSON.stringify({
+                                        applicationId: data.application.id,
+                                        companyId: company.id,
+                                    }),
                                 }
-                            } catch (error) {
+                            );
+
+                            if (sessionResponse.ok) {
+                                const sessionData =
+                                    await sessionResponse.json();
+                                logger.info(
+                                    "✅ Interview session created:",
+                                    sessionData.interviewSession.id
+                                );
+                                logger.info(
+                                    "🔄 Setting interviewSessionId to:",
+                                    sessionData.interviewSession.id
+                                );
+                                setInterviewSessionId(
+                                    sessionData.interviewSession.id
+                                );
+                                interviewSessionIdRef.current =
+                                    sessionData.interviewSession.id;
+                            } else {
                                 console.error(
-                                    "❌ Error creating application/interview session:",
-                                    error
+                                    "❌ Failed to create interview session"
                                 );
                             }
+                        } else {
+                            console.error(
+                                "❌ Failed to create application for interview"
+                            );
                         }
+                    } catch (error) {
+                        console.error(
+                            "❌ Error creating application/interview session:",
+                            error
+                        );
                     }
-
-                    // Reset editor code to initial state for new interview
-                    updateCurrentCode(getInitialCode());
-
-                    // Clear chat panel before starting new interview
-                    window.postMessage({ type: "clear-chat" }, "*");
-
-                    // Start screen recording
-                    await startRecording();
-
-                    await realTimeConversationRef.current?.startConversation();
-                    setIsInterviewActive(true);
-                } catch (error) {
-                    console.error("Failed to start interview:", error);
-                }
-            } else {
-                try {
-                    await realTimeConversationRef.current?.stopConversation();
-                    await stopRecording();
-                    setIsInterviewActive(false);
-                    setIsAgentConnected(false);
-                    setIsTimerRunning(false);
-                    setIsCodingStarted(false);
-
-                    // Clean up timer interval
-                    if (timerInterval) {
-                        clearInterval(timerInterval);
-                        setTimerInterval(null);
-                    }
-                } catch (error) {
-                    console.error("Failed to stop interview:", error);
                 }
             }
-        },
-        [
-            timerInterval,
-            updateCurrentCode,
-            applicationCreated,
-            companyName,
-            startRecording,
-            stopRecording,
-        ]
-    );
+
+            // Reset editor code to initial state for new interview
+            updateCurrentCode(getInitialCode());
+
+            // Clear chat panel before starting new interview
+            window.postMessage({ type: "clear-chat" }, "*");
+
+            // Start screen recording
+            await startRecording();
+
+            await realTimeConversationRef.current?.startConversation();
+            setIsInterviewActive(true);
+        } catch (error) {
+            console.error("Failed to start interview:", error);
+        }
+    }, [updateCurrentCode, applicationCreated, companyName, startRecording]);
 
     const handleStartCoding = async () => {
         setTimeLeft(30 * 60); // Reset to 30 minutes
@@ -736,23 +703,40 @@ const InterviewerContent = () => {
         const interval = setInterval(async () => {
             setTimeLeft((time) => {
                 if (time <= 1) {
-                    // Time's up - cleanup
+                    // Time's up - cleanup (same as submission)
+                    console.log("⏰ Timer expired - ending interview...");
+
+                    // Update local state (same as submission)
+                    updateSubmission(state.currentCode);
+
+                    // Stop screen recording (same as submission)
+                    stopRecording();
+
+                    // Use state machine to handle submission (same as submission)
+                    stateMachineHandleSubmission(state.currentCode);
+                    console.log(
+                        "✅ Timer expired - submission handled via state machine"
+                    );
+
+                    // Send "I'm done" user message (same as submission)
+                    if (realTimeConversationRef.current) {
+                        realTimeConversationRef.current
+                            .sendUserMessage("I'm done")
+                            .then((messageSent: boolean) => {
+                                if (messageSent) {
+                                    console.log(
+                                        "✅ Special 'I'm done' message sent successfully on timer expiration"
+                                    );
+                                } else {
+                                    console.error(
+                                        "❌ Failed to send 'I'm done' message on timer expiration"
+                                    );
+                                }
+                            });
+                    }
+
                     setIsTimerRunning(false);
                     setIsCodingStarted(false);
-
-                    // Use state machine to stop coding when time expires
-                    setCodingState(false)
-                        .then(() =>
-                            console.log(
-                                "✅ Timer expired - coding stopped via state machine"
-                            )
-                        )
-                        .catch((error: any) =>
-                            console.error(
-                                "❌ Failed to send timer expired status via state machine:",
-                                error
-                            )
-                        );
 
                     clearInterval(interval);
                     return 0;
@@ -1067,47 +1051,6 @@ render(UserList);`;
 
                     {/* Right Section - Controls */}
                     <div className="flex items-center space-x-4">
-                        {/* Recording Indicator */}
-                        {(isRecording || recordingPermissionGranted) && (
-                            <div className="flex items-center space-x-2">
-                                {/* Screen Recording Indicator */}
-                                <div
-                                    className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${
-                                        isRecording
-                                            ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
-                                            : "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-                                    }`}
-                                >
-                                    {isRecording ? (
-                                        <Video className="w-3 h-3" />
-                                    ) : (
-                                        <VideoOff className="w-3 h-3" />
-                                    )}
-                                    <span>REC</span>
-                                </div>
-
-                                {/* Microphone Indicator */}
-                                {micPermissionGranted && (
-                                    <div
-                                        className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${
-                                            isRecording
-                                                ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
-                                                : "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-                                        }`}
-                                    >
-                                        <div
-                                            className={`w-2 h-2 rounded-full ${
-                                                isRecording
-                                                    ? "bg-red-500 animate-pulse"
-                                                    : "bg-green-500"
-                                            }`}
-                                        ></div>
-                                        <span>MIC</span>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
                         {/* Timer Display */}
                         {isCodingStarted && (
                             <div
@@ -1150,27 +1093,15 @@ render(UserList);`;
                         </button>
 
                         {/* Interview Control Button */}
-                        <button
-                            onClick={() =>
-                                handleInterviewButtonClick(
-                                    isInterviewActive ? "stop" : "start"
-                                )
-                            }
-                            className={`px-4 py-2 text-sm font-medium rounded-full transition-all duration-200 hover:shadow-sm ${
-                                isInterviewActive
-                                    ? "bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/10 dark:text-red-400 dark:hover:bg-red-900/20"
-                                    : "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20"
-                            }`}
-                            title={
-                                isInterviewActive
-                                    ? "Stop Interview"
-                                    : "Start Interview"
-                            }
-                        >
-                            {isInterviewActive
-                                ? "Stop Interview"
-                                : "Start Interview"}
-                        </button>
+                        {!isInterviewActive && (
+                            <button
+                                onClick={handleInterviewButtonClick}
+                                className="px-4 py-2 text-sm font-medium rounded-full transition-all duration-200 hover:shadow-sm bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20"
+                                title="Start Interview"
+                            >
+                                Start Interview
+                            </button>
+                        )}
                         <button
                             onClick={toggleTheme}
                             className="p-2.5 rounded-full bg-gray-50 dark:bg-gray-800/50 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/70 transition-all duration-200 hover:shadow-sm"
