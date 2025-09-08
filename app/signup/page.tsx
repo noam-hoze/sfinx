@@ -69,11 +69,11 @@ export default function SignupPage() {
                 {/* Logo */}
                 <div className="text-center mb-4 animate-slide-up">
                     <Image
-                        src="/logos/sfinx-logo.png"
+                        src="/logos/sfinx_logo_diagonal.svg"
                         alt="Sfinx Logo"
                         width={160}
                         height={160}
-                        className="w-40 h-40 object-contain mx-auto"
+                        className="w-40 h-40 object-contain mx-auto scale-[2.5]"
                     />
                 </div>
 

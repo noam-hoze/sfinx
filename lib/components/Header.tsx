@@ -45,11 +45,11 @@ export default function Header() {
                 {/* Logo/Brand */}
                 <Link href="/" className="flex items-center">
                     <Image
-                        src="/logos/sfinx-logo.png"
+                        src="/logos/sfinx_logo_diagonal.svg"
                         alt="Sfinx Logo"
                         width={120}
                         height={120}
-                        className="h-15 w-auto"
+                        className="h-15 w-auto scale-150"
                     />
                 </Link>
 
