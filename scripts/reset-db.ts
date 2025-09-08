@@ -8,6 +8,7 @@ import bcrypt from "bcryptjs";
 // Import seed functions
 import { seedGal } from "./seed-gal";
 import { seedSarah } from "./seed-sarah";
+import { seedNoam } from "./seed-noam";
 
 const prisma = new PrismaClient();
 
@@ -132,152 +133,10 @@ async function resetDatabase() {
 
         console.log("🎉 Database reset and seeded successfully!");
 
-        // Create test candidate user
-        console.log("👤 Creating test candidate user...");
-        const testCandidate = await prisma.user.create({
-            data: {
-                name: "Noam Hoze",
-                email: "noam.hoze@gmail.com",
-                password: hashedPassword, // Uses same hashed password "sfinx"
-                role: UserRole.CANDIDATE,
-                image: "/uploads/profiles/noam-profile.jpeg",
-            },
-        });
-
-        // Create candidate profile
-        await prisma.candidateProfile.create({
-            data: {
-                userId: testCandidate.id,
-                jobTitle: "Software Engineer",
-                location: "Tel Aviv, Israel",
-                bio: "Experienced software engineer passionate about building great products.",
-                linkedin: "https://linkedin.com/in/noamhoze",
-                github: "https://github.com/noamhoze",
-                experience: "3-5 years",
-                skills: [
-                    "JavaScript",
-                    "TypeScript",
-                    "React",
-                    "Node.js",
-                    "Python",
-                ],
-            },
-        });
-
-        console.log(`✅ Created test candidate: ${testCandidate.email}`);
-
         // Create additional candidates using existing seed scripts
         await seedGal();
         await seedSarah();
-
-        // Find a job at "Meta" to apply to
-        const metaJob = await prisma.job.findFirst({
-            where: {
-                company: {
-                    name: "Meta",
-                },
-            },
-        });
-
-        if (!metaJob) {
-            console.error(
-                "Could not find any jobs at Meta to create an application for."
-            );
-            process.exit(1);
-        }
-
-        console.log(
-            `👤 Creating application and interview session for ${testCandidate.name} at Meta...`
-        );
-
-        // Create Application
-        const application = await prisma.application.create({
-            data: {
-                candidateId: testCandidate.id,
-                jobId: metaJob.id,
-                status: "PENDING",
-            },
-        });
-
-        // Create Interview Session
-        const interviewSession = await prisma.interviewSession.create({
-            data: {
-                candidateId: testCandidate.id,
-                applicationId: application.id,
-                videoUrl: "uploads/recordings/recording-1757254076264.mp4",
-                status: "IN_PROGRESS",
-            },
-        });
-
-        // --- Seeding Data for Telemetry ---
-        const {
-            candidate: candidateInfo,
-            gaps,
-            evidence,
-            chapters,
-            workstyle,
-            hasFairnessFlag,
-        } = noamTelemetryData;
-
-        // Create Telemetry Data with all nested relations
-        await prisma.telemetryData.create({
-            data: {
-                interviewSessionId: interviewSession.id,
-                matchScore: candidateInfo.matchScore,
-                confidence: candidateInfo.confidence,
-                story: candidateInfo.story,
-                hasFairnessFlag,
-                workstyleMetrics: {
-                    create: {
-                        iterationSpeed: workstyle.iterationSpeed.value,
-                        debugLoops: workstyle.debugLoops.value,
-                        refactorCleanups: workstyle.refactorCleanups.value,
-                        aiAssistUsage: workstyle.aiAssistUsage.value,
-                    },
-                },
-                gapAnalysis: {
-                    create: {
-                        gaps: {
-                            create: gaps.gaps.map((g) => ({
-                                severity: g.severity,
-                                description: g.description,
-                                color: g.color,
-                                evidenceLinks: g.evidenceLinks,
-                            })),
-                        },
-                    },
-                },
-                evidenceClips: {
-                    create: evidence.map((e) => ({
-                        title: e.title,
-                        description: e.description,
-                        startTime: e.startTime,
-                        duration: e.duration,
-                        thumbnailUrl: e.thumbnailUrl,
-                    })),
-                },
-                videoChapters: {
-                    create: chapters.map((c) => ({
-                        title: c.title,
-                        startTime: c.startTime,
-                        endTime: c.endTime,
-                        description: c.description,
-                        thumbnailUrl: c.thumbnailUrl,
-                        captions: {
-                            create: (c.captions || []).map((cap) => ({
-                                text: cap.text,
-                                startTime: cap.startTime,
-                                endTime: cap.endTime,
-                            })),
-                        },
-                    })),
-                },
-            },
-        });
-
-        console.log(
-            `✅ Seeded telemetry data for interview session ${interviewSession.id}`
-        );
+        await seedNoam();
 
         // Print summary
         const companyCount = await prisma.company.count();

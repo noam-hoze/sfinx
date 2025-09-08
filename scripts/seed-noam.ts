@@ -1,89 +1,41 @@
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { seedBasicCandidate } from "./seed-utils";
 
 const prisma = new PrismaClient();
 
-async function seedNoam() {
+export async function seedNoam() {
     try {
-        console.log("🌱 Starting Noam telemetry data seeding...");
+        console.log("🌱 Starting Noam candidate...");
 
-        const hashedPassword = await bcrypt.hash("sfinx", 12);
-
-        // 1. Create User
-        const user = await prisma.user.upsert({
-            where: { email: "noam@gmail.com" },
-            update: {
-                image: "/uploads/profiles/noam-profile.jpeg",
-                password: hashedPassword,
-            },
-            create: {
-                id: "noam-user-id",
-                name: "Noam Hoze",
-                email: "noam@gmail.com",
-                password: hashedPassword,
-                role: "CANDIDATE",
-                image: "/uploads/profiles/noam-profile.jpeg",
-            },
+        // 1-2. Create User and Candidate Profile (shared helper)
+        const user = await seedBasicCandidate(prisma, {
+            name: "Noam",
+            email: "noam@gmail.com",
+            image: "/uploads/profiles/noam-profile.jpeg",
+            jobTitle: "Software Engineer",
+            location: "Tel Aviv, Israel",
+            bio: "Experienced React developer with strong problem-solving skills",
+            skills: ["React", "TypeScript", "Node.js", "JavaScript"],
         });
-        console.log("✅ User created:", user.id);
 
-        // 2. Create Candidate Profile
-        const candidateProfile = await prisma.candidateProfile.upsert({
-            where: { userId: "noam-user-id" },
-            update: {},
-            create: {
-                id: "noam-profile-id",
-                userId: "noam-user-id",
-                jobTitle: "Software Engineer",
-                location: "Tel Aviv, Israel",
-                bio: "Experienced React developer with strong problem-solving skills",
-                skills: ["React", "TypeScript", "Node.js", "JavaScript"],
-            },
-        });
-        console.log("✅ Candidate profile created:", candidateProfile.id);
-
-        // 3. Get or create a company
-        let company = await prisma.company.findFirst();
-        if (!company) {
-            company = await prisma.company.create({
-                data: {
-                    name: "TechCorp",
-                    industry: "Technology",
-                    locations: ["Tel Aviv"],
-                    cultureTags: ["Innovation", "Collaboration"],
-                    size: "MEDIUM",
-                },
-            });
+        // 3. Use an existing job seeded by reset-db
+        const job = await prisma.job.findFirst();
+        if (!job) {
+            throw new Error(
+                "No jobs found. Run reset-db to seed companies and jobs before seedNoam."
+            );
         }
-
-        // 4. Create Job
-        const job = await prisma.job.upsert({
-            where: { id: "sample-job-id" },
-            update: {},
-            create: {
-                id: "sample-job-id",
-                title: "Frontend Developer",
-                type: "FULL_TIME",
-                location: "Tel Aviv",
-                description: "Building modern React applications",
-                companyId: company.id,
-            },
-        });
-        console.log("✅ Job created:", job.id);
 
         // 5. Create Application
         const application = await prisma.application.upsert({
             where: {
-                candidateId_jobId: {
-                    candidateId: "noam-user-id",
-                    jobId: "sample-job-id",
-                },
+                candidateId_jobId: { candidateId: user.id, jobId: job.id },
             },
             update: {},
             create: {
                 id: "noam-application-id",
-                candidateId: "noam-user-id",
-                jobId: "sample-job-id",
+                candidateId: user.id,
+                jobId: job.id,
                 status: "INTERVIEWING",
             },
         });
@@ -95,7 +47,7 @@ async function seedNoam() {
             update: {},
             create: {
                 id: "noam-interview-session-id",
-                candidateId: "noam-user-id",
+                candidateId: user.id,
                 applicationId: "noam-application-id",
                 status: "COMPLETED",
                 duration: 235,
@@ -368,7 +320,7 @@ async function seedNoam() {
 
         console.log("🎉 Noam telemetry data seeding completed successfully!");
         console.log("📊 Total records created: 21");
-        console.log("🔗 Noam's CPS URL: /cps?candidateId=noam-user-id");
+        console.log(`🔗 Noam's CPS URL: /cps?candidateId=${user.id}`);
     } catch (error) {
         console.error("❌ Error seeding Noam telemetry data:", error);
         throw error;
@@ -376,14 +328,3 @@ async function seedNoam() {
         await prisma.$disconnect();
     }
 }
-
-// Run the seed function
-seedNoam()
-    .then(() => {
-        console.log("✅ Seeding completed!");
-        process.exit(0);
-    })
-    .catch((error) => {
-        console.error("❌ Seeding failed:", error);
-        process.exit(1);
-    });
