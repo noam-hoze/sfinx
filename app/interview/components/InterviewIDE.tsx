@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import EditorPanel from "./editor/EditorPanel";
@@ -101,6 +101,7 @@ const InterviewerContent = () => {
     const [activeTab, setActiveTab] = useState<"editor" | "preview">("editor");
     const [isAISpeaking, setIsAISpeaking] = useState(false);
     const [isInterviewActive, setIsInterviewActive] = useState(false);
+    const [isInterviewLoading, setIsInterviewLoading] = useState(false);
     const [isAgentConnected, setIsAgentConnected] = useState(false);
     const [timeLeft, setTimeLeft] = useState(30 * 60); // 30 minutes in seconds
     const [isTimerRunning, setIsTimerRunning] = useState(false);
@@ -420,7 +421,12 @@ const InterviewerContent = () => {
     const startRecording = useCallback(async () => {
         if (!recordingPermissionGranted || !mediaRecorderRef.current) {
             const permissionGranted = await requestRecordingPermission();
-            if (!permissionGranted) return;
+            if (!permissionGranted) {
+                logger.info(
+                    "⏭️ Screen recording permission denied - not starting interview"
+                );
+                return false;
+            }
         }
 
         if (mediaRecorderRef.current && !isRecording) {
@@ -429,7 +435,11 @@ const InterviewerContent = () => {
             mediaRecorderRef.current.start(1000); // Collect data every 1 second
             setIsRecording(true);
             logger.info("✅ Screen recording started");
+            return true;
         }
+
+        // Already recording or no MediaRecorder available
+        return false;
     }, [recordingPermissionGranted, isRecording, requestRecordingPermission]);
 
     const stopRecording = useCallback(async () => {
@@ -594,6 +604,27 @@ const InterviewerContent = () => {
 
     const handleInterviewButtonClick = useCallback(async () => {
         try {
+            setIsInterviewLoading(true);
+
+            // CRITICAL: Check screen recording permission FIRST
+            // If user denies permission, do NOT proceed with interview setup
+            logger.info("🔍 Requesting screen recording permission...");
+            const recordingStarted = await startRecording();
+
+            if (!recordingStarted) {
+                logger.info(
+                    "⏭️ Screen recording permission denied - interview not started"
+                );
+                setIsInterviewLoading(false);
+                return; // Exit immediately, don't proceed with any interview setup
+            }
+
+            logger.info(
+                "✅ Screen recording permission granted - proceeding with interview setup"
+            );
+
+            // Only proceed with interview setup if recording permission was granted
+
             // Create application if it doesn't exist
             if (!applicationCreated && companyName) {
                 logger.info("🚀 Creating application for interview...");
@@ -681,13 +712,15 @@ const InterviewerContent = () => {
             // Clear chat panel before starting new interview
             window.postMessage({ type: "clear-chat" }, "*");
 
-            // Start screen recording
-            await startRecording();
-
+            // Start real-time conversation (recording is already started above)
             await realTimeConversationRef.current?.startConversation();
             setIsInterviewActive(true);
+            setIsInterviewLoading(false);
+
+            logger.info("🎉 Interview started successfully!");
         } catch (error) {
             console.error("Failed to start interview:", error);
+            setIsInterviewLoading(false);
         }
     }, [updateCurrentCode, applicationCreated, companyName, startRecording]);
 
@@ -1096,10 +1129,24 @@ render(UserList);`;
                         {!isInterviewActive && (
                             <button
                                 onClick={handleInterviewButtonClick}
-                                className="px-4 py-2 text-sm font-medium rounded-full transition-all duration-200 hover:shadow-sm bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20"
-                                title="Start Interview"
+                                disabled={isInterviewLoading}
+                                className={`px-4 py-2 text-sm font-medium rounded-full transition-all duration-200 hover:shadow-sm flex items-center gap-2 ${
+                                    isInterviewLoading
+                                        ? "bg-gray-100 text-gray-500 cursor-not-allowed dark:bg-gray-800 dark:text-gray-400"
+                                        : "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20"
+                                }`}
+                                title={
+                                    isInterviewLoading
+                                        ? "Starting Interview..."
+                                        : "Start Interview"
+                                }
                             >
-                                Start Interview
+                                {isInterviewLoading && (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                )}
+                                {isInterviewLoading
+                                    ? "Starting Interview..."
+                                    : "Start Interview"}
                             </button>
                         )}
                         <button

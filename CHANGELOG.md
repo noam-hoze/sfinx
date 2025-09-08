@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.12.0] - 2025-09-08
+
+### Added
+
+- **Interview Loading State**: Loading button with spinner during interview start process
+- **Permission-Gated Interview Start**: Interview only starts if screen sharing permission is granted
+- **Visual Loading Feedback**: Spinner and "Starting Interview..." text during setup
+
+### Changed
+
+- **Interview Start Flow**: Screen recording permission checked FIRST before any backend operations
+- **Button State Management**: Start Interview button shows loading state and prevents multiple clicks
+- **Interview Initialization**: Complete backend setup (application, session, recording) only after permission approval
+
+### Enhanced
+
+- **User Experience**: Clear visual feedback during interview initialization process
+- **Error Handling**: Graceful handling when users deny screen sharing permission
+- **Loading States**: Consistent loading patterns matching app design standards
+
+### Technical
+
+- **Permission-First Architecture**: Screen sharing permission validation before backend operations
+- **Loading State Management**: Proper loading state cleanup on success, failure, or permission denial
+- **UI State Synchronization**: Loading states properly coordinated across interview components
+
 ## [1.11.0] - 2025-09-08
 
 ### Changed
