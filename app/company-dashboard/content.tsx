@@ -69,8 +69,14 @@ function CompanyDashboardContent() {
         }
     };
 
-    const handleCandidateClick = (candidateId: string) => {
-        router.push(`/cps?candidateId=${candidateId}`);
+    const handleCandidateClick = (
+        candidateId: string,
+        applicationId?: string
+    ) => {
+        const search = new URLSearchParams();
+        search.set("candidateId", candidateId);
+        if (applicationId) search.set("applicationId", applicationId);
+        router.push(`/cps?${search.toString()}`);
     };
 
     return (
@@ -133,7 +139,12 @@ function CompanyDashboardContent() {
                     {candidates.map((candidate, index) => (
                         <div
                             key={candidate.id}
-                            onClick={() => handleCandidateClick(candidate.id)}
+                            onClick={() =>
+                                handleCandidateClick(
+                                    (candidate as any).id,
+                                    (candidate as any).applicationId
+                                )
+                            }
                             className="group bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:bg-white/80 hover:shadow-lg transition-all duration-300 ease-out hover:scale-105 cursor-pointer"
                             style={{
                                 animationDelay: `${index * 50}ms`,

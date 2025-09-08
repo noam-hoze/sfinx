@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
-async function seedNoamTelemetry() {
+async function seedNoam() {
     try {
         console.log("🌱 Starting Noam telemetry data seeding...");
 
@@ -13,7 +13,7 @@ async function seedNoamTelemetry() {
         const user = await prisma.user.upsert({
             where: { email: "noam@gmail.com" },
             update: {
-                image: "/uploads/profiles/cmf7m2a0d0000sb9b4xc7l81k-1757125432914.jpeg",
+                image: "/uploads/profiles/noam-profile.jpeg",
                 password: hashedPassword,
             },
             create: {
@@ -22,7 +22,7 @@ async function seedNoamTelemetry() {
                 email: "noam@gmail.com",
                 password: hashedPassword,
                 role: "CANDIDATE",
-                image: "/uploads/profiles/cmf7m2a0d0000sb9b4xc7l81k-1757125432914.jpeg",
+                image: "/uploads/profiles/noam-profile.jpeg",
             },
         });
         console.log("✅ User created:", user.id);
@@ -378,7 +378,7 @@ async function seedNoamTelemetry() {
 }
 
 // Run the seed function
-seedNoamTelemetry()
+seedNoam()
     .then(() => {
         console.log("✅ Seeding completed!");
         process.exit(0);

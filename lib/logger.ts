@@ -16,7 +16,7 @@ function resolveEnabled(): boolean {
     return Boolean(flag);
 }
 
-let enabled = false; //resolveEnabled();
+let enabled = resolveEnabled();
 
 const noop: LogMethod = () => {};
 

@@ -14,6 +14,7 @@ import { AuthGuard } from "../../lib";
 function TelemetryContent() {
     const searchParams = useSearchParams();
     const candidateId = searchParams.get("candidateId");
+    const applicationId = searchParams.get("applicationId");
 
     const [telemetryData, setTelemetryData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -38,8 +39,10 @@ function TelemetryContent() {
 
             try {
                 setLoading(true);
+                const query = new URLSearchParams();
+                if (applicationId) query.set("applicationId", applicationId);
                 const response = await fetch(
-                    `/api/candidates/${candidateId}/telemetry`
+                    `/api/candidates/${candidateId}/telemetry?${query.toString()}`
                 );
 
                 if (response.ok) {

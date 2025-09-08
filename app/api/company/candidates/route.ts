@@ -108,6 +108,9 @@ export async function GET(request: NextRequest) {
             appliedJob: app.job.title,
             appliedAt: app.appliedAt,
             status: app.status,
+            applicationId: app.id,
+            jobId: app.job.id,
+            companyId: app.job.company.id,
         }));
 
         return NextResponse.json({

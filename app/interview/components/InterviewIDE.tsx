@@ -386,6 +386,10 @@ const InterviewerContent = () => {
                         recordingUploaded
                     );
                 }
+
+                // Cleanup now that processing is done
+                mediaRecorderRef.current = null;
+                recordedChunksRef.current = [];
             };
 
             // Add cleanup handlers for when recording stops
@@ -431,8 +435,8 @@ const InterviewerContent = () => {
 
         if (mediaRecorderRef.current && !isRecording) {
             recordedChunksRef.current = [];
-            // Start recording with a timeslice to ensure periodic data collection
-            mediaRecorderRef.current.start(1000); // Collect data every 1 second
+            // Start recording without a timeslice to avoid fragmented MP4 outputs
+            mediaRecorderRef.current.start();
             setIsRecording(true);
             logger.info("✅ Screen recording started");
             return true;
@@ -459,10 +463,7 @@ const InterviewerContent = () => {
                     .forEach((track) => track.stop());
             }
 
-            // Clean up MediaRecorder and chunks
-            mediaRecorderRef.current = null;
-            recordedChunksRef.current = [];
-
+            // Do NOT clear refs or chunks here; wait for onstop to finish processing
             logger.info("✅ Screen recording stopped");
         }
     }, [isRecording]);
