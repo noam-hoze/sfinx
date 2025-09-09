@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 interface InterviewOverlayProps {
@@ -9,8 +9,9 @@ interface InterviewOverlayProps {
     isInterviewLoading: boolean;
     onStartInterview: () => void;
     isAgentConnected?: boolean;
-    hasSubmitted?: boolean;
+    interviewConcluded?: boolean;
     candidateName?: string;
+    hasSubmitted?: boolean;
 }
 
 const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
@@ -19,15 +20,66 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
     isInterviewLoading,
     onStartInterview,
     isAgentConnected = false,
-    hasSubmitted = false,
+    interviewConcluded = false,
     candidateName = "Candidate",
+    hasSubmitted = false,
 }) => {
-    if (isCodingStarted) return null;
+    // Derive stage from props
+    const derivedStage = useMemo(() => {
+        if (interviewConcluded) return "submitted";
+        // Once loading starts, treat as a distinct forward-only stage
+        if (isInterviewLoading) return "loading";
+        // Pre-stage wrapping as soon as coding starts (overlay remains hidden while coding)
+        if (hasSubmitted || isCodingStarted) return "wrapping";
+        if (isInterviewActive && isAgentConnected) return "started";
+        return "welcome";
+    }, [
+        interviewConcluded,
+        hasSubmitted,
+        isCodingStarted,
+        isInterviewActive,
+        isAgentConnected,
+        isInterviewLoading,
+    ]);
+
+    // Local stage to enable cross-fade
+    const [stage, setStage] = useState<string>(derivedStage);
+    const [visible, setVisible] = useState<boolean>(true);
+    const [subtitleVisible, setSubtitleVisible] = useState<boolean>(true);
+
+    useEffect(() => {
+        if (derivedStage === stage) return;
+        setVisible(false);
+        const t = setTimeout(() => {
+            setStage(derivedStage);
+            setVisible(true);
+        }, 260);
+        return () => clearTimeout(t);
+    }, [derivedStage, stage]);
+
+    useEffect(() => {
+        setSubtitleVisible(false);
+        const t = setTimeout(() => setSubtitleVisible(true), 160);
+        return () => clearTimeout(t);
+    }, [isInterviewLoading]);
+
+    // Replaced ellipsis with smooth spinner
+
+    // Fade overlay out when coding starts (cross-fade timing aligned with stage fade)
+    const containerVisibility = isCodingStarted
+        ? "opacity-0 pointer-events-none"
+        : "opacity-100";
 
     return (
-        <div className="absolute inset-0 bg-white/80 dark:bg-black/70 backdrop-blur-md flex items-center justify-center select-none transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] opacity-100">
-            <div className="text-center">
-                {hasSubmitted ? (
+        <div
+            className={`absolute inset-0 z-20 bg-white/80 dark:bg-black/70 backdrop-blur-md flex items-center justify-center select-none transition-opacity duration-500 ease-out ${containerVisibility}`}
+        >
+            <div
+                className={`text-center transition-opacity duration-500 ${
+                    visible ? "opacity-100" : "opacity-0"
+                }`}
+            >
+                {stage === "submitted" ? (
                     <div className="px-6">
                         <div className="mb-8">
                             <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -53,13 +105,23 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
                             Good luck!
                         </p>
                     </div>
-                ) : isInterviewActive && isAgentConnected ? (
+                ) : stage === "started" ? (
                     <>
                         <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
                             Interview Started!
                         </h2>
                         <p className="mt-2 text-base md:text-lg text-gray-600 dark:text-gray-300">
-                            just speak freely :)
+                            just speak naturally 😎
+                        </p>
+                    </>
+                ) : stage === "wrapping" ? (
+                    <>
+                        <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                            Wrapping things up
+                        </h2>
+                        <p className="mt-2 text-base md:text-lg text-gray-600 dark:text-gray-300">
+                            waiting for the interviewer to finish the closing
+                            line…
                         </p>
                     </>
                 ) : (
@@ -67,8 +129,19 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
                         <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
                             Welcome to your interview session
                         </h2>
-                        <p className="mt-2 text-base md:text-lg text-gray-600 dark:text-gray-300">
-                            Click Start Interview and wait for instructions
+                        <p
+                            className={`mt-2 text-base md:text-lg text-gray-600 dark:text-gray-300 transition-opacity duration-300 ${
+                                subtitleVisible ? "opacity-100" : "opacity-0"
+                            }`}
+                        >
+                            {stage === "loading" ? (
+                                <span className="inline-flex items-center gap-2">
+                                    <span>Getting things started</span>
+                                    <Loader2 className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
+                                </span>
+                            ) : (
+                                "Click Start Interview and wait for instructions"
+                            )}
                         </p>
                         <div className="mt-6 flex flex-col items-center">
                             <button
@@ -81,23 +154,12 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
                                 } translate-y-2`}
                                 title={
                                     isInterviewLoading
-                                        ? "Starting Interview..."
+                                        ? "Getting things started..."
                                         : "Start Interview"
                                 }
                             >
-                                {isInterviewLoading && (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                )}
-                                {isInterviewLoading
-                                    ? "Starting Interview..."
-                                    : "Start Interview"}
+                                Start Interview
                             </button>
-                            {isInterviewLoading && (
-                                <div className="mt-3 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                                    <Loader2 className="w-3 h-3 animate-spin opacity-70" />
-                                    <span>Preparing audio & permissions…</span>
-                                </div>
-                            )}
                         </div>
                     </>
                 )}

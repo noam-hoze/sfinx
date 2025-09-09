@@ -27,8 +27,9 @@ const log = logger.for("@useElevenLabsStateMachine.ts");
 let hasSubmittedOnce = false;
 
 const NUDGE_MESSAGE_TO_ASK_THE_CANDIDATE_A_QUESTION = `
-I just used external AI. Now your using_ai variable is 
-true. Ask me only one follow up question about: `;
+Don't answer this message in our voice conversation. It's just to inform you of something.
+The candidate has just used external AI. Now your using_ai variable is
+true. Ask the candidate one follow up question about: `;
 
 /**
  * KBVariables: canonical context mirrored to ElevenLabs via KB_UPDATE.

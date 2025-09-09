@@ -232,13 +232,15 @@ const InterviewerContent = () => {
     }, [isCameraOn, startCamera, stopCamera]);
 
     useEffect(() => {
+        // Auto-start camera preview on page load
+        startCamera();
         return () => {
             stopCamera();
             if (cameraHideTimeoutRef.current) {
                 window.clearTimeout(cameraHideTimeoutRef.current);
             }
         };
-    }, [stopCamera]);
+    }, [startCamera, stopCamera]);
 
     // Function to upload recording to server and update database
     const uploadRecordingToServer = useCallback(
@@ -790,7 +792,6 @@ const InterviewerContent = () => {
             // Start real-time conversation (recording is already started above)
             await realTimeConversationRef.current?.startConversation();
             setIsInterviewActive(true);
-            setIsInterviewLoading(false);
 
             log.info("🎉 Interview started successfully!");
         } catch (error) {
@@ -1048,19 +1049,16 @@ render(UserList);`;
                                 onElevenLabsUpdate={onElevenLabsUpdate}
                                 updateKBVariables={updateKBVariables}
                             />
-                            {!isCodingStarted && (
-                                <InterviewOverlay
-                                    isCodingStarted={isCodingStarted}
-                                    isInterviewActive={isInterviewActive}
-                                    isInterviewLoading={isInterviewLoading}
-                                    isAgentConnected={isAgentConnected}
-                                    hasSubmitted={state.hasSubmitted}
-                                    candidateName={candidateNameFromSession}
-                                    onStartInterview={
-                                        handleInterviewButtonClick
-                                    }
-                                />
-                            )}
+                            <InterviewOverlay
+                                isCodingStarted={isCodingStarted}
+                                isInterviewActive={isInterviewActive}
+                                isInterviewLoading={isInterviewLoading}
+                                isAgentConnected={isAgentConnected}
+                                interviewConcluded={interviewConcluded}
+                                hasSubmitted={state.hasSubmitted}
+                                candidateName={candidateNameFromSession}
+                                onStartInterview={handleInterviewButtonClick}
+                            />
                             <CameraPreview
                                 isCameraOn={isCameraOn}
                                 videoRef={selfVideoRef}
@@ -1087,11 +1085,13 @@ render(UserList);`;
                             }}
                             onStartConversation={() => {
                                 log.info("Conversation started");
+                                setIsInterviewLoading(false);
                             }}
                             onEndConversation={() => {
                                 log.info("Conversation ended");
                                 setIsTimerRunning(false);
                                 setIsCodingStarted(false);
+                                setIsInterviewLoading(false);
                             }}
                             onInterviewConcluded={() =>
                                 setInterviewConcluded(true)

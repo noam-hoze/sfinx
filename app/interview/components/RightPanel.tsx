@@ -61,8 +61,21 @@ const RightPanel: React.FC<RightPanelProps> = ({
                                 }`}
                             ></div>
                             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                                Carrey
+                                Carrie
                             </h3>
+                        </div>
+                        <div className="text-xs font-medium">
+                            <span
+                                className={
+                                    isInterviewActive && isAgentConnected
+                                        ? "text-green-600 dark:text-green-400"
+                                        : "text-gray-500 dark:text-gray-400"
+                                }
+                            >
+                                {isInterviewActive && isAgentConnected
+                                    ? "connected"
+                                    : "disconnected"}
+                            </span>
                         </div>
                     </div>
                 </div>

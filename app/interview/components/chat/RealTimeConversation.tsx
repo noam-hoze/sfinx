@@ -522,17 +522,12 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                     />
 
                     <p>
-                        Status:{" "}
-                        <span className="font-semibold text-gray-400">
-                            {conversation.status}
-                        </span>
-                    </p>
-                    <p>
                         {conversation.status === "connected" &&
                             (conversation.isSpeaking
-                                ? "Agent is speaking..."
-                                : "Agent is listening...")}
+                                ? "Speaking..."
+                                : "Listening...")}
                     </p>
+                    {/* Status text moved to RightPanel header */}
                 </div>
             </div>
         );
