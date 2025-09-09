@@ -19,6 +19,11 @@ export interface InterviewState {
     currentCode: string;
     // Submission state
     submission: string | null;
+    // Conversation coordination (refactor support)
+    isCodingStarted?: boolean;
+    hasSubmitted?: boolean;
+    contextUpdatesQueue?: string[];
+    userMessagesQueue?: string[];
 }
 
 export interface InterviewMessage {

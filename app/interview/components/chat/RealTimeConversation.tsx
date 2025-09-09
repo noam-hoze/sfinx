@@ -53,7 +53,8 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         const [lastAiResponse, setLastAiResponse] = useState<string>("");
         const [isClosingMessagePlaying, setIsClosingMessagePlaying] =
             useState(false);
-        const { state } = useInterview();
+        const { state, clearContextUpdates, clearUserMessages } =
+            useInterview();
         const hasAutoStartedRef = useRef<boolean>(false);
         const autoStartPendingRef = useRef<boolean>(false);
 
@@ -313,6 +314,47 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                 }
             };
         }, [state.currentCode, conversation.status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+        // Flush queued updates/messages from context when connected
+        useEffect(() => {
+            if (conversation.status !== "connected") return;
+
+            // Flush contextual updates
+            const updates = state.contextUpdatesQueue || [];
+            if (updates.length > 0 && conversation.sendContextualUpdate) {
+                (async () => {
+                    for (const text of updates) {
+                        try {
+                            await conversation.sendContextualUpdate(text);
+                            log.info("✅ Flushed contextual update:", text);
+                        } catch (error) {
+                            log.error("❌ Failed contextual update:", error);
+                        }
+                    }
+                    clearContextUpdates();
+                })();
+            }
+
+            // Flush user messages
+            const messages = state.userMessagesQueue || [];
+            if (messages.length > 0) {
+                (async () => {
+                    for (const msg of messages) {
+                        try {
+                            await conversation.sendUserMessage(msg);
+                            log.info("✅ Flushed user message:", msg);
+                        } catch (error) {
+                            log.error("❌ Failed user message:", error);
+                        }
+                    }
+                    clearUserMessages();
+                })();
+            }
+        }, [
+            conversation.status,
+            state.contextUpdatesQueue,
+            state.userMessagesQueue,
+        ]);
 
         const disconnectFromConversation = useCallback(() => {
             log.info("🔌 Disconnecting from conversation...");

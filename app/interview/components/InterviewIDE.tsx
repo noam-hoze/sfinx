@@ -6,8 +6,6 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import EditorPanel from "./editor/EditorPanel";
-import ChatPanel from "./chat/ChatPanel";
-import RealTimeConversation from "./chat/RealTimeConversation";
 import CompletionScreen from "./CompletionScreen";
 import InterviewOverlay from "./InterviewOverlay";
 import CameraPreview from "./CameraPreview";
@@ -23,8 +21,15 @@ import { logger } from "../../../lib";
 const log = logger.for("@InterviewIDE.tsx");
 
 const InterviewerContent = () => {
-    const { state, getCurrentTask, updateCurrentCode, updateSubmission } =
-        useInterview();
+    const {
+        state,
+        getCurrentTask,
+        updateCurrentCode,
+        updateSubmission,
+        setCodingStarted,
+        queueContextUpdate,
+        queueUserMessage,
+    } = useInterview();
     const { markCompanyApplied } = useJobApplication();
     const searchParams = useSearchParams();
     const companyId = searchParams.get("companyId");
@@ -35,54 +40,34 @@ const InterviewerContent = () => {
         (session?.user as any)?.name || "Candidate";
 
     // Callbacks for state machine
-    const onElevenLabsUpdate = useCallback(async (text: string) => {
-        if (realTimeConversationRef.current?.sendContextualUpdate) {
+    const onElevenLabsUpdate = useCallback(
+        async (text: string) => {
+            // Refactor: enqueue context update to be flushed by RealTimeConversation
             try {
-                await realTimeConversationRef.current.sendContextualUpdate(
-                    text
-                );
-                logger.info("✅ Sent ElevenLabs KB update:", text);
+                queueContextUpdate(text);
+                logger.info("✅ Queued ElevenLabs KB update:", text);
             } catch (error) {
-                logger.error("❌ Failed to send ElevenLabs update:", error);
+                logger.error("❌ Failed to queue ElevenLabs update:", error);
                 throw error;
             }
-        } else {
-            logger.warn("⚠️ ElevenLabs conversation not available for update");
-        }
-    }, []);
+        },
+        [queueContextUpdate]
+    );
 
-    const onSendUserMessage = useCallback(async (message: string) => {
-        if (realTimeConversationRef.current?.sendUserMessage) {
+    const onSendUserMessage = useCallback(
+        async (message: string) => {
+            // Refactor: enqueue user message to be flushed by RealTimeConversation
             try {
-                const messageSent =
-                    await realTimeConversationRef.current.sendUserMessage(
-                        message
-                    );
-                if (messageSent) {
-                    logger.info(
-                        "✅ AI usage notification message sent successfully"
-                    );
-                    return true;
-                } else {
-                    logger.error(
-                        "❌ Failed to send AI usage notification message"
-                    );
-                    return false;
-                }
+                queueUserMessage(message);
+                logger.info("✅ Queued user message:", message);
+                return true;
             } catch (error) {
-                logger.error(
-                    "❌ Error sending AI usage notification message:",
-                    error
-                );
+                logger.error("❌ Failed to queue user message:", error);
                 return false;
             }
-        } else {
-            logger.warn(
-                "⚠️ RealTimeConversation not available for sending user message"
-            );
-            return false;
-        }
-    }, []);
+        },
+        [queueUserMessage]
+    );
 
     // Initialize state machine (will be passed to RealTimeConversation)
     const {
@@ -149,24 +134,18 @@ const InterviewerContent = () => {
     // Helper: send hidden completion signal once
     const sendHiddenDoneMessage = useCallback(async () => {
         if (doneMessageSentRef.current) return true;
-        if (!realTimeConversationRef.current) return false;
         try {
-            const messageSent =
-                await realTimeConversationRef.current.sendUserMessage(
-                    "I'm done. Please say your closing line and then end the connection."
-                );
-            if (messageSent) {
-                console.log("✅ Special 'I'm done' message sent successfully");
-                doneMessageSentRef.current = true;
-            } else {
-                console.error("❌ Failed to send 'I'm done' message");
-            }
-            return messageSent;
+            queueUserMessage(
+                "I'm done. Please say your closing line and then end the connection."
+            );
+            console.log("✅ Special 'I'm done' message queued successfully");
+            doneMessageSentRef.current = true;
+            return true;
         } catch (error) {
             console.error("❌ Error sending 'I'm done' message:", error);
             return false;
         }
-    }, []);
+    }, [queueUserMessage]);
 
     // Require company name parameter
     useEffect(() => {
@@ -825,6 +804,7 @@ const InterviewerContent = () => {
         setTimeLeft(30 * 60); // Reset to 30 minutes
         setIsTimerRunning(true);
         setIsCodingStarted(true);
+        setCodingStarted(true);
 
         // Use state machine to set coding state
         await setCodingState(true);
@@ -867,6 +847,7 @@ const InterviewerContent = () => {
     const handleStopCoding = async () => {
         setIsTimerRunning(false);
         setIsCodingStarted(false);
+        setCodingStarted(false);
 
         // Use state machine to stop coding
         await setCodingState(false);

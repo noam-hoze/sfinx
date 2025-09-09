@@ -24,6 +24,11 @@ const initialState: InterviewState = {
     currentCode: "",
     // Submission state
     submission: null,
+    // Conversation coordination (refactor support)
+    isCodingStarted: false,
+    hasSubmitted: false,
+    contextUpdatesQueue: [],
+    userMessagesQueue: [],
 };
 
 function interviewReducer(
@@ -86,6 +91,43 @@ function interviewReducer(
             return {
                 ...state,
                 submission: action.payload,
+                hasSubmitted: true,
+            };
+
+        case "SET_CODING_STARTED":
+            return {
+                ...state,
+                isCodingStarted: action.payload === true,
+            };
+
+        case "QUEUE_CONTEXT_UPDATE":
+            return {
+                ...state,
+                contextUpdatesQueue: [
+                    ...(state.contextUpdatesQueue || []),
+                    action.payload,
+                ],
+            };
+
+        case "CLEAR_CONTEXT_UPDATES":
+            return {
+                ...state,
+                contextUpdatesQueue: [],
+            };
+
+        case "QUEUE_USER_MESSAGE":
+            return {
+                ...state,
+                userMessagesQueue: [
+                    ...(state.userMessagesQueue || []),
+                    action.payload,
+                ],
+            };
+
+        case "CLEAR_USER_MESSAGES":
+            return {
+                ...state,
+                userMessagesQueue: [],
             };
 
         default:
@@ -151,6 +193,27 @@ export function useInterview() {
         dispatch({ type: "UPDATE_SUBMISSION", payload: code });
     };
 
+    // New helpers for refactor support
+    const setCodingStarted = (started: boolean) => {
+        dispatch({ type: "SET_CODING_STARTED", payload: started });
+    };
+
+    const queueContextUpdate = (text: string) => {
+        dispatch({ type: "QUEUE_CONTEXT_UPDATE", payload: text });
+    };
+
+    const clearContextUpdates = () => {
+        dispatch({ type: "CLEAR_CONTEXT_UPDATES" });
+    };
+
+    const queueUserMessage = (text: string) => {
+        dispatch({ type: "QUEUE_USER_MESSAGE", payload: text });
+    };
+
+    const clearUserMessages = () => {
+        dispatch({ type: "CLEAR_USER_MESSAGES" });
+    };
+
     return {
         state,
         startInterview,
@@ -160,5 +223,10 @@ export function useInterview() {
         getCurrentTask,
         updateCurrentCode,
         updateSubmission,
+        setCodingStarted,
+        queueContextUpdate,
+        clearContextUpdates,
+        queueUserMessage,
+        clearUserMessages,
     };
 }
