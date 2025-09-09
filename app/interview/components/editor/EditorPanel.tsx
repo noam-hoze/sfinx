@@ -53,6 +53,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     const lastChangeTimeRef = useRef<number>(0); // Start at 0 so first paste has large timeSinceLastChange
     const pasteStartTimeRef = useRef<number>(0);
     const lastPasteDetectionTimeRef = useRef<number>(0);
+    const usingAITriggeredRef = useRef<boolean>(false);
 
     // Update local state when prop changes
     useEffect(() => {
@@ -142,12 +143,18 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                 const previousTime = lastChangeTimeRef.current;
                 const timeSinceLastChange = now - previousTime;
 
-                // Simple AI detection: check if paste > 50 chars
-                if (value.length > 50) {
-                    logger.info(
-                        "🚨 Large paste detected - requesting state machine to set using_ai: true"
-                    );
-                    updateKBVariables?.({ using_ai: true });
+                // Demo heuristic: fire once when a single change inserts >=80 chars or >=2 newlines
+                if (!usingAITriggeredRef.current) {
+                    const newlinesAdded =
+                        (value.match(/\n/g)?.length || 0) -
+                        (previousCode.match(/\n/g)?.length || 0);
+                    if (charactersAdded >= 80 || newlinesAdded >= 2) {
+                        usingAITriggeredRef.current = true;
+                        logger.info(
+                            "🚨 Burst insert detected - setting using_ai: true (demo, one-time)"
+                        );
+                        updateKBVariables?.({ using_ai: true });
+                    }
                 }
 
                 // Update refs
