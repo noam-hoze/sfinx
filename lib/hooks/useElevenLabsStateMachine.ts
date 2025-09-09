@@ -23,12 +23,11 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { logger } from "../logger";
+const log = logger.for("@useElevenLabsStateMachine.ts");
 
 const NUDGE_MESSAGE_TO_ASK_THE_CANDIDATE_A_QUESTION = `
 I just used external AI. Now your using_ai variable is 
-true. Ask me only one follow up question about the 
-current_code_summary. After you ask that question I'm going to respond, and
-then you will engage with me in a conversation about your question.`;
+true. Ask me only one follow up question about: `;
 
 /**
  * KBVariables: canonical context mirrored to ElevenLabs via KB_UPDATE.
@@ -40,6 +39,7 @@ export interface KBVariables {
     using_ai: boolean;
     current_code_summary: string;
     has_submitted: boolean;
+    ai_added_code?: string;
 }
 
 /**
@@ -92,29 +92,52 @@ export const useElevenLabsStateMachine = (
                 try {
                     const text = `KB_UPDATE: ${JSON.stringify(sanitizedKB)}`;
                     await onElevenLabsUpdate(text);
-                    logger.info("✅ KB variables updated:", sanitizedKB);
+                    log.info("✅ KB variables updated:", sanitizedKB);
                 } catch (error) {
-                    logger.error("❌ Failed to update KB variables:", error);
+                    log.error("❌ Failed to update KB variables:", error);
                 }
             }
 
             // After successfully updating KB, send special user message (not shown in chat)
             if (isUsingAIRisingEdge && onSendUserMessage) {
                 try {
-                    await onSendUserMessage(
-                        NUDGE_MESSAGE_TO_ASK_THE_CANDIDATE_A_QUESTION
+                    const addedCode = (updates as any).ai_added_code || "";
+                    const message = `${NUDGE_MESSAGE_TO_ASK_THE_CANDIDATE_A_QUESTION}: ${addedCode}`;
+                    await onSendUserMessage(message);
+                    log.info(
+                        "✅ SENT - Dynamic AI usage message with added code"
                     );
-                    logger.info(
-                        `✅ SENT - ${NUDGE_MESSAGE_TO_ASK_THE_CANDIDATE_A_QUESTION}`
-                    );
+
+                    // Immediately reset using_ai to false and clear ai_added_code, return to default reactive mode
+                    const resetKB = {
+                        ...sanitizedKB,
+                        using_ai: false,
+                    };
+                    setKBVariables(resetKB);
+                    if (onElevenLabsUpdate) {
+                        try {
+                            await onElevenLabsUpdate(
+                                `KB_UPDATE: ${JSON.stringify(resetKB)}`
+                            );
+                            log.info(
+                                "✅ KB variables reset to default reactive mode:",
+                                resetKB
+                            );
+                        } catch (error) {
+                            log.error(
+                                "❌ Failed to send reset KB_UPDATE:",
+                                error
+                            );
+                        }
+                    }
                 } catch (err) {
-                    logger.error(
-                        `❌ WAS NOT SENT - ${NUDGE_MESSAGE_TO_ASK_THE_CANDIDATE_A_QUESTION}`
+                    log.error(
+                        "❌ WAS NOT SENT - Dynamic AI usage message with added code"
                     );
                 }
             }
         },
-        [kbVariables, onElevenLabsUpdate]
+        [kbVariables, onElevenLabsUpdate, onSendUserMessage]
     );
 
     /**
@@ -123,11 +146,11 @@ export const useElevenLabsStateMachine = (
      */
     const handleUserTranscript = useCallback(
         async (transcript: string) => {
-            logger.info("🎤 User transcript received:", transcript);
+            log.info("🎤 User transcript received:", transcript);
 
             // Always forward meaningful questions during coding
             if (kbVariables.is_coding) {
-                logger.info("✅ Forwarding meaningful question during coding");
+                log.info("✅ Forwarding meaningful question during coding");
                 await onSendUserMessage?.(transcript);
             }
         },

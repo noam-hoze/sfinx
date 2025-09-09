@@ -6,6 +6,30 @@ import { Play, RotateCcw } from "lucide-react";
 import CodePreview from "./CodePreview";
 import { logger } from "../../../../lib";
 
+function computeInsertedSegment(oldText: string, newText: string): string {
+    let start = 0;
+    while (
+        start < oldText.length &&
+        start < newText.length &&
+        oldText[start] === newText[start]
+    ) {
+        start++;
+    }
+
+    let oldEnd = oldText.length - 1;
+    let newEnd = newText.length - 1;
+    while (
+        oldEnd >= start &&
+        newEnd >= start &&
+        oldText[oldEnd] === newText[newEnd]
+    ) {
+        oldEnd--;
+        newEnd--;
+    }
+
+    return newText.slice(start, newEnd + 1);
+}
+
 interface EditorPanelProps {
     showDiff?: boolean;
     originalCode?: string;
@@ -150,10 +174,25 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                         (previousCode.match(/\n/g)?.length || 0);
                     if (charactersAdded >= 80 || newlinesAdded >= 2) {
                         usingAITriggeredRef.current = true;
-                        logger.info(
-                            "🚨 Burst insert detected - setting using_ai: true (demo, one-time)"
+
+                        // Compute simple inserted segment between previousCode -> value
+                        const insertedSegment = computeInsertedSegment(
+                            previousCode,
+                            value
                         );
-                        updateKBVariables?.({ using_ai: true });
+                        logger.debug(
+                            "🧩 Inserted segment (demo):",
+                            insertedSegment
+                        );
+
+                        logger.info(
+                            "🚨 Burst insert detected - setting using_ai: true (demo, one-time)",
+                            { insertedLength: charactersAdded, newlinesAdded }
+                        );
+                        updateKBVariables?.({
+                            using_ai: true,
+                            ai_added_code: insertedSegment,
+                        });
                     }
                 }
 
@@ -168,7 +207,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                 onCodeChange?.(value);
             }
         },
-        [onCodeChange, onElevenLabsUpdate]
+        [onCodeChange, updateKBVariables]
     );
 
     const runCode = () => {
