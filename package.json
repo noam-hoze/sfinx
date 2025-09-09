@@ -1,6 +1,6 @@
 {
     "name": "sfinx",
-    "version": "1.12.0",
+    "version": "1.13.0",
     "private": true,
     "scripts": {
         "dev": "next dev",
@@ -8,8 +8,8 @@
         "start": "next start",
         "lint": "next lint",
         "test": "vitest run",
-        "reset-db": "tsx scripts/reset-db.ts",
-        "sync-schema-and-reseed": "tsx scripts/sync-schema-and-reseed.ts"
+        "seed": "tsx scripts/seed-data.ts",
+        "sync-schema-and-seed": "tsx scripts/sync-schema-and-seed.ts"
     },
     "dependencies": {
         "@elevenlabs/react": "^0.6.1",

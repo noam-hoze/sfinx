@@ -6,6 +6,24 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [1.12.0] - 2025-09-08
 
+## [1.13.0] - 2025-09-09
+
+### Added
+
+- Evidence categories for clips (Iteration Speed, Debug Loop, Refactor & Cleanups, AI Assist Usage)
+- Zeroed telemetry auto-creation on new interview sessions (ensures CPS shows all sessions)
+
+### Changed
+
+- Job search: cards show jobs (flattened) with role details; API filters by role/location properly
+- Applications API: reuse existing application per candidate+job to avoid duplicates
+- Telemetry GET: builds evidence links using category (with title fallback)
+
+### Fixed
+
+- CPS telemetry GET returns 200 with empty sessions for candidates without telemetry
+- Seeded Noam evidence clips categorized to drive evidence links correctly
+
 ### Added
 
 - **Interview Loading State**: Loading button with spinner during interview start process

@@ -18,21 +18,19 @@ export async function seedNoam() {
             skills: ["React", "TypeScript", "Node.js", "JavaScript"],
         });
 
-        // 3. Use an existing job seeded by reset-db
-        const job = await prisma.job.findFirst();
+        // 3. Use an existing Meta job seeded by seed-data
+        const job = await prisma.job.findFirst({
+            where: { companyId: "meta" },
+        });
         if (!job) {
             throw new Error(
-                "No jobs found. Run reset-db to seed companies and jobs before seedNoam."
+                "No Meta jobs found. Run seed-data to seed companies and jobs before seedNoam."
             );
         }
 
         // 5. Create Application
-        const application = await prisma.application.upsert({
-            where: {
-                candidateId_jobId: { candidateId: user.id, jobId: job.id },
-            },
-            update: {},
-            create: {
+        const application = await prisma.application.create({
+            data: {
                 id: "noam-application-id",
                 candidateId: user.id,
                 jobId: job.id,
@@ -42,10 +40,8 @@ export async function seedNoam() {
         console.log("✅ Application created:", application.id);
 
         // 6. Create Interview Session
-        const interviewSession = await prisma.interviewSession.upsert({
-            where: { id: "noam-interview-session-id" },
-            update: {},
-            create: {
+        const interviewSession = await prisma.interviewSession.create({
+            data: {
                 id: "noam-interview-session-id",
                 candidateId: user.id,
                 applicationId: "noam-application-id",
@@ -56,10 +52,8 @@ export async function seedNoam() {
         console.log("✅ Interview session created:", interviewSession.id);
 
         // 7. Create Telemetry Data
-        const telemetryData = await prisma.telemetryData.upsert({
-            where: { id: "noam-telemetry-id" },
-            update: {},
-            create: {
+        const telemetryData = await prisma.telemetryData.create({
+            data: {
                 id: "noam-telemetry-id",
                 interviewSessionId: "noam-interview-session-id",
                 matchScore: 92,
@@ -71,10 +65,8 @@ export async function seedNoam() {
         console.log("✅ Telemetry data created:", telemetryData.id);
 
         // 8. Create Workstyle Metrics
-        const workstyleMetrics = await prisma.workstyleMetrics.upsert({
-            where: { id: "noam-workstyle-id" },
-            update: {},
-            create: {
+        const workstyleMetrics = await prisma.workstyleMetrics.create({
+            data: {
                 id: "noam-workstyle-id",
                 telemetryDataId: "noam-telemetry-id",
                 iterationSpeed: 85,
@@ -86,10 +78,8 @@ export async function seedNoam() {
         console.log("✅ Workstyle metrics created:", workstyleMetrics.id);
 
         // 9. Create Gap Analysis
-        const gapAnalysis = await prisma.gapAnalysis.upsert({
-            where: { id: "noam-gap-analysis-id" },
-            update: {},
-            create: {
+        const gapAnalysis = await prisma.gapAnalysis.create({
+            data: {
                 id: "noam-gap-analysis-id",
                 telemetryDataId: "noam-telemetry-id",
             },
@@ -98,10 +88,8 @@ export async function seedNoam() {
 
         // 10. Create Gaps
         const gaps = await Promise.all([
-            prisma.gap.upsert({
-                where: { id: "noam-gap-1" },
-                update: {},
-                create: {
+            prisma.gap.create({
+                data: {
                     id: "noam-gap-1",
                     gapAnalysisId: "noam-gap-analysis-id",
                     severity: "Minor",
@@ -110,10 +98,8 @@ export async function seedNoam() {
                     evidenceLinks: [85, 145, 220],
                 },
             }),
-            prisma.gap.upsert({
-                where: { id: "noam-gap-2" },
-                update: {},
-                create: {
+            prisma.gap.create({
+                data: {
                     id: "noam-gap-2",
                     gapAnalysisId: "noam-gap-analysis-id",
                     severity: "Minor",
@@ -127,41 +113,37 @@ export async function seedNoam() {
 
         // 11. Create Evidence Clips
         const evidenceClips = await Promise.all([
-            prisma.evidenceClip.upsert({
-                where: { id: "noam-evidence-1" },
-                update: {},
-                create: {
+            prisma.evidenceClip.create({
+                data: {
                     id: "noam-evidence-1",
                     telemetryDataId: "noam-telemetry-id",
-                    title: "Rapid UserList Implementation",
+                    title: "Iteration Speed",
                     duration: 75,
                     description:
                         "Quick setup of UserList component with API integration and styling",
                     startTime: 75,
-                },
+                    category: "ITERATION_SPEED",
+                } as any,
             }),
-            prisma.evidenceClip.upsert({
-                where: { id: "noam-evidence-2" },
-                update: {},
-                create: {
+            prisma.evidenceClip.create({
+                data: {
                     id: "noam-evidence-2",
                     telemetryDataId: "noam-telemetry-id",
-                    title: "Clean Error Handling",
+                    title: "Debug Loop",
                     duration: 45,
                     description:
                         "Implementation of loading and error states for API calls",
                     startTime: 120,
-                },
+                    category: "DEBUG_LOOP",
+                } as any,
             }),
         ]);
         console.log("✅ Evidence clips created:", evidenceClips.length);
 
         // 12. Create Video Chapters
         const videoChapters = await Promise.all([
-            prisma.videoChapter.upsert({
-                where: { id: "noam-chapter-1" },
-                update: {},
-                create: {
+            prisma.videoChapter.create({
+                data: {
                     id: "noam-chapter-1",
                     telemetryDataId: "noam-telemetry-id",
                     title: "Session Setup & Introduction",
@@ -171,10 +153,8 @@ export async function seedNoam() {
                         "Initial setup, task briefing, and environment configuration",
                 },
             }),
-            prisma.videoChapter.upsert({
-                where: { id: "noam-chapter-2" },
-                update: {},
-                create: {
+            prisma.videoChapter.create({
+                data: {
                     id: "noam-chapter-2",
                     telemetryDataId: "noam-telemetry-id",
                     title: "UserList Component Development",
@@ -184,10 +164,8 @@ export async function seedNoam() {
                         "Building the UserList component with API integration and styling",
                 },
             }),
-            prisma.videoChapter.upsert({
-                where: { id: "noam-chapter-3" },
-                update: {},
-                create: {
+            prisma.videoChapter.create({
+                data: {
                     id: "noam-chapter-3",
                     telemetryDataId: "noam-telemetry-id",
                     title: "Testing & Final Polish",
@@ -203,10 +181,8 @@ export async function seedNoam() {
         // 13. Create Video Captions
         const captions = await Promise.all([
             // Chapter 1 captions
-            prisma.videoCaption.upsert({
-                where: { id: "noam-caption-1-1" },
-                update: {},
-                create: {
+            prisma.videoCaption.create({
+                data: {
                     id: "noam-caption-1-1",
                     videoChapterId: "noam-chapter-1",
                     text: "Setting up development environment",
@@ -214,10 +190,8 @@ export async function seedNoam() {
                     endTime: 20,
                 },
             }),
-            prisma.videoCaption.upsert({
-                where: { id: "noam-caption-1-2" },
-                update: {},
-                create: {
+            prisma.videoCaption.create({
+                data: {
                     id: "noam-caption-1-2",
                     videoChapterId: "noam-chapter-1",
                     text: "Reviewing project requirements",
@@ -225,10 +199,8 @@ export async function seedNoam() {
                     endTime: 40,
                 },
             }),
-            prisma.videoCaption.upsert({
-                where: { id: "noam-caption-1-3" },
-                update: {},
-                create: {
+            prisma.videoCaption.create({
+                data: {
                     id: "noam-caption-1-3",
                     videoChapterId: "noam-chapter-1",
                     text: "Exploring codebase structure",
@@ -237,10 +209,8 @@ export async function seedNoam() {
                 },
             }),
             // Chapter 2 captions
-            prisma.videoCaption.upsert({
-                where: { id: "noam-caption-2-1" },
-                update: {},
-                create: {
+            prisma.videoCaption.create({
+                data: {
                     id: "noam-caption-2-1",
                     videoChapterId: "noam-chapter-2",
                     text: "Planning component architecture",
@@ -248,10 +218,8 @@ export async function seedNoam() {
                     endTime: 95,
                 },
             }),
-            prisma.videoCaption.upsert({
-                where: { id: "noam-caption-2-2" },
-                update: {},
-                create: {
+            prisma.videoCaption.create({
+                data: {
                     id: "noam-caption-2-2",
                     videoChapterId: "noam-chapter-2",
                     text: "Implementing API data fetching",
@@ -259,10 +227,8 @@ export async function seedNoam() {
                     endTime: 115,
                 },
             }),
-            prisma.videoCaption.upsert({
-                where: { id: "noam-caption-2-3" },
-                update: {},
-                create: {
+            prisma.videoCaption.create({
+                data: {
                     id: "noam-caption-2-3",
                     videoChapterId: "noam-chapter-2",
                     text: "Adding loading and error states",
@@ -270,10 +236,8 @@ export async function seedNoam() {
                     endTime: 135,
                 },
             }),
-            prisma.videoCaption.upsert({
-                where: { id: "noam-caption-2-4" },
-                update: {},
-                create: {
+            prisma.videoCaption.create({
+                data: {
                     id: "noam-caption-2-4",
                     videoChapterId: "noam-chapter-2",
                     text: "Styling responsive layout",
@@ -282,10 +246,8 @@ export async function seedNoam() {
                 },
             }),
             // Chapter 3 captions
-            prisma.videoCaption.upsert({
-                where: { id: "noam-caption-3-1" },
-                update: {},
-                create: {
+            prisma.videoCaption.create({
+                data: {
                     id: "noam-caption-3-1",
                     videoChapterId: "noam-chapter-3",
                     text: "Running comprehensive tests",
@@ -293,10 +255,8 @@ export async function seedNoam() {
                     endTime: 185,
                 },
             }),
-            prisma.videoCaption.upsert({
-                where: { id: "noam-caption-3-2" },
-                update: {},
-                create: {
+            prisma.videoCaption.create({
+                data: {
                     id: "noam-caption-3-2",
                     videoChapterId: "noam-chapter-3",
                     text: "Code cleanup and optimization",
@@ -304,10 +264,8 @@ export async function seedNoam() {
                     endTime: 205,
                 },
             }),
-            prisma.videoCaption.upsert({
-                where: { id: "noam-caption-3-3" },
-                update: {},
-                create: {
+            prisma.videoCaption.create({
+                data: {
                     id: "noam-caption-3-3",
                     videoChapterId: "noam-chapter-3",
                     text: "Final code review",

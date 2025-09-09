@@ -2,7 +2,6 @@
 
 import { PrismaClient, CompanySize, JobType, UserRole } from "@prisma/client";
 import { companiesData } from "../lib/data/job-search-data";
-import { noamTelemetryData } from "../lib/data/telemetry-data";
 import bcrypt from "bcryptjs";
 
 // Import seed functions

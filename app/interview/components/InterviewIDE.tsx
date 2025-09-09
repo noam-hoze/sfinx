@@ -13,7 +13,6 @@ import {
     InterviewProvider,
     useInterview,
     useJobApplication,
-    companiesData,
 } from "../../../lib";
 import { useElevenLabsStateMachine } from "../../../lib/hooks/useElevenLabsStateMachine";
 import { logger } from "../../../lib";
@@ -23,8 +22,9 @@ const InterviewerContent = () => {
         useInterview();
     const { markCompanyApplied } = useJobApplication();
     const searchParams = useSearchParams();
-    const companyName = searchParams.get("company");
-    const companyLogo = searchParams.get("logo") || "/logos/meta-logo.png";
+    const companyId = searchParams.get("companyId");
+    const jobId = searchParams.get("jobId");
+    const [job, setJob] = useState<any | null>(null);
     const { data: session } = useSession();
     const candidateNameFromSession =
         (session?.user as any)?.name || "Candidate";
@@ -141,10 +141,25 @@ const InterviewerContent = () => {
 
     // Require company name parameter
     useEffect(() => {
-        if (!companyName) {
+        if (!companyId) {
             router.push("/job-search");
         }
-    }, [companyName, router]);
+    }, [companyId, router]);
+
+    // Fetch job + company by jobId for UI and logic
+    useEffect(() => {
+        const fetchJob = async () => {
+            if (!jobId) return;
+            try {
+                const res = await fetch(`/api/jobs/${jobId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setJob(data.job);
+                }
+            } catch (_) {}
+        };
+        fetchJob();
+    }, [jobId]);
 
     const toggleMicMute = useCallback(() => {
         if (realTimeConversationRef.current?.toggleMicMute) {
@@ -697,83 +712,74 @@ const InterviewerContent = () => {
             // Only proceed with interview setup if recording permission was granted
 
             // Create application if it doesn't exist
-            if (!applicationCreated && companyName) {
+            if (!applicationCreated && companyId) {
                 logger.info("🚀 Creating application for interview...");
-                const company = companiesData.find(
-                    (c) => c.name === companyName
-                );
-                if (company) {
-                    try {
-                        const response = await fetch(
-                            "/api/applications/create",
+                try {
+                    const response = await fetch("/api/applications/create", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            companyId: companyId,
+                            jobTitle: "Frontend Engineer",
+                        }),
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        logger.info(
+                            "✅ Application created for interview:",
+                            data.application.id
+                        );
+                        setApplicationCreated(true);
+
+                        // Now create interview session
+                        logger.info("🚀 Creating interview session...");
+                        const sessionResponse = await fetch(
+                            "/api/interviews/session",
                             {
                                 method: "POST",
                                 headers: {
                                     "Content-Type": "application/json",
                                 },
                                 body: JSON.stringify({
-                                    companyId: company.id,
-                                    jobTitle: "Frontend Developer",
+                                    applicationId: data.application.id,
+                                    companyId: companyId,
                                 }),
                             }
                         );
 
-                        if (response.ok) {
-                            const data = await response.json();
+                        if (sessionResponse.ok) {
+                            const sessionData = await sessionResponse.json();
                             logger.info(
-                                "✅ Application created for interview:",
-                                data.application.id
+                                "✅ Interview session created:",
+                                sessionData.interviewSession.id
                             );
-                            setApplicationCreated(true);
-
-                            // Now create interview session
-                            logger.info("🚀 Creating interview session...");
-                            const sessionResponse = await fetch(
-                                "/api/interviews/session",
-                                {
-                                    method: "POST",
-                                    headers: {
-                                        "Content-Type": "application/json",
-                                    },
-                                    body: JSON.stringify({
-                                        applicationId: data.application.id,
-                                        companyId: company.id,
-                                    }),
-                                }
+                            logger.info(
+                                "🔄 Setting interviewSessionId to:",
+                                sessionData.interviewSession.id
                             );
-
-                            if (sessionResponse.ok) {
-                                const sessionData =
-                                    await sessionResponse.json();
-                                logger.info(
-                                    "✅ Interview session created:",
-                                    sessionData.interviewSession.id
-                                );
-                                logger.info(
-                                    "🔄 Setting interviewSessionId to:",
-                                    sessionData.interviewSession.id
-                                );
-                                setInterviewSessionId(
-                                    sessionData.interviewSession.id
-                                );
-                                interviewSessionIdRef.current =
-                                    sessionData.interviewSession.id;
-                            } else {
-                                console.error(
-                                    "❌ Failed to create interview session"
-                                );
-                            }
+                            setInterviewSessionId(
+                                sessionData.interviewSession.id
+                            );
+                            interviewSessionIdRef.current =
+                                sessionData.interviewSession.id;
                         } else {
                             console.error(
-                                "❌ Failed to create application for interview"
+                                "❌ Failed to create interview session"
                             );
                         }
-                    } catch (error) {
+                    } else {
                         console.error(
-                            "❌ Error creating application/interview session:",
-                            error
+                            "❌ Failed to create application for interview"
                         );
                     }
+                } catch (error) {
+                    console.error(
+                        "❌ Error creating application/interview session:",
+                        error
+                    );
                 }
             }
 
@@ -793,7 +799,7 @@ const InterviewerContent = () => {
             console.error("Failed to start interview:", error);
             setIsInterviewLoading(false);
         }
-    }, [updateCurrentCode, applicationCreated, companyName, startRecording]);
+    }, [updateCurrentCode, applicationCreated, companyId, startRecording]);
 
     const handleStartCoding = async () => {
         setTimeLeft(30 * 60); // Reset to 30 minutes
@@ -998,16 +1004,10 @@ render(UserList);`;
     // Handle interview conclusion and completion screen
     useEffect(() => {
         const handleInterviewConclusion = async () => {
-            if (interviewConcluded && companyName) {
+            if (interviewConcluded && companyId) {
                 try {
-                    // Find company by name to update local state
-                    const company = companiesData.find(
-                        (c) => c.name === companyName
-                    );
-                    if (company) {
-                        // Update local state to mark company as applied
-                        markCompanyApplied(company.id);
-                    }
+                    // Update local state to mark company as applied
+                    markCompanyApplied(companyId);
 
                     console.log("✅ Interview completed successfully");
                 } catch (error) {
@@ -1026,7 +1026,7 @@ render(UserList);`;
         };
 
         handleInterviewConclusion();
-    }, [interviewConcluded, companyName, router, markCompanyApplied]);
+    }, [interviewConcluded, companyId, router, markCompanyApplied]);
 
     // Load theme preference and apply to document
     useEffect(() => {
@@ -1127,6 +1127,8 @@ render(UserList);`;
             </div>
         </div>
     );
+
+    const companyLogo = job?.company?.logo || "/logos/meta-logo.png";
 
     return (
         <div className="h-screen flex flex-col bg-soft-white text-deep-slate dark:bg-gray-900 dark:text-white">

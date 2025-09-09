@@ -21,13 +21,15 @@ export async function POST(request: NextRequest) {
 
         const userId = (session!.user as any).id;
         logger.info("✅ User ID:", userId);
-        const { companyId, jobTitle } = await request.json();
-        logger.info("📋 Request data:", { companyId, jobTitle });
+        const { companyId, jobTitle, jobId } = await request.json();
+        logger.info("📋 Request data:", { companyId, jobTitle, jobId });
 
-        if (!companyId || !jobTitle) {
+        if (!companyId || (!jobTitle && !jobId)) {
             logger.warn("❌ Missing required fields");
             return NextResponse.json(
-                { error: "Company ID and job title are required" },
+                {
+                    error: "companyId and either jobId or jobTitle are required",
+                },
                 { status: 400 }
             );
         }
@@ -47,38 +49,49 @@ export async function POST(request: NextRequest) {
         }
         logger.info("✅ Company found:", company.name);
 
-        // Find or create a job for this company with the specified title
-        let job = await prisma.job.findFirst({
-            where: {
-                companyId: company.id,
-                title: jobTitle,
-            },
-        });
-
-        if (!job) {
-            // Create a new job if it doesn't exist
-            job = await prisma.job.create({
-                data: {
-                    title: jobTitle,
-                    type: "FULL_TIME",
-                    location: "Remote", // Default location
+        // Resolve job: by jobId (preferred) or by company+title
+        let job = null as any;
+        if (jobId) {
+            job = await prisma.job.findUnique({ where: { id: jobId } });
+            if (!job || job.companyId !== company.id) {
+                logger.warn("❌ Job not found or does not belong to company", {
+                    jobId,
                     companyId: company.id,
+                });
+                return NextResponse.json(
+                    { error: "Job not found for this company" },
+                    { status: 404 }
+                );
+            }
+        } else if (jobTitle) {
+            job = await prisma.job.findFirst({
+                where: {
+                    companyId: company.id,
+                    title: jobTitle,
                 },
             });
+            if (!job) {
+                logger.warn("❌ Job title not found for company", {
+                    jobTitle,
+                    companyId: company.id,
+                });
+                return NextResponse.json(
+                    { error: "Job not found for this company" },
+                    { status: 404 }
+                );
+            }
         }
 
-        // Check if application already exists
-        const existingApplication = await prisma.application.findFirst({
-            where: {
-                candidateId: userId,
-                jobId: job.id,
-            },
+        // Reuse existing application for this candidate+job if present
+        const existing = await prisma.application.findFirst({
+            where: { candidateId: userId, jobId: job.id },
         });
 
-        if (existingApplication) {
+        if (existing) {
+            logger.info("✅ Reusing existing application:", existing.id);
             return NextResponse.json({
                 message: "Application already exists",
-                application: existingApplication,
+                application: existing,
             });
         }
 

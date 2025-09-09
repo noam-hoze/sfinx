@@ -204,6 +204,7 @@ model EvidenceClip {
   duration        Int
   description     String
   startTime       Int?
+  category        EvidenceCategory?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   telemetryData   TelemetryData @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
@@ -260,4 +261,11 @@ enum ApplicationStatus {
   INTERVIEWING
   ACCEPTED
   REJECTED
+}
+
+enum EvidenceCategory {
+  ITERATION_SPEED
+  DEBUG_LOOP
+  REFACTOR_CLEANUPS
+  AI_ASSIST_USAGE
 }

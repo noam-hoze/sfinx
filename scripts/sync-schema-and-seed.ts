@@ -3,7 +3,7 @@
 import { execSync } from "child_process";
 import { PrismaClient } from "@prisma/client";
 
-async function syncSchemaAndReseed() {
+async function syncSchemaAndSeed() {
     console.log("🔄 Starting database reset with new schema...");
 
     try {
@@ -19,7 +19,7 @@ async function syncSchemaAndReseed() {
         console.log(
             "📦 Resetting and seeding database (fresh data on new schema)..."
         );
-        execSync("pnpm reset-db", { stdio: "inherit" });
+        execSync("pnpm seed", { stdio: "inherit" });
 
         // 4. Verify the schema was applied correctly
         console.log("✅ Verifying schema...");
@@ -53,4 +53,4 @@ async function syncSchemaAndReseed() {
     }
 }
 
-syncSchemaAndReseed();
+syncSchemaAndSeed();

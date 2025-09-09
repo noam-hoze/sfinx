@@ -17,8 +17,8 @@ export async function GET(
         const candidateId = params.id;
         const applicationId = request.nextUrl.searchParams.get("applicationId");
 
-        // Get the most recent interview session for this candidate that has telemetry data
-        const interviewSession = await prisma.interviewSession.findFirst({
+        // Get all interview sessions for this candidate (newest first)
+        const interviewSessions = await prisma.interviewSession.findMany({
             where: {
                 candidateId: candidateId,
                 ...(applicationId ? { applicationId } : {}),
@@ -54,163 +54,209 @@ export async function GET(
             },
         });
 
-        if (!interviewSession || !interviewSession.telemetryData) {
-            return NextResponse.json(
-                { error: "No telemetry data found for this candidate" },
-                { status: 404 }
-            );
+        if (!interviewSessions.length) {
+            // Return minimal candidate info with empty sessions (no fallback data)
+            const candidate = await prisma.user.findUnique({
+                where: { id: candidateId },
+                select: { id: true, name: true, image: true },
+            });
+
+            if (!candidate) {
+                return NextResponse.json(
+                    { error: "Candidate not found" },
+                    { status: 404 }
+                );
+            }
+
+            return NextResponse.json({
+                candidate: {
+                    id: candidate.id,
+                    name: candidate.name,
+                    image: candidate.image,
+                    matchScore: null,
+                    confidence: null,
+                    story: null,
+                },
+                sessions: [],
+            });
         }
 
-        const telemetry = interviewSession.telemetryData;
-        const candidate = interviewSession.candidate;
+        const candidate = interviewSessions[0].candidate;
 
-        // BUNDLE evidenceLinks from evidenceClips table
-        const evidenceClips = interviewSession.telemetryData.evidenceClips;
+        // Transform sessions array
+        const sessions = interviewSessions.map((session: any) => {
+            const telemetry = session.telemetryData;
+            const evidenceClips = telemetry.evidenceClips || [];
 
-        const iterationSpeedLinks: number[] = [];
-        const debugLoopsLinks: number[] = [];
-        const refactorCleanupsLinks: number[] = [];
-        const aiAssistUsageLinks: number[] = [];
+            const iterationSpeedLinks: number[] = [];
+            const debugLoopsLinks: number[] = [];
+            const refactorCleanupsLinks: number[] = [];
+            const aiAssistUsageLinks: number[] = [];
 
-        evidenceClips.forEach((clip: any) => {
-            if (clip.startTime === null || clip.startTime === undefined) return;
+            evidenceClips.forEach((clip: any) => {
+                if (clip.startTime === null || clip.startTime === undefined)
+                    return;
+                // Prefer explicit category if available; fallback to title heuristics
+                if (
+                    clip.category === "ITERATION_SPEED" ||
+                    clip.title.includes("Iteration Speed")
+                ) {
+                    iterationSpeedLinks.push(clip.startTime);
+                }
+                if (
+                    clip.category === "DEBUG_LOOP" ||
+                    clip.title.includes("Debug Loop")
+                ) {
+                    debugLoopsLinks.push(clip.startTime);
+                }
+                if (
+                    clip.category === "REFACTOR_CLEANUPS" ||
+                    clip.title.includes("Refactor")
+                ) {
+                    refactorCleanupsLinks.push(clip.startTime);
+                }
+                if (
+                    clip.category === "AI_ASSIST_USAGE" ||
+                    clip.title.includes("AI Assist")
+                ) {
+                    aiAssistUsageLinks.push(clip.startTime);
+                }
+            });
 
-            if (clip.title.includes("Iteration Speed")) {
-                iterationSpeedLinks.push(clip.startTime);
-            }
-            if (clip.title.includes("Debug Loop")) {
-                debugLoopsLinks.push(clip.startTime);
-            }
-            if (clip.title.includes("Refactor")) {
-                refactorCleanupsLinks.push(clip.startTime);
-            }
-            if (clip.title.includes("AI Assist")) {
-                aiAssistUsageLinks.push(clip.startTime);
-            }
+            return {
+                id: session.id,
+                createdAt: session.createdAt,
+                videoUrl: session.videoUrl,
+                duration: session.duration,
+                gaps: {
+                    gaps:
+                        telemetry.gapAnalysis?.gaps.map((gap: any) => ({
+                            severity: gap.severity,
+                            description: gap.description,
+                            color: gap.color,
+                            evidenceLinks: gap.evidenceLinks,
+                        })) || [],
+                },
+                evidence: telemetry.evidenceClips.map((clip: any) => ({
+                    id: clip.id,
+                    title: clip.title,
+                    thumbnailUrl: clip.thumbnailUrl,
+                    duration: clip.duration,
+                    description: clip.description,
+                    startTime: clip.startTime,
+                })),
+                chapters: telemetry.videoChapters.map((chapter: any) => ({
+                    id: chapter.id,
+                    title: chapter.title,
+                    startTime: chapter.startTime,
+                    endTime: chapter.endTime,
+                    description: chapter.description,
+                    thumbnailUrl: chapter.thumbnailUrl,
+                    captions: chapter.captions.map((caption: any) => ({
+                        text: caption.text,
+                        startTime: caption.startTime,
+                        endTime: caption.endTime,
+                    })),
+                })),
+                workstyle: telemetry.workstyleMetrics
+                    ? {
+                          iterationSpeed: {
+                              value: telemetry.workstyleMetrics.iterationSpeed,
+                              level:
+                                  telemetry.workstyleMetrics.iterationSpeed >=
+                                  80
+                                      ? "High"
+                                      : telemetry.workstyleMetrics
+                                            .iterationSpeed >= 60
+                                      ? "Moderate"
+                                      : "Low",
+                              color:
+                                  telemetry.workstyleMetrics.iterationSpeed >=
+                                  80
+                                      ? "blue"
+                                      : telemetry.workstyleMetrics
+                                            .iterationSpeed >= 60
+                                      ? "yellow"
+                                      : "red",
+                              evidenceLinks: iterationSpeedLinks,
+                          },
+                          debugLoops: {
+                              value: telemetry.workstyleMetrics.debugLoops,
+                              level:
+                                  telemetry.workstyleMetrics.debugLoops <= 30
+                                      ? "Fast"
+                                      : telemetry.workstyleMetrics.debugLoops <=
+                                        60
+                                      ? "Moderate"
+                                      : "Slow",
+                              color:
+                                  telemetry.workstyleMetrics.debugLoops <= 30
+                                      ? "blue"
+                                      : telemetry.workstyleMetrics.debugLoops <=
+                                        60
+                                      ? "yellow"
+                                      : "red",
+                              evidenceLinks: debugLoopsLinks,
+                          },
+                          refactorCleanups: {
+                              value: telemetry.workstyleMetrics
+                                  .refactorCleanups,
+                              level:
+                                  telemetry.workstyleMetrics.refactorCleanups >=
+                                  80
+                                      ? "Strong"
+                                      : telemetry.workstyleMetrics
+                                            .refactorCleanups >= 60
+                                      ? "Moderate"
+                                      : "Weak",
+                              color:
+                                  telemetry.workstyleMetrics.refactorCleanups >=
+                                  80
+                                      ? "blue"
+                                      : telemetry.workstyleMetrics
+                                            .refactorCleanups >= 60
+                                      ? "yellow"
+                                      : "red",
+                              evidenceLinks: refactorCleanupsLinks,
+                          },
+                          aiAssistUsage: {
+                              value: telemetry.workstyleMetrics.aiAssistUsage,
+                              level:
+                                  telemetry.workstyleMetrics.aiAssistUsage <= 20
+                                      ? "Minimal"
+                                      : telemetry.workstyleMetrics
+                                            .aiAssistUsage <= 50
+                                      ? "Moderate"
+                                      : "High",
+                              color:
+                                  telemetry.workstyleMetrics.aiAssistUsage <= 20
+                                      ? "white"
+                                      : telemetry.workstyleMetrics
+                                            .aiAssistUsage <= 50
+                                      ? "yellow"
+                                      : "red",
+                              isFairnessFlag:
+                                  telemetry.workstyleMetrics.aiAssistUsage > 50,
+                              evidenceLinks: aiAssistUsageLinks,
+                          },
+                      }
+                    : null,
+                hasFairnessFlag: telemetry.hasFairnessFlag,
+            };
         });
 
-        // Transform the data to match the expected frontend format
-        const transformedData = {
+        return NextResponse.json({
             candidate: {
                 id: candidate.id,
                 name: candidate.name,
                 image: candidate.image,
-                matchScore: telemetry.matchScore,
-                confidence: telemetry.confidence,
-                story: telemetry.story || null,
+                // For convenience, surface the latest session's match/confidence
+                matchScore: interviewSessions[0].telemetryData!.matchScore,
+                confidence: interviewSessions[0].telemetryData!.confidence,
+                story: interviewSessions[0].telemetryData!.story || null,
             },
-            videoUrl: interviewSession.videoUrl,
-            duration: interviewSession.duration,
-            gaps: {
-                gaps:
-                    telemetry.gapAnalysis?.gaps.map((gap: any) => ({
-                        severity: gap.severity,
-                        description: gap.description,
-                        color: gap.color,
-                        evidenceLinks: gap.evidenceLinks,
-                    })) || [],
-            },
-            evidence: telemetry.evidenceClips.map((clip: any) => ({
-                id: clip.id,
-                title: clip.title,
-                thumbnailUrl: clip.thumbnailUrl,
-                duration: clip.duration,
-                description: clip.description,
-                startTime: clip.startTime,
-            })),
-            chapters: telemetry.videoChapters.map((chapter: any) => ({
-                id: chapter.id,
-                title: chapter.title,
-                startTime: chapter.startTime,
-                endTime: chapter.endTime,
-                description: chapter.description,
-                thumbnailUrl: chapter.thumbnailUrl,
-                captions: chapter.captions.map((caption: any) => ({
-                    text: caption.text,
-                    startTime: caption.startTime,
-                    endTime: caption.endTime,
-                })),
-            })),
-            workstyle: telemetry.workstyleMetrics
-                ? {
-                      iterationSpeed: {
-                          value: telemetry.workstyleMetrics.iterationSpeed,
-                          level:
-                              telemetry.workstyleMetrics.iterationSpeed >= 80
-                                  ? "High"
-                                  : telemetry.workstyleMetrics.iterationSpeed >=
-                                    60
-                                  ? "Moderate"
-                                  : "Low",
-                          color:
-                              telemetry.workstyleMetrics.iterationSpeed >= 80
-                                  ? "blue"
-                                  : telemetry.workstyleMetrics.iterationSpeed >=
-                                    60
-                                  ? "yellow"
-                                  : "red",
-                          evidenceLinks: iterationSpeedLinks,
-                      },
-                      debugLoops: {
-                          value: telemetry.workstyleMetrics.debugLoops,
-                          level:
-                              telemetry.workstyleMetrics.debugLoops <= 30
-                                  ? "Fast"
-                                  : telemetry.workstyleMetrics.debugLoops <= 60
-                                  ? "Moderate"
-                                  : "Slow",
-                          color:
-                              telemetry.workstyleMetrics.debugLoops <= 30
-                                  ? "blue"
-                                  : telemetry.workstyleMetrics.debugLoops <= 60
-                                  ? "yellow"
-                                  : "red",
-                          evidenceLinks: debugLoopsLinks,
-                      },
-                      refactorCleanups: {
-                          value: telemetry.workstyleMetrics.refactorCleanups,
-                          level:
-                              telemetry.workstyleMetrics.refactorCleanups >= 80
-                                  ? "Strong"
-                                  : telemetry.workstyleMetrics
-                                        .refactorCleanups >= 60
-                                  ? "Moderate"
-                                  : "Weak",
-                          color:
-                              telemetry.workstyleMetrics.refactorCleanups >= 80
-                                  ? "blue"
-                                  : telemetry.workstyleMetrics
-                                        .refactorCleanups >= 60
-                                  ? "yellow"
-                                  : "red",
-                          evidenceLinks: refactorCleanupsLinks,
-                      },
-                      aiAssistUsage: {
-                          value: telemetry.workstyleMetrics.aiAssistUsage,
-                          level:
-                              telemetry.workstyleMetrics.aiAssistUsage <= 20
-                                  ? "Minimal"
-                                  : telemetry.workstyleMetrics.aiAssistUsage <=
-                                    50
-                                  ? "Moderate"
-                                  : "High",
-                          color:
-                              telemetry.workstyleMetrics.aiAssistUsage <= 20
-                                  ? "white"
-                                  : telemetry.workstyleMetrics.aiAssistUsage <=
-                                    50
-                                  ? "yellow"
-                                  : "red",
-                          isFairnessFlag:
-                              telemetry.workstyleMetrics.aiAssistUsage > 50,
-                          evidenceLinks: aiAssistUsageLinks,
-                      },
-                  }
-                : null,
-            hasFairnessFlag: telemetry.hasFairnessFlag,
-        };
-
-        return NextResponse.json(transformedData);
+            sessions,
+        });
     } catch (error) {
         console.error("Error fetching candidate telemetry:", error);
         return NextResponse.json(
@@ -339,6 +385,14 @@ export async function PUT(
             for (const metric of workstyleMetricsToUpdate) {
                 if (metric.data && metric.data.evidenceLinks) {
                     for (const timestamp of metric.data.evidenceLinks) {
+                        const categoryMap: Record<string, string> = {
+                            "Iteration Speed": "ITERATION_SPEED",
+                            "Debug Loop": "DEBUG_LOOP",
+                            "Refactor & Cleanups": "REFACTOR_CLEANUPS",
+                            "AI Assist Usage": "AI_ASSIST_USAGE",
+                        };
+                        const category = categoryMap[metric.title];
+
                         await prisma.evidenceClip.create({
                             data: {
                                 telemetryDataId: telemetryId,
@@ -346,6 +400,7 @@ export async function PUT(
                                 startTime: timestamp,
                                 description: `Evidence for ${metric.title}`, // Placeholder
                                 duration: 5, // Placeholder
+                                ...(category ? { category } : {}),
                             },
                         });
                     }
