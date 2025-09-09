@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.13.2] - 2025-09-09
+
+### Changed
+
+- Interview flow: rely on single hidden completion message; removed `has_submitted` from KB updates.
+- AI nudge: send added code only via hidden message; immediately revert to reactive mode (using_ai=false).
+- One-time latches: ensure single close and single completion message across manual submit/timer.
+- Spec docs: added `INTERVIEW_FLOW_SPEC.md` and aligned `AI_INTERVIEWER_PROMPT.md` guidance.
+
+### Fixed
+
+- Duplicate closing lines caused by dual end signals and HMR replays.
+- Double-conclusion race by gating finalization and message sends.
+
 ## [1.12.0] - 2025-09-08
 
 ## [1.13.1] - 2025-09-09

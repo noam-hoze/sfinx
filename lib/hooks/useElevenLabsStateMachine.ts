@@ -24,6 +24,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { logger } from "../logger";
 const log = logger.for("@useElevenLabsStateMachine.ts");
+let hasSubmittedOnce = false;
 
 const NUDGE_MESSAGE_TO_ASK_THE_CANDIDATE_A_QUESTION = `
 I just used external AI. Now your using_ai variable is 
@@ -90,9 +91,16 @@ export const useElevenLabsStateMachine = (
 
             if (onElevenLabsUpdate) {
                 try {
-                    const text = `KB_UPDATE: ${JSON.stringify(sanitizedKB)}`;
+                    // Exclude has_submitted from outbound payloads
+                    const kbForUpdate = {
+                        candidate_name: sanitizedKB.candidate_name,
+                        is_coding: sanitizedKB.is_coding,
+                        using_ai: sanitizedKB.using_ai,
+                        current_code_summary: sanitizedKB.current_code_summary,
+                    };
+                    const text = `KB_UPDATE: ${JSON.stringify(kbForUpdate)}`;
                     await onElevenLabsUpdate(text);
-                    log.info("✅ KB variables updated:", sanitizedKB);
+                    log.info("✅ KB variables updated:", kbForUpdate);
                 } catch (error) {
                     log.error("❌ Failed to update KB variables:", error);
                 }
@@ -176,9 +184,11 @@ export const useElevenLabsStateMachine = (
      */
     const handleSubmission = useCallback(
         async (code: string) => {
+            if (hasSubmittedOnce) return;
+            hasSubmittedOnce = true;
+            // Do not send has_submitted via KB; just finalize code summary and coding state
             await updateKBVariables({
                 current_code_summary: code,
-                has_submitted: true,
                 is_coding: false,
             });
         },

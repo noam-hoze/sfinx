@@ -192,6 +192,8 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
         const lastSentCodeRef = useRef<string>("");
         const micStreamRef = useRef<MediaStream | null>(null);
+        const hasSubmittedRef = useRef<boolean>(false);
+        const concludedRef = useRef<boolean>(false);
 
         const startConversation = useCallback(async () => {
             try {
@@ -250,6 +252,11 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         // Auto KB_UPDATE on code changes (using state machine)
         useEffect(() => {
             if (conversation.status !== "connected") {
+                return;
+            }
+
+            // Suppress code summary updates after submission
+            if (hasSubmittedRef.current || kbVariables?.has_submitted) {
                 return;
             }
 
@@ -386,12 +393,19 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                     logger.info(
                         "⏰ 1 second delay complete - stopping interview"
                     );
-                    logger.info(
-                        "🎉 AUTOMATIC INTERVIEW END: Interview ended automatically after closing message"
-                    );
-                    // Notify parent that interview has concluded automatically
-                    onInterviewConcluded?.();
-                    stopConversation();
+                    if (!concludedRef.current) {
+                        concludedRef.current = true;
+                        logger.info(
+                            "🎉 AUTOMATIC INTERVIEW END: Interview ended automatically after closing message"
+                        );
+                        // Notify parent that interview has concluded automatically (once)
+                        onInterviewConcluded?.();
+                        stopConversation();
+                    } else {
+                        logger.info(
+                            "⏭️ Closing already processed; skipping duplicate end"
+                        );
+                    }
                 }, 1000);
             }
         }, [
@@ -415,6 +429,8 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                     });
                     micStreamRef.current = null;
                 }
+                hasSubmittedRef.current = false;
+                concludedRef.current = false;
                 disconnectFromConversation();
             };
         }, []); // eslint-disable-line react-hooks/exhaustive-deps

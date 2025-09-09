@@ -136,7 +136,30 @@ const InterviewerContent = () => {
     const selectedMimeTypeRef = useRef<string>("");
     const interviewSessionIdRef = useRef<string | null>(null); // Use ref to avoid stale closures
     const realTimeConversationRef = useRef<any>(null);
+    const doneMessageSentRef = useRef<boolean>(false);
     const router = useRouter();
+
+    // Helper: send hidden completion signal once
+    const sendHiddenDoneMessage = useCallback(async () => {
+        if (doneMessageSentRef.current) return true;
+        if (!realTimeConversationRef.current) return false;
+        try {
+            const messageSent =
+                await realTimeConversationRef.current.sendUserMessage(
+                    "I'm done. Please say your closing line and then end the connection."
+                );
+            if (messageSent) {
+                console.log("✅ Special 'I'm done' message sent successfully");
+                doneMessageSentRef.current = true;
+            } else {
+                console.error("❌ Failed to send 'I'm done' message");
+            }
+            return messageSent;
+        } catch (error) {
+            console.error("❌ Error sending 'I'm done' message:", error);
+            return false;
+        }
+    }, []);
 
     // Require company name parameter
     useEffect(() => {
@@ -827,22 +850,8 @@ const InterviewerContent = () => {
                         "✅ Timer expired - submission handled via state machine"
                     );
 
-                    // Send "I'm done" user message (same as submission)
-                    if (realTimeConversationRef.current) {
-                        realTimeConversationRef.current
-                            .sendUserMessage("I'm done")
-                            .then((messageSent: boolean) => {
-                                if (messageSent) {
-                                    console.log(
-                                        "✅ Special 'I'm done' message sent successfully on timer expiration"
-                                    );
-                                } else {
-                                    console.error(
-                                        "❌ Failed to send 'I'm done' message on timer expiration"
-                                    );
-                                }
-                            });
-                    }
+                    // Send hidden completion message on timer expiration
+                    sendHiddenDoneMessage();
 
                     setIsTimerRunning(false);
                     setIsCodingStarted(false);
@@ -885,20 +894,8 @@ const InterviewerContent = () => {
             await stateMachineHandleSubmission(state.currentCode);
             console.log("✅ Submission handled via state machine");
 
-            // Send "I'm done" user message (special message, not shown in chat)
-            if (realTimeConversationRef.current) {
-                const messageSent =
-                    await realTimeConversationRef.current.sendUserMessage(
-                        "I'm done"
-                    );
-                if (messageSent) {
-                    console.log(
-                        "✅ Special 'I'm done' message sent and received successfully"
-                    );
-                } else {
-                    console.error("❌ Failed to send 'I'm done' message");
-                }
-            }
+            // Send hidden completion message on manual submit
+            await sendHiddenDoneMessage();
 
             setIsTimerRunning(false);
             setIsCodingStarted(false);
