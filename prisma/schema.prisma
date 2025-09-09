@@ -156,6 +156,10 @@ model TelemetryData {
   hasFairnessFlag    Boolean           @default(false)
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
+  // New analytics series stored as JSON arrays
+  persistenceFlow    Json?
+  learningToAction   Json?
+  confidenceCurve    Json?
   evidenceClips      EvidenceClip[]
   gapAnalysis        GapAnalysis?
   interviewSession   InterviewSession  @relation(fields: [interviewSessionId], references: [id], onDelete: Cascade)

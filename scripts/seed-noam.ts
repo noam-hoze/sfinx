@@ -60,7 +60,157 @@ export async function seedNoam() {
                 confidence: "High",
                 story: "Noam showcased excellent React proficiency by rapidly building a UserList component with clean API integration, proper error handling, and polished styling. They demonstrated methodical problem-solving and clean code practices throughout the session.",
                 hasFairnessFlag: false,
-            },
+                persistenceFlow: [
+                    {
+                        name: "0:30",
+                        attempts: 1,
+                        timestamp: 30,
+                        color: "#ef4444",
+                    },
+                    {
+                        name: "1:15",
+                        attempts: 2,
+                        timestamp: 75,
+                        color: "#ef4444",
+                    },
+                    {
+                        name: "2:00",
+                        attempts: 3,
+                        timestamp: 120,
+                        color: "#f97316",
+                    },
+                    {
+                        name: "2:45",
+                        attempts: 4,
+                        timestamp: 165,
+                        color: "#f97316",
+                    },
+                    {
+                        name: "3:30",
+                        attempts: 5,
+                        timestamp: 210,
+                        color: "#eab308",
+                    },
+                    {
+                        name: "4:20",
+                        attempts: 6,
+                        timestamp: 260,
+                        color: "#22c55e",
+                    },
+                ],
+                learningToAction: [
+                    {
+                        time: "0:00",
+                        value: 0.8,
+                        timestamp: 0,
+                        color: "#3b82f6",
+                    },
+                    {
+                        time: "0:45",
+                        value: 0.5,
+                        timestamp: 45,
+                        color: "#3b82f6",
+                    },
+                    {
+                        time: "1:30",
+                        value: 1.2,
+                        timestamp: 90,
+                        color: "#3b82f6",
+                    },
+                    {
+                        time: "2:15",
+                        value: 0.9,
+                        timestamp: 135,
+                        color: "#eab308",
+                    },
+                    {
+                        time: "2:45",
+                        value: 1.8,
+                        timestamp: 165,
+                        color: "#eab308",
+                    },
+                    {
+                        time: "3:30",
+                        value: 1.4,
+                        timestamp: 210,
+                        color: "#eab308",
+                    },
+                    {
+                        time: "4:15",
+                        value: 2.3,
+                        timestamp: 255,
+                        color: "#22c55e",
+                    },
+                    {
+                        time: "5:00",
+                        value: 2.7,
+                        timestamp: 300,
+                        color: "#22c55e",
+                    },
+                    {
+                        time: "5:30",
+                        value: 3.0,
+                        timestamp: 330,
+                        color: "#22c55e",
+                    },
+                ],
+                confidenceCurve: [
+                    {
+                        time: "0:00",
+                        confidence: 15,
+                        timestamp: 0,
+                        color: "#ef4444",
+                    },
+                    {
+                        time: "0:45",
+                        confidence: 35,
+                        timestamp: 45,
+                        color: "#ef4444",
+                    },
+                    {
+                        time: "1:15",
+                        confidence: 20,
+                        timestamp: 75,
+                        color: "#ef4444",
+                    },
+                    {
+                        time: "1:45",
+                        confidence: 45,
+                        timestamp: 105,
+                        color: "#eab308",
+                    },
+                    {
+                        time: "2:30",
+                        confidence: 30,
+                        timestamp: 150,
+                        color: "#eab308",
+                    },
+                    {
+                        time: "3:15",
+                        confidence: 65,
+                        timestamp: 195,
+                        color: "#eab308",
+                    },
+                    {
+                        time: "4:00",
+                        confidence: 50,
+                        timestamp: 240,
+                        color: "#eab308",
+                    },
+                    {
+                        time: "4:45",
+                        confidence: 80,
+                        timestamp: 285,
+                        color: "#22c55e",
+                    },
+                    {
+                        time: "5:30",
+                        confidence: 95,
+                        timestamp: 330,
+                        color: "#22c55e",
+                    },
+                ],
+            } as any,
         });
         console.log("✅ Telemetry data created:", telemetryData.id);
 

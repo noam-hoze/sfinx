@@ -21,14 +21,14 @@ export async function POST(request: NextRequest) {
 
         const userId = (session!.user as any).id;
         logger.info("✅ User ID:", userId);
-        const { companyId, jobTitle, jobId } = await request.json();
-        logger.info("📋 Request data:", { companyId, jobTitle, jobId });
+        const { companyId, jobId } = await request.json();
+        logger.info("📋 Request data:", { companyId, jobId });
 
-        if (!companyId || (!jobTitle && !jobId)) {
+        if (!companyId || !jobId) {
             logger.warn("❌ Missing required fields");
             return NextResponse.json(
                 {
-                    error: "companyId and either jobId or jobTitle are required",
+                    error: "companyId and jobId are required",
                 },
                 { status: 400 }
             );
@@ -49,49 +49,32 @@ export async function POST(request: NextRequest) {
         }
         logger.info("✅ Company found:", company.name);
 
-        // Resolve job: by jobId (preferred) or by company+title
-        let job = null as any;
-        if (jobId) {
-            job = await prisma.job.findUnique({ where: { id: jobId } });
-            if (!job || job.companyId !== company.id) {
-                logger.warn("❌ Job not found or does not belong to company", {
-                    jobId,
-                    companyId: company.id,
-                });
-                return NextResponse.json(
-                    { error: "Job not found for this company" },
-                    { status: 404 }
-                );
-            }
-        } else if (jobTitle) {
-            job = await prisma.job.findFirst({
-                where: {
-                    companyId: company.id,
-                    title: jobTitle,
-                },
+        // Resolve job STRICTLY by jobId (deterministic)
+        const job = await prisma.job.findUnique({ where: { id: jobId } });
+        if (!job || job.companyId !== company.id) {
+            logger.warn("❌ Job not found or does not belong to company", {
+                jobId,
+                companyId: company.id,
             });
-            if (!job) {
-                logger.warn("❌ Job title not found for company", {
-                    jobTitle,
-                    companyId: company.id,
-                });
-                return NextResponse.json(
-                    { error: "Job not found for this company" },
-                    { status: 404 }
-                );
-            }
+            return NextResponse.json(
+                { error: "Job not found for this company" },
+                { status: 404 }
+            );
         }
 
-        // Reuse existing application for this candidate+job if present
-        const existing = await prisma.application.findFirst({
+        // Reuse strictly by exact jobId
+        const existingByJobId = await prisma.application.findFirst({
             where: { candidateId: userId, jobId: job.id },
         });
 
-        if (existing) {
-            logger.info("✅ Reusing existing application:", existing.id);
+        if (existingByJobId) {
+            logger.info(
+                "✅ Reusing existing application by jobId:",
+                existingByJobId.id
+            );
             return NextResponse.json({
                 message: "Application already exists",
-                application: existing,
+                application: existingByJobId,
             });
         }
 

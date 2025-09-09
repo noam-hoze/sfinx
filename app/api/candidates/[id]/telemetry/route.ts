@@ -242,6 +242,10 @@ export async function GET(
                       }
                     : null,
                 hasFairnessFlag: telemetry.hasFairnessFlag,
+                // Include new analytics series (may be empty arrays)
+                persistenceFlow: telemetry.persistenceFlow || [],
+                learningToAction: telemetry.learningToAction || [],
+                confidenceCurve: telemetry.confidenceCurve || [],
             };
         });
 

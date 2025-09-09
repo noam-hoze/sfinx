@@ -42,6 +42,10 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify the application exists and belongs to the user
+        logger.info("🔎 Verifying application exists & belongs to user", {
+            applicationId,
+            userId,
+        });
         const application = await prisma.application.findFirst({
             where: {
                 id: applicationId,
@@ -56,37 +60,43 @@ export async function POST(request: NextRequest) {
                 { status: 404 }
             );
         }
+        logger.info("✅ Application verified");
 
-        // Create new interview session
-        logger.info("🚀 Creating interview session...");
-        const interviewSession = await prisma.interviewSession.create({
-            data: {
-                candidateId: userId,
-                applicationId: applicationId,
-                status: "IN_PROGRESS",
-            },
-        });
-
-        logger.info("✅ Interview session created:", interviewSession.id);
-
-        // Ensure zeroed telemetry exists for this session so CPS can display it immediately
+        // Create interview session AND zeroed telemetry in a single transaction
+        logger.info(
+            "🚀 Creating interview session and zeroed telemetry (transaction)..."
+        );
+        let interviewSession; // for logging after transaction
         try {
-            const existing = await prisma.telemetryData.findUnique({
-                where: { interviewSessionId: interviewSession.id },
-            });
-            if (!existing) {
-                logger.info("🧭 Creating zeroed telemetry for new session");
-                const telemetry = await prisma.telemetryData.create({
+            const txResult = await prisma.$transaction(async (tx) => {
+                logger.info("🧾 [TX] Creating InterviewSession...");
+                const interviewSession = await tx.interviewSession.create({
+                    data: {
+                        candidateId: userId,
+                        applicationId: applicationId,
+                        status: "IN_PROGRESS",
+                    },
+                });
+                logger.info("✅ [TX] InterviewSession created", {
+                    interviewSessionId: interviewSession.id,
+                });
+
+                logger.info("🧾 [TX] Creating TelemetryData (zeroed)...");
+                const telemetry = await tx.telemetryData.create({
                     data: {
                         interviewSessionId: interviewSession.id,
                         matchScore: 0,
                         confidence: "Unknown",
                         story: "",
                         hasFairnessFlag: false,
-                    },
+                    } as any,
+                });
+                logger.info("✅ [TX] TelemetryData created", {
+                    telemetryId: telemetry.id,
                 });
 
-                await prisma.workstyleMetrics.create({
+                logger.info("🧾 [TX] Creating WorkstyleMetrics (zeroed)...");
+                await tx.workstyleMetrics.create({
                     data: {
                         telemetryDataId: telemetry.id,
                         iterationSpeed: 0,
@@ -95,31 +105,62 @@ export async function POST(request: NextRequest) {
                         aiAssistUsage: 0,
                     },
                 });
+                logger.info("✅ [TX] WorkstyleMetrics created for telemetry", {
+                    telemetryId: telemetry.id,
+                });
 
-                await prisma.gapAnalysis.create({
+                logger.info("🧾 [TX] Creating GapAnalysis (empty)...");
+                await tx.gapAnalysis.create({
                     data: { telemetryDataId: telemetry.id },
                 });
-            }
-        } catch (telemetryErr) {
-            logger.warn("⚠️ Failed to create zeroed telemetry:", telemetryErr);
-            // Non-blocking for session creation
+                logger.info("✅ [TX] GapAnalysis created for telemetry", {
+                    telemetryId: telemetry.id,
+                });
+
+                return { interviewSession };
+            });
+            interviewSession = txResult.interviewSession;
+        } catch (txError: any) {
+            logger.error(
+                "💥 Transaction failed while creating session/telemetry",
+                {
+                    name: txError?.name,
+                    message: txError?.message,
+                    code: txError?.code,
+                    meta: txError?.meta,
+                    stack: txError?.stack,
+                }
+            );
+            throw txError; // handled by outer catch to return 500
         }
+
+        logger.info(
+            "✅ Interview session and telemetry created:",
+            interviewSession.id
+        );
+
         return NextResponse.json({
             message: "Interview session created successfully",
             interviewSession,
         });
-    } catch (error) {
+    } catch (error: any) {
         logger.error("❌ Error creating interview session:", error);
         logger.error("❌ Error details:", {
             name: error?.name,
             message: error?.message,
             stack: error?.stack,
         });
-        return NextResponse.json(
-            { error: "Failed to create interview session" },
-            { status: 500 }
-        );
-    } finally {
-        await prisma.$disconnect();
+        // Surface rich error details in non-prod to aid debugging
+        const payload: any = { error: "Failed to create interview session" };
+        if (process.env.NODE_ENV !== "production") {
+            payload.details = {
+                name: error?.name,
+                message: error?.message,
+                code: (error as any)?.code,
+                meta: (error as any)?.meta,
+                stack: error?.stack,
+            };
+        }
+        return NextResponse.json(payload, { status: 500 });
     }
 }

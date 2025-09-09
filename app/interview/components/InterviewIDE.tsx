@@ -722,7 +722,7 @@ const InterviewerContent = () => {
                         },
                         body: JSON.stringify({
                             companyId: companyId,
-                            jobTitle: "Frontend Engineer",
+                            jobId: jobId,
                         }),
                     });
 

@@ -138,7 +138,10 @@ export async function POST(request: NextRequest) {
                     confidence: "Unknown",
                     story: "",
                     hasFairnessFlag: false,
-                },
+                    persistenceFlow: [],
+                    learningToAction: [],
+                    confidenceCurve: [],
+                } as any,
             });
 
             await tx.workstyleMetrics.create({
