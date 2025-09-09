@@ -45,7 +45,7 @@ export default function Header() {
                 {/* Logo/Brand */}
                 <Link href="/" className="flex items-center">
                     <Image
-                        src="/logos/sfinx_logo_diagonal.svg"
+                        src="/logos/sfinx-logo-6.svg"
                         alt="Sfinx Logo"
                         width={120}
                         height={120}

@@ -44,7 +44,7 @@ export default function LoginPage() {
                 {/* Logo */}
                 <div className="text-center mb-4">
                     <Image
-                        src="/logos/sfinx_logo_diagonal.svg"
+                        src="/logos/sfinx-logo-6.svg"
                         alt="Sfinx Logo"
                         width={160}
                         height={160}
