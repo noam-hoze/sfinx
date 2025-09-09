@@ -97,8 +97,26 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        // Transform data for frontend
-        const candidates = filteredApplications.map((app: any) => ({
+        // Deduplicate by candidate and select latest application per candidate
+        const latestApplicationByCandidate = new Map<string, any>();
+        for (const app of filteredApplications as any[]) {
+            const candidateId = app.candidate.id as string;
+            const existing = latestApplicationByCandidate.get(candidateId);
+            const currentAppliedAt = app.appliedAt
+                ? new Date(app.appliedAt).getTime()
+                : 0;
+            const existingAppliedAt = existing?.appliedAt
+                ? new Date(existing.appliedAt).getTime()
+                : -1;
+            if (!existing || currentAppliedAt > existingAppliedAt) {
+                latestApplicationByCandidate.set(candidateId, app);
+            }
+        }
+
+        // Transform data for frontend from the latest application per candidate
+        const candidates = Array.from(
+            latestApplicationByCandidate.values()
+        ).map((app: any) => ({
             id: app.candidate.id,
             name: app.candidate.name || "Anonymous",
             email: app.candidate.email,
@@ -108,6 +126,9 @@ export async function GET(request: NextRequest) {
             appliedJob: app.job.title,
             appliedAt: app.appliedAt,
             status: app.status,
+            applicationId: app.id,
+            jobId: app.job.id,
+            companyId: app.job.company.id,
         }));
 
         return NextResponse.json({

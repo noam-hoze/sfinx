@@ -4,6 +4,83 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.12.0] - 2025-09-08
+
+## [1.13.1] - 2025-09-09
+
+### Changed
+
+- Session creation is atomic: creates session + zeroed telemetry (+workstyle + gapAnalysis) in one transaction.
+- Removed premature Prisma disconnect; added rich debug logs and error payloads.
+- Applications API now deterministic: requires jobId and reuses strictly by candidateId+jobId.
+- CPS insights components now render data from telemetry and show empty graphs when arrays are empty (no demo fallbacks).
+
+### Fixed
+
+- Typo `interviewSStessionId` → `interviewSessionId` in telemetry create.
+- Client updated to send `{ companyId, jobId }` when creating applications.
+
+## [1.13.0] - 2025-09-09
+
+### Added
+
+- Evidence categories for clips (Iteration Speed, Debug Loop, Refactor & Cleanups, AI Assist Usage)
+- Zeroed telemetry auto-creation on new interview sessions (ensures CPS shows all sessions)
+
+### Changed
+
+- Job search: cards show jobs (flattened) with role details; API filters by role/location properly
+- Applications API: reuse existing application per candidate+job to avoid duplicates
+- Telemetry GET: builds evidence links using category (with title fallback)
+
+### Fixed
+
+- CPS telemetry GET returns 200 with empty sessions for candidates without telemetry
+- Seeded Noam evidence clips categorized to drive evidence links correctly
+
+### Added
+
+- **Interview Loading State**: Loading button with spinner during interview start process
+- **Permission-Gated Interview Start**: Interview only starts if screen sharing permission is granted
+- **Visual Loading Feedback**: Spinner and "Starting Interview..." text during setup
+
+### Changed
+
+- **Interview Start Flow**: Screen recording permission checked FIRST before any backend operations
+- **Button State Management**: Start Interview button shows loading state and prevents multiple clicks
+- **Interview Initialization**: Complete backend setup (application, session, recording) only after permission approval
+
+### Enhanced
+
+- **User Experience**: Clear visual feedback during interview initialization process
+- **Error Handling**: Graceful handling when users deny screen sharing permission
+- **Loading States**: Consistent loading patterns matching app design standards
+
+### Technical
+
+- **Permission-First Architecture**: Screen sharing permission validation before backend operations
+- **Loading State Management**: Proper loading state cleanup on success, failure, or permission denial
+- **UI State Synchronization**: Loading states properly coordinated across interview components
+
+## [1.11.0] - 2025-09-08
+
+### Changed
+
+- **Interview Flow Simplification**: Removed manual stop interview functionality - interviews now run to natural completion only
+- **Timer Expiration Handling**: Timer expiration now performs the same cleanup as user submission (recording stop, state machine submission, "I'm done" message)
+- **UI Cleanup**: Removed REC/MIC recording indicators from header - recording still works but without visual indicators
+- **Start Button Behavior**: Start Interview button now disappears completely after clicking, preventing any manual stop controls
+
+### Enhanced
+
+- **Interview State Management**: Simplified interview lifecycle with guaranteed cleanup on both timer expiration and user submission
+- **Backend Order Assurance**: Confirmed application and interview session creation happens before any recording/frontend operations
+
+### Technical
+
+- **Interview Button Logic**: Removed conditional stop/start logic, simplified to one-way start trigger
+- **State Synchronization**: Ensured timer expiration and submission use identical cleanup procedures
+
 ## [1.10.0] - 2025-09-08
 
 ### Changed

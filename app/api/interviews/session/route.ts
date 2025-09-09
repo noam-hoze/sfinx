@@ -42,6 +42,10 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify the application exists and belongs to the user
+        logger.info("🔎 Verifying application exists & belongs to user", {
+            applicationId,
+            userId,
+        });
         const application = await prisma.application.findFirst({
             where: {
                 id: applicationId,
@@ -56,53 +60,107 @@ export async function POST(request: NextRequest) {
                 { status: 404 }
             );
         }
+        logger.info("✅ Application verified");
 
-        // Check if interview session already exists for this application
-        const existingSession = await prisma.interviewSession.findFirst({
-            where: {
-                applicationId: applicationId,
-                candidateId: userId,
-            },
-        });
+        // Create interview session AND zeroed telemetry in a single transaction
+        logger.info(
+            "🚀 Creating interview session and zeroed telemetry (transaction)..."
+        );
+        let interviewSession; // for logging after transaction
+        try {
+            const txResult = await prisma.$transaction(async (tx) => {
+                logger.info("🧾 [TX] Creating InterviewSession...");
+                const interviewSession = await tx.interviewSession.create({
+                    data: {
+                        candidateId: userId,
+                        applicationId: applicationId,
+                        status: "IN_PROGRESS",
+                    },
+                });
+                logger.info("✅ [TX] InterviewSession created", {
+                    interviewSessionId: interviewSession.id,
+                });
 
-        if (existingSession) {
-            console.log(
-                "✅ Existing interview session found:",
-                existingSession.id
-            );
-            return NextResponse.json({
-                message: "Interview session already exists",
-                interviewSession: existingSession,
+                logger.info("🧾 [TX] Creating TelemetryData (zeroed)...");
+                const telemetry = await tx.telemetryData.create({
+                    data: {
+                        interviewSessionId: interviewSession.id,
+                        matchScore: 0,
+                        confidence: "Unknown",
+                        story: "",
+                        hasFairnessFlag: false,
+                    } as any,
+                });
+                logger.info("✅ [TX] TelemetryData created", {
+                    telemetryId: telemetry.id,
+                });
+
+                logger.info("🧾 [TX] Creating WorkstyleMetrics (zeroed)...");
+                await tx.workstyleMetrics.create({
+                    data: {
+                        telemetryDataId: telemetry.id,
+                        iterationSpeed: 0,
+                        debugLoops: 0,
+                        refactorCleanups: 0,
+                        aiAssistUsage: 0,
+                    },
+                });
+                logger.info("✅ [TX] WorkstyleMetrics created for telemetry", {
+                    telemetryId: telemetry.id,
+                });
+
+                logger.info("🧾 [TX] Creating GapAnalysis (empty)...");
+                await tx.gapAnalysis.create({
+                    data: { telemetryDataId: telemetry.id },
+                });
+                logger.info("✅ [TX] GapAnalysis created for telemetry", {
+                    telemetryId: telemetry.id,
+                });
+
+                return { interviewSession };
             });
+            interviewSession = txResult.interviewSession;
+        } catch (txError: any) {
+            logger.error(
+                "💥 Transaction failed while creating session/telemetry",
+                {
+                    name: txError?.name,
+                    message: txError?.message,
+                    code: txError?.code,
+                    meta: txError?.meta,
+                    stack: txError?.stack,
+                }
+            );
+            throw txError; // handled by outer catch to return 500
         }
 
-        // Create new interview session
-        logger.info("🚀 Creating interview session...");
-        const interviewSession = await prisma.interviewSession.create({
-            data: {
-                candidateId: userId,
-                applicationId: applicationId,
-                status: "IN_PROGRESS",
-            },
-        });
+        logger.info(
+            "✅ Interview session and telemetry created:",
+            interviewSession.id
+        );
 
-        logger.info("✅ Interview session created:", interviewSession.id);
         return NextResponse.json({
             message: "Interview session created successfully",
             interviewSession,
         });
-    } catch (error) {
+    } catch (error: any) {
         logger.error("❌ Error creating interview session:", error);
         logger.error("❌ Error details:", {
             name: error?.name,
             message: error?.message,
             stack: error?.stack,
         });
-        return NextResponse.json(
-            { error: "Failed to create interview session" },
-            { status: 500 }
-        );
-    } finally {
-        await prisma.$disconnect();
+        // Surface rich error details in non-prod to aid debugging
+        const payload: any = { error: "Failed to create interview session" };
+        if (process.env.NODE_ENV !== "production") {
+            payload.details = {
+                name: error?.name,
+                message: error?.message,
+                code: (error as any)?.code,
+                meta: (error as any)?.meta,
+                stack: error?.stack,
+            };
+        }
+        return NextResponse.json(payload, { status: 500 });
     }
 }

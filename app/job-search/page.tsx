@@ -32,12 +32,38 @@ function JobSearchContent() {
     const [companies, setCompanies] = useState<Company[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [appliedJobIds, setAppliedJobIds] = useState<string[]>([]);
+    const [hydrated, setHydrated] = useState(false);
+
+    // Load saved filters on mount
+    useEffect(() => {
+        try {
+            const savedRole = localStorage.getItem("jobSearch.role");
+            const savedLocation = localStorage.getItem("jobSearch.location");
+            const savedCompany = localStorage.getItem("jobSearch.company");
+            if (savedRole !== null) setSearchRole(savedRole);
+            if (savedLocation !== null) setSearchLocation(savedLocation);
+            if (savedCompany !== null) setSearchCompany(savedCompany);
+        } catch (_) {}
+        setHydrated(true);
+    }, []);
+
+    // Persist filters whenever they change
+    useEffect(() => {
+        try {
+            localStorage.setItem("jobSearch.role", searchRole);
+            localStorage.setItem("jobSearch.location", searchLocation);
+            localStorage.setItem("jobSearch.company", searchCompany);
+        } catch (_) {}
+    }, [searchRole, searchLocation, searchCompany]);
 
     // Fetch companies from API
     useEffect(() => {
+        if (!hydrated) return;
         const fetchCompanies = async () => {
             console.log("🔄 Starting to fetch companies...");
             try {
+                setLoading(true);
                 const params = new URLSearchParams();
                 if (searchRole) params.append("role", searchRole);
                 if (searchLocation) params.append("location", searchLocation);
@@ -53,6 +79,7 @@ function JobSearchContent() {
                     const data = await response.json();
                     console.log("✅ Data received:", data);
                     setCompanies(data.companies);
+                    setAppliedJobIds(data.appliedJobIds || []);
                     setError(null);
                 } else {
                     console.error(
@@ -78,10 +105,17 @@ function JobSearchContent() {
         };
 
         fetchCompanies();
-    }, [searchRole, searchLocation, searchCompany]);
+    }, [hydrated, searchRole, searchLocation, searchCompany]);
 
     // Since we're already filtering on the server side, we can just use the companies directly
     const filteredCompanies = companies;
+    const jobItems = filteredCompanies.flatMap((company: any) =>
+        (company.jobs || []).map((job: any) => ({
+            company,
+            job,
+            hasApplied: appliedJobIds.includes(job.id as string),
+        }))
+    );
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -146,7 +180,7 @@ function JobSearchContent() {
                     {/* Results Count */}
                     <div className="mt-6 text-center">
                         <span className="text-sm text-gray-600">
-                            {filteredCompanies.length} companies found
+                            {jobItems.length} jobs found
                         </span>
                     </div>
                 </div>
@@ -194,105 +228,92 @@ function JobSearchContent() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                        {filteredCompanies.map(
-                            (company: Company, index: number) => {
-                                const isMeta = company.id === "meta";
-                                const CompanyCard = (
-                                    <div
-                                        key={company.id}
-                                        className={`group bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:bg-white/80 hover:shadow-lg transition-all duration-300 ease-out hover:scale-105 ${
-                                            isMeta
-                                                ? "cursor-pointer ring-2 ring-blue-500/20 hover:ring-blue-500/40"
-                                                : "cursor-pointer"
-                                        }`}
-                                        style={{
-                                            animationDelay: `${index * 50}ms`,
-                                            animation:
-                                                "fadeInUp 0.5s ease-out forwards",
-                                        }}
-                                    >
-                                        {/* Company Logo */}
-                                        <div className="relative w-24 h-24 mx-auto mb-4 bg-white rounded-xl flex items-center justify-center p-3">
-                                            <Image
-                                                src={company.logo || ""}
-                                                alt={`${company.name} logo`}
-                                                width={72}
-                                                height={72}
-                                                className="object-contain"
-                                            />
-                                            {company.hasApplied && (
-                                                <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                                                    <svg
-                                                        className="w-4 h-4 text-white"
-                                                        fill="currentColor"
-                                                        viewBox="0 0 20 20"
-                                                    >
-                                                        <path
-                                                            fillRule="evenodd"
-                                                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                                            clipRule="evenodd"
-                                                        />
-                                                    </svg>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {/* Company Info */}
-                                        <div className="text-center">
-                                            <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-                                                {company.name}
-                                            </h3>
-                                            <p className="text-sm text-gray-600 mb-2">
-                                                {company.industry}
-                                            </p>
-                                            <p className="text-xs text-gray-500">
-                                                {company.size} •{" "}
-                                                {company.jobs.length} open roles
-                                            </p>
-                                        </div>
-
-                                        {/* Locations */}
-                                        <div className="mt-3 flex flex-wrap gap-1 justify-center">
-                                            {company.locations
-                                                .slice(0, 2)
-                                                .map(
-                                                    (
-                                                        location: string,
-                                                        idx: number
-                                                    ) => (
-                                                        <span
-                                                            key={idx}
-                                                            className="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full"
-                                                        >
-                                                            {location}
-                                                        </span>
-                                                    )
-                                                )}
-                                            {company.locations.length > 2 && (
-                                                <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                                                    +
-                                                    {company.locations.length -
-                                                        2}
-                                                </span>
-                                            )}
-                                        </div>
+                        {jobItems.map((item: any, index: number) => {
+                            const { company, job, hasApplied } = item;
+                            const isMeta = company.id === "meta";
+                            const JobCard = (
+                                <div
+                                    key={job.id}
+                                    className={`group bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:bg-white/80 hover:shadow-lg transition-all duration-300 ease-out hover:scale-105 ${
+                                        isMeta
+                                            ? "cursor-pointer ring-2 ring-blue-500/20 hover:ring-blue-500/40"
+                                            : "cursor-pointer"
+                                    }`}
+                                    style={{
+                                        animationDelay: `${index * 50}ms`,
+                                        animationName: "fadeInUp",
+                                        animationDuration: "0.5s",
+                                        animationTimingFunction: "ease-out",
+                                        animationFillMode: "forwards",
+                                    }}
+                                >
+                                    {/* Company Logo */}
+                                    <div className="relative w-24 h-24 mx-auto mb-4 bg-white rounded-xl flex items-center justify-center p-3">
+                                        <Image
+                                            src={company.logo || ""}
+                                            alt={`${company.name} logo`}
+                                            width={72}
+                                            height={72}
+                                            className="object-contain"
+                                        />
+                                        {hasApplied && (
+                                            <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                                                <svg
+                                                    className="w-4 h-4 text-white"
+                                                    fill="currentColor"
+                                                    viewBox="0 0 20 20"
+                                                >
+                                                    <path
+                                                        fillRule="evenodd"
+                                                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                                        clipRule="evenodd"
+                                                    />
+                                                </svg>
+                                            </div>
+                                        )}
                                     </div>
-                                );
 
-                                return (
-                                    <Link
-                                        key={company.id}
-                                        href={`/interview?company=${encodeURIComponent(
-                                            company.name
-                                        )}&logo=${encodeURIComponent(
-                                            company.logo || ""
-                                        )}`}
-                                    >
-                                        {CompanyCard}
-                                    </Link>
-                                );
-                            }
-                        )}
+                                    {/* Company + Role Info */}
+                                    <div className="text-center">
+                                        <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+                                            {company.name}
+                                        </h3>
+                                        <p className="text-sm text-gray-600 mb-1">
+                                            {job.title}
+                                        </p>
+                                        <p className="text-xs text-gray-500 mb-1">
+                                            {job.location} • {job.type}
+                                        </p>
+                                        {job.description && (
+                                            <p className="text-xs text-gray-500 line-clamp-2">
+                                                {job.description}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Tags */}
+                                    <div className="mt-3 flex flex-wrap gap-1 justify-center">
+                                        <span className="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full">
+                                            {company.industry}
+                                        </span>
+                                        <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
+                                            {company.size}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+
+                            return (
+                                <Link
+                                    key={job.id}
+                                    href={`/interview?companyId=${encodeURIComponent(
+                                        company.id
+                                    )}&jobId=${encodeURIComponent(job.id)}`}
+                                >
+                                    {JobCard}
+                                </Link>
+                            );
+                        })}
                     </div>
                 )}
 
@@ -315,7 +336,7 @@ function JobSearchContent() {
                             </svg>
                         </div>
                         <h3 className="text-lg font-medium text-gray-900 mb-2">
-                            No companies found
+                            No jobs found
                         </h3>
                         <p className="text-gray-600">
                             Try adjusting your search criteria

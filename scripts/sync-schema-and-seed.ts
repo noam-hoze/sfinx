@@ -3,21 +3,23 @@
 import { execSync } from "child_process";
 import { PrismaClient } from "@prisma/client";
 
-async function resetDatabaseWithNewSchema() {
+async function syncSchemaAndSeed() {
     console.log("🔄 Starting database reset with new schema...");
 
     try {
-        // 1. Reset the database (drops all tables and data)
-        console.log("📦 Resetting database...");
-        execSync("pnpm reset-db", { stdio: "inherit" });
-
-        // 2. Generate Prisma client with new schema
+        // 1. Generate Prisma client with the latest schema
         console.log("⚡ Generating Prisma client...");
         execSync("pnpm prisma generate", { stdio: "inherit" });
 
-        // 3. Push the new schema to database
+        // 2. Push the new schema to the database (apply DDL)
         console.log("🚀 Pushing new schema to database...");
         execSync("pnpm prisma db push", { stdio: "inherit" });
+
+        // 3. Reset and seed data against the new schema
+        console.log(
+            "📦 Resetting and seeding database (fresh data on new schema)..."
+        );
+        execSync("pnpm seed", { stdio: "inherit" });
 
         // 4. Verify the schema was applied correctly
         console.log("✅ Verifying schema...");
@@ -41,10 +43,14 @@ async function resetDatabaseWithNewSchema() {
         );
 
         await prisma.$disconnect();
+
+        // 5. Open Prisma Studio for quick inspection
+        console.log("🪟 Opening Prisma Studio...");
+        execSync("pnpm prisma studio", { stdio: "inherit" });
     } catch (error) {
         console.error("❌ Error during database reset:", error);
         process.exit(1);
     }
 }
 
-resetDatabaseWithNewSchema();
+syncSchemaAndSeed();

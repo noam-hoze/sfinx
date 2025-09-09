@@ -159,16 +159,6 @@ export const noamWorkstyle: WorkstyleMetrics = {
     },
 };
 
-// Complete telemetry data object
-export const noamTelemetryData: TelemetryData = {
-    candidate: noamProfile,
-    gaps: noamGaps,
-    evidence: noamEvidence,
-    chapters: noamChapters,
-    workstyle: noamWorkstyle,
-    hasFairnessFlag: false,
-};
-
 // Utility functions for time formatting
 export const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);

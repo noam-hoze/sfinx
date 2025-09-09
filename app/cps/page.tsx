@@ -14,8 +14,11 @@ import { AuthGuard } from "../../lib";
 function TelemetryContent() {
     const searchParams = useSearchParams();
     const candidateId = searchParams.get("candidateId");
+    const applicationId = searchParams.get("applicationId");
 
     const [telemetryData, setTelemetryData] = useState<any>(null);
+    const [sessions, setSessions] = useState<any[]>([]);
+    const [activeSessionIndex, setActiveSessionIndex] = useState(0);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentVideoTime, setCurrentVideoTime] = React.useState(0);
@@ -38,17 +41,35 @@ function TelemetryContent() {
 
             try {
                 setLoading(true);
+                const query = new URLSearchParams();
+                if (applicationId) query.set("applicationId", applicationId);
                 const response = await fetch(
-                    `/api/candidates/${candidateId}/telemetry`
+                    `/api/candidates/${candidateId}/telemetry?${query.toString()}`
                 );
 
                 if (response.ok) {
                     const data = await response.json();
-                    console.log(
-                        "CPS: Received telemetry data with videoUrl:",
-                        data.videoUrl
-                    );
-                    setTelemetryData(data);
+                    // Supports new API shape with sessions[]
+                    if (data.sessions) {
+                        setTelemetryData({ candidate: data.candidate });
+                        setSessions(data.sessions || []);
+                        setActiveSessionIndex(0);
+                    } else {
+                        // Backward compatibility with single-session shape
+                        setTelemetryData(data);
+                        setSessions([
+                            {
+                                id: "single",
+                                videoUrl: data.videoUrl,
+                                duration: data.duration,
+                                chapters: data.chapters,
+                                gaps: data.gaps,
+                                workstyle: data.workstyle,
+                                evidence: data.evidence,
+                            },
+                        ]);
+                        setActiveSessionIndex(0);
+                    }
                     setError(null);
                 } else if (response.status === 404) {
                     // No telemetry data found - show empty data
@@ -70,15 +91,13 @@ function TelemetryContent() {
         fetchTelemetryData();
     }, [candidateId]);
 
-    const {
-        candidate,
-        gaps,
-        evidence,
-        chapters,
-        workstyle,
-        videoUrl,
-        duration,
-    } = telemetryData || {};
+    const { candidate } = telemetryData || {};
+    const activeSession = sessions[activeSessionIndex] || {};
+    const { gaps, evidence, chapters, workstyle, videoUrl, duration } =
+        activeSession;
+    const persistenceFlow = activeSession.persistenceFlow || [];
+    const learningToAction = activeSession.learningToAction || [];
+    const confidenceCurve = activeSession.confidenceCurve || [];
 
     const onVideoJump = (timestamp: number) => {
         setCurrentVideoTime(timestamp);
@@ -317,7 +336,47 @@ function TelemetryContent() {
 
                     {/* Cell 1 - Candidate Telemetry (top-right) */}
                     <div className="flex items-center justify-between w-full">
-                        <div className="w-1/3"></div>
+                        <div className="w-1/3">
+                            {/* Session navigation */}
+                            {sessions.length > 1 && (
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        className="px-3 py-1 rounded-lg bg-white/60 border border-white/40 text-gray-700 disabled:opacity-40"
+                                        onClick={() =>
+                                            setActiveSessionIndex((i) =>
+                                                Math.max(0, i - 1)
+                                            )
+                                        }
+                                        disabled={activeSessionIndex === 0}
+                                        aria-label="Previous session"
+                                    >
+                                        ◀
+                                    </button>
+                                    <div className="text-sm text-gray-700">
+                                        Session {activeSessionIndex + 1} /{" "}
+                                        {sessions.length}
+                                    </div>
+                                    <button
+                                        className="px-3 py-1 rounded-lg bg-white/60 border border-white/40 text-gray-700 disabled:opacity-40"
+                                        onClick={() =>
+                                            setActiveSessionIndex((i) =>
+                                                Math.min(
+                                                    sessions.length - 1,
+                                                    i + 1
+                                                )
+                                            )
+                                        }
+                                        disabled={
+                                            activeSessionIndex ===
+                                            sessions.length - 1
+                                        }
+                                        aria-label="Next session"
+                                    >
+                                        ▶
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                         <div className="w-1/3 text-center">
                             <h1 className="text-2xl font-semibold text-gray-800 tracking-tight">
                                 Candidate Profile Story
@@ -462,16 +521,19 @@ function TelemetryContent() {
                                 <div className="space-y-3 animate-in slide-in-from-left-2 duration-300">
                                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
                                         <PersistenceFlow
+                                            data={persistenceFlow}
                                             onVideoJump={onVideoJump}
                                         />
                                     </div>
                                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
                                         <LearningToActionTimeline
+                                            data={learningToAction}
                                             onVideoJump={onVideoJump}
                                         />
                                     </div>
                                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
                                         <ConfidenceBuildingCurve
+                                            data={confidenceCurve}
                                             onVideoJump={onVideoJump}
                                         />
                                     </div>
@@ -482,12 +544,17 @@ function TelemetryContent() {
 
                     {/* Cell 3 - Video (bottom-right) */}
                     <div className="w-full xl:w-auto h-full">
-                        <EvidenceReel
-                            jumpToTime={currentVideoTime}
-                            videoUrl={videoUrl}
-                            duration={duration}
-                            chapters={chapters}
-                        />
+                        {/* Lazy-load only active session's video */}
+                        {videoUrl ? (
+                            <EvidenceReel
+                                jumpToTime={currentVideoTime}
+                                videoUrl={videoUrl}
+                                duration={duration}
+                                chapters={chapters}
+                            />
+                        ) : (
+                            <div className="aspect-video bg-gray-200 rounded-xl" />
+                        )}
                     </div>
                 </div>
             </div>

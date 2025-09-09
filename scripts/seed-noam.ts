@@ -1,101 +1,49 @@
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { seedBasicCandidate } from "./seed-utils";
 
 const prisma = new PrismaClient();
 
-async function seedNoamTelemetry() {
+export async function seedNoam() {
     try {
-        console.log("🌱 Starting Noam telemetry data seeding...");
+        console.log("🌱 Starting Noam candidate...");
 
-        const hashedPassword = await bcrypt.hash("sfinx", 12);
-
-        // 1. Create User
-        const user = await prisma.user.upsert({
-            where: { email: "noam@gmail.com" },
-            update: {
-                image: "/uploads/profiles/cmf7m2a0d0000sb9b4xc7l81k-1757125432914.jpeg",
-                password: hashedPassword,
-            },
-            create: {
-                id: "noam-user-id",
-                name: "Noam Hoze",
-                email: "noam@gmail.com",
-                password: hashedPassword,
-                role: "CANDIDATE",
-                image: "/uploads/profiles/cmf7m2a0d0000sb9b4xc7l81k-1757125432914.jpeg",
-            },
+        // 1-2. Create User and Candidate Profile (shared helper)
+        const user = await seedBasicCandidate(prisma, {
+            name: "Noam",
+            email: "noam@gmail.com",
+            image: "/uploads/profiles/noam-profile.jpeg",
+            jobTitle: "Software Engineer",
+            location: "Tel Aviv, Israel",
+            bio: "Experienced React developer with strong problem-solving skills",
+            skills: ["React", "TypeScript", "Node.js", "JavaScript"],
         });
-        console.log("✅ User created:", user.id);
 
-        // 2. Create Candidate Profile
-        const candidateProfile = await prisma.candidateProfile.upsert({
-            where: { userId: "noam-user-id" },
-            update: {},
-            create: {
-                id: "noam-profile-id",
-                userId: "noam-user-id",
-                jobTitle: "Software Engineer",
-                location: "Tel Aviv, Israel",
-                bio: "Experienced React developer with strong problem-solving skills",
-                skills: ["React", "TypeScript", "Node.js", "JavaScript"],
-            },
+        // 3. Use an existing Meta job seeded by seed-data
+        const job = await prisma.job.findFirst({
+            where: { companyId: "meta" },
         });
-        console.log("✅ Candidate profile created:", candidateProfile.id);
-
-        // 3. Get or create a company
-        let company = await prisma.company.findFirst();
-        if (!company) {
-            company = await prisma.company.create({
-                data: {
-                    name: "TechCorp",
-                    industry: "Technology",
-                    locations: ["Tel Aviv"],
-                    cultureTags: ["Innovation", "Collaboration"],
-                    size: "MEDIUM",
-                },
-            });
+        if (!job) {
+            throw new Error(
+                "No Meta jobs found. Run seed-data to seed companies and jobs before seedNoam."
+            );
         }
 
-        // 4. Create Job
-        const job = await prisma.job.upsert({
-            where: { id: "sample-job-id" },
-            update: {},
-            create: {
-                id: "sample-job-id",
-                title: "Frontend Developer",
-                type: "FULL_TIME",
-                location: "Tel Aviv",
-                description: "Building modern React applications",
-                companyId: company.id,
-            },
-        });
-        console.log("✅ Job created:", job.id);
-
         // 5. Create Application
-        const application = await prisma.application.upsert({
-            where: {
-                candidateId_jobId: {
-                    candidateId: "noam-user-id",
-                    jobId: "sample-job-id",
-                },
-            },
-            update: {},
-            create: {
+        const application = await prisma.application.create({
+            data: {
                 id: "noam-application-id",
-                candidateId: "noam-user-id",
-                jobId: "sample-job-id",
+                candidateId: user.id,
+                jobId: job.id,
                 status: "INTERVIEWING",
             },
         });
         console.log("✅ Application created:", application.id);
 
         // 6. Create Interview Session
-        const interviewSession = await prisma.interviewSession.upsert({
-            where: { id: "noam-interview-session-id" },
-            update: {},
-            create: {
+        const interviewSession = await prisma.interviewSession.create({
+            data: {
                 id: "noam-interview-session-id",
-                candidateId: "noam-user-id",
+                candidateId: user.id,
                 applicationId: "noam-application-id",
                 status: "COMPLETED",
                 duration: 235,
@@ -104,25 +52,171 @@ async function seedNoamTelemetry() {
         console.log("✅ Interview session created:", interviewSession.id);
 
         // 7. Create Telemetry Data
-        const telemetryData = await prisma.telemetryData.upsert({
-            where: { id: "noam-telemetry-id" },
-            update: {},
-            create: {
+        const telemetryData = await prisma.telemetryData.create({
+            data: {
                 id: "noam-telemetry-id",
                 interviewSessionId: "noam-interview-session-id",
                 matchScore: 92,
                 confidence: "High",
                 story: "Noam showcased excellent React proficiency by rapidly building a UserList component with clean API integration, proper error handling, and polished styling. They demonstrated methodical problem-solving and clean code practices throughout the session.",
                 hasFairnessFlag: false,
-            },
+                persistenceFlow: [
+                    {
+                        name: "0:30",
+                        attempts: 1,
+                        timestamp: 30,
+                        color: "#ef4444",
+                    },
+                    {
+                        name: "1:15",
+                        attempts: 2,
+                        timestamp: 75,
+                        color: "#ef4444",
+                    },
+                    {
+                        name: "2:00",
+                        attempts: 3,
+                        timestamp: 120,
+                        color: "#f97316",
+                    },
+                    {
+                        name: "2:45",
+                        attempts: 4,
+                        timestamp: 165,
+                        color: "#f97316",
+                    },
+                    {
+                        name: "3:30",
+                        attempts: 5,
+                        timestamp: 210,
+                        color: "#eab308",
+                    },
+                    {
+                        name: "4:20",
+                        attempts: 6,
+                        timestamp: 260,
+                        color: "#22c55e",
+                    },
+                ],
+                learningToAction: [
+                    {
+                        time: "0:00",
+                        value: 0.8,
+                        timestamp: 0,
+                        color: "#3b82f6",
+                    },
+                    {
+                        time: "0:45",
+                        value: 0.5,
+                        timestamp: 45,
+                        color: "#3b82f6",
+                    },
+                    {
+                        time: "1:30",
+                        value: 1.2,
+                        timestamp: 90,
+                        color: "#3b82f6",
+                    },
+                    {
+                        time: "2:15",
+                        value: 0.9,
+                        timestamp: 135,
+                        color: "#eab308",
+                    },
+                    {
+                        time: "2:45",
+                        value: 1.8,
+                        timestamp: 165,
+                        color: "#eab308",
+                    },
+                    {
+                        time: "3:30",
+                        value: 1.4,
+                        timestamp: 210,
+                        color: "#eab308",
+                    },
+                    {
+                        time: "4:15",
+                        value: 2.3,
+                        timestamp: 255,
+                        color: "#22c55e",
+                    },
+                    {
+                        time: "5:00",
+                        value: 2.7,
+                        timestamp: 300,
+                        color: "#22c55e",
+                    },
+                    {
+                        time: "5:30",
+                        value: 3.0,
+                        timestamp: 330,
+                        color: "#22c55e",
+                    },
+                ],
+                confidenceCurve: [
+                    {
+                        time: "0:00",
+                        confidence: 15,
+                        timestamp: 0,
+                        color: "#ef4444",
+                    },
+                    {
+                        time: "0:45",
+                        confidence: 35,
+                        timestamp: 45,
+                        color: "#ef4444",
+                    },
+                    {
+                        time: "1:15",
+                        confidence: 20,
+                        timestamp: 75,
+                        color: "#ef4444",
+                    },
+                    {
+                        time: "1:45",
+                        confidence: 45,
+                        timestamp: 105,
+                        color: "#eab308",
+                    },
+                    {
+                        time: "2:30",
+                        confidence: 30,
+                        timestamp: 150,
+                        color: "#eab308",
+                    },
+                    {
+                        time: "3:15",
+                        confidence: 65,
+                        timestamp: 195,
+                        color: "#eab308",
+                    },
+                    {
+                        time: "4:00",
+                        confidence: 50,
+                        timestamp: 240,
+                        color: "#eab308",
+                    },
+                    {
+                        time: "4:45",
+                        confidence: 80,
+                        timestamp: 285,
+                        color: "#22c55e",
+                    },
+                    {
+                        time: "5:30",
+                        confidence: 95,
+                        timestamp: 330,
+                        color: "#22c55e",
+                    },
+                ],
+            } as any,
         });
         console.log("✅ Telemetry data created:", telemetryData.id);
 
         // 8. Create Workstyle Metrics
-        const workstyleMetrics = await prisma.workstyleMetrics.upsert({
-            where: { id: "noam-workstyle-id" },
-            update: {},
-            create: {
+        const workstyleMetrics = await prisma.workstyleMetrics.create({
+            data: {
                 id: "noam-workstyle-id",
                 telemetryDataId: "noam-telemetry-id",
                 iterationSpeed: 85,
@@ -134,10 +228,8 @@ async function seedNoamTelemetry() {
         console.log("✅ Workstyle metrics created:", workstyleMetrics.id);
 
         // 9. Create Gap Analysis
-        const gapAnalysis = await prisma.gapAnalysis.upsert({
-            where: { id: "noam-gap-analysis-id" },
-            update: {},
-            create: {
+        const gapAnalysis = await prisma.gapAnalysis.create({
+            data: {
                 id: "noam-gap-analysis-id",
                 telemetryDataId: "noam-telemetry-id",
             },
@@ -146,10 +238,8 @@ async function seedNoamTelemetry() {
 
         // 10. Create Gaps
         const gaps = await Promise.all([
-            prisma.gap.upsert({
-                where: { id: "noam-gap-1" },
-                update: {},
-                create: {
+            prisma.gap.create({
+                data: {
                     id: "noam-gap-1",
                     gapAnalysisId: "noam-gap-analysis-id",
                     severity: "Minor",
@@ -158,10 +248,8 @@ async function seedNoamTelemetry() {
                     evidenceLinks: [85, 145, 220],
                 },
             }),
-            prisma.gap.upsert({
-                where: { id: "noam-gap-2" },
-                update: {},
-                create: {
+            prisma.gap.create({
+                data: {
                     id: "noam-gap-2",
                     gapAnalysisId: "noam-gap-analysis-id",
                     severity: "Minor",
@@ -175,41 +263,37 @@ async function seedNoamTelemetry() {
 
         // 11. Create Evidence Clips
         const evidenceClips = await Promise.all([
-            prisma.evidenceClip.upsert({
-                where: { id: "noam-evidence-1" },
-                update: {},
-                create: {
+            prisma.evidenceClip.create({
+                data: {
                     id: "noam-evidence-1",
                     telemetryDataId: "noam-telemetry-id",
-                    title: "Rapid UserList Implementation",
+                    title: "Iteration Speed",
                     duration: 75,
                     description:
                         "Quick setup of UserList component with API integration and styling",
                     startTime: 75,
-                },
+                    category: "ITERATION_SPEED",
+                } as any,
             }),
-            prisma.evidenceClip.upsert({
-                where: { id: "noam-evidence-2" },
-                update: {},
-                create: {
+            prisma.evidenceClip.create({
+                data: {
                     id: "noam-evidence-2",
                     telemetryDataId: "noam-telemetry-id",
-                    title: "Clean Error Handling",
+                    title: "Debug Loop",
                     duration: 45,
                     description:
                         "Implementation of loading and error states for API calls",
                     startTime: 120,
-                },
+                    category: "DEBUG_LOOP",
+                } as any,
             }),
         ]);
         console.log("✅ Evidence clips created:", evidenceClips.length);
 
         // 12. Create Video Chapters
         const videoChapters = await Promise.all([
-            prisma.videoChapter.upsert({
-                where: { id: "noam-chapter-1" },
-                update: {},
-                create: {
+            prisma.videoChapter.create({
+                data: {
                     id: "noam-chapter-1",
                     telemetryDataId: "noam-telemetry-id",
                     title: "Session Setup & Introduction",
@@ -219,10 +303,8 @@ async function seedNoamTelemetry() {
                         "Initial setup, task briefing, and environment configuration",
                 },
             }),
-            prisma.videoChapter.upsert({
-                where: { id: "noam-chapter-2" },
-                update: {},
-                create: {
+            prisma.videoChapter.create({
+                data: {
                     id: "noam-chapter-2",
                     telemetryDataId: "noam-telemetry-id",
                     title: "UserList Component Development",
@@ -232,10 +314,8 @@ async function seedNoamTelemetry() {
                         "Building the UserList component with API integration and styling",
                 },
             }),
-            prisma.videoChapter.upsert({
-                where: { id: "noam-chapter-3" },
-                update: {},
-                create: {
+            prisma.videoChapter.create({
+                data: {
                     id: "noam-chapter-3",
                     telemetryDataId: "noam-telemetry-id",
                     title: "Testing & Final Polish",
@@ -251,10 +331,8 @@ async function seedNoamTelemetry() {
         // 13. Create Video Captions
         const captions = await Promise.all([
             // Chapter 1 captions
-            prisma.videoCaption.upsert({
-                where: { id: "noam-caption-1-1" },
-                update: {},
-                create: {
+            prisma.videoCaption.create({
+                data: {
                     id: "noam-caption-1-1",
                     videoChapterId: "noam-chapter-1",
                     text: "Setting up development environment",
@@ -262,10 +340,8 @@ async function seedNoamTelemetry() {
                     endTime: 20,
                 },
             }),
-            prisma.videoCaption.upsert({
-                where: { id: "noam-caption-1-2" },
-                update: {},
-                create: {
+            prisma.videoCaption.create({
+                data: {
                     id: "noam-caption-1-2",
                     videoChapterId: "noam-chapter-1",
                     text: "Reviewing project requirements",
@@ -273,10 +349,8 @@ async function seedNoamTelemetry() {
                     endTime: 40,
                 },
             }),
-            prisma.videoCaption.upsert({
-                where: { id: "noam-caption-1-3" },
-                update: {},
-                create: {
+            prisma.videoCaption.create({
+                data: {
                     id: "noam-caption-1-3",
                     videoChapterId: "noam-chapter-1",
                     text: "Exploring codebase structure",
@@ -285,10 +359,8 @@ async function seedNoamTelemetry() {
                 },
             }),
             // Chapter 2 captions
-            prisma.videoCaption.upsert({
-                where: { id: "noam-caption-2-1" },
-                update: {},
-                create: {
+            prisma.videoCaption.create({
+                data: {
                     id: "noam-caption-2-1",
                     videoChapterId: "noam-chapter-2",
                     text: "Planning component architecture",
@@ -296,10 +368,8 @@ async function seedNoamTelemetry() {
                     endTime: 95,
                 },
             }),
-            prisma.videoCaption.upsert({
-                where: { id: "noam-caption-2-2" },
-                update: {},
-                create: {
+            prisma.videoCaption.create({
+                data: {
                     id: "noam-caption-2-2",
                     videoChapterId: "noam-chapter-2",
                     text: "Implementing API data fetching",
@@ -307,10 +377,8 @@ async function seedNoamTelemetry() {
                     endTime: 115,
                 },
             }),
-            prisma.videoCaption.upsert({
-                where: { id: "noam-caption-2-3" },
-                update: {},
-                create: {
+            prisma.videoCaption.create({
+                data: {
                     id: "noam-caption-2-3",
                     videoChapterId: "noam-chapter-2",
                     text: "Adding loading and error states",
@@ -318,10 +386,8 @@ async function seedNoamTelemetry() {
                     endTime: 135,
                 },
             }),
-            prisma.videoCaption.upsert({
-                where: { id: "noam-caption-2-4" },
-                update: {},
-                create: {
+            prisma.videoCaption.create({
+                data: {
                     id: "noam-caption-2-4",
                     videoChapterId: "noam-chapter-2",
                     text: "Styling responsive layout",
@@ -330,10 +396,8 @@ async function seedNoamTelemetry() {
                 },
             }),
             // Chapter 3 captions
-            prisma.videoCaption.upsert({
-                where: { id: "noam-caption-3-1" },
-                update: {},
-                create: {
+            prisma.videoCaption.create({
+                data: {
                     id: "noam-caption-3-1",
                     videoChapterId: "noam-chapter-3",
                     text: "Running comprehensive tests",
@@ -341,10 +405,8 @@ async function seedNoamTelemetry() {
                     endTime: 185,
                 },
             }),
-            prisma.videoCaption.upsert({
-                where: { id: "noam-caption-3-2" },
-                update: {},
-                create: {
+            prisma.videoCaption.create({
+                data: {
                     id: "noam-caption-3-2",
                     videoChapterId: "noam-chapter-3",
                     text: "Code cleanup and optimization",
@@ -352,10 +414,8 @@ async function seedNoamTelemetry() {
                     endTime: 205,
                 },
             }),
-            prisma.videoCaption.upsert({
-                where: { id: "noam-caption-3-3" },
-                update: {},
-                create: {
+            prisma.videoCaption.create({
+                data: {
                     id: "noam-caption-3-3",
                     videoChapterId: "noam-chapter-3",
                     text: "Final code review",
@@ -368,7 +428,7 @@ async function seedNoamTelemetry() {
 
         console.log("🎉 Noam telemetry data seeding completed successfully!");
         console.log("📊 Total records created: 21");
-        console.log("🔗 Noam's CPS URL: /cps?candidateId=noam-user-id");
+        console.log(`🔗 Noam's CPS URL: /cps?candidateId=${user.id}`);
     } catch (error) {
         console.error("❌ Error seeding Noam telemetry data:", error);
         throw error;
@@ -376,14 +436,3 @@ async function seedNoamTelemetry() {
         await prisma.$disconnect();
     }
 }
-
-// Run the seed function
-seedNoamTelemetry()
-    .then(() => {
-        console.log("✅ Seeding completed!");
-        process.exit(0);
-    })
-    .catch((error) => {
-        console.error("❌ Seeding failed:", error);
-        process.exit(1);
-    });

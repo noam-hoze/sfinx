@@ -3,8 +3,9 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { Moon, Sun, Video, VideoOff } from "lucide-react";
+import { Moon, Sun, Loader2, Camera, CameraOff } from "lucide-react";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 import EditorPanel from "./editor/EditorPanel";
 import ChatPanel from "./chat/ChatPanel";
 import RealTimeConversation from "./chat/RealTimeConversation";
@@ -12,7 +13,6 @@ import {
     InterviewProvider,
     useInterview,
     useJobApplication,
-    companiesData,
 } from "../../../lib";
 import { useElevenLabsStateMachine } from "../../../lib/hooks/useElevenLabsStateMachine";
 import { logger } from "../../../lib";
@@ -22,8 +22,12 @@ const InterviewerContent = () => {
         useInterview();
     const { markCompanyApplied } = useJobApplication();
     const searchParams = useSearchParams();
-    const companyName = searchParams.get("company");
-    const companyLogo = searchParams.get("logo") || "/logos/meta-logo.png";
+    const companyId = searchParams.get("companyId");
+    const jobId = searchParams.get("jobId");
+    const [job, setJob] = useState<any | null>(null);
+    const { data: session } = useSession();
+    const candidateNameFromSession =
+        (session?.user as any)?.name || "Candidate";
 
     // Callbacks for state machine
     const onElevenLabsUpdate = useCallback(async (text: string) => {
@@ -85,7 +89,7 @@ const InterviewerContent = () => {
     } = useElevenLabsStateMachine(
         onElevenLabsUpdate,
         onSendUserMessage,
-        state.candidateName
+        candidateNameFromSession
     );
     const [showDiff, setShowDiff] = useState(false);
     const [originalCode, setOriginalCode] = useState("");
@@ -97,6 +101,7 @@ const InterviewerContent = () => {
     const [activeTab, setActiveTab] = useState<"editor" | "preview">("editor");
     const [isAISpeaking, setIsAISpeaking] = useState(false);
     const [isInterviewActive, setIsInterviewActive] = useState(false);
+    const [isInterviewLoading, setIsInterviewLoading] = useState(false);
     const [isAgentConnected, setIsAgentConnected] = useState(false);
     const [timeLeft, setTimeLeft] = useState(30 * 60); // 30 minutes in seconds
     const [isTimerRunning, setIsTimerRunning] = useState(false);
@@ -111,7 +116,10 @@ const InterviewerContent = () => {
         null
     );
     const [interviewConcluded, setInterviewConcluded] = useState(false);
-    const [telemetryCreated, setTelemetryCreated] = useState(false);
+    const [isCameraOn, setIsCameraOn] = useState(false);
+    const selfVideoRef = useRef<HTMLVideoElement | null>(null);
+    const cameraStreamRef = useRef<MediaStream | null>(null);
+    const cameraHideTimeoutRef = useRef<number | null>(null);
 
     // Debug: Monitor interviewSessionId changes
     useEffect(() => {
@@ -132,16 +140,97 @@ const InterviewerContent = () => {
 
     // Require company name parameter
     useEffect(() => {
-        if (!companyName) {
+        if (!companyId) {
             router.push("/job-search");
         }
-    }, [companyName, router]);
+    }, [companyId, router]);
+
+    // Fetch job + company by jobId for UI and logic
+    useEffect(() => {
+        const fetchJob = async () => {
+            if (!jobId) return;
+            try {
+                const res = await fetch(`/api/jobs/${jobId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setJob(data.job);
+                }
+            } catch (_) {}
+        };
+        fetchJob();
+    }, [jobId]);
 
     const toggleMicMute = useCallback(() => {
         if (realTimeConversationRef.current?.toggleMicMute) {
             realTimeConversationRef.current.toggleMicMute();
         }
     }, []);
+
+    const startCamera = useCallback(async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: 320, height: 240, facingMode: "user" },
+                audio: false,
+            });
+            cameraStreamRef.current = stream;
+            setIsCameraOn(true);
+        } catch (error) {
+            logger.error("❌ Failed to start camera:", error);
+            setIsCameraOn(false);
+        }
+    }, []);
+
+    const stopCamera = useCallback(() => {
+        // Start fade-out first
+        setIsCameraOn(false);
+        if (cameraHideTimeoutRef.current) {
+            window.clearTimeout(cameraHideTimeoutRef.current);
+        }
+        // Delay stream teardown to allow smooth fade-out
+        cameraHideTimeoutRef.current = window.setTimeout(() => {
+            if (cameraStreamRef.current) {
+                cameraStreamRef.current.getTracks().forEach((t) => t.stop());
+                cameraStreamRef.current = null;
+            }
+            if (selfVideoRef.current) {
+                // @ts-ignore - srcObject is supported at runtime
+                selfVideoRef.current.srcObject = null;
+            }
+        }, 350);
+    }, []);
+
+    useEffect(() => {
+        if (isCameraOn && selfVideoRef.current && cameraStreamRef.current) {
+            try {
+                // @ts-ignore - srcObject is supported at runtime
+                selfVideoRef.current.srcObject = cameraStreamRef.current;
+                selfVideoRef.current.muted = true;
+                // @ts-ignore - playsInline exists at runtime
+                selfVideoRef.current.playsInline = true;
+                const playPromise = selfVideoRef.current.play();
+                if (playPromise && typeof playPromise.then === "function") {
+                    playPromise.catch(() => {});
+                }
+            } catch (_) {}
+        }
+    }, [isCameraOn]);
+
+    const toggleCamera = useCallback(() => {
+        if (isCameraOn) {
+            stopCamera();
+        } else {
+            startCamera();
+        }
+    }, [isCameraOn, startCamera, stopCamera]);
+
+    useEffect(() => {
+        return () => {
+            stopCamera();
+            if (cameraHideTimeoutRef.current) {
+                window.clearTimeout(cameraHideTimeoutRef.current);
+            }
+        };
+    }, [stopCamera]);
 
     // Function to upload recording to server and update database
     const uploadRecordingToServer = useCallback(
@@ -381,6 +470,10 @@ const InterviewerContent = () => {
                         recordingUploaded
                     );
                 }
+
+                // Cleanup now that processing is done
+                mediaRecorderRef.current = null;
+                recordedChunksRef.current = [];
             };
 
             // Add cleanup handlers for when recording stops
@@ -416,16 +509,25 @@ const InterviewerContent = () => {
     const startRecording = useCallback(async () => {
         if (!recordingPermissionGranted || !mediaRecorderRef.current) {
             const permissionGranted = await requestRecordingPermission();
-            if (!permissionGranted) return;
+            if (!permissionGranted) {
+                logger.info(
+                    "⏭️ Screen recording permission denied - not starting interview"
+                );
+                return false;
+            }
         }
 
         if (mediaRecorderRef.current && !isRecording) {
             recordedChunksRef.current = [];
-            // Start recording with a timeslice to ensure periodic data collection
-            mediaRecorderRef.current.start(1000); // Collect data every 1 second
+            // Start recording without a timeslice to avoid fragmented MP4 outputs
+            mediaRecorderRef.current.start();
             setIsRecording(true);
             logger.info("✅ Screen recording started");
+            return true;
         }
+
+        // Already recording or no MediaRecorder available
+        return false;
     }, [recordingPermissionGranted, isRecording, requestRecordingPermission]);
 
     const stopRecording = useCallback(async () => {
@@ -445,10 +547,7 @@ const InterviewerContent = () => {
                     .forEach((track) => track.stop());
             }
 
-            // Clean up MediaRecorder and chunks
-            mediaRecorderRef.current = null;
-            recordedChunksRef.current = [];
-
+            // Do NOT clear refs or chunks here; wait for onstop to finish processing
             logger.info("✅ Screen recording stopped");
         }
     }, [isRecording]);
@@ -588,137 +687,118 @@ const InterviewerContent = () => {
             window.removeEventListener("message", handleMicStateChange);
     }, []);
 
-    const handleInterviewButtonClick = useCallback(
-        async (action: "start" | "stop") => {
-            if (action === "start") {
+    const handleInterviewButtonClick = useCallback(async () => {
+        try {
+            setIsInterviewLoading(true);
+
+            // CRITICAL: Check screen recording permission FIRST
+            // If user denies permission, do NOT proceed with interview setup
+            logger.info("🔍 Requesting screen recording permission...");
+            const recordingStarted = await startRecording();
+
+            if (!recordingStarted) {
+                logger.info(
+                    "⏭️ Screen recording permission denied - interview not started"
+                );
+                setIsInterviewLoading(false);
+                return; // Exit immediately, don't proceed with any interview setup
+            }
+
+            logger.info(
+                "✅ Screen recording permission granted - proceeding with interview setup"
+            );
+
+            // Only proceed with interview setup if recording permission was granted
+
+            // Create application if it doesn't exist
+            if (!applicationCreated && companyId) {
+                logger.info("🚀 Creating application for interview...");
                 try {
-                    // Create application if it doesn't exist
-                    if (!applicationCreated && companyName) {
-                        logger.info("🚀 Creating application for interview...");
-                        const company = companiesData.find(
-                            (c) => c.name === companyName
+                    const response = await fetch("/api/applications/create", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({
+                            companyId: companyId,
+                            jobId: jobId,
+                        }),
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        logger.info(
+                            "✅ Application created for interview:",
+                            data.application.id
                         );
-                        if (company) {
-                            try {
-                                const response = await fetch(
-                                    "/api/applications/create",
-                                    {
-                                        method: "POST",
-                                        headers: {
-                                            "Content-Type": "application/json",
-                                        },
-                                        body: JSON.stringify({
-                                            companyId: company.id,
-                                            jobTitle: "Frontend Developer",
-                                        }),
-                                    }
-                                );
+                        setApplicationCreated(true);
 
-                                if (response.ok) {
-                                    const data = await response.json();
-                                    logger.info(
-                                        "✅ Application created for interview:",
-                                        data.application.id
-                                    );
-                                    setApplicationCreated(true);
-
-                                    // Now create interview session
-                                    logger.info(
-                                        "🚀 Creating interview session..."
-                                    );
-                                    const sessionResponse = await fetch(
-                                        "/api/interviews/session",
-                                        {
-                                            method: "POST",
-                                            headers: {
-                                                "Content-Type":
-                                                    "application/json",
-                                            },
-                                            body: JSON.stringify({
-                                                applicationId:
-                                                    data.application.id,
-                                                companyId: company.id,
-                                            }),
-                                        }
-                                    );
-
-                                    if (sessionResponse.ok) {
-                                        const sessionData =
-                                            await sessionResponse.json();
-                                        logger.info(
-                                            "✅ Interview session created:",
-                                            sessionData.interviewSession.id
-                                        );
-                                        logger.info(
-                                            "🔄 Setting interviewSessionId to:",
-                                            sessionData.interviewSession.id
-                                        );
-                                        setInterviewSessionId(
-                                            sessionData.interviewSession.id
-                                        );
-                                        interviewSessionIdRef.current =
-                                            sessionData.interviewSession.id;
-                                    } else {
-                                        console.error(
-                                            "❌ Failed to create interview session"
-                                        );
-                                    }
-                                } else {
-                                    console.error(
-                                        "❌ Failed to create application for interview"
-                                    );
-                                }
-                            } catch (error) {
-                                console.error(
-                                    "❌ Error creating application/interview session:",
-                                    error
-                                );
+                        // Now create interview session
+                        logger.info("🚀 Creating interview session...");
+                        const sessionResponse = await fetch(
+                            "/api/interviews/session",
+                            {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({
+                                    applicationId: data.application.id,
+                                    companyId: companyId,
+                                }),
                             }
+                        );
+
+                        if (sessionResponse.ok) {
+                            const sessionData = await sessionResponse.json();
+                            logger.info(
+                                "✅ Interview session created:",
+                                sessionData.interviewSession.id
+                            );
+                            logger.info(
+                                "🔄 Setting interviewSessionId to:",
+                                sessionData.interviewSession.id
+                            );
+                            setInterviewSessionId(
+                                sessionData.interviewSession.id
+                            );
+                            interviewSessionIdRef.current =
+                                sessionData.interviewSession.id;
+                        } else {
+                            console.error(
+                                "❌ Failed to create interview session"
+                            );
                         }
-                    }
-
-                    // Reset editor code to initial state for new interview
-                    updateCurrentCode(getInitialCode());
-
-                    // Clear chat panel before starting new interview
-                    window.postMessage({ type: "clear-chat" }, "*");
-
-                    // Start screen recording
-                    await startRecording();
-
-                    await realTimeConversationRef.current?.startConversation();
-                    setIsInterviewActive(true);
-                } catch (error) {
-                    console.error("Failed to start interview:", error);
-                }
-            } else {
-                try {
-                    await realTimeConversationRef.current?.stopConversation();
-                    await stopRecording();
-                    setIsInterviewActive(false);
-                    setIsAgentConnected(false);
-                    setIsTimerRunning(false);
-                    setIsCodingStarted(false);
-
-                    // Clean up timer interval
-                    if (timerInterval) {
-                        clearInterval(timerInterval);
-                        setTimerInterval(null);
+                    } else {
+                        console.error(
+                            "❌ Failed to create application for interview"
+                        );
                     }
                 } catch (error) {
-                    console.error("Failed to stop interview:", error);
+                    console.error(
+                        "❌ Error creating application/interview session:",
+                        error
+                    );
                 }
             }
-        },
-        [
-            timerInterval,
-            updateCurrentCode,
-            applicationCreated,
-            companyName,
-            startRecording,
-            stopRecording,
-        ]
-    );
+
+            // Reset editor code to initial state for new interview
+            updateCurrentCode(getInitialCode());
+
+            // Clear chat panel before starting new interview
+            window.postMessage({ type: "clear-chat" }, "*");
+
+            // Start real-time conversation (recording is already started above)
+            await realTimeConversationRef.current?.startConversation();
+            setIsInterviewActive(true);
+            setIsInterviewLoading(false);
+
+            logger.info("🎉 Interview started successfully!");
+        } catch (error) {
+            console.error("Failed to start interview:", error);
+            setIsInterviewLoading(false);
+        }
+    }, [updateCurrentCode, applicationCreated, companyId, startRecording]);
 
     const handleStartCoding = async () => {
         setTimeLeft(30 * 60); // Reset to 30 minutes
@@ -732,23 +812,40 @@ const InterviewerContent = () => {
         const interval = setInterval(async () => {
             setTimeLeft((time) => {
                 if (time <= 1) {
-                    // Time's up - cleanup
+                    // Time's up - cleanup (same as submission)
+                    console.log("⏰ Timer expired - ending interview...");
+
+                    // Update local state (same as submission)
+                    updateSubmission(state.currentCode);
+
+                    // Stop screen recording (same as submission)
+                    stopRecording();
+
+                    // Use state machine to handle submission (same as submission)
+                    stateMachineHandleSubmission(state.currentCode);
+                    console.log(
+                        "✅ Timer expired - submission handled via state machine"
+                    );
+
+                    // Send "I'm done" user message (same as submission)
+                    if (realTimeConversationRef.current) {
+                        realTimeConversationRef.current
+                            .sendUserMessage("I'm done")
+                            .then((messageSent: boolean) => {
+                                if (messageSent) {
+                                    console.log(
+                                        "✅ Special 'I'm done' message sent successfully on timer expiration"
+                                    );
+                                } else {
+                                    console.error(
+                                        "❌ Failed to send 'I'm done' message on timer expiration"
+                                    );
+                                }
+                            });
+                    }
+
                     setIsTimerRunning(false);
                     setIsCodingStarted(false);
-
-                    // Use state machine to stop coding when time expires
-                    setCodingState(false)
-                        .then(() =>
-                            console.log(
-                                "✅ Timer expired - coding stopped via state machine"
-                            )
-                        )
-                        .catch((error: any) =>
-                            console.error(
-                                "❌ Failed to send timer expired status via state machine:",
-                                error
-                            )
-                        );
 
                     clearInterval(interval);
                     return 0;
@@ -774,65 +871,7 @@ const InterviewerContent = () => {
         }
     };
 
-    // Separate function for telemetry creation - called only once
-    const createInterviewTelemetry = useCallback(async () => {
-        if (!interviewSessionId || telemetryCreated) {
-            console.log(
-                telemetryCreated
-                    ? "⏭️ Telemetry already created"
-                    : "⏭️ No session ID for telemetry"
-            );
-            return;
-        }
-
-        console.log(
-            "🚀 Creating telemetry data for interview session:",
-            interviewSessionId
-        );
-
-        try {
-            const telemetryResponse = await fetch(
-                "/api/interviews/session/telemetry",
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        interviewSessionId: interviewSessionId,
-                    }),
-                }
-            );
-
-            if (telemetryResponse.ok) {
-                const telemetryData = await telemetryResponse.json();
-                console.log(
-                    "✅ Telemetry data created:",
-                    telemetryData.telemetryData.id
-                );
-                setTelemetryCreated(true);
-            } else {
-                console.error("❌ Failed to create telemetry data");
-                // Log error details but don't throw
-                try {
-                    const errorData = await telemetryResponse.json();
-                    console.error("❌ Error response details:", errorData);
-                } catch (parseError) {
-                    console.error(
-                        "❌ Response status:",
-                        telemetryResponse.status
-                    );
-                }
-            }
-        } catch (error: any) {
-            console.error("❌ Error creating telemetry data:", error);
-            console.error("❌ Error details:", {
-                name: error?.name,
-                message: error?.message,
-                stack: error?.stack,
-            });
-        }
-    }, [interviewSessionId, telemetryCreated]);
+    // (Removed) Redundant telemetry creation; telemetry is created server-side with session
 
     const handleSubmit = async () => {
         try {
@@ -906,16 +945,10 @@ render(UserList);`;
     // Handle interview conclusion and completion screen
     useEffect(() => {
         const handleInterviewConclusion = async () => {
-            if (interviewConcluded && companyName) {
+            if (interviewConcluded && companyId) {
                 try {
-                    // Find company by name to update local state
-                    const company = companiesData.find(
-                        (c) => c.name === companyName
-                    );
-                    if (company) {
-                        // Update local state to mark company as applied
-                        markCompanyApplied(company.id);
-                    }
+                    // Update local state to mark company as applied
+                    markCompanyApplied(companyId);
 
                     console.log("✅ Interview completed successfully");
                 } catch (error) {
@@ -934,7 +967,7 @@ render(UserList);`;
         };
 
         handleInterviewConclusion();
-    }, [interviewConcluded, companyName, router, markCompanyApplied]);
+    }, [interviewConcluded, companyId, router, markCompanyApplied]);
 
     // Load theme preference and apply to document
     useEffect(() => {
@@ -1029,12 +1062,14 @@ render(UserList);`;
                     </div>
                 </div>
                 <h1 className="text-4xl font-light text-gray-900 mb-4 tracking-tight">
-                    Thank you for your time Noam
+                    {`Thank you for your time ${candidateNameFromSession}`}
                 </h1>
                 <p className="text-xl text-gray-600 font-light">Good luck!</p>
             </div>
         </div>
     );
+
+    const companyLogo = job?.company?.logo || "/logos/meta-logo.png";
 
     return (
         <div className="h-screen flex flex-col bg-soft-white text-deep-slate dark:bg-gray-900 dark:text-white">
@@ -1063,47 +1098,26 @@ render(UserList);`;
 
                     {/* Right Section - Controls */}
                     <div className="flex items-center space-x-4">
-                        {/* Recording Indicator */}
-                        {(isRecording || recordingPermissionGranted) && (
-                            <div className="flex items-center space-x-2">
-                                {/* Screen Recording Indicator */}
-                                <div
-                                    className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${
-                                        isRecording
-                                            ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
-                                            : "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-                                    }`}
-                                >
-                                    {isRecording ? (
-                                        <Video className="w-3 h-3" />
-                                    ) : (
-                                        <VideoOff className="w-3 h-3" />
-                                    )}
-                                    <span>REC</span>
-                                </div>
-
-                                {/* Microphone Indicator */}
-                                {micPermissionGranted && (
-                                    <div
-                                        className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${
-                                            isRecording
-                                                ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
-                                                : "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
-                                        }`}
-                                    >
-                                        <div
-                                            className={`w-2 h-2 rounded-full ${
-                                                isRecording
-                                                    ? "bg-red-500 animate-pulse"
-                                                    : "bg-green-500"
-                                            }`}
-                                        ></div>
-                                        <span>MIC</span>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
+                        {/* Camera toggle (preview appears in editor bottom-right) */}
+                        <button
+                            onClick={toggleCamera}
+                            className={`p-2.5 rounded-full transition-all duration-200 hover:shadow-sm ${
+                                isCameraOn
+                                    ? "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20"
+                                    : "bg-gray-50 text-gray-600 hover:bg-gray-100 dark:bg-gray-800/50 dark:text-gray-300 dark:hover:bg-gray-700/70"
+                            }`}
+                            title={
+                                isCameraOn
+                                    ? "Turn camera off"
+                                    : "Turn camera on"
+                            }
+                        >
+                            {isCameraOn ? (
+                                <CameraOff className="w-5 h-5" />
+                            ) : (
+                                <Camera className="w-5 h-5" />
+                            )}
+                        </button>
                         {/* Timer Display */}
                         {isCodingStarted && (
                             <div
@@ -1146,27 +1160,29 @@ render(UserList);`;
                         </button>
 
                         {/* Interview Control Button */}
-                        <button
-                            onClick={() =>
-                                handleInterviewButtonClick(
-                                    isInterviewActive ? "stop" : "start"
-                                )
-                            }
-                            className={`px-4 py-2 text-sm font-medium rounded-full transition-all duration-200 hover:shadow-sm ${
-                                isInterviewActive
-                                    ? "bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/10 dark:text-red-400 dark:hover:bg-red-900/20"
-                                    : "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20"
-                            }`}
-                            title={
-                                isInterviewActive
-                                    ? "Stop Interview"
-                                    : "Start Interview"
-                            }
-                        >
-                            {isInterviewActive
-                                ? "Stop Interview"
-                                : "Start Interview"}
-                        </button>
+                        {!isInterviewActive && (
+                            <button
+                                onClick={handleInterviewButtonClick}
+                                disabled={isInterviewLoading}
+                                className={`px-4 py-2 text-sm font-medium rounded-full transition-all duration-200 hover:shadow-sm flex items-center gap-2 ${
+                                    isInterviewLoading
+                                        ? "bg-gray-100 text-gray-500 cursor-not-allowed dark:bg-gray-800 dark:text-gray-400"
+                                        : "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20"
+                                }`}
+                                title={
+                                    isInterviewLoading
+                                        ? "Starting Interview..."
+                                        : "Start Interview"
+                                }
+                            >
+                                {isInterviewLoading && (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                )}
+                                {isInterviewLoading
+                                    ? "Starting Interview..."
+                                    : "Start Interview"}
+                            </button>
+                        )}
                         <button
                             onClick={toggleTheme}
                             className="p-2.5 rounded-full bg-gray-50 dark:bg-gray-800/50 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/70 transition-all duration-200 hover:shadow-sm"
@@ -1191,7 +1207,7 @@ render(UserList);`;
                 <PanelGroup direction="horizontal">
                     {/* Middle Panel - Editor */}
                     <Panel defaultSize={70} minSize={50}>
-                        <div className="h-full border-r bg-white border-light-gray dark:bg-gray-800 dark:border-gray-700">
+                        <div className="h-full border-r bg-white border-light-gray dark:bg-gray-800 dark:border-gray-700 relative">
                             <EditorPanel
                                 showDiff={showDiff}
                                 originalCode={originalCode}
@@ -1200,7 +1216,6 @@ render(UserList);`;
                                 onCodeChange={handleCodeChange}
                                 onApplyChanges={handleApplyChanges}
                                 onRejectChanges={handleRejectChanges}
-                                isDarkMode={isDarkMode}
                                 availableTabs={availableTabs}
                                 activeTab={activeTab}
                                 onTabSwitch={handleTabSwitch}
@@ -1209,6 +1224,21 @@ render(UserList);`;
                                 onElevenLabsUpdate={onElevenLabsUpdate}
                                 updateKBVariables={updateKBVariables}
                             />
+                            <div
+                                className={`absolute bottom-4 right-4 w-56 h-40 rounded-lg overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700 bg-black transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                                    isCameraOn
+                                        ? "opacity-100 translate-y-0 scale-100"
+                                        : "opacity-0 translate-y-2 scale-[0.98] pointer-events-none"
+                                }`}
+                            >
+                                <video
+                                    ref={selfVideoRef}
+                                    className="w-full h-full object-cover [transform:scaleX(-1)]"
+                                    muted
+                                    playsInline
+                                    autoPlay
+                                />
+                            </div>
                         </div>
                     </Panel>
 
@@ -1243,7 +1273,7 @@ render(UserList);`;
                                     <RealTimeConversation
                                         ref={realTimeConversationRef}
                                         isInterviewActive={isInterviewActive}
-                                        candidateName={state.candidateName}
+                                        candidateName={candidateNameFromSession}
                                         handleUserTranscript={
                                             handleUserTranscript
                                         }
@@ -1267,8 +1297,6 @@ render(UserList);`;
                                             }
                                         }}
                                         onInterviewConcluded={() => {
-                                            // Create telemetry data once when interview concludes
-                                            createInterviewTelemetry();
                                             setInterviewConcluded(true);
                                         }}
                                     />

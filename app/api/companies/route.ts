@@ -21,8 +21,9 @@ export async function GET(request: NextRequest) {
             },
         });
 
-        // Get user's applied company IDs if user is logged in
+        // Get user's applied company/job IDs if user is logged in
         let appliedCompanyIds: string[] = [];
+        let appliedJobIds: string[] = [];
         if (userId) {
             const applications = await (prisma as any).application.findMany({
                 where: {
@@ -41,33 +42,43 @@ export async function GET(request: NextRequest) {
                     applications.map((app: any) => app.job.company.id as string)
                 )
             );
+            appliedJobIds = Array.from(
+                new Set(applications.map((app: any) => app.job.id as string))
+            );
         }
 
-        // Apply filters
-        const filteredCompanies = companies.filter((company: any) => {
-            const roleMatch =
-                !searchRole ||
-                company.jobs.some((job: any) =>
-                    job.title.toLowerCase().includes(searchRole.toLowerCase())
-                );
+        // Normalize filters
+        const roleFilter = (searchRole || "").toLowerCase();
+        const locationFilter = (searchLocation || "").toLowerCase();
+        const companyFilter = (searchCompany || "").toLowerCase();
 
-            const locationMatch =
-                !searchLocation ||
-                company.locations.some((loc: string) =>
-                    loc.toLowerCase().includes(searchLocation.toLowerCase())
-                );
-
-            const companyMatch =
-                !searchCompany ||
-                company.name
-                    .toLowerCase()
-                    .includes(searchCompany.toLowerCase()) ||
-                company.industry
-                    .toLowerCase()
-                    .includes(searchCompany.toLowerCase());
-
-            return roleMatch && locationMatch && companyMatch;
+        // First, filter each company's jobs by role and job.location
+        const companiesWithFilteredJobs = companies.map((company: any) => {
+            const filteredJobs = company.jobs.filter((job: any) => {
+                const roleOk =
+                    !roleFilter || job.title.toLowerCase().includes(roleFilter);
+                const locationOk =
+                    !locationFilter ||
+                    (job.location || "").toLowerCase().includes(locationFilter);
+                return roleOk && locationOk;
+            });
+            return { ...company, jobs: filteredJobs };
         });
+
+        // Then, filter companies: must match company filter and (have jobs if role/location provided)
+        const filteredCompanies = companiesWithFilteredJobs.filter(
+            (company: any) => {
+                const companyMatch =
+                    !companyFilter ||
+                    company.name.toLowerCase().includes(companyFilter) ||
+                    company.industry.toLowerCase().includes(companyFilter);
+
+                const hasMatchingJobs =
+                    company.jobs.length > 0 || (!roleFilter && !locationFilter);
+
+                return companyMatch && hasMatchingJobs;
+            }
+        );
 
         // Add applied status to each company
         const companiesWithAppliedStatus = filteredCompanies.map(
@@ -80,11 +91,17 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
             companies: companiesWithAppliedStatus,
             total: companiesWithAppliedStatus.length,
+            appliedCompanyIds,
+            appliedJobIds,
         });
     } catch (error) {
         logger.error("Error fetching companies:", error);
         return NextResponse.json(
-            { error: `Failed to fetch companies: ${error.message || error}` },
+            {
+                error: `Failed to fetch companies: ${
+                    error instanceof Error ? error.message : String(error)
+                }`,
+            },
             { status: 500 }
         );
     }
