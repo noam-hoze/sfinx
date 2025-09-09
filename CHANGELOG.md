@@ -7,6 +7,23 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 ## [1.13.2] - 2025-09-09
 
 ### Changed
+## [1.14.0] - 2025-09-09
+
+### Added
+
+- Automatic mode: hides Start Coding, auto-starts on AI phrase; editor overlay until start
+- Scoped logging: namespaced loggers for InterviewIDE and RealTimeConversation
+- Framer Motion animations for controls (slide-only transitions, no fades)
+
+### Changed
+
+- Start Interview button slides out and unmounts; Submit/Timer slide in; no layout gaps
+- Overlay restyled with clean, minimal look; captions preserved
+
+### Fixed
+
+- Robust trigger detection (case-insensitive, punctuation-insensitive) and start after speech ends
+
 
 - Interview flow: rely on single hidden completion message; removed `has_submitted` from KB updates.
 - AI nudge: send added code only via hidden message; immediately revert to reactive mode (using_ai=false).

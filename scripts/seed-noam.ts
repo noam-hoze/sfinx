@@ -45,6 +45,7 @@ export async function seedNoam() {
                 id: "noam-interview-session-id",
                 candidateId: user.id,
                 applicationId: "noam-application-id",
+                videoUrl: "/uploads/recordings/noam-meta-ai-heavy-usage.mp4",
                 status: "COMPLETED",
                 duration: 235,
             },

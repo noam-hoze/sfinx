@@ -69,7 +69,7 @@ export default function SignupPage() {
                 {/* Logo */}
                 <div className="text-center mb-4">
                     <Image
-                        src="/logos/sfinx-logo-6.svg"
+                        src="/logos/sfinx-logo-7.svg"
                         alt="Sfinx Logo"
                         width={160}
                         height={160}

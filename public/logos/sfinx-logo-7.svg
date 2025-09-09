@@ -1,0 +1,31 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400">
+  <defs>
+    <!-- Base gradient fill -->
+    <linearGradient id="baseGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7e3ace" />
+      <stop offset="100%" stop-color="#7e3ace" />
+    </linearGradient>
+
+    <!-- Shine overlay gradient -->
+    <linearGradient id="shineOverlay" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="30%" stop-color="white" stop-opacity="0" />
+      <stop offset="50%" stop-color="white" stop-opacity="0.35" />
+      <stop offset="70%" stop-color="white" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+
+  <!-- Text base -->
+  <text x="50%" y="50%" font-family="Orbitron, sans-serif" font-size="120" font-weight="700"
+        text-anchor="middle" dominant-baseline="middle"
+        fill="url(#baseGradient)">
+    SFINX
+  </text>
+
+  <!-- Shine overlay clipped to text -->
+  <text x="50%" y="50%" font-family="Orbitron, sans-serif" font-size="120" font-weight="700"
+        text-anchor="middle" dominant-baseline="middle"
+        fill="url(#shineOverlay)">
+    SFINX
+  </text>
+</svg>

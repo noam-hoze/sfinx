@@ -16,6 +16,7 @@ import {
 } from "../../../lib";
 import { useElevenLabsStateMachine } from "../../../lib/hooks/useElevenLabsStateMachine";
 import { logger } from "../../../lib";
+const log = logger.for("@InterviewIDE.tsx");
 
 const InterviewerContent = () => {
     const { state, getCurrentTask, updateCurrentCode, updateSubmission } =
@@ -109,6 +110,7 @@ const InterviewerContent = () => {
         null
     );
     const [isCodingStarted, setIsCodingStarted] = useState(false);
+    const [showInterviewBtn, setShowInterviewBtn] = useState(true);
     const [micMuted, setMicMuted] = useState(false);
     const [showCompletionScreen, setShowCompletionScreen] = useState(false);
     const [applicationCreated, setApplicationCreated] = useState(false);
@@ -123,7 +125,7 @@ const InterviewerContent = () => {
 
     // Debug: Monitor interviewSessionId changes
     useEffect(() => {
-        logger.info("🔄 interviewSessionId changed to:", interviewSessionId);
+        log.info("🔄 interviewSessionId changed to:", interviewSessionId);
     }, [interviewSessionId]);
     const [isRecording, setIsRecording] = useState(false);
     const [recordingPermissionGranted, setRecordingPermissionGranted] =
@@ -138,6 +140,16 @@ const InterviewerContent = () => {
     const realTimeConversationRef = useRef<any>(null);
     const doneMessageSentRef = useRef<boolean>(false);
     const router = useRouter();
+    const automaticMode = process.env.NEXT_PUBLIC_AUTOMATIC_MODE === "true";
+    // Hide the Start Interview button from layout after its fade/slide out
+    useEffect(() => {
+        if (isInterviewActive) {
+            const t = setTimeout(() => setShowInterviewBtn(false), 700);
+            return () => clearTimeout(t);
+        } else {
+            setShowInterviewBtn(true);
+        }
+    }, [isInterviewActive]);
 
     // Helper: send hidden completion signal once
     const sendHiddenDoneMessage = useCallback(async () => {
@@ -198,7 +210,7 @@ const InterviewerContent = () => {
             cameraStreamRef.current = stream;
             setIsCameraOn(true);
         } catch (error) {
-            logger.error("❌ Failed to start camera:", error);
+            log.error("❌ Failed to start camera:", error);
             setIsCameraOn(false);
         }
     }, []);
@@ -258,7 +270,7 @@ const InterviewerContent = () => {
     // Function to upload recording to server and update database
     const uploadRecordingToServer = useCallback(
         async (blob: Blob) => {
-            logger.info(
+            log.info(
                 "🔍 uploadRecordingToServer called with sessionId:",
                 interviewSessionIdRef.current,
                 "uploaded:",
@@ -266,7 +278,7 @@ const InterviewerContent = () => {
             );
 
             if (!interviewSessionIdRef.current || recordingUploaded) {
-                logger.info(
+                log.info(
                     "⏭️ Cannot upload: sessionId=",
                     interviewSessionIdRef.current,
                     "uploaded=",
@@ -276,7 +288,7 @@ const InterviewerContent = () => {
             }
 
             try {
-                logger.info("📤 Starting server upload process...");
+                log.info("📤 Starting server upload process...");
 
                 // Upload recording
                 const formData = new FormData();
@@ -286,7 +298,7 @@ const InterviewerContent = () => {
                     `interview-${interviewSessionIdRef.current}.mp4`
                 );
 
-                logger.info(
+                log.info(
                     "📤 Sending upload request to /api/interviews/session/screen-recording"
                 );
                 const uploadResponse = await fetch(
@@ -297,24 +309,21 @@ const InterviewerContent = () => {
                     }
                 );
 
-                logger.info(
-                    "📤 Upload response status:",
-                    uploadResponse.status
-                );
+                log.info("📤 Upload response status:", uploadResponse.status);
 
                 if (!uploadResponse.ok) {
                     const errorText = await uploadResponse.text();
-                    logger.error("❌ Upload failed:", errorText);
+                    log.error("❌ Upload failed:", errorText);
                     throw new Error(
                         `Failed to upload recording: ${uploadResponse.status}`
                     );
                 }
 
                 const uploadData = await uploadResponse.json();
-                logger.info("✅ Recording uploaded:", uploadData.recordingUrl);
+                log.info("✅ Recording uploaded:", uploadData.recordingUrl);
 
                 // Update interview session with recording URL
-                logger.info(
+                log.info(
                     "📤 Sending update request to:",
                     `/api/interviews/session/${interviewSessionIdRef.current}`
                 );
@@ -331,25 +340,22 @@ const InterviewerContent = () => {
                     }
                 );
 
-                logger.info(
-                    "📤 Update response status:",
-                    updateResponse.status
-                );
+                log.info("📤 Update response status:", updateResponse.status);
 
                 if (!updateResponse.ok) {
                     const errorText = await updateResponse.text();
-                    logger.error("❌ Update failed:", errorText);
+                    log.error("❌ Update failed:", errorText);
                     throw new Error(
                         `Failed to update interview session: ${updateResponse.status}`
                     );
                 }
 
                 const updateData = await updateResponse.json();
-                logger.info("✅ Interview session updated successfully");
-                logger.info("📋 Updated session data:", updateData);
+                log.info("✅ Interview session updated successfully");
+                log.info("📋 Updated session data:", updateData);
                 setRecordingUploaded(true);
             } catch (error) {
-                logger.error("❌ Error in uploadRecordingToServer:", error);
+                log.error("❌ Error in uploadRecordingToServer:", error);
             }
         },
         [recordingUploaded]
@@ -379,23 +385,23 @@ const InterviewerContent = () => {
 
             // Add video track from display
             displayStream.getVideoTracks().forEach((track) => {
-                logger.info("🎥 Added video track:", track.label);
+                log.info("🎥 Added video track:", track.label);
                 combinedStream.addTrack(track);
             });
 
             // Add system audio track from display
             displayStream.getAudioTracks().forEach((track) => {
-                logger.info("🔊 Added system audio track:", track.label);
+                log.info("🔊 Added system audio track:", track.label);
                 combinedStream.addTrack(track);
             });
 
             // Add microphone audio track
             micStream.getAudioTracks().forEach((track) => {
-                logger.info("🎤 Added microphone audio track:", track.label);
+                log.info("🎤 Added microphone audio track:", track.label);
                 combinedStream.addTrack(track);
             });
 
-            logger.info(
+            log.info(
                 "🎵 Combined stream tracks:",
                 combinedStream
                     .getTracks()
@@ -408,15 +414,15 @@ const InterviewerContent = () => {
             // Create MediaRecorder with fallback mime types
             let mimeType = "video/mp4;codecs=avc1";
             if (!MediaRecorder.isTypeSupported(mimeType)) {
-                logger.info("⚠️ H.264 not supported, trying basic mp4...");
+                log.info("⚠️ H.264 not supported, trying basic mp4...");
                 mimeType = "video/mp4";
                 if (!MediaRecorder.isTypeSupported(mimeType)) {
-                    logger.info("⚠️ MP4 not supported, using default");
+                    log.info("⚠️ MP4 not supported, using default");
                     mimeType = "";
                 }
             }
 
-            logger.info("🎥 Using mime type:", mimeType);
+            log.info("🎥 Using mime type:", mimeType);
 
             const mediaRecorder = new MediaRecorder(
                 combinedStream,
@@ -430,13 +436,13 @@ const InterviewerContent = () => {
             selectedMimeTypeRef.current = mimeType;
 
             mediaRecorder.ondataavailable = (event) => {
-                logger.info(
+                log.info(
                     "📡 ondataavailable fired, data size:",
                     event.data.size
                 );
                 if (event.data.size > 0) {
                     recordedChunksRef.current.push(event.data);
-                    logger.info(
+                    log.info(
                         "📊 Chunks array length:",
                         recordedChunksRef.current.length
                     );
@@ -444,16 +450,16 @@ const InterviewerContent = () => {
             };
 
             mediaRecorder.onstop = async () => {
-                logger.info(
+                log.info(
                     "🛑 MediaRecorder stopped, processing recorded chunks..."
                 );
-                logger.info(
+                log.info(
                     "📊 Recorded chunks count:",
                     recordedChunksRef.current.length
                 );
 
                 if (recordedChunksRef.current.length === 0) {
-                    logger.warn("❌ No recorded chunks available");
+                    log.warn("❌ No recorded chunks available");
                     return;
                 }
 
@@ -461,7 +467,7 @@ const InterviewerContent = () => {
                     type: selectedMimeTypeRef.current || "video/mp4",
                 });
 
-                logger.info("📁 Created blob of size:", blob.size, "bytes");
+                log.info("📁 Created blob of size:", blob.size, "bytes");
 
                 // Create object URL for the recording
                 const url = URL.createObjectURL(blob);
@@ -470,23 +476,23 @@ const InterviewerContent = () => {
                 // Store the blob for later upload (will be triggered by event handler)
                 // Keep it as an array to maintain consistency
                 recordedChunksRef.current = [blob];
-                logger.info("✅ Recording captured, ready for upload");
+                log.info("✅ Recording captured, ready for upload");
 
                 // Auto-upload and update database when recording is ready
-                logger.info(
+                log.info(
                     "🔍 onstop: interviewSessionId =",
                     interviewSessionIdRef.current,
                     "recordingUploaded =",
                     recordingUploaded
                 );
                 if (interviewSessionIdRef.current && !recordingUploaded) {
-                    logger.info(
+                    log.info(
                         "🚀 Auto-uploading recording for session:",
                         interviewSessionIdRef.current
                     );
                     await uploadRecordingToServer(blob);
                 } else {
-                    logger.info(
+                    log.info(
                         "⏭️ Cannot auto-upload: sessionId=",
                         interviewSessionIdRef.current,
                         "uploaded=",
@@ -502,24 +508,24 @@ const InterviewerContent = () => {
             // Add cleanup handlers for when recording stops
             combinedStream.getTracks().forEach((track) => {
                 track.onended = () => {
-                    logger.info("🎵 Track ended:", track.kind, track.label);
+                    log.info("🎵 Track ended:", track.kind, track.label);
                 };
             });
 
             return true;
         } catch (error) {
-            logger.error("❌ Error requesting recording permission:", error);
+            log.error("❌ Error requesting recording permission:", error);
 
             // Provide more specific error messages
             if (error instanceof Error) {
                 if (error.name === "NotAllowedError") {
-                    logger.error(
+                    log.error(
                         "❌ Permission denied for screen recording or microphone"
                     );
                 } else if (error.name === "NotFoundError") {
-                    logger.error("❌ No screen or microphone found");
+                    log.error("❌ No screen or microphone found");
                 } else if (error.name === "NotReadableError") {
-                    logger.error("❌ Screen or microphone is already in use");
+                    log.error("❌ Screen or microphone is already in use");
                 }
             }
 
@@ -533,7 +539,7 @@ const InterviewerContent = () => {
         if (!recordingPermissionGranted || !mediaRecorderRef.current) {
             const permissionGranted = await requestRecordingPermission();
             if (!permissionGranted) {
-                logger.info(
+                log.info(
                     "⏭️ Screen recording permission denied - not starting interview"
                 );
                 return false;
@@ -545,7 +551,7 @@ const InterviewerContent = () => {
             // Start recording without a timeslice to avoid fragmented MP4 outputs
             mediaRecorderRef.current.start();
             setIsRecording(true);
-            logger.info("✅ Screen recording started");
+            log.info("✅ Screen recording started");
             return true;
         }
 
@@ -571,14 +577,14 @@ const InterviewerContent = () => {
             }
 
             // Do NOT clear refs or chunks here; wait for onstop to finish processing
-            logger.info("✅ Screen recording stopped");
+            log.info("✅ Screen recording stopped");
         }
     }, [isRecording]);
 
     // Event handler for inserting recording URL (called manually, not in useEffect)
     const insertRecordingUrl = useCallback(async () => {
-        logger.info("🚀 insertRecordingUrl called");
-        logger.info("📋 Current state:", {
+        log.info("🚀 insertRecordingUrl called");
+        log.info("📋 Current state:", {
             interviewSessionId,
             recordingUrl,
             recordingUploaded,
@@ -586,44 +592,44 @@ const InterviewerContent = () => {
         });
 
         if (!interviewSessionId) {
-            logger.info("⏭️ No interview session ID available yet");
+            log.info("⏭️ No interview session ID available yet");
             return;
         }
 
         if (!recordingUrl) {
-            logger.info("⏭️ No recording available to upload");
+            log.info("⏭️ No recording available to upload");
             return;
         }
 
         if (recordingUploaded) {
-            logger.info("⏭️ Recording already uploaded");
+            log.info("⏭️ Recording already uploaded");
             return;
         }
 
         // Get the stored blob from recordedChunksRef
         if (recordedChunksRef.current.length === 0) {
-            logger.warn("⏭️ No recording blob available");
+            log.warn("⏭️ No recording blob available");
             return;
         }
 
         const blob = recordedChunksRef.current[0];
         if (!(blob instanceof Blob)) {
-            logger.warn("⏭️ Invalid recording blob");
+            log.warn("⏭️ Invalid recording blob");
             return;
         }
 
-        logger.info("📁 Blob details:", {
+        log.info("📁 Blob details:", {
             size: blob.size,
             type: blob.type,
         });
 
-        logger.info(
+        log.info(
             "🚀 Event handler: Inserting recording URL for session:",
             interviewSessionId
         );
 
         try {
-            logger.info("📤 Starting upload process...");
+            log.info("📤 Starting upload process...");
 
             // Upload recording
             const formData = new FormData();
@@ -633,7 +639,7 @@ const InterviewerContent = () => {
                 `interview-${interviewSessionId}.mp4`
             );
 
-            logger.info(
+            log.info(
                 "📤 Sending upload request to /api/interviews/session/screen-recording"
             );
             const uploadResponse = await fetch(
@@ -644,21 +650,21 @@ const InterviewerContent = () => {
                 }
             );
 
-            logger.info("📤 Upload response status:", uploadResponse.status);
+            log.info("📤 Upload response status:", uploadResponse.status);
 
             if (!uploadResponse.ok) {
                 const errorText = await uploadResponse.text();
-                logger.error("❌ Upload failed:", errorText);
+                log.error("❌ Upload failed:", errorText);
                 throw new Error(
                     `Failed to upload recording: ${uploadResponse.status}`
                 );
             }
 
             const uploadData = await uploadResponse.json();
-            logger.info("✅ Recording uploaded:", uploadData.recordingUrl);
+            log.info("✅ Recording uploaded:", uploadData.recordingUrl);
 
             // Update interview session with recording URL
-            logger.info(
+            log.info(
                 "📤 Sending update request to:",
                 `/api/interviews/session/${interviewSessionId}`
             );
@@ -675,25 +681,22 @@ const InterviewerContent = () => {
                 }
             );
 
-            logger.info("📤 Update response status:", updateResponse.status);
+            log.info("📤 Update response status:", updateResponse.status);
 
             if (!updateResponse.ok) {
                 const errorText = await updateResponse.text();
-                logger.error("❌ Update failed:", errorText);
+                log.error("❌ Update failed:", errorText);
                 throw new Error(
                     `Failed to update interview session: ${updateResponse.status}`
                 );
             }
 
             const updateData = await updateResponse.json();
-            logger.info("✅ Interview session updated successfully");
-            logger.info("📋 Updated session data:", updateData);
+            log.info("✅ Interview session updated successfully");
+            log.info("📋 Updated session data:", updateData);
             setRecordingUploaded(true);
         } catch (error) {
-            logger.error(
-                "❌ Error in insertRecordingUrl event handler:",
-                error
-            );
+            log.error("❌ Error in insertRecordingUrl event handler:", error);
         }
     }, [interviewSessionId, recordingUrl, recordingUploaded]);
 
@@ -716,18 +719,18 @@ const InterviewerContent = () => {
 
             // CRITICAL: Check screen recording permission FIRST
             // If user denies permission, do NOT proceed with interview setup
-            logger.info("🔍 Requesting screen recording permission...");
+            log.info("🔍 Requesting screen recording permission...");
             const recordingStarted = await startRecording();
 
             if (!recordingStarted) {
-                logger.info(
+                log.info(
                     "⏭️ Screen recording permission denied - interview not started"
                 );
                 setIsInterviewLoading(false);
                 return; // Exit immediately, don't proceed with any interview setup
             }
 
-            logger.info(
+            log.info(
                 "✅ Screen recording permission granted - proceeding with interview setup"
             );
 
@@ -735,7 +738,7 @@ const InterviewerContent = () => {
 
             // Create application if it doesn't exist
             if (!applicationCreated && companyId) {
-                logger.info("🚀 Creating application for interview...");
+                log.info("🚀 Creating application for interview...");
                 try {
                     const response = await fetch("/api/applications/create", {
                         method: "POST",
@@ -750,14 +753,14 @@ const InterviewerContent = () => {
 
                     if (response.ok) {
                         const data = await response.json();
-                        logger.info(
+                        log.info(
                             "✅ Application created for interview:",
                             data.application.id
                         );
                         setApplicationCreated(true);
 
                         // Now create interview session
-                        logger.info("🚀 Creating interview session...");
+                        log.info("🚀 Creating interview session...");
                         const sessionResponse = await fetch(
                             "/api/interviews/session",
                             {
@@ -774,11 +777,11 @@ const InterviewerContent = () => {
 
                         if (sessionResponse.ok) {
                             const sessionData = await sessionResponse.json();
-                            logger.info(
+                            log.info(
                                 "✅ Interview session created:",
                                 sessionData.interviewSession.id
                             );
-                            logger.info(
+                            log.info(
                                 "🔄 Setting interviewSessionId to:",
                                 sessionData.interviewSession.id
                             );
@@ -816,7 +819,7 @@ const InterviewerContent = () => {
             setIsInterviewActive(true);
             setIsInterviewLoading(false);
 
-            logger.info("🎉 Interview started successfully!");
+            log.info("🎉 Interview started successfully!");
         } catch (error) {
             console.error("Failed to start interview:", error);
             setIsInterviewLoading(false);
@@ -892,7 +895,7 @@ const InterviewerContent = () => {
 
             // Use state machine to handle submission
             await stateMachineHandleSubmission(state.currentCode);
-            console.log("✅ Submission handled via state machine");
+            log.info("✅ Submission handled via state machine");
 
             // Send hidden completion message on manual submit
             await sendHiddenDoneMessage();
@@ -1115,10 +1118,10 @@ render(UserList);`;
                                 <Camera className="w-5 h-5" />
                             )}
                         </button>
-                        {/* Timer Display */}
+                        {/* Timer Display (only when coding started to avoid layout gaps) */}
                         {isCodingStarted && (
                             <div
-                                className={`px-3 py-2 rounded-full font-mono text-sm font-semibold ${
+                                className={`px-3 py-2 rounded-full font-mono text-sm font-semibold transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                                     timeLeft < 300 // Less than 5 minutes
                                         ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
                                         : "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
@@ -1129,42 +1132,69 @@ render(UserList);`;
                         )}
 
                         {/* Coding Control Button */}
-                        <button
-                            onClick={
-                                isCodingStarted
-                                    ? handleSubmit
-                                    : handleStartCoding
-                            }
-                            disabled={!isInterviewActive && !isCodingStarted}
-                            className={`px-4 py-2 text-sm font-medium rounded-full transition-all duration-200 hover:shadow-sm ${
-                                isCodingStarted
-                                    ? "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20"
-                                    : "bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/10 dark:text-purple-400 dark:hover:bg-purple-900/20"
-                            } ${
-                                !isInterviewActive && !isCodingStarted
-                                    ? "opacity-50 cursor-not-allowed"
-                                    : ""
-                            }`}
-                            title={
-                                isCodingStarted
-                                    ? "Submit your solution"
-                                    : isInterviewActive
-                                    ? "Start 30-minute coding timer"
-                                    : "Start interview first"
-                            }
-                        >
-                            {isCodingStarted ? "Submit" : "Start Coding"}
-                        </button>
+                        {automaticMode ? (
+                            isCodingStarted && (
+                                <button
+                                    onClick={handleSubmit}
+                                    disabled={
+                                        !isInterviewActive && !isCodingStarted
+                                    }
+                                    className={`px-4 py-2 text-sm font-medium rounded-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-sm ${"bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20"} ${
+                                        !isInterviewActive && !isCodingStarted
+                                            ? "opacity-50 cursor-not-allowed"
+                                            : ""
+                                    }`}
+                                    title={"Submit your solution"}
+                                >
+                                    Submit
+                                </button>
+                            )
+                        ) : (
+                            <button
+                                onClick={
+                                    isCodingStarted
+                                        ? handleSubmit
+                                        : handleStartCoding
+                                }
+                                disabled={
+                                    !isInterviewActive && !isCodingStarted
+                                }
+                                className={`px-4 py-2 text-sm font-medium rounded-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-sm ${
+                                    isCodingStarted
+                                        ? "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20"
+                                        : "bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/10 dark:text-purple-400 dark:hover:bg-purple-900/20"
+                                } ${
+                                    !isInterviewActive && !isCodingStarted
+                                        ? "opacity-50 cursor-not-allowed"
+                                        : ""
+                                }`}
+                                title={
+                                    isCodingStarted
+                                        ? "Submit your solution"
+                                        : isInterviewActive
+                                        ? "Start 30-minute coding timer"
+                                        : "Start interview first"
+                                }
+                            >
+                                {isCodingStarted ? "Submit" : "Start Coding"}
+                            </button>
+                        )}
 
-                        {/* Interview Control Button */}
-                        {!isInterviewActive && (
+                        {/* Interview Control Button (slides out, then unmounts to remove gap) */}
+                        {showInterviewBtn && (
                             <button
                                 onClick={handleInterviewButtonClick}
-                                disabled={isInterviewLoading}
-                                className={`px-4 py-2 text-sm font-medium rounded-full transition-all duration-200 hover:shadow-sm flex items-center gap-2 ${
+                                disabled={
+                                    isInterviewLoading || isInterviewActive
+                                }
+                                className={`px-4 py-2 text-sm font-medium rounded-full transform transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-sm flex items-center gap-2 ${
                                     isInterviewLoading
                                         ? "bg-gray-100 text-gray-500 cursor-not-allowed dark:bg-gray-800 dark:text-gray-400"
                                         : "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20"
+                                } ${
+                                    isInterviewActive
+                                        ? "opacity-0 -translate-x-6 pointer-events-none"
+                                        : "opacity-100 translate-x-0"
                                 }`}
                                 title={
                                     isInterviewLoading
@@ -1180,21 +1210,6 @@ render(UserList);`;
                                     : "Start Interview"}
                             </button>
                         )}
-                        <button
-                            onClick={toggleTheme}
-                            className="p-2.5 rounded-full bg-gray-50 dark:bg-gray-800/50 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/70 transition-all duration-200 hover:shadow-sm"
-                            title={
-                                isDarkMode
-                                    ? "Switch to Light Mode"
-                                    : "Switch to Dark Mode"
-                            }
-                        >
-                            {isDarkMode ? (
-                                <Sun className="w-5 h-5" />
-                            ) : (
-                                <Moon className="w-5 h-5" />
-                            )}
-                        </button>
                     </div>
                 </div>
             </header>
@@ -1221,6 +1236,18 @@ render(UserList);`;
                                 onElevenLabsUpdate={onElevenLabsUpdate}
                                 updateKBVariables={updateKBVariables}
                             />
+                            {automaticMode && !isCodingStarted && (
+                                <div className="absolute inset-0 bg-white/80 dark:bg-black/70 backdrop-blur-md flex items-center justify-center select-none transition-opacity duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]">
+                                    <div className="text-center">
+                                        <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                                            Welcome to your interview session
+                                        </h2>
+                                        <p className="mt-2 text-base md:text-lg text-gray-600 dark:text-gray-300">
+                                            Please click the start interview button and wait for instructions
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                             <div
                                 className={`absolute bottom-4 right-4 w-56 h-40 rounded-lg overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700 bg-black transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                                     isCameraOn
@@ -1276,12 +1303,18 @@ render(UserList);`;
                                         }
                                         updateKBVariables={updateKBVariables}
                                         kbVariables={kbVariables}
+                                        automaticMode={automaticMode}
+                                        onAutoStartCoding={() => {
+                                            if (!isCodingStarted) {
+                                                handleStartCoding();
+                                            }
+                                        }}
                                         onStartConversation={() => {
-                                            logger.info("Conversation started");
+                                            log.info("Conversation started");
                                             setIsAgentConnected(true);
                                         }}
                                         onEndConversation={() => {
-                                            logger.info("Conversation ended");
+                                            log.info("Conversation ended");
                                             setIsInterviewActive(false);
                                             setIsAgentConnected(false);
                                             setIsTimerRunning(false);
