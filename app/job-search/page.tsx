@@ -239,13 +239,6 @@ function JobSearchContent() {
                                             ? "cursor-pointer ring-2 ring-blue-500/20 hover:ring-blue-500/40"
                                             : "cursor-pointer"
                                     }`}
-                                    style={{
-                                        animationDelay: `${index * 50}ms`,
-                                        animationName: "fadeInUp",
-                                        animationDuration: "0.5s",
-                                        animationTimingFunction: "ease-out",
-                                        animationFillMode: "forwards",
-                                    }}
                                 >
                                     {/* Company Logo */}
                                     <div className="relative w-24 h-24 mx-auto mb-4 bg-white rounded-xl flex items-center justify-center p-3">

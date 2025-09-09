@@ -65,9 +65,9 @@ export default function SignupPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
-            <div className="w-full max-w-md animate-fade-in">
+            <div className="w-full max-w-md">
                 {/* Logo */}
-                <div className="text-center mb-4 animate-slide-up">
+                <div className="text-center mb-4">
                     <Image
                         src="/logos/sfinx_logo_diagonal.svg"
                         alt="Sfinx Logo"
@@ -78,7 +78,7 @@ export default function SignupPage() {
                 </div>
 
                 {/* Signup Form */}
-                <div className="bg-white/70 backdrop-blur-lg rounded-2xl border border-white/20 shadow-xl p-8 animate-slide-up-delayed">
+                <div className="bg-white/70 backdrop-blur-lg rounded-2xl border border-white/20 shadow-xl p-8">
                     {error && (
                         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
                             {error}
@@ -86,7 +86,7 @@ export default function SignupPage() {
                     )}
                     <form onSubmit={handleSignup} className="space-y-6">
                         {/* Account Type Selection */}
-                        <div className="animate-slide-up-delayed-2">
+                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Account Type
                             </label>
@@ -157,7 +157,7 @@ export default function SignupPage() {
                         </div>
 
                         {/* Name Field */}
-                        <div className="animate-slide-up-delayed-3">
+                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Full Name
                             </label>
@@ -172,7 +172,7 @@ export default function SignupPage() {
                         </div>
 
                         {/* Email Field */}
-                        <div className="animate-slide-up-delayed-4">
+                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Email
                             </label>
@@ -190,7 +190,7 @@ export default function SignupPage() {
                         {role === "COMPANY" && (
                             <>
                                 {/* Company Name */}
-                                <div className="animate-slide-up-delayed-5">
+                                <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Company Name
                                     </label>
@@ -207,7 +207,7 @@ export default function SignupPage() {
                                 </div>
 
                                 {/* Company Size */}
-                                <div className="animate-slide-up-delayed-6">
+                                <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
                                         Company Size
                                     </label>
@@ -243,7 +243,7 @@ export default function SignupPage() {
 
                         {role === "CANDIDATE" && (
                             /* Job Title */
-                            <div className="animate-slide-up-delayed-5">
+                            <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Job Title
                                 </label>
@@ -260,11 +260,7 @@ export default function SignupPage() {
                         )}
 
                         {/* Location */}
-                        <div
-                            className={`animate-slide-up-delayed-${
-                                role === "COMPANY" ? "7" : "6"
-                            }`}
-                        >
+                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Location
                             </label>
@@ -282,11 +278,7 @@ export default function SignupPage() {
                         </div>
 
                         {/* Bio */}
-                        <div
-                            className={`animate-slide-up-delayed-${
-                                role === "COMPANY" ? "8" : "7"
-                            }`}
-                        >
+                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Bio
                             </label>
@@ -304,11 +296,7 @@ export default function SignupPage() {
                         </div>
 
                         {/* Password Field */}
-                        <div
-                            className={`animate-slide-up-delayed-${
-                                role === "COMPANY" ? "9" : "8"
-                            }`}
-                        >
+                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Password
                             </label>
@@ -323,11 +311,7 @@ export default function SignupPage() {
                         </div>
 
                         {/* Confirm Password Field */}
-                        <div
-                            className={`animate-slide-up-delayed-${
-                                role === "COMPANY" ? "10" : "9"
-                            }`}
-                        >
+                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Confirm Password
                             </label>
@@ -347,9 +331,7 @@ export default function SignupPage() {
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] animate-slide-up-delayed-${
-                                role === "COMPANY" ? "11" : "10"
-                            }`}
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
                         >
                             {isLoading ? (
                                 <div className="flex items-center justify-center">
@@ -376,91 +358,6 @@ export default function SignupPage() {
                     </p>
                 </div>
             </div>
-
-            <style jsx>{`
-                @keyframes fadeInUp {
-                    from {
-                        opacity: 0;
-                        transform: translateY(20px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-
-                @keyframes fadeIn {
-                    from {
-                        opacity: 0;
-                    }
-                    to {
-                        opacity: 1;
-                    }
-                }
-
-                @keyframes slideUp {
-                    from {
-                        opacity: 0;
-                        transform: translateY(30px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-
-                .animate-fade-in {
-                    animation: fadeIn 0.6s ease-out;
-                }
-
-                .animate-slide-up {
-                    animation: slideUp 0.8s ease-out 0.2s both;
-                }
-
-                .animate-slide-up-delayed {
-                    animation: slideUp 0.8s ease-out 0.4s both;
-                }
-
-                .animate-slide-up-delayed-2 {
-                    animation: slideUp 0.8s ease-out 0.6s both;
-                }
-
-                .animate-slide-up-delayed-3 {
-                    animation: slideUp 0.8s ease-out 0.8s both;
-                }
-
-                .animate-slide-up-delayed-4 {
-                    animation: slideUp 0.8s ease-out 1s both;
-                }
-
-                .animate-slide-up-delayed-5 {
-                    animation: slideUp 0.8s ease-out 1.2s both;
-                }
-
-                .animate-slide-up-delayed-6 {
-                    animation: slideUp 0.8s ease-out 1.4s both;
-                }
-
-                .animate-slide-up-delayed-7 {
-                    animation: slideUp 0.8s ease-out 1.6s both;
-                }
-
-                .animate-slide-up-delayed-8 {
-                    animation: slideUp 0.8s ease-out 1.8s both;
-                }
-
-                .animate-slide-up-delayed-9 {
-                    animation: slideUp 0.8s ease-out 2s both;
-                }
-
-                .animate-slide-up-delayed-10 {
-                    animation: slideUp 0.8s ease-out 2.2s both;
-                }
-
-                .animate-slide-up-delayed-11 {
-                    animation: slideUp 0.8s ease-out 2.4s both;
-                }
-            `}</style>
         </div>
     );
 }

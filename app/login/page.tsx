@@ -40,9 +40,9 @@ export default function LoginPage() {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
-            <div className="w-full max-w-md animate-fade-in">
+            <div className="w-full max-w-md">
                 {/* Logo */}
-                <div className="text-center mb-4 animate-slide-up">
+                <div className="text-center mb-4">
                     <Image
                         src="/logos/sfinx_logo_diagonal.svg"
                         alt="Sfinx Logo"
@@ -53,7 +53,7 @@ export default function LoginPage() {
                 </div>
 
                 {/* Login Form */}
-                <div className="bg-white/70 backdrop-blur-lg rounded-2xl border border-white/20 shadow-xl p-8 animate-slide-up-delayed">
+                <div className="bg-white/70 backdrop-blur-lg rounded-2xl border border-white/20 shadow-xl p-8">
                     {error && (
                         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
                             {error}
@@ -61,7 +61,7 @@ export default function LoginPage() {
                     )}
                     <form onSubmit={handleLogin} className="space-y-6">
                         {/* Email Field */}
-                        <div className="animate-slide-up-delayed-2">
+                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Email
                             </label>
@@ -76,7 +76,7 @@ export default function LoginPage() {
                         </div>
 
                         {/* Password Field */}
-                        <div className="animate-slide-up-delayed-3">
+                        <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Password
                             </label>
@@ -94,7 +94,7 @@ export default function LoginPage() {
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98] animate-slide-up-delayed-4"
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
                         >
                             {isLoading ? (
                                 <div className="flex items-center justify-center">
@@ -150,63 +150,6 @@ export default function LoginPage() {
                     </p>
                 </div>
             </div>
-
-            <style jsx>{`
-                @keyframes fadeInUp {
-                    from {
-                        opacity: 0;
-                        transform: translateY(20px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-
-                @keyframes fadeIn {
-                    from {
-                        opacity: 0;
-                    }
-                    to {
-                        opacity: 1;
-                    }
-                }
-
-                @keyframes slideUp {
-                    from {
-                        opacity: 0;
-                        transform: translateY(30px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-
-                .animate-fade-in {
-                    animation: fadeIn 0.6s ease-out;
-                }
-
-                .animate-slide-up {
-                    animation: slideUp 0.8s ease-out 0.2s both;
-                }
-
-                .animate-slide-up-delayed {
-                    animation: slideUp 0.8s ease-out 0.4s both;
-                }
-
-                .animate-slide-up-delayed-2 {
-                    animation: slideUp 0.8s ease-out 0.6s both;
-                }
-
-                .animate-slide-up-delayed-3 {
-                    animation: slideUp 0.8s ease-out 0.8s both;
-                }
-
-                .animate-slide-up-delayed-4 {
-                    animation: slideUp 0.8s ease-out 1s both;
-                }
-            `}</style>
         </div>
     );
 }
