@@ -6,6 +6,20 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 
 ## [1.12.0] - 2025-09-08
 
+## [1.13.1] - 2025-09-09
+
+### Changed
+
+- Session creation is atomic: creates session + zeroed telemetry (+workstyle + gapAnalysis) in one transaction.
+- Removed premature Prisma disconnect; added rich debug logs and error payloads.
+- Applications API now deterministic: requires jobId and reuses strictly by candidateId+jobId.
+- CPS insights components now render data from telemetry and show empty graphs when arrays are empty (no demo fallbacks).
+
+### Fixed
+
+- Typo `interviewSStessionId` → `interviewSessionId` in telemetry create.
+- Client updated to send `{ companyId, jobId }` when creating applications.
+
 ## [1.13.0] - 2025-09-09
 
 ### Added

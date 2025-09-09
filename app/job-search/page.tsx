@@ -33,12 +33,37 @@ function JobSearchContent() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [appliedJobIds, setAppliedJobIds] = useState<string[]>([]);
+    const [hydrated, setHydrated] = useState(false);
+
+    // Load saved filters on mount
+    useEffect(() => {
+        try {
+            const savedRole = localStorage.getItem("jobSearch.role");
+            const savedLocation = localStorage.getItem("jobSearch.location");
+            const savedCompany = localStorage.getItem("jobSearch.company");
+            if (savedRole !== null) setSearchRole(savedRole);
+            if (savedLocation !== null) setSearchLocation(savedLocation);
+            if (savedCompany !== null) setSearchCompany(savedCompany);
+        } catch (_) {}
+        setHydrated(true);
+    }, []);
+
+    // Persist filters whenever they change
+    useEffect(() => {
+        try {
+            localStorage.setItem("jobSearch.role", searchRole);
+            localStorage.setItem("jobSearch.location", searchLocation);
+            localStorage.setItem("jobSearch.company", searchCompany);
+        } catch (_) {}
+    }, [searchRole, searchLocation, searchCompany]);
 
     // Fetch companies from API
     useEffect(() => {
+        if (!hydrated) return;
         const fetchCompanies = async () => {
             console.log("🔄 Starting to fetch companies...");
             try {
+                setLoading(true);
                 const params = new URLSearchParams();
                 if (searchRole) params.append("role", searchRole);
                 if (searchLocation) params.append("location", searchLocation);
@@ -80,7 +105,7 @@ function JobSearchContent() {
         };
 
         fetchCompanies();
-    }, [searchRole, searchLocation, searchCompany]);
+    }, [hydrated, searchRole, searchLocation, searchCompany]);
 
     // Since we're already filtering on the server side, we can just use the companies directly
     const filteredCompanies = companies;
@@ -216,8 +241,10 @@ function JobSearchContent() {
                                     }`}
                                     style={{
                                         animationDelay: `${index * 50}ms`,
-                                        animation:
-                                            "fadeInUp 0.5s ease-out forwards",
+                                        animationName: "fadeInUp",
+                                        animationDuration: "0.5s",
+                                        animationTimingFunction: "ease-out",
+                                        animationFillMode: "forwards",
                                     }}
                                 >
                                     {/* Company Logo */}

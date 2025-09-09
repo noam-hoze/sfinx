@@ -95,6 +95,9 @@ function TelemetryContent() {
     const activeSession = sessions[activeSessionIndex] || {};
     const { gaps, evidence, chapters, workstyle, videoUrl, duration } =
         activeSession;
+    const persistenceFlow = activeSession.persistenceFlow || [];
+    const learningToAction = activeSession.learningToAction || [];
+    const confidenceCurve = activeSession.confidenceCurve || [];
 
     const onVideoJump = (timestamp: number) => {
         setCurrentVideoTime(timestamp);
@@ -518,16 +521,19 @@ function TelemetryContent() {
                                 <div className="space-y-3 animate-in slide-in-from-left-2 duration-300">
                                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
                                         <PersistenceFlow
+                                            data={persistenceFlow}
                                             onVideoJump={onVideoJump}
                                         />
                                     </div>
                                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
                                         <LearningToActionTimeline
+                                            data={learningToAction}
                                             onVideoJump={onVideoJump}
                                         />
                                     </div>
                                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
                                         <ConfidenceBuildingCurve
+                                            data={confidenceCurve}
                                             onVideoJump={onVideoJump}
                                         />
                                     </div>
