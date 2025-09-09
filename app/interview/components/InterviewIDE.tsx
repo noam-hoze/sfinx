@@ -3,12 +3,16 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import { Moon, Sun, Loader2, Camera, CameraOff } from "lucide-react";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import EditorPanel from "./editor/EditorPanel";
 import ChatPanel from "./chat/ChatPanel";
 import RealTimeConversation from "./chat/RealTimeConversation";
+import CompletionScreen from "./CompletionScreen";
+import InterviewOverlay from "./InterviewOverlay";
+import CameraPreview from "./CameraPreview";
+import HeaderControls from "./HeaderControls";
+import RightPanel from "./RightPanel";
 import {
     InterviewProvider,
     useInterview,
@@ -110,7 +114,6 @@ const InterviewerContent = () => {
         null
     );
     const [isCodingStarted, setIsCodingStarted] = useState(false);
-    const [showInterviewBtn, setShowInterviewBtn] = useState(true);
     const [micMuted, setMicMuted] = useState(false);
     const [showCompletionScreen, setShowCompletionScreen] = useState(false);
     const [applicationCreated, setApplicationCreated] = useState(false);
@@ -141,15 +144,7 @@ const InterviewerContent = () => {
     const doneMessageSentRef = useRef<boolean>(false);
     const router = useRouter();
     const automaticMode = process.env.NEXT_PUBLIC_AUTOMATIC_MODE === "true";
-    // Hide the Start Interview button from layout after its fade/slide out
-    useEffect(() => {
-        if (isInterviewActive) {
-            const t = setTimeout(() => setShowInterviewBtn(false), 700);
-            return () => clearTimeout(t);
-        } else {
-            setShowInterviewBtn(true);
-        }
-    }, [isInterviewActive]);
+    // Start button now lives inside the overlay. No header button needed.
 
     // Helper: send hidden completion signal once
     const sendHiddenDoneMessage = useCallback(async () => {
@@ -983,18 +978,6 @@ render(UserList);`;
         }
     }, []);
 
-    // Save theme preference and apply to document
-    useEffect(() => {
-        localStorage.setItem("sfinx-theme", isDarkMode ? "dark" : "light");
-
-        const root = document.documentElement;
-        if (isDarkMode) {
-            root.classList.add("dark");
-        } else {
-            root.classList.remove("dark");
-        }
-    }, [isDarkMode]);
-
     // Format time helper
     const formatTime = (seconds: number) => {
         const mins = Math.floor(seconds / 60);
@@ -1004,21 +987,8 @@ render(UserList);`;
             .padStart(2, "0")}`;
     };
 
-    const toggleTheme = () => {
-        setIsDarkMode(!isDarkMode);
-    };
-
     const handleCodeChange = (code: string) => {
         updateCurrentCode(code);
-    };
-
-    const handleApplyChanges = () => {
-        updateCurrentCode(modifiedCode);
-        setShowDiff(false);
-    };
-
-    const handleRejectChanges = () => {
-        setShowDiff(false);
     };
 
     const handleRunCode = () => {
@@ -1034,40 +1004,7 @@ render(UserList);`;
         }
     };
 
-    // Completion Screen Component
-    const CompletionScreen = () => (
-        <div
-            className={`fixed inset-0 z-50 flex items-center justify-center bg-white transition-opacity duration-1000 ${
-                showCompletionScreen
-                    ? "opacity-100"
-                    : "opacity-0 pointer-events-none"
-            }`}
-        >
-            <div className="text-center px-6">
-                <div className="mb-8">
-                    <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-                        <svg
-                            className="w-12 h-12 text-blue-600"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={1.5}
-                                d="M5 13l4 4L19 7"
-                            />
-                        </svg>
-                    </div>
-                </div>
-                <h1 className="text-4xl font-light text-gray-900 mb-4 tracking-tight">
-                    {`Thank you for your time ${candidateNameFromSession}`}
-                </h1>
-                <p className="text-xl text-gray-600 font-light">Good luck!</p>
-            </div>
-        </div>
-    );
+    // Completion screen now extracted
 
     const companyLogo = job?.company?.logo || "/logos/meta-logo.png";
 
@@ -1097,120 +1034,17 @@ render(UserList);`;
                     </div>
 
                     {/* Right Section - Controls */}
-                    <div className="flex items-center space-x-4">
-                        {/* Camera toggle (preview appears in editor bottom-right) */}
-                        <button
-                            onClick={toggleCamera}
-                            className={`p-2.5 rounded-full transition-all duration-200 hover:shadow-sm ${
-                                isCameraOn
-                                    ? "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20"
-                                    : "bg-gray-50 text-gray-600 hover:bg-gray-100 dark:bg-gray-800/50 dark:text-gray-300 dark:hover:bg-gray-700/70"
-                            }`}
-                            title={
-                                isCameraOn
-                                    ? "Turn camera off"
-                                    : "Turn camera on"
-                            }
-                        >
-                            {isCameraOn ? (
-                                <CameraOff className="w-5 h-5" />
-                            ) : (
-                                <Camera className="w-5 h-5" />
-                            )}
-                        </button>
-                        {/* Timer Display (only when coding started to avoid layout gaps) */}
-                        {isCodingStarted && (
-                            <div
-                                className={`px-3 py-2 rounded-full font-mono text-sm font-semibold transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                                    timeLeft < 300 // Less than 5 minutes
-                                        ? "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
-                                        : "bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400"
-                                }`}
-                            >
-                                {formatTime(timeLeft)}
-                            </div>
-                        )}
-
-                        {/* Coding Control Button */}
-                        {automaticMode ? (
-                            isCodingStarted && (
-                                <button
-                                    onClick={handleSubmit}
-                                    disabled={
-                                        !isInterviewActive && !isCodingStarted
-                                    }
-                                    className={`px-4 py-2 text-sm font-medium rounded-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-sm ${"bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20"} ${
-                                        !isInterviewActive && !isCodingStarted
-                                            ? "opacity-50 cursor-not-allowed"
-                                            : ""
-                                    }`}
-                                    title={"Submit your solution"}
-                                >
-                                    Submit
-                                </button>
-                            )
-                        ) : (
-                            <button
-                                onClick={
-                                    isCodingStarted
-                                        ? handleSubmit
-                                        : handleStartCoding
-                                }
-                                disabled={
-                                    !isInterviewActive && !isCodingStarted
-                                }
-                                className={`px-4 py-2 text-sm font-medium rounded-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-sm ${
-                                    isCodingStarted
-                                        ? "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20"
-                                        : "bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/10 dark:text-purple-400 dark:hover:bg-purple-900/20"
-                                } ${
-                                    !isInterviewActive && !isCodingStarted
-                                        ? "opacity-50 cursor-not-allowed"
-                                        : ""
-                                }`}
-                                title={
-                                    isCodingStarted
-                                        ? "Submit your solution"
-                                        : isInterviewActive
-                                        ? "Start 30-minute coding timer"
-                                        : "Start interview first"
-                                }
-                            >
-                                {isCodingStarted ? "Submit" : "Start Coding"}
-                            </button>
-                        )}
-
-                        {/* Interview Control Button (slides out, then unmounts to remove gap) */}
-                        {showInterviewBtn && (
-                            <button
-                                onClick={handleInterviewButtonClick}
-                                disabled={
-                                    isInterviewLoading || isInterviewActive
-                                }
-                                className={`px-4 py-2 text-sm font-medium rounded-full transform transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-sm flex items-center gap-2 ${
-                                    isInterviewLoading
-                                        ? "bg-gray-100 text-gray-500 cursor-not-allowed dark:bg-gray-800 dark:text-gray-400"
-                                        : "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20"
-                                } ${
-                                    isInterviewActive
-                                        ? "opacity-0 -translate-x-6 pointer-events-none"
-                                        : "opacity-100 translate-x-0"
-                                }`}
-                                title={
-                                    isInterviewLoading
-                                        ? "Starting Interview..."
-                                        : "Start Interview"
-                                }
-                            >
-                                {isInterviewLoading && (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                )}
-                                {isInterviewLoading
-                                    ? "Starting Interview..."
-                                    : "Start Interview"}
-                            </button>
-                        )}
-                    </div>
+                    <HeaderControls
+                        isCameraOn={isCameraOn}
+                        onToggleCamera={toggleCamera}
+                        isCodingStarted={isCodingStarted}
+                        timeLeft={timeLeft}
+                        formatTime={formatTime}
+                        automaticMode={automaticMode}
+                        isInterviewActive={isInterviewActive}
+                        onStartCoding={handleStartCoding}
+                        onSubmit={handleSubmit}
+                    />
                 </div>
             </header>
 
@@ -1226,8 +1060,6 @@ render(UserList);`;
                                 modifiedCode={modifiedCode}
                                 currentCode={state.currentCode}
                                 onCodeChange={handleCodeChange}
-                                onApplyChanges={handleApplyChanges}
-                                onRejectChanges={handleRejectChanges}
                                 availableTabs={availableTabs}
                                 activeTab={activeTab}
                                 onTabSwitch={handleTabSwitch}
@@ -1236,33 +1068,20 @@ render(UserList);`;
                                 onElevenLabsUpdate={onElevenLabsUpdate}
                                 updateKBVariables={updateKBVariables}
                             />
-                            {automaticMode && !isCodingStarted && (
-                                <div className="absolute inset-0 bg-white/80 dark:bg-black/70 backdrop-blur-md flex items-center justify-center select-none transition-opacity duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]">
-                                    <div className="text-center">
-                                        <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
-                                            Welcome to your interview session
-                                        </h2>
-                                        <p className="mt-2 text-base md:text-lg text-gray-600 dark:text-gray-300">
-                                            Please click the start interview button and wait for instructions
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-                            <div
-                                className={`absolute bottom-4 right-4 w-56 h-40 rounded-lg overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700 bg-black transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                                    isCameraOn
-                                        ? "opacity-100 translate-y-0 scale-100"
-                                        : "opacity-0 translate-y-2 scale-[0.98] pointer-events-none"
-                                }`}
-                            >
-                                <video
-                                    ref={selfVideoRef}
-                                    className="w-full h-full object-cover [transform:scaleX(-1)]"
-                                    muted
-                                    playsInline
-                                    autoPlay
+                            {!isCodingStarted && (
+                                <InterviewOverlay
+                                    isCodingStarted={isCodingStarted}
+                                    isInterviewActive={isInterviewActive}
+                                    isInterviewLoading={isInterviewLoading}
+                                    onStartInterview={
+                                        handleInterviewButtonClick
+                                    }
                                 />
-                            </div>
+                            )}
+                            <CameraPreview
+                                isCameraOn={isCameraOn}
+                                videoRef={selfVideoRef}
+                            />
                         </div>
                     </Panel>
 
@@ -1270,83 +1089,53 @@ render(UserList);`;
 
                     {/* Right Panel - Voice Controls & Transcription */}
                     <Panel defaultSize={30} minSize={25}>
-                        <div className="h-full flex flex-col border-t">
-                            {/* Voice Controls (Top Quarter - 25%) */}
-                            <div className="flex-[1] flex flex-col bg-white dark:bg-gray-800">
-                                {/* Header */}
-                                <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center space-x-2">
-                                            <div
-                                                className={`w-2 h-2 rounded-full ${
-                                                    isInterviewActive &&
-                                                    isAgentConnected
-                                                        ? "bg-green-500"
-                                                        : "bg-red-500"
-                                                }`}
-                                            ></div>
-                                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                                                Carrey
-                                            </h3>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Status Content */}
-                                <div className="flex-1 p-4">
-                                    <RealTimeConversation
-                                        ref={realTimeConversationRef}
-                                        isInterviewActive={isInterviewActive}
-                                        candidateName={candidateNameFromSession}
-                                        handleUserTranscript={
-                                            handleUserTranscript
-                                        }
-                                        updateKBVariables={updateKBVariables}
-                                        kbVariables={kbVariables}
-                                        automaticMode={automaticMode}
-                                        onAutoStartCoding={() => {
-                                            if (!isCodingStarted) {
-                                                handleStartCoding();
-                                            }
-                                        }}
-                                        onStartConversation={() => {
-                                            log.info("Conversation started");
-                                            setIsAgentConnected(true);
-                                        }}
-                                        onEndConversation={() => {
-                                            log.info("Conversation ended");
-                                            setIsInterviewActive(false);
-                                            setIsAgentConnected(false);
-                                            setIsTimerRunning(false);
-                                            setIsCodingStarted(false);
-
-                                            // Clean up timer interval
-                                            if (timerInterval) {
-                                                clearInterval(timerInterval);
-                                                setTimerInterval(null);
-                                            }
-                                        }}
-                                        onInterviewConcluded={() => {
-                                            setInterviewConcluded(true);
-                                        }}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Transcription Display (Bottom Three Quarters - 75%) */}
-                            <div className="flex-[3] h-full overflow-hidden">
-                                <ChatPanel
-                                    micMuted={micMuted}
-                                    onToggleMicMute={toggleMicMute}
-                                />
-                            </div>
-                        </div>
+                        <RightPanel
+                            isInterviewActive={isInterviewActive}
+                            candidateName={candidateNameFromSession}
+                            handleUserTranscript={handleUserTranscript}
+                            updateKBVariables={updateKBVariables}
+                            kbVariables={kbVariables}
+                            automaticMode={automaticMode}
+                            isCodingStarted={isCodingStarted}
+                            onAutoStartCoding={() => {
+                                if (!isCodingStarted) {
+                                    handleStartCoding();
+                                }
+                            }}
+                            onStartConversation={() => {
+                                log.info("Conversation started");
+                            }}
+                            onEndConversation={() => {
+                                log.info("Conversation ended");
+                                setIsTimerRunning(false);
+                                setIsCodingStarted(false);
+                            }}
+                            onInterviewConcluded={() =>
+                                setInterviewConcluded(true)
+                            }
+                            micMuted={micMuted}
+                            onToggleMicMute={toggleMicMute}
+                            realTimeConversationRef={realTimeConversationRef}
+                            isAgentConnected={isAgentConnected}
+                            setIsAgentConnected={setIsAgentConnected}
+                            setIsInterviewActive={setIsInterviewActive}
+                            timerInterval={timerInterval}
+                            clearTimerInterval={() => {
+                                if (timerInterval) {
+                                    clearInterval(timerInterval);
+                                    setTimerInterval(null);
+                                }
+                            }}
+                        />
                     </Panel>
                 </PanelGroup>
             </div>
 
             {/* Completion Screen */}
-            <CompletionScreen />
+            <CompletionScreen
+                show={showCompletionScreen}
+                candidateName={candidateNameFromSession}
+            />
         </div>
     );
 };
