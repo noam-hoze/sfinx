@@ -35,7 +35,11 @@ Single source of truth for the end-to-end interview behavior across UI, state ma
 
 ### Start Coding
 
-1. User clicks “Start Coding” → `is_coding=true` (KB_UPDATE).
+1. Check NEXT_PUBLIC_AUTOMATIC_MODE
+    - if false
+        User clicks “Start Coding” → `is_coding=true` (KB_UPDATE).
+    - if true
+        The agent finishes saying "You can ask me anything you want"  → `is_coding=true` (KB_UPDATE).
 2. Timer begins (30 minutes). Editor becomes writable.
 3. Code summary updates: throttled to ~1.5s; sent while connected.
 

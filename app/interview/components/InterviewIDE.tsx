@@ -6,7 +6,6 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import EditorPanel from "./editor/EditorPanel";
-import CompletionScreen from "./CompletionScreen";
 import InterviewOverlay from "./InterviewOverlay";
 import CameraPreview from "./CameraPreview";
 import HeaderControls from "./HeaderControls";
@@ -1054,6 +1053,9 @@ render(UserList);`;
                                     isCodingStarted={isCodingStarted}
                                     isInterviewActive={isInterviewActive}
                                     isInterviewLoading={isInterviewLoading}
+                                    isAgentConnected={isAgentConnected}
+                                    hasSubmitted={state.hasSubmitted}
+                                    candidateName={candidateNameFromSession}
                                     onStartInterview={
                                         handleInterviewButtonClick
                                     }
@@ -1112,11 +1114,7 @@ render(UserList);`;
                 </PanelGroup>
             </div>
 
-            {/* Completion Screen */}
-            <CompletionScreen
-                show={showCompletionScreen}
-                candidateName={candidateNameFromSession}
-            />
+            {/* Completion screen removed, handled by overlay */}
         </div>
     );
 };
