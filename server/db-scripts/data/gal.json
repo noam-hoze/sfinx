@@ -14,11 +14,11 @@
         "videoUrl": "uploads/recordings/gal-medium.mp4",
         "duration": 270,
         "status": "COMPLETED",
-        "createdAt": "2025-05-10T10:00:00.000Z"
+        "createdAt": "2025-01-10T10:00:00.000Z"
     },
     "telemetry": {
         "id": "gal-telemetry-5",
-        "matchScore": 97,
+        "matchScore": 71,
         "confidence": "High",
         "story": "Gal reaches top performance: resilient UX, strong refactors, and steady focus; minimal AI reliance.",
         "hasFairnessFlag": false
