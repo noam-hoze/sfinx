@@ -993,7 +993,7 @@ render(UserList);`;
         <div className="h-screen flex flex-col bg-soft-white text-deep-slate dark:bg-gray-900 dark:text-white">
             {/* Header */}
             <header className="border-b border-gray-200/30 dark:border-gray-700/30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl px-3 py-1">
-                <div className="flex items-center justify-between max-w-8xl mx-auto">
+                <div className="grid grid-cols-3 items-center max-w-8xl mx-auto">
                     {/* Left Section - Logo */}
                     <div className="flex items-center">
                         <h1 className="text-xl font-medium text-gray-900 dark:text-white tracking-tight">
@@ -1001,8 +1001,8 @@ render(UserList);`;
                         </h1>
                     </div>
 
-                    {/* Center Section - Title */}
-                    <div className="flex-1 flex justify-center items-center">
+                    {/* Center Section - Company Logo (centered) */}
+                    <div className="flex justify-center items-center justify-self-center">
                         <div className="relative h-20 w-20">
                             <Image
                                 src={companyLogo}
@@ -1015,17 +1015,19 @@ render(UserList);`;
                     </div>
 
                     {/* Right Section - Controls */}
-                    <HeaderControls
-                        isCameraOn={isCameraOn}
-                        onToggleCamera={toggleCamera}
-                        isCodingStarted={isCodingStarted}
-                        timeLeft={timeLeft}
-                        formatTime={formatTime}
-                        automaticMode={automaticMode}
-                        isInterviewActive={isInterviewActive}
-                        onStartCoding={handleStartCoding}
-                        onSubmit={handleSubmit}
-                    />
+                    <div className="justify-self-end">
+                        <HeaderControls
+                            isCameraOn={isCameraOn}
+                            onToggleCamera={toggleCamera}
+                            isCodingStarted={isCodingStarted}
+                            timeLeft={timeLeft}
+                            formatTime={formatTime}
+                            automaticMode={automaticMode}
+                            isInterviewActive={isInterviewActive}
+                            onStartCoding={handleStartCoding}
+                            onSubmit={handleSubmit}
+                        />
+                    </div>
                 </div>
             </header>
 

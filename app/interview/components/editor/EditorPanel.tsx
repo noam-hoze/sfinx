@@ -167,12 +167,9 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                 const previousTime = lastChangeTimeRef.current;
                 const timeSinceLastChange = now - previousTime;
 
-                // Demo heuristic: fire once when a single change inserts >=80 chars or >=2 newlines
+                // Demo heuristic: fire once when a single change inserts >=80 chars
                 if (!usingAITriggeredRef.current) {
-                    const newlinesAdded =
-                        (value.match(/\n/g)?.length || 0) -
-                        (previousCode.match(/\n/g)?.length || 0);
-                    if (charactersAdded >= 80 || newlinesAdded >= 2) {
+                    if (charactersAdded >= 80) {
                         usingAITriggeredRef.current = true;
 
                         // Compute simple inserted segment between previousCode -> value
@@ -187,7 +184,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
 
                         logger.info(
                             "🚨 Burst insert detected - setting using_ai: true (demo, one-time)",
-                            { insertedLength: charactersAdded, newlinesAdded }
+                            { insertedLength: charactersAdded }
                         );
                         updateKBVariables?.({
                             using_ai: true,
