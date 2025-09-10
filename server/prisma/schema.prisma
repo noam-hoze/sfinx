@@ -170,10 +170,10 @@ model TelemetryData {
 model WorkstyleMetrics {
   id               String        @id @default(cuid())
   telemetryDataId  String        @unique
-  iterationSpeed   Int
-  debugLoops       Int
-  refactorCleanups Int
-  aiAssistUsage    Int
+  iterationSpeed   Int?
+  debugLoops       Int?
+  refactorCleanups Int?
+  aiAssistUsage    Int?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   telemetryData    TelemetryData @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)

@@ -17,7 +17,7 @@
     },
     "telemetry": {
         "id": "noam-telemetry-id",
-        "matchScore": 92,
+        "matchScore": 10,
         "confidence": "High",
         "story": "Noam showcased excellent React proficiency by rapidly building a UserList component.",
         "hasFairnessFlag": false

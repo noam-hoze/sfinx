@@ -5,9 +5,9 @@ import "vidstack/player/styles/base.css";
 import "vidstack/player/styles/default/theme.css";
 import "vidstack/player/styles/default/layouts/video.css";
 import "./globals.css";
-import { JobApplicationProvider } from "./contexts";
+import { JobApplicationProvider } from "./shared/contexts";
 import Providers from "./providers";
-import Header from "./components/Header";
+import Header from "./shared/components/Header";
 
 const inter = Inter({ subsets: ["latin"] });
 

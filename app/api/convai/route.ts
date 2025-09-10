@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { logger } from "../../../services";
+import { logger } from "app/shared/services";
 
 export async function GET(request: Request) {
     try {

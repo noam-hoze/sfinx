@@ -73,10 +73,10 @@ const SeedSchema = z.object({
     }),
     workstyleMetrics: z.object({
         id: z.string(),
-        iterationSpeed: z.number(),
-        debugLoops: z.number(),
-        refactorCleanups: z.number(),
-        aiAssistUsage: z.number(),
+        iterationSpeed: z.number().nullable().optional(),
+        debugLoops: z.number().nullable().optional(),
+        refactorCleanups: z.number().nullable().optional(),
+        aiAssistUsage: z.number().nullable().optional(),
     }),
     gaps: z.array(GapSchema).default([]),
     evidenceClips: z.array(VideoEvidenceSchema).optional(),
@@ -176,23 +176,29 @@ export async function seedCandidateFromFile(
             },
         });
 
-        // 5) Workstyle
+        // 5) Workstyle (allow nulls/omissions)
+        const wsUpdate: any = {};
+        const wsCreate: any = {
+            id: workstyleMetrics.id,
+            telemetryDataId: telemetryRow.id,
+        };
+        const wsKeys = [
+            "iterationSpeed",
+            "debugLoops",
+            "refactorCleanups",
+            "aiAssistUsage",
+        ] as const;
+        for (const key of wsKeys) {
+            const value = (workstyleMetrics as any)[key];
+            if (value !== undefined) {
+                wsUpdate[key] = value;
+                wsCreate[key] = value;
+            }
+        }
         await prisma.workstyleMetrics.upsert({
             where: { telemetryDataId: telemetryRow.id },
-            update: {
-                iterationSpeed: workstyleMetrics.iterationSpeed,
-                debugLoops: workstyleMetrics.debugLoops,
-                refactorCleanups: workstyleMetrics.refactorCleanups,
-                aiAssistUsage: workstyleMetrics.aiAssistUsage,
-            },
-            create: {
-                id: workstyleMetrics.id,
-                telemetryDataId: telemetryRow.id,
-                iterationSpeed: workstyleMetrics.iterationSpeed,
-                debugLoops: workstyleMetrics.debugLoops,
-                refactorCleanups: workstyleMetrics.refactorCleanups,
-                aiAssistUsage: workstyleMetrics.aiAssistUsage,
-            },
+            update: wsUpdate,
+            create: wsCreate,
         });
 
         // 6) Gaps

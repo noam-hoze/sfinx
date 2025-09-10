@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../../../../services/auth";
-import { logger } from "../../../../../services";
+import { authOptions } from "app/shared/services/auth";
+import { logger } from "app/shared/services";
 
 const globalForPrisma = globalThis as unknown as {
     prisma: PrismaClient | undefined;

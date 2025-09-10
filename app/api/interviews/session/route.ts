@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../../../services/auth";
-import { logger } from "../../../../services";
+import { authOptions } from "app/shared/services/auth";
+import { logger } from "app/shared/services";
 
 const globalForPrisma = globalThis as unknown as {
     prisma: PrismaClient | undefined;
@@ -95,15 +95,13 @@ export async function POST(request: NextRequest) {
                     telemetryId: telemetry.id,
                 });
 
-                logger.info("🧾 [TX] Creating WorkstyleMetrics (zeroed)...");
+                logger.info(
+                    "🧾 [TX] Creating WorkstyleMetrics (nullable baseline)..."
+                );
                 await tx.workstyleMetrics.create({
                     data: {
                         telemetryDataId: telemetry.id,
-                        iterationSpeed: 0,
-                        debugLoops: 0,
-                        refactorCleanups: 0,
-                        aiAssistUsage: 0,
-                    },
+                    } as any,
                 });
                 logger.info("✅ [TX] WorkstyleMetrics created for telemetry", {
                     telemetryId: telemetry.id,

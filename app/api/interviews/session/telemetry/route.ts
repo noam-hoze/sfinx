@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../../../../services/auth";
+import { authOptions } from "app/shared/services/auth";
 
 const globalForPrisma = globalThis as unknown as {
     prisma: PrismaClient | undefined;
@@ -147,11 +147,7 @@ export async function POST(request: NextRequest) {
             await tx.workstyleMetrics.create({
                 data: {
                     telemetryDataId: telemetry.id,
-                    iterationSpeed: 0,
-                    debugLoops: 0,
-                    refactorCleanups: 0,
-                    aiAssistUsage: 0,
-                },
+                } as any,
             });
 
             await tx.gapAnalysis.create({

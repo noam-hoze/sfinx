@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.15.0] - 2025-09-10
+
+### Added
+
+- **App Route Groups**: Introduced `(auth)` and `(features)` route groups for better organization
+- **Shared Directory**: New `app/shared/` folder consolidating components, contexts, hooks, and services
+- **Server Directory Structure**: Reorganized server-side code under `server/` folder
+- **Blueprint Documentation**: Moved blueprint docs to appropriate locations (`app/` and `server/`)
+
+### Changed
+
+- **Major App Structure Refactoring**: Complete reorganization of app directory structure
+  - Moved `lib/components/` → `app/shared/components/`
+  - Moved `lib/contexts/` → `app/shared/contexts/`
+  - Moved `lib/hooks/` → `app/shared/hooks/`
+  - Moved `lib/services/` → `app/shared/services/`
+  - Moved authentication pages to `app/(auth)/`
+  - Moved feature pages to `app/(features)/`
+- **Server Organization**: Reorganized backend structure
+  - Moved `scripts/` → `server/db-scripts/`
+  - Moved `prisma/` → `server/prisma/`
+  - Moved `tests/` → `server/tests/`
+  - Moved `Blueprint/` docs to `app/` and `server/`
+- **Import Path Updates**: Updated all import statements to reflect new file structure
+- **Data Organization**: Consolidated data files and improved organization
+
+### Enhanced
+
+- **Code Organization**: Improved separation of concerns with logical folder structure
+- **Developer Experience**: More intuitive file organization and navigation
+- **Maintainability**: Better code structure for future development
+
+### Technical
+
+- **File Restructuring**: 90+ files moved and reorganized across the codebase
+- **Import Consistency**: Systematic updates to all import paths
+- **Asset Management**: Better organization of static files and documentation
+
 ## [1.13.2] - 2025-09-09
 
 ### Changed

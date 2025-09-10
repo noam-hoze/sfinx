@@ -88,6 +88,7 @@ async function resetDatabase() {
                 .replace(/\s+/g, "")}.com`;
             const user = await prisma.user.create({
                 data: {
+                    id: `manager-${companyData.id}`,
                     name: `${companyData.name} Manager`,
                     email: managerEmail,
                     password: hashedPassword,
@@ -128,6 +129,9 @@ async function resetDatabase() {
             for (const jobData of companyData.openRoles) {
                 await prisma.job.create({
                     data: {
+                        id: `${companyData.id}-${jobData.title
+                            .toLowerCase()
+                            .replace(/\s+/g, "-")}`,
                         title: jobData.title,
                         type: mapJobType(jobData.type),
                         location: jobData.location,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "../../../../services";
+import { prisma } from "app/shared/services";
 
 export async function GET(
     request: NextRequest,

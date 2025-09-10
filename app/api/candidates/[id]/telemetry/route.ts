@@ -18,7 +18,7 @@ export async function GET(
         const applicationId = request.nextUrl.searchParams.get("applicationId");
 
         // Get all interview sessions for this candidate (newest first)
-        const interviewSessions = await prisma.interviewSession.findMany({
+        let interviewSessions = await prisma.interviewSession.findMany({
             where: {
                 candidateId: candidateId,
                 ...(applicationId ? { applicationId } : {}),
@@ -53,6 +53,8 @@ export async function GET(
                 createdAt: "desc",
             },
         });
+
+        // No fallback: require sessions to match the provided applicationId (if any)
 
         if (!interviewSessions.length) {
             // Return minimal candidate info with empty sessions (no fallback data)
@@ -267,8 +269,6 @@ export async function GET(
             { error: "Failed to fetch telemetry data" },
             { status: 500 }
         );
-    } finally {
-        await prisma.$disconnect();
     }
 }
 
@@ -404,7 +404,9 @@ export async function PUT(
                                 startTime: timestamp,
                                 description: `Evidence for ${metric.title}`, // Placeholder
                                 duration: 5, // Placeholder
-                                ...(category ? { category } : {}),
+                                ...(category
+                                    ? { category: category as any }
+                                    : {}),
                             },
                         });
                     }
@@ -448,7 +450,5 @@ export async function PUT(
             { error: "Failed to update telemetry data" },
             { status: 500 }
         );
-    } finally {
-        await prisma.$disconnect();
     }
 }

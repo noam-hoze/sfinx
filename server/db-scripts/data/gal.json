@@ -17,7 +17,7 @@
     },
     "telemetry": {
         "id": "gal-telemetry-id",
-        "matchScore": 85,
+        "matchScore": 90,
         "confidence": "Medium",
         "story": "Gal demonstrated solid problem-solving and built a functional UserList with API integration and basic states.",
         "hasFairnessFlag": false
@@ -25,7 +25,7 @@
     "workstyleMetrics": {
         "id": "gal-workstyle-id",
         "iterationSpeed": 90,
-        "debugLoops": 25,
+        "debugLoops": null,
         "refactorCleanups": 74,
         "aiAssistUsage": 0
     },
@@ -33,30 +33,32 @@
         {
             "id": "gal-gap-1",
             "severity": "Moderate",
-            "description": "Missing handling loading and error states",
-            "color": "yellow",
-            "evidenceLinks": [80, 150]
+            "description": "Missing handling loading and error states"
         },
         {
             "id": "gal-gap-2",
-            "severity": "Moderate",
-            "description": "UI polish and accessibility improvements needed",
-            "color": "yellow",
-            "evidenceLinks": [95, 185, 205]
+            "severity": "Minor",
+            "description": "Doesn't include styling"
         }
     ],
     "videoEvidence": [
         {
             "id": "gal-evidence-1",
             "title": "Initial Setup & API Wiring",
-            "startTime": 60,
+            "startTime": 68,
             "category": "ITERATION_SPEED"
         },
         {
             "id": "gal-evidence-2",
-            "title": "State Management & Error Handling",
-            "startTime": 120,
-            "category": "DEBUG_LOOP"
+            "title": "",
+            "startTime": 89,
+            "category": "ITERATION_SPEED"
+        },
+        {
+            "id": "gal-evidence-3",
+            "title": "",
+            "startTime": 130,
+            "category": "ITERATION_SPEED"
         }
     ],
     "videoChapters": [
@@ -88,15 +90,9 @@
             "captions": [
                 {
                     "id": "gal-caption-2-1",
-                    "text": "Planning component architecture",
-                    "startTime": 45,
-                    "endTime": 55
-                },
-                {
-                    "id": "gal-caption-2-2",
-                    "text": "Implementing API data fetching",
-                    "startTime": 58,
-                    "endTime": 65
+                    "text": "checks if code works and receives an error",
+                    "startTime": 68,
+                    "endTime": 74
                 }
             ]
         },
@@ -108,9 +104,9 @@
             "captions": [
                 {
                     "id": "gal-caption-3-1",
-                    "text": "Adding loading and error states",
-                    "startTime": 72,
-                    "endTime": 85
+                    "text": "Checks and doesn't receive an error",
+                    "startTime": 89,
+                    "endTime": 93
                 }
             ]
         },
@@ -122,11 +118,17 @@
             "captions": [
                 {
                     "id": "gal-caption-4-1",
-                    "text": "Final polish and wrap-up",
-                    "startTime": 100,
-                    "endTime": 120
+                    "text": "Checks and doesn't receive an error",
+                    "startTime": 130,
+                    "endTime": 134
                 }
             ]
+        },
+        {
+            "id": "gal-chapter-5",
+            "title": "Submission",
+            "startTime": 134,
+            "endTime": 206
         }
     ]
 }

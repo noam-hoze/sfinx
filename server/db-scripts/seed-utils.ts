@@ -41,8 +41,10 @@ export async function seedBasicCandidate(
 
     const hashedPassword = await bcrypt.hash("sfinx", 12);
 
+    const deterministicUserId = `candidate-${input.email.toLowerCase()}`;
     const user = await prisma.user.create({
         data: {
+            id: deterministicUserId,
             name: input.name,
             email: input.email,
             password: hashedPassword,
@@ -70,6 +72,12 @@ export async function getJobForCompany(
     prisma: PrismaClient,
     companyId: string
 ) {
+    // Prefer a deterministic primary role if it exists
+    const preferredId = `${companyId}-frontend-engineer`;
+    const preferred = await prisma.job.findUnique({
+        where: { id: preferredId },
+    });
+    if (preferred) return preferred;
     const job = await prisma.job.findFirst({ where: { companyId } });
     if (!job) {
         throw new Error(
@@ -87,10 +95,12 @@ export async function ensureApplicationForCompany(
 ) {
     const job = await getJobForCompany(prisma, companyId);
     // Upsert by the unique composite (candidateId, jobId)
+    const deterministicApplicationId = `app-${candidateId}-${job.id}`;
     const application = await prisma.application.upsert({
         where: { candidateId_jobId: { candidateId, jobId: job.id } as any },
         update: { status: "INTERVIEWING" },
         create: {
+            id: deterministicApplicationId,
             candidateId,
             jobId: job.id,
             status: "INTERVIEWING",
