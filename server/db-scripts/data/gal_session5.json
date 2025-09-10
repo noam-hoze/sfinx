@@ -26,8 +26,8 @@
     "workstyleMetrics": {
         "id": "gal-workstyle-id",
         "iterationSpeed": 90,
-        "debugLoops": 0,
-        "refactorCleanups": 74,
+        "debugLoops": 30,
+        "refactorCleanups": 0,
         "aiAssistUsage": 0
     },
     "gaps": [
@@ -60,6 +60,12 @@
             "title": "",
             "startTime": 130,
             "category": "ITERATION_SPEED"
+        },
+        {
+            "id": "gal-evidence-4",
+            "title": "Debugs API error and fixes request",
+            "startTime": 70,
+            "category": "DEBUG_LOOP"
         }
     ],
     "videoChapters": [
