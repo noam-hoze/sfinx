@@ -8,6 +8,9 @@ import bcrypt from "bcryptjs";
 // Import seed functions
 import { seedGal } from "./seed-candidate/seed-gal";
 import { seedGalSession2 } from "./seed-candidate/seed-gal-session2";
+import { seedGalSession3 } from "./seed-candidate/seed-gal-session3";
+import { seedGalSession4 } from "./seed-candidate/seed-gal-session4";
+import { seedGalSession5 } from "./seed-candidate/seed-gal-session5";
 import { seedMark } from "./seed-candidate/seed-mark";
 import { seedNoam } from "./seed-candidate/seed-noam";
 
@@ -152,6 +155,9 @@ async function resetDatabase() {
         // Create additional candidates using existing seed scripts
         await seedGal();
         await seedGalSession2();
+        await seedGalSession3();
+        await seedGalSession4();
+        await seedGalSession5();
         await seedMark();
         await seedNoam();
 

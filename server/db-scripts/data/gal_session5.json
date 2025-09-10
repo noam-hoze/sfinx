@@ -1,0 +1,67 @@
+{
+    "user": {
+        "name": "Gal",
+        "email": "gal@gmail.com",
+        "image": "/uploads/profiles/gal-profile.jpeg",
+        "jobTitle": "Software Engineer",
+        "location": "Tel Aviv, Israel",
+        "bio": "A talented software engineer.",
+        "skills": ["React", "TypeScript", "Node.js"]
+    },
+    "application": { "companyId": "meta" },
+    "interviewSession": {
+        "id": "gal-interview-session-5",
+        "videoUrl": "",
+        "duration": 270,
+        "status": "COMPLETED"
+    },
+    "telemetry": {
+        "id": "gal-telemetry-5",
+        "matchScore": 97,
+        "confidence": "High",
+        "story": "Gal reaches top performance: resilient UX, strong refactors, and steady focus; minimal AI reliance.",
+        "hasFairnessFlag": false
+    },
+    "workstyleMetrics": {
+        "id": "gal-workstyle-5",
+        "iterationSpeed": 96,
+        "debugLoops": 45,
+        "refactorCleanups": 92,
+        "aiAssistUsage": 5
+    },
+    "gaps": [],
+    "videoEvidence": [
+        {
+            "id": "gal-evidence-5-1",
+            "title": "High-confidence iteration",
+            "startTime": 64,
+            "category": "ITERATION_SPEED"
+        },
+        {
+            "id": "gal-evidence-5-2",
+            "title": "Major refactor",
+            "startTime": 160,
+            "category": "REFACTOR_CLEANUPS"
+        }
+    ],
+    "videoChapters": [
+        {
+            "id": "gal-chapter-5-1",
+            "title": "Warmup",
+            "startTime": 0,
+            "endTime": 50
+        },
+        {
+            "id": "gal-chapter-5-2",
+            "title": "Confident Iterations",
+            "startTime": 50,
+            "endTime": 170
+        },
+        {
+            "id": "gal-chapter-5-3",
+            "title": "Refactor & Ship",
+            "startTime": 170,
+            "endTime": 270
+        }
+    ]
+}

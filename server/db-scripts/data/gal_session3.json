@@ -1,0 +1,73 @@
+{
+    "user": {
+        "name": "Gal",
+        "email": "gal@gmail.com",
+        "image": "/uploads/profiles/gal-profile.jpeg",
+        "jobTitle": "Software Engineer",
+        "location": "Tel Aviv, Israel",
+        "bio": "A talented software engineer.",
+        "skills": ["React", "TypeScript", "Node.js"]
+    },
+    "application": { "companyId": "meta" },
+    "interviewSession": {
+        "id": "gal-interview-session-3",
+        "videoUrl": "",
+        "duration": 240,
+        "status": "COMPLETED"
+    },
+    "telemetry": {
+        "id": "gal-telemetry-3",
+        "matchScore": 92,
+        "confidence": "High",
+        "story": "Gal improved further: he added optimistic UI and refined error boundaries; performance is smoother with memoization.",
+        "hasFairnessFlag": false
+    },
+    "workstyleMetrics": {
+        "id": "gal-workstyle-3",
+        "iterationSpeed": 94,
+        "debugLoops": 60,
+        "refactorCleanups": 86,
+        "aiAssistUsage": 8
+    },
+    "gaps": [
+        {
+            "id": "gal-gap-3-1",
+            "severity": "Minor",
+            "description": "Add tests for optimistic updates"
+        }
+    ],
+    "videoEvidence": [
+        {
+            "id": "gal-evidence-3-1",
+            "title": "Optimistic UI",
+            "startTime": 62,
+            "category": "ITERATION_SPEED"
+        },
+        {
+            "id": "gal-evidence-3-2",
+            "title": "Refactor & Cleanups",
+            "startTime": 138,
+            "category": "REFACTOR_CLEANUPS"
+        }
+    ],
+    "videoChapters": [
+        {
+            "id": "gal-chapter-3-1",
+            "title": "Intro & Plan",
+            "startTime": 0,
+            "endTime": 30
+        },
+        {
+            "id": "gal-chapter-3-2",
+            "title": "Optimistic UI & Error Boundaries",
+            "startTime": 30,
+            "endTime": 140
+        },
+        {
+            "id": "gal-chapter-3-3",
+            "title": "Refactor & Polish",
+            "startTime": 140,
+            "endTime": 240
+        }
+    ]
+}

@@ -1,0 +1,73 @@
+{
+    "user": {
+        "name": "Gal",
+        "email": "gal@gmail.com",
+        "image": "/uploads/profiles/gal-profile.jpeg",
+        "jobTitle": "Software Engineer",
+        "location": "Tel Aviv, Israel",
+        "bio": "A talented software engineer.",
+        "skills": ["React", "TypeScript", "Node.js"]
+    },
+    "application": { "companyId": "meta" },
+    "interviewSession": {
+        "id": "gal-interview-session-4",
+        "videoUrl": "",
+        "duration": 255,
+        "status": "COMPLETED"
+    },
+    "telemetry": {
+        "id": "gal-telemetry-4",
+        "matchScore": 94,
+        "confidence": "High",
+        "story": "Gal demonstrates consistent velocity, strengthens error recovery, and improves accessibility with ARIA and keyboard nav.",
+        "hasFairnessFlag": false
+    },
+    "workstyleMetrics": {
+        "id": "gal-workstyle-4",
+        "iterationSpeed": 95,
+        "debugLoops": 52,
+        "refactorCleanups": 89,
+        "aiAssistUsage": 6
+    },
+    "gaps": [
+        {
+            "id": "gal-gap-4-1",
+            "severity": "Minor",
+            "description": "Improve keyboard trap tests"
+        }
+    ],
+    "videoEvidence": [
+        {
+            "id": "gal-evidence-4-1",
+            "title": "Accessibility improvements",
+            "startTime": 75,
+            "category": "REFACTOR_CLEANUPS"
+        },
+        {
+            "id": "gal-evidence-4-2",
+            "title": "Fast iteration",
+            "startTime": 120,
+            "category": "ITERATION_SPEED"
+        }
+    ],
+    "videoChapters": [
+        {
+            "id": "gal-chapter-4-1",
+            "title": "Quick Fixes",
+            "startTime": 0,
+            "endTime": 60
+        },
+        {
+            "id": "gal-chapter-4-2",
+            "title": "A11y Enhancements",
+            "startTime": 60,
+            "endTime": 170
+        },
+        {
+            "id": "gal-chapter-4-3",
+            "title": "Refactor & Cleanup",
+            "startTime": 170,
+            "endTime": 255
+        }
+    ]
+}

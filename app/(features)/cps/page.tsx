@@ -9,6 +9,7 @@ import WorkstyleDashboard from "./components/WorkstyleDashboard";
 import PersistenceFlow from "./components/PersistenceFlow";
 import LearningToActionTimeline from "./components/LearningToActionTimeline";
 import ConfidenceBuildingCurve from "./components/ConfidenceBuildingCurve";
+import ImprovementChart from "./components/ImprovementChart";
 import { AuthGuard } from "app/shared/components";
 
 function TelemetryContent() {
@@ -31,6 +32,14 @@ function TelemetryContent() {
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
     const [saveSuccess, setSaveSuccess] = useState(false);
     const [storyExpanded, setStoryExpanded] = useState(false);
+    const [showImprovement, setShowImprovement] = useState(false);
+    const [seriesVisible, setSeriesVisible] = useState({
+        match: true,
+        iter: false,
+        refactor: false,
+        debug: false,
+        ai: false,
+    });
 
     useEffect(() => {
         const fetchTelemetryData = async () => {
@@ -663,20 +672,214 @@ function TelemetryContent() {
                         </div>
                     </div>
 
-                    {/* Cell 3 - Video (bottom-right) */}
-                    <div className="w-full xl:w-auto h-full">
-                        {/* Lazy-load only active session's video */}
-                        {videoUrl ? (
-                            <EvidenceReel
-                                jumpToTime={currentVideoTime}
-                                jumpKey={jumpKey}
-                                videoUrl={videoUrl}
-                                duration={duration}
-                                chapters={chapters}
-                            />
-                        ) : (
-                            <div className="aspect-video bg-gray-200 rounded-xl" />
-                        )}
+                    {/* Cell 3 - Video / Improvement (bottom-right) */}
+                    <div className="w-full xl:w-auto h-full flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                            {showImprovement ? (
+                                <div className="flex gap-2 text-xs">
+                                    {[
+                                        {
+                                            key: "match",
+                                            label: "Match",
+                                            color: "#3b82f6",
+                                        },
+                                        {
+                                            key: "iter",
+                                            label: "Iteration",
+                                            color: "#a78bfa",
+                                        },
+                                        {
+                                            key: "refactor",
+                                            label: "Refactor",
+                                            color: "#10b981",
+                                        },
+                                        {
+                                            key: "debug",
+                                            label: "Debug",
+                                            color: "#f97316",
+                                        },
+                                        {
+                                            key: "ai",
+                                            label: "AI",
+                                            color: "#64748b",
+                                        },
+                                    ].map((s: any) => (
+                                        <button
+                                            key={s.key}
+                                            onClick={() =>
+                                                setSeriesVisible((prev) => ({
+                                                    ...prev,
+                                                    [s.key]:
+                                                        !prev[
+                                                            s.key as keyof typeof prev
+                                                        ],
+                                                }))
+                                            }
+                                            className="px-2 py-1 rounded-md border"
+                                            style={{
+                                                borderColor: s.color,
+                                                color: seriesVisible[
+                                                    s.key as keyof typeof seriesVisible
+                                                ]
+                                                    ? "#111827"
+                                                    : "#9ca3af",
+                                                backgroundColor: seriesVisible[
+                                                    s.key as keyof typeof seriesVisible
+                                                ]
+                                                    ? `${s.color}20`
+                                                    : "transparent",
+                                            }}
+                                        >
+                                            {s.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div />
+                            )}
+                            <div className="bg-white/60 border border-white/40 rounded-lg p-1 text-xs">
+                                <button
+                                    onClick={() => setShowImprovement(false)}
+                                    className={`${
+                                        !showImprovement
+                                            ? "bg-blue-500 text-white"
+                                            : "text-gray-700"
+                                    } px-2 py-1 rounded`}
+                                >
+                                    Evidence
+                                </button>
+                                <button
+                                    onClick={() => setShowImprovement(true)}
+                                    className={`${
+                                        showImprovement
+                                            ? "bg-blue-500 text-white"
+                                            : "text-gray-700"
+                                    } px-2 py-1 rounded ml-1`}
+                                >
+                                    Improvement
+                                </button>
+                            </div>
+                        </div>
+                        <div className="flex-1">
+                            {showImprovement ? (
+                                <div className="w-full h-full bg-white rounded-xl border border-gray-200 p-2">
+                                    <ImprovementChart
+                                        data={[...sessions]
+                                            .map((s, i) => ({ s, i }))
+                                            .sort((a, b) => {
+                                                const at = new Date(
+                                                    a.s.createdAt || 0
+                                                ).getTime();
+                                                const bt = new Date(
+                                                    b.s.createdAt || 0
+                                                ).getTime();
+                                                return at - bt;
+                                            })
+                                            .map(({ s, i }, pos) => ({
+                                                label: `S${i + 1}`,
+                                                index: i,
+                                                match:
+                                                    typeof s.matchScore ===
+                                                    "number"
+                                                        ? s.matchScore
+                                                        : null,
+                                                iter:
+                                                    s.workstyle?.iterationSpeed
+                                                        ?.value ?? null,
+                                                refactor:
+                                                    s.workstyle
+                                                        ?.refactorCleanups
+                                                        ?.value ?? null,
+                                                debug:
+                                                    s.workstyle?.debugLoops
+                                                        ?.value != null
+                                                        ? 100 -
+                                                          s.workstyle.debugLoops
+                                                              .value
+                                                        : null,
+                                                ai:
+                                                    s.workstyle?.aiAssistUsage
+                                                        ?.value != null
+                                                        ? 100 -
+                                                          s.workstyle
+                                                              .aiAssistUsage
+                                                              .value
+                                                        : null,
+                                                matchTs: (
+                                                    s.evidence || []
+                                                ).find(
+                                                    (e: any) =>
+                                                        e.startTime !== null &&
+                                                        e.startTime !==
+                                                            undefined
+                                                )?.startTime,
+                                                iterTs: (s.evidence || []).find(
+                                                    (e: any) =>
+                                                        (
+                                                            e.title || ""
+                                                        ).includes(
+                                                            "Iteration"
+                                                        ) &&
+                                                        e.startTime !== null &&
+                                                        e.startTime !==
+                                                            undefined
+                                                )?.startTime,
+                                                refactorTs: (
+                                                    s.evidence || []
+                                                ).find(
+                                                    (e: any) =>
+                                                        (
+                                                            e.title || ""
+                                                        ).includes(
+                                                            "Refactor"
+                                                        ) &&
+                                                        e.startTime !== null &&
+                                                        e.startTime !==
+                                                            undefined
+                                                )?.startTime,
+                                                debugTs: (
+                                                    s.evidence || []
+                                                ).find(
+                                                    (e: any) =>
+                                                        (
+                                                            e.title || ""
+                                                        ).includes("Debug") &&
+                                                        e.startTime !== null &&
+                                                        e.startTime !==
+                                                            undefined
+                                                )?.startTime,
+                                                aiTs: (s.evidence || []).find(
+                                                    (e: any) =>
+                                                        (
+                                                            e.title || ""
+                                                        ).includes("AI") &&
+                                                        e.startTime !== null &&
+                                                        e.startTime !==
+                                                            undefined
+                                                )?.startTime,
+                                            }))}
+                                        activeIndex={activeSessionIndex}
+                                        onSelect={(index, ts) => {
+                                            setActiveSessionIndex(index);
+                                            if (typeof ts === "number") {
+                                                onVideoJump(ts);
+                                            }
+                                        }}
+                                        show={seriesVisible}
+                                    />
+                                </div>
+                            ) : videoUrl ? (
+                                <EvidenceReel
+                                    jumpToTime={currentVideoTime}
+                                    jumpKey={jumpKey}
+                                    videoUrl={videoUrl}
+                                    duration={duration}
+                                    chapters={chapters}
+                                />
+                            ) : (
+                                <div className="aspect-video bg-gray-200 rounded-xl" />
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

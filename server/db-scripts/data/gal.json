@@ -25,7 +25,7 @@
     "workstyleMetrics": {
         "id": "gal-workstyle-id",
         "iterationSpeed": 90,
-        "debugLoops": null,
+        "debugLoops": 0,
         "refactorCleanups": 74,
         "aiAssistUsage": 0
     },
