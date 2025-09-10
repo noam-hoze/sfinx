@@ -10,6 +10,7 @@ import {
 type Props = {
     videoUrl?: string | null;
     jumpToTime?: number;
+    jumpKey?: number;
     duration?: number;
     chapters?: any[];
 };
@@ -17,28 +18,21 @@ type Props = {
 export default function EvidenceReel({
     videoUrl,
     jumpToTime,
+    jumpKey,
     duration,
     chapters = [],
 }: Props) {
     const playerRef = useRef<any>(null);
-    const lastJumpTimeRef = useRef<number | null>(null);
 
     useEffect(() => {
-        if (
-            playerRef.current &&
-            typeof jumpToTime === "number" &&
-            jumpToTime !== lastJumpTimeRef.current
-        ) {
-            // Try to seek using the player's remote control
+        if (playerRef.current && typeof jumpToTime === "number") {
             if (playerRef.current.remote) {
                 playerRef.current.remote.seek(jumpToTime);
             } else if (playerRef.current.currentTime !== undefined) {
-                // Fallback: directly set currentTime
                 playerRef.current.currentTime = jumpToTime;
             }
-            lastJumpTimeRef.current = jumpToTime;
         }
-    }, [jumpToTime]); // Only depend on jumpToTime, not currentTime
+    }, [jumpToTime, jumpKey]);
 
     const formatVttTime = (seconds: number) => {
         const date = new Date(0);

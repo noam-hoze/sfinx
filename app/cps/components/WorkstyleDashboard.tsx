@@ -292,21 +292,6 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                     </div>
                 ))}
             </div>
-
-            {/* Fairness Flag */}
-            {workstyle.aiAssistUsage.isFairnessFlag && (
-                <div className="mt-6 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <div className="flex items-center gap-2 text-yellow-800">
-                        <span className="text-lg">⚠️</span>
-                        <span className="text-sm font-medium">
-                            Fairness Flag Detected
-                        </span>
-                    </div>
-                    <p className="text-xs text-yellow-700 mt-1">
-                        High AI assistance usage may impact evaluation fairness
-                    </p>
-                </div>
-            )}
         </div>
     );
 };

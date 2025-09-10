@@ -9,7 +9,8 @@
         "lint": "next lint",
         "test": "vitest run",
         "seed": "tsx scripts/seed-data.ts",
-        "sync-schema-and-seed": "tsx scripts/sync-schema-and-seed.ts"
+        "sync-schema-and-seed": "tsx scripts/sync-schema-and-seed.ts",
+        "clean:next": "rm -rf .next"
     },
     "dependencies": {
         "@elevenlabs/react": "^0.6.1",

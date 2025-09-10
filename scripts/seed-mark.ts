@@ -64,8 +64,8 @@ export async function seedMark() {
             telemetry = await prisma.telemetryData.create({
                 data: {
                     interviewSessionId: session.id,
-                    matchScore: 78,
-                    confidence: "Medium",
+                    matchScore: 25,
+                    confidence: "Low",
                     story: "Mark completed a short interview with several coding iterations.",
                     hasFairnessFlag: false,
                 },
@@ -109,7 +109,7 @@ export async function seedMark() {
             {
                 id: "mark-chapter-3",
                 telemetryDataId: telemetry.id,
-                title: "1st Iteration",
+                title: "I don't know",
                 startTime: 73,
                 endTime: 96,
                 description: "First iteration",
@@ -117,18 +117,26 @@ export async function seedMark() {
             {
                 id: "mark-chapter-4",
                 telemetryDataId: telemetry.id,
-                title: "2nd iteration",
+                title: "1st iteration",
                 startTime: 96,
                 endTime: 106,
-                description: "Second iteration",
+                description: "1st iteration",
             },
             {
                 id: "mark-chapter-5",
                 telemetryDataId: telemetry.id,
-                title: "3rd iteration",
+                title: "2nd iteration",
                 startTime: 106,
                 endTime: 118,
-                description: "Third iteration",
+                description: "2nd iteration",
+            },
+            {
+                id: "mark-chapter-6",
+                telemetryDataId: telemetry.id,
+                title: "3rd iteration",
+                startTime: 118,
+                endTime: 135,
+                description: "3rd iteration",
             },
         ];
 
@@ -141,15 +149,29 @@ export async function seedMark() {
                 {
                     id: "mark-caption-3-1",
                     videoChapterId: "mark-chapter-3",
-                    text: "Checking ChatGPT solution",
+                    text: "Using ChatGPT",
                     startTime: 75, // 1:15
+                    endTime: 80,
+                },
+                {
+                    id: "mark-caption-3-2",
+                    videoChapterId: "mark-chapter-3",
+                    text: "The user doesn't not know how to explain his usage of AI",
+                    startTime: 82, //1:22
                     endTime: 92,
+                },
+                {
+                    id: "mark-caption-6-1",
+                    videoChapterId: "mark-chapter-4",
+                    text: "Checking ChatGPT's solution",
+                    startTime: 96, // 1:36
+                    endTime: 100,
                 },
                 {
                     id: "mark-caption-4-1",
                     videoChapterId: "mark-chapter-4",
                     text: "Infers right correction from error message",
-                    startTime: 100, // 1:40
+                    startTime: 101, // 1:41
                     endTime: 104,
                 },
                 {
@@ -158,6 +180,13 @@ export async function seedMark() {
                     text: "Infers right correction from errors message",
                     startTime: 111, // 1:51
                     endTime: 115,
+                },
+                {
+                    id: "mark-caption-7-1",
+                    videoChapterId: "mark-chapter-1",
+                    text: "Getting solution from ChatGPT",
+                    startTime: 44, // 0:44
+                    endTime: 51,
                 },
             ],
         });
@@ -217,12 +246,12 @@ export async function seedMark() {
                     category: "ITERATION_SPEED" as any,
                 },
                 {
-                    id: "mark-ai-38",
+                    id: "mark-ai-44",
                     telemetryDataId: telemetry.id,
                     title: "AI Assist Usage",
                     duration: 4,
-                    description: "AI assist usage marker at 0:38",
-                    startTime: 38,
+                    description: "AI assist usage marker at 0:44",
+                    startTime: 44,
                     category: "AI_ASSIST_USAGE" as any,
                 },
             ],
@@ -246,23 +275,13 @@ export async function seedMark() {
                 severity: "Major",
                 description: "Lack of understanding of ChatGPT's solution",
                 color: "red",
-                evidenceLinks: [84], // 1:24
+                evidenceLinks: [82], // 1:22
             },
         });
         console.log(
             "⚠️ Mark gap seeded: Major - lack of understanding of ChatGPT's solution"
         );
 
-        // 8) Extra caption at 1:23
-        await prisma.videoCaption.create({
-            data: {
-                id: "mark-caption-3-2",
-                videoChapterId: "mark-chapter-3",
-                text: "The user doesn't not know how to explain his usage of AI",
-                startTime: 99,
-                endTime: 106,
-            },
-        });
         console.log("📝 Added extra caption at 1:23");
 
         // 9) Learning-to-Action timeline: show action only when understanding errors (1:40, 1:50)
@@ -270,16 +289,19 @@ export async function seedMark() {
             where: { id: telemetry.id },
             data: {
                 learningToAction: [
+                    { time: "0:00", value: 0, timestamp: 0, color: "#94a3b8" },
+                    { time: "1:00", value: 0, timestamp: 60, color: "#94a3b8" },
+                    { time: "1:20", value: 0, timestamp: 80, color: "#94a3b8" },
                     {
-                        time: "1:40",
+                        time: "1:42",
                         value: 1,
-                        timestamp: 100,
+                        timestamp: 102,
                         color: "#3b82f6",
                     },
                     {
-                        time: "1:50",
+                        time: "1:51",
                         value: 1,
-                        timestamp: 110,
+                        timestamp: 111,
                         color: "#3b82f6",
                     },
                 ] as any,

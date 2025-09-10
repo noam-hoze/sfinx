@@ -22,6 +22,7 @@ function TelemetryContent() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [currentVideoTime, setCurrentVideoTime] = React.useState(0);
+    const [jumpKey, setJumpKey] = React.useState(0);
     const [activeTab, setActiveTab] = useState<"benchmarks" | "insights">(
         "benchmarks"
     );
@@ -101,6 +102,7 @@ function TelemetryContent() {
 
     const onVideoJump = (timestamp: number) => {
         setCurrentVideoTime(timestamp);
+        setJumpKey((k) => k + 1);
     };
 
     const validateData = () => {
@@ -561,12 +563,12 @@ function TelemetryContent() {
 
                             {activeTab === "insights" && (
                                 <div className="space-y-3 animate-in slide-in-from-left-2 duration-300">
-                                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
+                                    {/* <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
                                         <PersistenceFlow
                                             data={persistenceFlow}
                                             onVideoJump={onVideoJump}
                                         />
-                                    </div>
+                                    </div> */}
                                     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
                                         <LearningToActionTimeline
                                             data={learningToAction}
@@ -590,6 +592,7 @@ function TelemetryContent() {
                         {videoUrl ? (
                             <EvidenceReel
                                 jumpToTime={currentVideoTime}
+                                jumpKey={jumpKey}
                                 videoUrl={videoUrl}
                                 duration={duration}
                                 chapters={chapters}
