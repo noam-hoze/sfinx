@@ -14,6 +14,14 @@ import AnimatedWaveform from "./AnimatedWaveform";
 import { logger } from "../../../../lib";
 const log = logger.for("@RealTimeConversation.tsx");
 
+// Enable verbose logging for this module only
+if (typeof window !== "undefined") {
+    logger.setEnabled(true);
+    logger.setNamespacedOnly(true);
+    logger.setModules(["@RealTimeConversation.tsx"]);
+    logger.setLevels(["debug", "info", "warn", "error"]);
+}
+
 interface RealTimeConversationProps {
     onStartConversation?: () => void;
     onEndConversation?: () => void;
@@ -415,7 +423,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             async (message: string) => {
                 try {
                     if (conversation.status !== "connected") {
-                        console.warn(
+                        log.warn(
                             "⏳ Conversation not connected, cannot send message"
                         );
                         return false;

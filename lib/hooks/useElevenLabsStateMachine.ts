@@ -26,10 +26,13 @@ import { logger } from "../logger";
 const log = logger.for("@useElevenLabsStateMachine.ts");
 let hasSubmittedOnce = false;
 
-const NUDGE_MESSAGE_TO_ASK_THE_CANDIDATE_A_QUESTION = `
+const instructAgentInCaseOfAIUsage = (addedCode: any) => `
 Don't answer this message in our voice conversation. It's just to inform you of something.
 The candidate has just used external AI. Now your using_ai variable is
-true. Ask the candidate one follow up question about: `;
+true. Ask the candidate one follow up question about: ${addedCode}. After he 
+answers that question, it doesn't matter what was the answer. It can include "I don't know" or a wrong answer.
+And it can be the right answer. You will need to answer it with an acknowledgemet. After that, you go back to waiting 
+for the user message in order to react. Don't say your closing line`;
 
 /**
  * KBVariables: canonical context mirrored to ElevenLabs via KB_UPDATE.
@@ -111,8 +114,7 @@ export const useElevenLabsStateMachine = (
             if (isUsingAIRisingEdge && onSendUserMessage) {
                 try {
                     const addedCode = (updates as any).ai_added_code || "";
-                    const message = `${NUDGE_MESSAGE_TO_ASK_THE_CANDIDATE_A_QUESTION}: ${addedCode}`;
-                    await onSendUserMessage(message);
+                    await onSendUserMessage(instructAgentInCaseOfAIUsage(addedCode));
                     log.info(
                         "✅ SENT - Dynamic AI usage message with added code"
                     );
