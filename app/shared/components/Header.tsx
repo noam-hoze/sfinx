@@ -47,7 +47,7 @@ export default function Header() {
 
     return (
         <header className="bg-white border-b border-gray-200 px-4 py-4">
-            <div className="grid grid-cols-[auto_1fr_auto] items-center gap-12">
+            <div className="grid grid-cols-[auto_1fr_auto] items-center gap-64">
                 {/* Logo/Brand */}
                 <Link href="/" className="flex items-center">
                     <SfinxLogo
@@ -58,7 +58,7 @@ export default function Header() {
                 </Link>
 
                 {/* Primary Navigation (role-based) */}
-                {/* <nav className="flex items-center gap-6 justify-start">
+                <nav className="flex items-center gap-24 justify-start">
                     {(session?.user as any)?.role === "COMPANY" && (
                         <Link
                             href="/company-dashboard"
@@ -72,18 +72,30 @@ export default function Header() {
                         </Link>
                     )}
                     {(session?.user as any)?.role === "CANDIDATE" && (
-                        <Link
-                            href="/job-search"
-                            className={`${linkStyles} ${
-                                pathname === "/job-search"
-                                    ? activeLinkStyles
-                                    : inactiveLinkStyles
-                            }`}
-                        >
-                            Jobs
-                        </Link>
+                        <>
+                            <Link
+                                href="/job-search"
+                                className={`${linkStyles} ${
+                                    pathname === "/job-search"
+                                        ? activeLinkStyles
+                                        : inactiveLinkStyles
+                                }`}
+                            >
+                                Jobs
+                            </Link>
+                            <Link
+                                href="/practice"
+                                className={`${linkStyles} ${
+                                    pathname === "/practice"
+                                        ? activeLinkStyles
+                                        : inactiveLinkStyles
+                                }`}
+                            >
+                                Practice
+                            </Link>
+                        </>
                     )}
-                </nav> */}
+                </nav>
 
                 {/* User Avatar and Menu */}
                 <div className="flex items-center justify-end">

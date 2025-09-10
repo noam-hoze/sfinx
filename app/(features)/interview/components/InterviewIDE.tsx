@@ -146,9 +146,12 @@ const InterviewerContent = () => {
         }
     }, [queueUserMessage]);
 
-    // Require company name parameter
+    // Require companyId only outside of Practice page
     useEffect(() => {
-        if (!companyId) {
+        const onPracticePage =
+            typeof window !== "undefined" &&
+            window.location.pathname === "/practice";
+        if (!companyId && !onPracticePage) {
             router.push("/job-search");
         }
     }, [companyId, router]);
@@ -934,11 +937,16 @@ render(UserList);`;
                     );
                 }
 
-                // Show completion screen and navigate back
+                // Show completion screen and navigate back (except Practice)
                 setShowCompletionScreen(true);
-                setTimeout(() => {
-                    router.push("/job-search");
-                }, 2000);
+                const onPracticePage =
+                    typeof window !== "undefined" &&
+                    window.location.pathname === "/practice";
+                if (!onPracticePage) {
+                    setTimeout(() => {
+                        router.push("/job-search");
+                    }, 2000);
+                }
             }
         };
 
