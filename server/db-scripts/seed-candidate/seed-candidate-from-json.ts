@@ -60,6 +60,7 @@ const SeedSchema = z.object({
         videoUrl: z.string(),
         duration: z.number().optional(),
         status: z.string().default("COMPLETED"),
+        createdAt: z.string().datetime().optional(),
     }),
     telemetry: z.object({
         id: z.string(),
@@ -157,6 +158,13 @@ export async function seedCandidateFromFile(
                 videoUrl: interviewSession.videoUrl,
                 duration: interviewSession.duration,
                 status: interviewSession.status,
+                ...((interviewSession as any).createdAt
+                    ? {
+                          createdAt: new Date(
+                              (interviewSession as any).createdAt
+                          ),
+                      }
+                    : {}),
             },
         });
 

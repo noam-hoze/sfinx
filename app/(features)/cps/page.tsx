@@ -104,6 +104,13 @@ function TelemetryContent() {
 
     const { candidate } = telemetryData || {};
     const activeSession = sessions[activeSessionIndex] || {};
+    const formatMonthYear = (dateIso?: string) =>
+        dateIso
+            ? new Date(dateIso).toLocaleDateString(undefined, {
+                  month: "short",
+                  year: "2-digit",
+              })
+            : "";
     const { gaps, evidence, chapters, workstyle, videoUrl, duration } =
         activeSession;
     const persistenceFlow = activeSession.persistenceFlow || [];
@@ -776,8 +783,11 @@ function TelemetryContent() {
                                                 return at - bt;
                                             })
                                             .map(({ s, i }, pos) => ({
-                                                label: `S${i + 1}`,
-                                                index: i,
+                                                label: formatMonthYear(
+                                                    s.createdAt
+                                                ),
+                                                index: pos,
+                                                sessionIndex: i,
                                                 match:
                                                     typeof s.matchScore ===
                                                     "number"

@@ -11,13 +11,14 @@
     "application": { "companyId": "meta" },
     "interviewSession": {
         "id": "gal-interview-session-2",
-        "videoUrl": "",
+        "videoUrl": "uploads/recordings/gal-medium.mp4",
         "duration": 230,
-        "status": "COMPLETED"
+        "status": "COMPLETED",
+        "createdAt": "2025-02-05T10:00:00.000Z"
     },
     "telemetry": {
         "id": "gal-telemetry-2",
-        "matchScore": 96,
+        "matchScore": 86,
         "confidence": "High",
         "story": "Gal implemented a robust UserList, correctly handling loading and error states with clear UX and resilient data flows. The solution reflects strong frontend fundamentals and attention to edge cases.",
         "hasFairnessFlag": false

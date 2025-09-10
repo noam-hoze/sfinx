@@ -14,6 +14,7 @@ import {
 export interface ImprovementDatum {
     label: string;
     index: number;
+    sessionIndex?: number;
     match: number | null;
     iter?: number | null;
     refactor?: number | null;
@@ -44,8 +45,13 @@ export default function ImprovementChart({
         ai?: boolean;
     };
 }) {
+    // Ensure sessions render left-to-right as S1 → S5
+    const ordered = React.useMemo(
+        () => [...data].sort((a, b) => a.index - b.index),
+        [data]
+    );
     // Compute tighter domain for high-range metrics to create more vertical spread
-    const highMins = data
+    const highMins = ordered
         .flatMap((d) => [d.match, d.iter, d.refactor])
         .filter((v) => typeof v === "number") as number[];
     const minHigh = highMins.length ? Math.min(...highMins) : 0;
@@ -53,11 +59,12 @@ export default function ImprovementChart({
         Math.max(0, Math.floor(minHigh - 6)),
         100,
     ];
-    const CustomDot =
-        (key: "match" | "iter" | "refactor" | "debug" | "ai") =>
-        (props: any) => {
+    const CustomDot = (key: "match" | "iter" | "refactor" | "debug" | "ai") => {
+        const DotComponent = (props: any) => {
             const { cx, cy, payload, index } = props;
-            const isActive = index === activeIndex && key === "match";
+            const isActive =
+                (payload.sessionIndex ?? payload.index) === activeIndex &&
+                key === "match";
             const color =
                 key === "match"
                     ? "#3b82f6"
@@ -78,7 +85,7 @@ export default function ImprovementChart({
                     : key === "debug"
                     ? "debugTs"
                     : "aiTs";
-            const prev = data[index - 1];
+            const prev = ordered[index - 1];
             const val = payload[key];
             const prevVal = prev ? (prev as any)[key] : null;
             const trendStroke =
@@ -98,16 +105,24 @@ export default function ImprovementChart({
                     stroke={trendStroke}
                     strokeWidth={2}
                     className="cursor-pointer hover:opacity-80 focus:outline-none"
-                    onClick={() => onSelect(payload.index, payload[tsKey])}
+                    onClick={() =>
+                        onSelect(
+                            payload.sessionIndex ?? payload.index,
+                            payload[tsKey]
+                        )
+                    }
                 />
             );
         };
+        DotComponent.displayName = `CustomDot-${key}`;
+        return DotComponent;
+    };
 
     return (
         <div className="bg-white rounded-lg p-2 h-full">
             <ResponsiveContainer width="100%" height="100%">
                 <LineChart
-                    data={data}
+                    data={ordered}
                     margin={{ top: 16, right: 16, left: 16, bottom: 20 }}
                 >
                     <XAxis
@@ -135,7 +150,7 @@ export default function ImprovementChart({
                         tickLine={false}
                         tick={false}
                         label={{
-                            value: "Improving ↑",
+                            value: "Improving →",
                             angle: -90,
                             position: "insideLeft",
                             style: { fill: "#9ca3af", fontSize: 10 },
@@ -165,63 +180,63 @@ export default function ImprovementChart({
                     {/* Primary trajectory */}
                     {show?.match !== false && (
                         <Line
-                        type="monotone"
-                        dataKey="match"
-                        stroke="#3b82f6"
-                        strokeWidth={3}
-                        yAxisId="a"
-                        dot={CustomDot("match")}
-                        activeDot={false}
-                        connectNulls
+                            type="monotone"
+                            dataKey="match"
+                            stroke="#3b82f6"
+                            strokeWidth={3}
+                            yAxisId="a"
+                            dot={CustomDot("match")}
+                            activeDot={false}
+                            connectNulls
                         />
                     )}
                     {/* Supporting signals for more points */}
                     {show?.iter !== false && (
                         <Line
-                        type="monotone"
-                        dataKey="iter"
-                        stroke="#a78bfa"
-                        strokeWidth={2}
-                        yAxisId="a"
-                        dot={CustomDot("iter")}
-                        activeDot={false}
-                        connectNulls
+                            type="monotone"
+                            dataKey="iter"
+                            stroke="#a78bfa"
+                            strokeWidth={2}
+                            yAxisId="a"
+                            dot={CustomDot("iter")}
+                            activeDot={false}
+                            connectNulls
                         />
                     )}
                     {show?.refactor !== false && (
                         <Line
-                        type="monotone"
-                        dataKey="refactor"
-                        stroke="#10b981"
-                        strokeWidth={2}
-                        yAxisId="a"
-                        dot={CustomDot("refactor")}
-                        activeDot={false}
-                        connectNulls
+                            type="monotone"
+                            dataKey="refactor"
+                            stroke="#10b981"
+                            strokeWidth={2}
+                            yAxisId="a"
+                            dot={CustomDot("refactor")}
+                            activeDot={false}
+                            connectNulls
                         />
                     )}
                     {show?.debug !== false && (
                         <Line
-                        type="monotone"
-                        dataKey="debug"
-                        stroke="#f97316"
-                        strokeWidth={2}
-                        yAxisId="b"
-                        dot={CustomDot("debug")}
-                        activeDot={false}
-                        connectNulls
+                            type="monotone"
+                            dataKey="debug"
+                            stroke="#f97316"
+                            strokeWidth={2}
+                            yAxisId="b"
+                            dot={CustomDot("debug")}
+                            activeDot={false}
+                            connectNulls
                         />
                     )}
                     {show?.ai !== false && (
                         <Line
-                        type="monotone"
-                        dataKey="ai"
-                        stroke="#64748b"
-                        strokeWidth={2}
-                        yAxisId="b"
-                        dot={CustomDot("ai")}
-                        activeDot={false}
-                        connectNulls
+                            type="monotone"
+                            dataKey="ai"
+                            stroke="#64748b"
+                            strokeWidth={2}
+                            yAxisId="b"
+                            dot={CustomDot("ai")}
+                            activeDot={false}
+                            connectNulls
                         />
                     )}
                 </LineChart>

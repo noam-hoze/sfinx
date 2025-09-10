@@ -11,13 +11,14 @@
     "application": { "companyId": "meta" },
     "interviewSession": {
         "id": "gal-interview-session-4",
-        "videoUrl": "",
+        "videoUrl": "uploads/recordings/gal-medium.mp4",
         "duration": 255,
-        "status": "COMPLETED"
+        "status": "COMPLETED",
+        "createdAt": "2025-04-10T10:00:00.000Z"
     },
     "telemetry": {
         "id": "gal-telemetry-4",
-        "matchScore": 94,
+        "matchScore": 78,
         "confidence": "High",
         "story": "Gal demonstrates consistent velocity, strengthens error recovery, and improves accessibility with ARIA and keyboard nav.",
         "hasFairnessFlag": false

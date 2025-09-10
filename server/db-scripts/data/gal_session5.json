@@ -10,58 +10,126 @@
     },
     "application": { "companyId": "meta" },
     "interviewSession": {
-        "id": "gal-interview-session-5",
-        "videoUrl": "",
-        "duration": 270,
-        "status": "COMPLETED"
+        "id": "gal-interview-session-id",
+        "videoUrl": "uploads/recordings/gal-medium.mp4",
+        "duration": 210,
+        "status": "COMPLETED",
+        "createdAt": "2025-01-10T10:00:00.000Z"
     },
     "telemetry": {
-        "id": "gal-telemetry-5",
-        "matchScore": 97,
-        "confidence": "High",
-        "story": "Gal reaches top performance: resilient UX, strong refactors, and steady focus; minimal AI reliance.",
+        "id": "gal-telemetry-id",
+        "matchScore": 71,
+        "confidence": "Medium",
+        "story": "Gal demonstrated solid problem-solving and built a functional UserList with API integration and basic states. He didn't handle loading and error cases. ",
         "hasFairnessFlag": false
     },
     "workstyleMetrics": {
-        "id": "gal-workstyle-5",
-        "iterationSpeed": 96,
-        "debugLoops": 45,
-        "refactorCleanups": 92,
-        "aiAssistUsage": 5
+        "id": "gal-workstyle-id",
+        "iterationSpeed": 90,
+        "debugLoops": 0,
+        "refactorCleanups": 74,
+        "aiAssistUsage": 0
     },
-    "gaps": [],
+    "gaps": [
+        {
+            "id": "gal-gap-1",
+            "severity": "Moderate",
+            "description": "Missing handling loading and error states"
+        },
+        {
+            "id": "gal-gap-2",
+            "severity": "Minor",
+            "description": "Doesn't include styling"
+        }
+    ],
     "videoEvidence": [
         {
-            "id": "gal-evidence-5-1",
-            "title": "High-confidence iteration",
-            "startTime": 64,
+            "id": "gal-evidence-1",
+            "title": "Initial Setup & API Wiring",
+            "startTime": 68,
             "category": "ITERATION_SPEED"
         },
         {
-            "id": "gal-evidence-5-2",
-            "title": "Major refactor",
-            "startTime": 160,
-            "category": "REFACTOR_CLEANUPS"
+            "id": "gal-evidence-2",
+            "title": "",
+            "startTime": 89,
+            "category": "ITERATION_SPEED"
+        },
+        {
+            "id": "gal-evidence-3",
+            "title": "",
+            "startTime": 130,
+            "category": "ITERATION_SPEED"
         }
     ],
     "videoChapters": [
         {
-            "id": "gal-chapter-5-1",
-            "title": "Warmup",
+            "id": "gal-chapter-1",
+            "title": "Intro",
             "startTime": 0,
-            "endTime": 50
+            "endTime": 37,
+            "captions": [
+                {
+                    "id": "gal-caption-1-1",
+                    "text": "Setting up development environment",
+                    "startTime": 5,
+                    "endTime": 20
+                },
+                {
+                    "id": "gal-caption-1-2",
+                    "text": "Reviewing project requirements",
+                    "startTime": 25,
+                    "endTime": 40
+                }
+            ]
         },
         {
-            "id": "gal-chapter-5-2",
-            "title": "Confident Iterations",
-            "startTime": 50,
-            "endTime": 170
+            "id": "gal-chapter-2",
+            "title": "1st iteration",
+            "startTime": 37,
+            "endTime": 69,
+            "captions": [
+                {
+                    "id": "gal-caption-2-1",
+                    "text": "checks if code works and receives an error",
+                    "startTime": 68,
+                    "endTime": 74
+                }
+            ]
         },
         {
-            "id": "gal-chapter-5-3",
-            "title": "Refactor & Ship",
-            "startTime": 170,
-            "endTime": 270
+            "id": "gal-chapter-3",
+            "title": "2nd iteration",
+            "startTime": 69,
+            "endTime": 91,
+            "captions": [
+                {
+                    "id": "gal-caption-3-1",
+                    "text": "Checks and doesn't receive an error",
+                    "startTime": 89,
+                    "endTime": 93
+                }
+            ]
+        },
+        {
+            "id": "gal-chapter-4",
+            "title": "3rd iteration",
+            "startTime": 91,
+            "endTime": 134,
+            "captions": [
+                {
+                    "id": "gal-caption-4-1",
+                    "text": "Checks and doesn't receive an error",
+                    "startTime": 130,
+                    "endTime": 134
+                }
+            ]
+        },
+        {
+            "id": "gal-chapter-5",
+            "title": "Submission",
+            "startTime": 134,
+            "endTime": 206
         }
     ]
 }

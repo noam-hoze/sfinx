@@ -11,13 +11,14 @@
     "application": { "companyId": "meta" },
     "interviewSession": {
         "id": "gal-interview-session-3",
-        "videoUrl": "",
+        "videoUrl": "uploads/recordings/gal-medium.mp4",
         "duration": 240,
-        "status": "COMPLETED"
+        "status": "COMPLETED",
+        "createdAt": "2025-03-07T10:00:00.000Z"
     },
     "telemetry": {
         "id": "gal-telemetry-3",
-        "matchScore": 92,
+        "matchScore": 80,
         "confidence": "High",
         "story": "Gal improved further: he added optimistic UI and refined error boundaries; performance is smoother with memoization.",
         "hasFairnessFlag": false

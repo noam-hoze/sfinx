@@ -13,7 +13,8 @@
         "id": "mark-interview-session-id",
         "videoUrl": "uploads/recordings/mark-heavy-ai-usage.mp4",
         "duration": 118,
-        "status": "COMPLETED"
+        "status": "COMPLETED",
+        "createdAt": "2025-02-20T10:00:00.000Z"
     },
     "telemetry": {
         "id": "mark-telemetry-id",
@@ -40,14 +41,6 @@
     ],
     "evidenceClips": [
         {
-            "id": "mark-iter-88",
-            "title": "Iteration Speed",
-            "duration": 4,
-            "description": "Iteration marker at 1:28",
-            "startTime": 88,
-            "category": "ITERATION_SPEED"
-        },
-        {
             "id": "mark-iter-100",
             "title": "Iteration Speed",
             "duration": 4,
@@ -64,11 +57,27 @@
             "category": "ITERATION_SPEED"
         },
         {
+            "id": "mark-debug-111",
+            "title": "",
+            "duration": 4,
+            "description": "",
+            "startTime": 124,
+            "category": "DEBUG_LOOP"
+        },
+        {
             "id": "mark-ai-44",
             "title": "AI Assist Usage",
             "duration": 4,
             "description": "AI assist usage marker at 0:44",
             "startTime": 44,
+            "category": "AI_ASSIST_USAGE"
+        },
+        {
+            "id": "mark-ai-45",
+            "title": "AI Assist Usage",
+            "duration": 4,
+            "description": "AI assist usage marker at 0:44",
+            "startTime": 90,
             "category": "AI_ASSIST_USAGE"
         }
     ],
@@ -78,35 +87,102 @@
             "title": "Introduction",
             "startTime": 0,
             "endTime": 32,
-            "description": "Introduction"
+            "description": "Introduction",
+            "captions": [
+                {
+                    "id": "mark-caption-1-1",
+                    "text": "Setup and introduction",
+                    "startTime": 3,
+                    "endTime": 15
+                },
+                {
+                    "id": "mark-caption-1-2",
+                    "text": "Overview of task",
+                    "startTime": 16,
+                    "endTime": 30
+                }
+            ]
         },
         {
             "id": "mark-chapter-2",
             "title": "Getting solution from ChatGPT",
             "startTime": 32,
-            "endTime": 73,
-            "description": "Getting solution from ChatGPT"
+            "endTime": 88,
+            "description": "Getting solution from ChatGPT",
+            "captions": [
+                {
+                    "id": "mark-caption-2-1",
+                    "text": "Uses ChatGPT for solution",
+                    "startTime": 44,
+                    "endTime": 60
+                }
+            ]
         },
         {
             "id": "mark-chapter-3",
-            "title": "I don't know",
-            "startTime": 73,
+            "title": "Applying ChatGPT's solution",
+            "startTime": 88,
             "endTime": 96,
-            "description": "First iteration"
+            "description": "First iteration",
+            "captions": [
+                {
+                    "id": "mark-caption-3-1",
+                    "text": "States uncertainty",
+                    "startTime": 75,
+                    "endTime": 80
+                },
+                {
+                    "id": "mark-caption-3-2",
+                    "text": "Not sure how to explain his AI usage",
+                    "startTime": 90,
+                    "endTime": 94
+                }
+            ]
         },
         {
             "id": "mark-chapter-4",
             "title": "1st iteration",
             "startTime": 96,
             "endTime": 106,
-            "description": "1st iteration"
+            "description": "1st iteration",
+            "captions": [
+                {
+                    "id": "mark-caption-4-1",
+                    "text": "Running ChatGPT solution and getting an error",
+                    "startTime": 96,
+                    "endTime": 104
+                }
+            ]
         },
         {
             "id": "mark-chapter-5",
             "title": "2nd iteration",
             "startTime": 106,
+            "endTime": 112,
+            "description": "2nd iteration",
+            "captions": [
+                {
+                    "id": "mark-caption-5-1",
+                    "text": "Running solution and getting an error",
+                    "startTime": 110,
+                    "endTime": 112
+                }
+            ]
+        },
+        {
+            "id": "mark-chapter-6",
+            "title": "Submission",
+            "startTime": 106,
             "endTime": 118,
-            "description": "2nd iteration"
+            "description": "Submission",
+            "captions": [
+                {
+                    "id": "mark-caption-6-1",
+                    "text": "Submitting without checking the code",
+                    "startTime": 124,
+                    "endTime": 128
+                }
+            ]
         }
     ]
 }
