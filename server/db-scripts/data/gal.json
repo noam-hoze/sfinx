@@ -19,7 +19,7 @@
         "id": "gal-telemetry-id",
         "matchScore": 90,
         "confidence": "Medium",
-        "story": "Gal demonstrated solid problem-solving and built a functional UserList with API integration and basic states.",
+        "story": "Gal demonstrated solid problem-solving and built a functional UserList with API integration and basic states. He didn't handle loading and error cases. ",
         "hasFairnessFlag": false
     },
     "workstyleMetrics": {

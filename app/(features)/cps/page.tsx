@@ -101,6 +101,11 @@ function TelemetryContent() {
     const learningToAction = activeSession.learningToAction || [];
     const confidenceCurve = activeSession.confidenceCurve || [];
 
+    const activeMatchScore: number | null =
+        (activeSession && activeSession.matchScore !== undefined
+            ? activeSession.matchScore
+            : candidate?.matchScore) ?? null;
+
     // Build a lightweight story from available data (no persistence)
     const topMetricKey = (() => {
         if (!workstyle) return null;
@@ -137,9 +142,9 @@ function TelemetryContent() {
         if (!candidate) return "";
         const parts: string[] = [];
         parts.push(
-            `${candidate.name || "The candidate"} scored ${
-                candidate.matchScore
-            }% match.`
+            `${
+                candidate.name || "The candidate"
+            } scored ${activeMatchScore}% match.`
         );
         if (topMetricLabel) parts.push(`Strongest signal: ${topMetricLabel}.`);
         parts.push(
@@ -151,6 +156,7 @@ function TelemetryContent() {
     })();
 
     const longStory: string = (() => {
+        if (candidate?.story && candidate.story.trim()) return candidate.story;
         if (!candidate) return shortStory;
         const more: string[] = [];
         if (workstyle && topMetricKey) {
@@ -398,7 +404,7 @@ function TelemetryContent() {
                                     ) : (
                                         <div>
                                             <div className="text-2xl font-semibold text-blue-600">
-                                                {candidate.matchScore}%
+                                                {activeMatchScore}%
                                             </div>
                                             <div className="text-xs text-gray-500 font-medium">
                                                 Match Score

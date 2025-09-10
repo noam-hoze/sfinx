@@ -130,6 +130,9 @@ export async function GET(
                 createdAt: session.createdAt,
                 videoUrl: session.videoUrl,
                 duration: session.duration,
+                matchScore: telemetry.matchScore,
+                confidence: telemetry.confidence,
+                story: telemetry.story,
                 gaps: {
                     gaps:
                         telemetry.gapAnalysis?.gaps.map((gap: any) => ({

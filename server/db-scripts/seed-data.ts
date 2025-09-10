@@ -7,6 +7,7 @@ import bcrypt from "bcryptjs";
 
 // Import seed functions
 import { seedGal } from "./seed-candidate/seed-gal";
+import { seedGalSession2 } from "./seed-candidate/seed-gal-session2";
 import { seedMark } from "./seed-candidate/seed-mark";
 import { seedNoam } from "./seed-candidate/seed-noam";
 
@@ -150,6 +151,7 @@ async function resetDatabase() {
 
         // Create additional candidates using existing seed scripts
         await seedGal();
+        await seedGalSession2();
         await seedMark();
         await seedNoam();
 
