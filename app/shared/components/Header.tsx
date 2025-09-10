@@ -99,7 +99,7 @@ export default function Header() {
                     ref={navRef}
                     className="flex items-center gap-24 justify-start relative"
                 >
-                    {(session?.user as any)?.role === "COMPANY" && (
+                    {/* {(session?.user as any)?.role === "COMPANY" && (
                         <Link
                             ref={(el) => {
                                 linkRefs.current["/company-dashboard"] = el;
@@ -113,7 +113,7 @@ export default function Header() {
                         >
                             Dashboard
                         </Link>
-                    )}
+                    )} */}
                     {(session?.user as any)?.role === "CANDIDATE" && (
                         <>
                             <Link
