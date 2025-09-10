@@ -201,10 +201,7 @@ function CompanyDashboardContent() {
                             {/* Candidate Avatar */}
                             <div className="relative w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden bg-gray-200">
                                 <Image
-                                    src={
-                                        candidate.image ||
-                                        "/images/noam-profile.jpeg"
-                                    }
+                                    src={candidate.image || ""}
                                     alt={`${candidate.name} profile`}
                                     fill
                                     sizes="80px"

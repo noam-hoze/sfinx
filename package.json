@@ -11,7 +11,6 @@
         "seed": "tsx server/db-scripts/seed-data.ts",
         "seed:json": "tsx server/db-scripts/seed-candidate/seed-candidate-from-json.ts --file",
         "seed:gal": "tsx server/db-scripts/seed-candidate/seed-candidate-from-json.ts --file=server/db-scripts/data/gal.json",
-        "seed:noam": "tsx server/db-scripts/seed-candidate/seed-candidate-from-json.ts --file=server/db-scripts/data/noam.json",
         "seed:mark": "tsx server/db-scripts/seed-candidate/seed-candidate-from-json.ts --file=server/db-scripts/data/mark.json",
         "sync-schema-and-seed": "tsx server/db-scripts/sync-schema-and-seed.ts",
         "clean:next": "rm -rf .next .turbo node_modules/.cache"
