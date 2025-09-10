@@ -11,6 +11,7 @@ import { seedGalSession2 } from "./seed-candidate/seed-gal-session2";
 import { seedGalSession3 } from "./seed-candidate/seed-gal-session3";
 import { seedGalSession4 } from "./seed-candidate/seed-gal-session4";
 import { seedGalSession5 } from "./seed-candidate/seed-gal-session5";
+import { seedSarah } from "./seed-candidate/seed-sarah";
 import { seedMark } from "./seed-candidate/seed-mark";
 import { seedNoam } from "./seed-candidate/seed-noam";
 
@@ -153,6 +154,7 @@ async function resetDatabase() {
         console.log("🎉 Database reset and seeded successfully!");
 
         // Create additional candidates using existing seed scripts
+        await seedSarah();
         await seedGal();
         await seedGalSession2();
         await seedGalSession3();

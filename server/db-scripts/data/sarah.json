@@ -1,0 +1,67 @@
+{
+    "user": {
+        "name": "Sarah",
+        "email": "sarah@gmail.com",
+        "image": "/uploads/profiles/sarah-profile.jpeg",
+        "jobTitle": "Senior Software Engineer",
+        "location": "New York, USA",
+        "bio": "Top-performing frontend engineer; sets our benchmark.",
+        "skills": ["React", "TypeScript", "Node.js", "Accessibility"]
+    },
+    "application": { "companyId": "meta" },
+    "interviewSession": {
+        "id": "sarah-interview-session-1",
+        "videoUrl": "",
+        "duration": 240,
+        "status": "COMPLETED"
+    },
+    "telemetry": {
+        "id": "sarah-telemetry-1",
+        "matchScore": 98,
+        "confidence": "High",
+        "story": "Sarah demonstrates exceptional execution with resilient UX, rigorous refactors, and minimal AI reliance.",
+        "hasFairnessFlag": false
+    },
+    "workstyleMetrics": {
+        "id": "sarah-workstyle-1",
+        "iterationSpeed": 97,
+        "debugLoops": 35,
+        "refactorCleanups": 94,
+        "aiAssistUsage": 4
+    },
+    "gaps": [],
+    "videoEvidence": [
+        {
+            "id": "sarah-evidence-1",
+            "title": "Iteration peak",
+            "startTime": 70,
+            "category": "ITERATION_SPEED"
+        },
+        {
+            "id": "sarah-evidence-2",
+            "title": "Refactor excellence",
+            "startTime": 150,
+            "category": "REFACTOR_CLEANUPS"
+        }
+    ],
+    "videoChapters": [
+        {
+            "id": "sarah-chapter-1",
+            "title": "Intro",
+            "startTime": 0,
+            "endTime": 40
+        },
+        {
+            "id": "sarah-chapter-2",
+            "title": "Implementation",
+            "startTime": 40,
+            "endTime": 160
+        },
+        {
+            "id": "sarah-chapter-3",
+            "title": "Refactor & Polish",
+            "startTime": 160,
+            "endTime": 240
+        }
+    ]
+}
