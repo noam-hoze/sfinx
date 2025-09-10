@@ -12,7 +12,7 @@ import Header from "../lib/components/Header";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-    title: "Sfinx Demo",
+    title: "Sfinx",
     description: "Evidence-based hiring platform",
 };
 

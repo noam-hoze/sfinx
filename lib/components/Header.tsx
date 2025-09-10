@@ -8,6 +8,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { Menu } from "@headlessui/react";
 import { logger } from "../index";
+import SfinxLogo from "./SfinxLogo";
 
 export default function Header() {
     const { data: session } = useSession();
@@ -40,16 +41,14 @@ export default function Header() {
             : "/settings";
 
     return (
-        <header className="bg-white border-b border-gray-200 px-6 py-4">
+        <header className="bg-white border-b border-gray-200 px-4 py-4">
             <div className="flex items-center justify-between">
                 {/* Logo/Brand */}
                 <Link href="/" className="flex items-center">
-                    <Image
-                        src="/logos/sfinx-logo-7.svg"
-                        alt="Sfinx Logo"
+                    <SfinxLogo
                         width={120}
-                        height={120}
-                        className="h-15 w-auto scale-150"
+                        height={40}
+                        className="w-[120px] h-auto"
                     />
                 </Link>
 
@@ -57,14 +56,14 @@ export default function Header() {
                 <div className="flex items-center">
                     {session?.user && (
                         <Menu as="div" className="relative">
-                            <Menu.Button className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden relative scale-150">
+                            <Menu.Button className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden relative">
                                 {session.user.image ? (
                                     <Image
                                         key={session.user.image} // Force re-render when image changes
                                         src={session.user.image}
                                         alt="Profile"
                                         fill
-                                        sizes="32px"
+                                        sizes="48px"
                                         className="object-cover rounded-full"
                                     />
                                 ) : (

@@ -10,7 +10,7 @@
         "test": "vitest run",
         "seed": "tsx scripts/seed-data.ts",
         "sync-schema-and-seed": "tsx scripts/sync-schema-and-seed.ts",
-        "clean:next": "rm -rf .next"
+        "clean:next": "rm -rf .next .turbo node_modules/.cache"
     },
     "dependencies": {
         "@elevenlabs/react": "^0.6.1",

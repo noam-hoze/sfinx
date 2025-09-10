@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import SfinxLogo from "../../lib/components/SfinxLogo";
 import { useRouter } from "next/navigation";
 
 export default function SignupPage() {
@@ -67,13 +68,11 @@ export default function SignupPage() {
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
             <div className="w-full max-w-md">
                 {/* Logo */}
-                <div className="text-center mb-4">
-                    <Image
-                        src="/logos/sfinx-logo-7.svg"
-                        alt="Sfinx Logo"
-                        width={160}
-                        height={160}
-                        className="w-40 h-40 object-contain mx-auto scale-[2.5]"
+                <div className="text-center my-10">
+                    <SfinxLogo
+                        width={180}
+                        height={60}
+                        className="w-[180px] h-auto mx-auto"
                     />
                 </div>
 

@@ -181,7 +181,7 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                                 {(metric.data.evidenceLinks || []).length >
                                     0 && (
                                     <div className="flex flex-wrap gap-2">
-                                        {metric.data.evidenceLinks.map(
+                                        {(metric.data.evidenceLinks ?? []).map(
                                             (timestamp, index) => (
                                                 <div
                                                     key={index}
@@ -198,9 +198,10 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                                                                 ) || 0;
                                                             const updatedLinks =
                                                                 [
-                                                                    ...metric
+                                                                    ...(metric
                                                                         .data
-                                                                        .evidenceLinks,
+                                                                        .evidenceLinks ??
+                                                                        []),
                                                                 ];
                                                             updatedLinks[
                                                                 index
@@ -226,7 +227,11 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                                                     <button
                                                         onClick={() => {
                                                             const updatedLinks =
-                                                                metric.data.evidenceLinks.filter(
+                                                                (
+                                                                    metric.data
+                                                                        .evidenceLinks ??
+                                                                    []
+                                                                ).filter(
                                                                     (_, i) =>
                                                                         i !==
                                                                         index
