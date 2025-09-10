@@ -1,13 +1,14 @@
 #!/usr/bin/env tsx
 
 import { PrismaClient, CompanySize, JobType, UserRole } from "@prisma/client";
-import { companiesData } from "../lib/data/job-search-data";
+import fs from "fs";
+import path from "path";
 import bcrypt from "bcryptjs";
 
 // Import seed functions
-import { seedGal } from "./seed-gal";
-import { seedMark } from "./seed-mark";
-import { seedNoam } from "./seed-noam";
+import { seedGal } from "./seed-candidate/seed-gal";
+import { seedMark } from "./seed-candidate/seed-mark";
+import { seedNoam } from "./seed-candidate/seed-noam";
 
 const prisma = new PrismaClient();
 
@@ -45,6 +46,13 @@ const mapJobType = (type: string): JobType => {
 
 async function resetDatabase() {
     try {
+        const companiesPath = path.join(
+            process.cwd(),
+            "server/db-scripts/data/companies.json"
+        );
+        const companiesData = JSON.parse(
+            fs.readFileSync(companiesPath, "utf-8")
+        );
         console.log("🗑️  Clearing existing data...");
 
         // Delete in reverse order of dependencies
@@ -84,6 +92,10 @@ async function resetDatabase() {
                     email: managerEmail,
                     password: hashedPassword,
                     role: UserRole.COMPANY,
+                    image:
+                        companyData.id === "meta"
+                            ? "/uploads/profiles/meta-profile.png"
+                            : undefined,
                 },
             });
 

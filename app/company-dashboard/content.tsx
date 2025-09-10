@@ -14,6 +14,8 @@ interface Candidate {
     appliedJob: string;
     appliedAt: string;
     status: string;
+    applicationId?: string;
+    matchScore?: number | null;
 }
 
 function CompanyDashboardContent() {
@@ -35,7 +37,34 @@ function CompanyDashboardContent() {
 
             if (response.ok) {
                 const data = await response.json();
-                setCandidates(data.candidates);
+                // Enrich candidates with latest match score (per application when available)
+                const candidatesWithScores: Candidate[] = await Promise.all(
+                    (data.candidates || []).map(async (c: any) => {
+                        try {
+                            const url = c.applicationId
+                                ? `/api/candidates/${
+                                      c.id
+                                  }/telemetry?applicationId=${encodeURIComponent(
+                                      c.applicationId
+                                  )}`
+                                : `/api/candidates/${c.id}/telemetry`;
+                            const res = await fetch(url);
+                            if (res.ok) {
+                                const payload = await res.json();
+                                const score =
+                                    payload?.candidate?.matchScore ?? null;
+                                return { ...c, matchScore: score } as Candidate;
+                            }
+                        } catch (e) {
+                            // noop – fallback below
+                        }
+                        return { ...c, matchScore: null } as Candidate;
+                    })
+                );
+                const sorted = [...candidatesWithScores].sort(
+                    (a, b) => (b.matchScore ?? -1) - (a.matchScore ?? -1)
+                );
+                setCandidates(sorted);
                 setError(null);
             } else {
                 setError("Failed to load candidates");
@@ -77,6 +106,12 @@ function CompanyDashboardContent() {
         search.set("candidateId", candidateId);
         if (applicationId) search.set("applicationId", applicationId);
         router.push(`/cps?${search.toString()}`);
+    };
+
+    const getMatchScoreColor = (score: number) => {
+        if (score >= 80) return "text-green-600";
+        if (score >= 60) return "text-yellow-600";
+        return "text-red-600";
     };
 
     return (
@@ -145,12 +180,24 @@ function CompanyDashboardContent() {
                                     (candidate as any).applicationId
                                 )
                             }
-                            className="group bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:bg-white/80 hover:shadow-lg transition-all duration-300 ease-out hover:scale-105 cursor-pointer"
+                            className="group relative bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:bg-white/80 hover:shadow-lg transition-all duration-300 ease-out hover:scale-105 cursor-pointer"
                             style={{
                                 animationDelay: `${index * 50}ms`,
                                 animation: "fadeInUp 0.5s ease-out forwards",
                             }}
                         >
+                            {candidate.matchScore !== null &&
+                                candidate.matchScore !== undefined && (
+                                    <div className="absolute top-3 right-3 bg-white/80 border border-gray-200 rounded-lg px-2 py-1 shadow-sm">
+                                        <span
+                                            className={`text-sm font-semibold ${getMatchScoreColor(
+                                                candidate.matchScore
+                                            )}`}
+                                        >
+                                            {candidate.matchScore}%
+                                        </span>
+                                    </div>
+                                )}
                             {/* Candidate Avatar */}
                             <div className="relative w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden bg-gray-200">
                                 <Image

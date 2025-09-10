@@ -1,0 +1,89 @@
+{
+    "user": {
+        "name": "Noam",
+        "email": "noam@gmail.com",
+        "image": "/uploads/profiles/noam-profile.jpeg",
+        "jobTitle": "Software Engineer",
+        "location": "Tel Aviv, Israel",
+        "bio": "Experienced React developer with strong problem-solving skills",
+        "skills": ["React", "TypeScript", "Node.js", "JavaScript"]
+    },
+    "application": { "companyId": "meta" },
+    "interviewSession": {
+        "id": "noam-interview-session-id",
+        "videoUrl": "/uploads/recordings/noam-meta-ai-heavy-usage.mp4",
+        "duration": 235,
+        "status": "COMPLETED"
+    },
+    "telemetry": {
+        "id": "noam-telemetry-id",
+        "matchScore": 92,
+        "confidence": "High",
+        "story": "Noam showcased excellent React proficiency by rapidly building a UserList component.",
+        "hasFairnessFlag": false
+    },
+    "workstyleMetrics": {
+        "id": "noam-workstyle-id",
+        "iterationSpeed": 85,
+        "debugLoops": 75,
+        "refactorCleanups": 88,
+        "aiAssistUsage": 15
+    },
+    "gaps": [
+        {
+            "id": "noam-gap-1",
+            "severity": "Minor",
+            "description": "Inconsistent CSS naming conventions",
+            "color": "yellow",
+            "evidenceLinks": [85, 145, 220]
+        },
+        {
+            "id": "noam-gap-2",
+            "severity": "Minor",
+            "description": "Limited test coverage for edge cases",
+            "color": "yellow",
+            "evidenceLinks": [95, 185]
+        }
+    ],
+    "evidenceClips": [
+        {
+            "id": "noam-evidence-1",
+            "title": "Iteration Speed",
+            "duration": 75,
+            "description": "Quick setup of UserList component with API integration and styling",
+            "startTime": 75,
+            "category": "ITERATION_SPEED"
+        },
+        {
+            "id": "noam-evidence-2",
+            "title": "Debug Loop",
+            "duration": 45,
+            "description": "Implementation of loading and error states for API calls",
+            "startTime": 120,
+            "category": "DEBUG_LOOP"
+        }
+    ],
+    "videoChapters": [
+        {
+            "id": "noam-chapter-1",
+            "title": "Session Setup & Introduction",
+            "startTime": 0,
+            "endTime": 75,
+            "description": "Initial setup, task briefing, and environment configuration"
+        },
+        {
+            "id": "noam-chapter-2",
+            "title": "UserList Component Development",
+            "startTime": 75,
+            "endTime": 165,
+            "description": "Building the UserList component with API integration and styling"
+        },
+        {
+            "id": "noam-chapter-3",
+            "title": "Testing & Final Polish",
+            "startTime": 165,
+            "endTime": 235,
+            "description": "Final testing, code cleanup, and session wrap-up"
+        }
+    ]
+}

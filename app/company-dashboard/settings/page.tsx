@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import AuthGuard from "../../../lib/components/AuthGuard";
-import Header from "../../../lib/components/Header";
+import AuthGuard from "../../components/AuthGuard";
+import Header from "../../components/Header";
 
 export default function CompanySettingsPage() {
     const { data: session, update } = useSession();

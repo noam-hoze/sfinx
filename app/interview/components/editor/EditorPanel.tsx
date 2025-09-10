@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
 import { Play, RotateCcw } from "lucide-react";
 import CodePreview from "./CodePreview";
-import { logger } from "../../../../lib";
+import { logger } from "../../../services";
 
 function computeInsertedSegment(oldText: string, newText: string): string {
     let start = 0;

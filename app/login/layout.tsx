@@ -1,4 +1,4 @@
-import UnauthGuard from "../../lib/components/UnauthGuard";
+import UnauthGuard from "../components/UnauthGuard";
 
 export default function LoginLayout({
     children,

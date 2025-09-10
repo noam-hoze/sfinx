@@ -9,9 +9,9 @@ import React, {
     useRef,
 } from "react";
 import { useConversation } from "@elevenlabs/react";
-import { useInterview } from "../../../../lib";
+import { useInterview } from "../../../contexts";
 import AnimatedWaveform from "./AnimatedWaveform";
-import { logger } from "../../../../lib";
+import { logger } from "../../../services";
 const log = logger.for("@RealTimeConversation.tsx");
 
 // Enable verbose logging for this module only

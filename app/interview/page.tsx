@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { InterviewIDE } from "./components";
-import { InterviewProvider, AuthGuard } from "../../lib/";
+import { InterviewProvider, AuthGuard } from "../contexts";
 
 export default function InterviewerPage() {
     return (

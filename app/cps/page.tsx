@@ -9,7 +9,7 @@ import WorkstyleDashboard from "./components/WorkstyleDashboard";
 import PersistenceFlow from "./components/PersistenceFlow";
 import LearningToActionTimeline from "./components/LearningToActionTimeline";
 import ConfidenceBuildingCurve from "./components/ConfidenceBuildingCurve";
-import { AuthGuard } from "../../lib";
+import { AuthGuard } from "../components";
 
 function TelemetryContent() {
     const searchParams = useSearchParams();
@@ -23,13 +23,14 @@ function TelemetryContent() {
     const [error, setError] = useState<string | null>(null);
     const [currentVideoTime, setCurrentVideoTime] = React.useState(0);
     const [jumpKey, setJumpKey] = React.useState(0);
-    const [activeTab, setActiveTab] = useState<"benchmarks" | "insights">(
-        "benchmarks"
-    );
+    const [activeTab, setActiveTab] = useState<
+        "benchmarks" | "insights" | "gaps"
+    >("benchmarks");
     const [editMode, setEditMode] = useState(false);
     const [saving, setSaving] = useState(false);
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
     const [saveSuccess, setSaveSuccess] = useState(false);
+    const [storyExpanded, setStoryExpanded] = useState(false);
 
     useEffect(() => {
         const fetchTelemetryData = async () => {
@@ -99,6 +100,79 @@ function TelemetryContent() {
     const persistenceFlow = activeSession.persistenceFlow || [];
     const learningToAction = activeSession.learningToAction || [];
     const confidenceCurve = activeSession.confidenceCurve || [];
+
+    // Build a lightweight story from available data (no persistence)
+    const topMetricKey = (() => {
+        if (!workstyle) return null;
+        const metricKeys = [
+            "iterationSpeed",
+            "debugLoops",
+            "refactorCleanups",
+            "aiAssistUsage",
+        ] as const;
+        let bestKey: (typeof metricKeys)[number] | null = null;
+        let bestValue = -1;
+        metricKeys.forEach((key) => {
+            const value = workstyle?.[key]?.value ?? -1;
+            if (value > bestValue) {
+                bestValue = value;
+                bestKey = key;
+            }
+        });
+        return bestKey;
+    })();
+
+    const topMetricLabelMap: Record<string, string> = {
+        iterationSpeed: "Iteration Speed",
+        debugLoops: "Debug Loops",
+        refactorCleanups: "Refactor & Cleanups",
+        aiAssistUsage: "AI Assist Usage",
+    };
+    const topMetricLabel = topMetricKey
+        ? topMetricLabelMap[topMetricKey]
+        : null;
+
+    const gapsCount: number = gaps?.gaps?.length || 0;
+    const shortStory: string = (() => {
+        if (!candidate) return "";
+        const parts: string[] = [];
+        parts.push(
+            `${candidate.name || "The candidate"} scored ${
+                candidate.matchScore
+            }% match.`
+        );
+        if (topMetricLabel) parts.push(`Strongest signal: ${topMetricLabel}.`);
+        parts.push(
+            gapsCount > 0
+                ? `${gapsCount} gap${gapsCount > 1 ? "s" : ""} identified.`
+                : "No significant gaps identified."
+        );
+        return parts.join(" ");
+    })();
+
+    const longStory: string = (() => {
+        if (!candidate) return shortStory;
+        const more: string[] = [];
+        if (workstyle && topMetricKey) {
+            const v = workstyle[topMetricKey]?.value ?? undefined;
+            const lvl = workstyle[topMetricKey]?.level ?? undefined;
+            if (v !== undefined)
+                more.push(
+                    `Workstyle shows ${topMetricLabel?.toLowerCase()} at ${v}%${
+                        lvl ? ` (${lvl})` : ""
+                    }.`
+                );
+        }
+        if (gapsCount > 0) {
+            const firstSeverity = gaps?.gaps?.[0]?.severity ?? "";
+            more.push(
+                `Focus areas include ${
+                    firstSeverity ? firstSeverity.toLowerCase() + " " : ""
+                }gaps to address.`
+            );
+        }
+        return `${shortStory} ${more.join(" ")}`.trim();
+    })();
 
     const onVideoJump = (timestamp: number) => {
         setCurrentVideoTime(timestamp);
@@ -337,85 +411,62 @@ function TelemetryContent() {
                     </div>
 
                     {/* Cell 1 - Candidate Telemetry (top-right) */}
-                    <div className="flex items-center justify-between w-full">
-                        <div className="w-1/3">
-                            {/* Session navigation */}
-                            {sessions.length > 1 && (
-                                <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-between w-full gap-3">
+                        <div className="w-3/4 flex tracking-tight">
+                            {/* Candidate Story - concise summary with expander */}
+                            <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-4 shadow-sm xl:sticky xl:top-2 w-full">
+                                <div className="flex items-center justify-between mb-2">
+                                    <h3 className="text-sm font-semibold text-gray-900">
+                                        Candidate Profile Story
+                                    </h3>
                                     <button
-                                        className="px-3 py-1 rounded-lg bg-white/60 border border-white/40 text-gray-700 disabled:opacity-40"
                                         onClick={() =>
-                                            setActiveSessionIndex((i) =>
-                                                Math.max(0, i - 1)
-                                            )
+                                            setStoryExpanded((v) => !v)
                                         }
-                                        disabled={activeSessionIndex === 0}
-                                        aria-label="Previous session"
-                                    >
-                                        ◀
-                                    </button>
-                                    <div className="text-sm text-gray-700">
-                                        Session {activeSessionIndex + 1} /{" "}
-                                        {sessions.length}
-                                    </div>
-                                    <button
-                                        className="px-3 py-1 rounded-lg bg-white/60 border border-white/40 text-gray-700 disabled:opacity-40"
-                                        onClick={() =>
-                                            setActiveSessionIndex((i) =>
-                                                Math.min(
-                                                    sessions.length - 1,
-                                                    i + 1
-                                                )
-                                            )
-                                        }
-                                        disabled={
-                                            activeSessionIndex ===
-                                            sessions.length - 1
-                                        }
-                                        aria-label="Next session"
-                                    >
-                                        ▶
-                                    </button>
+                                        className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                    ></button>
                                 </div>
-                            )}
-                        </div>
-                        <div className="w-1/3 text-center">
-                            <h1 className="text-2xl font-semibold text-gray-800 tracking-tight">
-                                Candidate Profile Story
-                            </h1>
-                        </div>
-                        <div className="w-1/3 flex justify-end">
-                            <div className="flex gap-2">
-                                {!editMode ? (
-                                    <button
-                                        onClick={() => {
-                                            setEditMode(true);
-                                            setValidationErrors([]);
-                                        }}
-                                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                                    >
-                                        Edit
-                                    </button>
-                                ) : (
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => setEditMode(false)}
-                                            className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium"
-                                            disabled={saving}
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            onClick={handleSave}
-                                            disabled={saving}
-                                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50"
-                                        >
-                                            {saving ? "Saving..." : "Save"}
-                                        </button>
-                                    </div>
-                                )}
+                                <p className="text-sm text-gray-700 leading-relaxed">
+                                    {longStory}
+                                </p>
                             </div>
                         </div>
+                        {/* Session navigation */}
+                        {
+                            <div className="w-1/4 flex items-center gap-2 justify-end">
+                                <button
+                                    className="px-3 py-1 rounded-lg bg-white/60 border border-white/40 text-gray-700 disabled:opacity-40"
+                                    onClick={() =>
+                                        setActiveSessionIndex((i) =>
+                                            Math.max(0, i - 1)
+                                        )
+                                    }
+                                    disabled={activeSessionIndex === 0}
+                                    aria-label="Previous session"
+                                >
+                                    ◀
+                                </button>
+                                <div className="text-sm text-gray-700">
+                                    Session {activeSessionIndex + 1} /{" "}
+                                    {sessions.length}
+                                </div>
+                                <button
+                                    className="px-3 py-1 rounded-lg bg-white/60 border border-white/40 text-gray-700 disabled:opacity-40"
+                                    onClick={() =>
+                                        setActiveSessionIndex((i) =>
+                                            Math.min(sessions.length - 1, i + 1)
+                                        )
+                                    }
+                                    disabled={
+                                        activeSessionIndex ===
+                                        sessions.length - 1
+                                    }
+                                    aria-label="Next session"
+                                >
+                                    ▶
+                                </button>
+                            </div>
+                        }
                     </div>
 
                     {/* Success Message */}
@@ -481,11 +532,27 @@ function TelemetryContent() {
                                 >
                                     Insights
                                 </button>
+                                <button
+                                    onClick={() => setActiveTab("gaps")}
+                                    className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ease-out ${
+                                        activeTab === "gaps"
+                                            ? "bg-blue-500 text-white shadow-md"
+                                            : "text-gray-600 hover:text-gray-900 hover:bg-white/40"
+                                    }`}
+                                >
+                                    Gaps
+                                </button>
                             </div>
                         </div>
 
                         {/* Tab Content */}
-                        <div className="space-y-3 max-h-[calc(100vh-18rem)] overflow-y-auto border-t border-l border-r border-white/40 border-b-2 border-b-white/60 rounded-2xl bg-white/20 backdrop-blur-sm p-3 shadow-sm">
+                        <div
+                            className={`space-y-3 ${
+                                activeTab === "insights"
+                                    ? ""
+                                    : "max-h-[calc(100vh-18rem)] overflow-y-auto"
+                            } border-t border-l border-r border-white/40 border-b-2 border-b-white/60 rounded-2xl bg-white/20 backdrop-blur-sm p-3 shadow-sm`}
+                        >
                             {activeTab === "benchmarks" && (
                                 <div className="space-y-3 animate-in slide-in-from-right-2 duration-300">
                                     {workstyle && (
@@ -525,6 +592,33 @@ function TelemetryContent() {
                                             }}
                                         />
                                     )}
+                                </div>
+                            )}
+
+                            {activeTab === "insights" && (
+                                <div className="space-y-3 animate-in slide-in-from-left-2 duration-300">
+                                    {/* <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
+                                        <PersistenceFlow
+                                            data={persistenceFlow}
+                                            onVideoJump={onVideoJump}
+                                        />
+                                    </div> */}
+                                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
+                                        <LearningToActionTimeline
+                                            data={learningToAction}
+                                            onVideoJump={onVideoJump}
+                                        />
+                                    </div>
+                                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
+                                        <ConfidenceBuildingCurve
+                                            data={confidenceCurve}
+                                            onVideoJump={onVideoJump}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                            {activeTab === "gaps" && (
+                                <div className="space-y-3 animate-in slide-in-from-left-2 duration-300">
                                     {gaps && (
                                         <GapAnalysis
                                             gaps={gaps}
@@ -558,29 +652,6 @@ function TelemetryContent() {
                                             }}
                                         />
                                     )}
-                                </div>
-                            )}
-
-                            {activeTab === "insights" && (
-                                <div className="space-y-3 animate-in slide-in-from-left-2 duration-300">
-                                    {/* <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
-                                        <PersistenceFlow
-                                            data={persistenceFlow}
-                                            onVideoJump={onVideoJump}
-                                        />
-                                    </div> */}
-                                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
-                                        <LearningToActionTimeline
-                                            data={learningToAction}
-                                            onVideoJump={onVideoJump}
-                                        />
-                                    </div>
-                                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
-                                        <ConfidenceBuildingCurve
-                                            data={confidenceCurve}
-                                            onVideoJump={onVideoJump}
-                                        />
-                                    </div>
                                 </div>
                             )}
                         </div>

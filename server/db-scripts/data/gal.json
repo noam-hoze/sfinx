@@ -1,0 +1,132 @@
+{
+    "user": {
+        "name": "Gal",
+        "email": "gal@gmail.com",
+        "image": "/uploads/profiles/gal-profile.jpeg",
+        "jobTitle": "Software Engineer",
+        "location": "Tel Aviv, Israel",
+        "bio": "A talented software engineer.",
+        "skills": ["React", "TypeScript", "Node.js"]
+    },
+    "application": { "companyId": "meta" },
+    "interviewSession": {
+        "id": "gal-interview-session-id",
+        "videoUrl": "uploads/recordings/gal-medium.mp4",
+        "duration": 210,
+        "status": "COMPLETED"
+    },
+    "telemetry": {
+        "id": "gal-telemetry-id",
+        "matchScore": 85,
+        "confidence": "Medium",
+        "story": "Gal demonstrated solid problem-solving and built a functional UserList with API integration and basic states.",
+        "hasFairnessFlag": false
+    },
+    "workstyleMetrics": {
+        "id": "gal-workstyle-id",
+        "iterationSpeed": 90,
+        "debugLoops": 25,
+        "refactorCleanups": 74,
+        "aiAssistUsage": 0
+    },
+    "gaps": [
+        {
+            "id": "gal-gap-1",
+            "severity": "Moderate",
+            "description": "Missing handling loading and error states",
+            "color": "yellow",
+            "evidenceLinks": [80, 150]
+        },
+        {
+            "id": "gal-gap-2",
+            "severity": "Moderate",
+            "description": "UI polish and accessibility improvements needed",
+            "color": "yellow",
+            "evidenceLinks": [95, 185, 205]
+        }
+    ],
+    "videoEvidence": [
+        {
+            "id": "gal-evidence-1",
+            "title": "Initial Setup & API Wiring",
+            "startTime": 60,
+            "category": "ITERATION_SPEED"
+        },
+        {
+            "id": "gal-evidence-2",
+            "title": "State Management & Error Handling",
+            "startTime": 120,
+            "category": "DEBUG_LOOP"
+        }
+    ],
+    "videoChapters": [
+        {
+            "id": "gal-chapter-1",
+            "title": "Intro",
+            "startTime": 0,
+            "endTime": 37,
+            "captions": [
+                {
+                    "id": "gal-caption-1-1",
+                    "text": "Setting up development environment",
+                    "startTime": 5,
+                    "endTime": 20
+                },
+                {
+                    "id": "gal-caption-1-2",
+                    "text": "Reviewing project requirements",
+                    "startTime": 25,
+                    "endTime": 40
+                }
+            ]
+        },
+        {
+            "id": "gal-chapter-2",
+            "title": "1st iteration",
+            "startTime": 37,
+            "endTime": 69,
+            "captions": [
+                {
+                    "id": "gal-caption-2-1",
+                    "text": "Planning component architecture",
+                    "startTime": 45,
+                    "endTime": 55
+                },
+                {
+                    "id": "gal-caption-2-2",
+                    "text": "Implementing API data fetching",
+                    "startTime": 58,
+                    "endTime": 65
+                }
+            ]
+        },
+        {
+            "id": "gal-chapter-3",
+            "title": "2nd iteration",
+            "startTime": 69,
+            "endTime": 91,
+            "captions": [
+                {
+                    "id": "gal-caption-3-1",
+                    "text": "Adding loading and error states",
+                    "startTime": 72,
+                    "endTime": 85
+                }
+            ]
+        },
+        {
+            "id": "gal-chapter-4",
+            "title": "3rd iteration",
+            "startTime": 91,
+            "endTime": 134,
+            "captions": [
+                {
+                    "id": "gal-caption-4-1",
+                    "text": "Final polish and wrap-up",
+                    "startTime": 100,
+                    "endTime": 120
+                }
+            ]
+        }
+    ]
+}

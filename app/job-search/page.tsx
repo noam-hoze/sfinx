@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { AuthGuard } from "../../lib";
+import { AuthGuard } from "../components";
 
 interface Job {
     id: string;

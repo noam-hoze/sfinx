@@ -1,5 +1,5 @@
 import React from "react";
-import { CandidateProfile } from "../../../lib";
+import { CandidateProfile } from "../../contexts";
 import PersistenceFlow from "./PersistenceFlow";
 import LearningToActionTimeline from "./LearningToActionTimeline";
 import ConfidenceBuildingCurve from "./ConfidenceBuildingCurve";

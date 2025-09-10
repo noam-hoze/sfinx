@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { WorkstyleMetrics } from "../../../lib";
+import { WorkstyleMetrics } from "../../contexts";
 import { Info } from "lucide-react";
 
 interface WorkstyleDashboardProps {

@@ -14,9 +14,9 @@ import {
     InterviewProvider,
     useInterview,
     useJobApplication,
-} from "../../../lib";
-import { useElevenLabsStateMachine } from "../../../lib/hooks/useElevenLabsStateMachine";
-import { logger } from "../../../lib";
+} from "../../contexts";
+import { useElevenLabsStateMachine } from "../../hooks/useElevenLabsStateMachine";
+import { logger } from "../../services";
 const log = logger.for("@InterviewIDE.tsx");
 
 const InterviewerContent = () => {

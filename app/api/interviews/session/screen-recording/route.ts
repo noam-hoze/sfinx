@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../../../../lib/auth";
-import { logger } from "../../../../../lib";
+import { authOptions } from "../../../../../services/auth";
+import { logger } from "../../../../../services";
 
 export async function POST(request: NextRequest) {
     try {

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import AuthGuard from "../../lib/components/AuthGuard";
+import AuthGuard from "../components/AuthGuard";
 
 export default function SettingsPage() {
     const { data: session, update } = useSession();

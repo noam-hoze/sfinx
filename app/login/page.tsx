@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import SfinxLogo from "../../lib/components/SfinxLogo";
+import SfinxLogo from "../components/SfinxLogo";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 

@@ -15,6 +15,11 @@ export default function Header() {
     const router = useRouter();
     const pathname = usePathname();
 
+    const linkStyles =
+        "text-base font-medium transition-all duration-200 ease-in-out rounded-lg px-4 py-2 transform";
+    const activeLinkStyles = "text-blue-700 scale-110";
+    const inactiveLinkStyles = "text-gray-500 hover:text-gray-900";
+
     const noHeaderPaths = ["/", "/login", "/signup"];
 
     if (noHeaderPaths.includes(pathname)) {
@@ -42,7 +47,7 @@ export default function Header() {
 
     return (
         <header className="bg-white border-b border-gray-200 px-4 py-4">
-            <div className="flex items-center justify-between">
+            <div className="grid grid-cols-[auto_1fr_auto] items-center gap-12">
                 {/* Logo/Brand */}
                 <Link href="/" className="flex items-center">
                     <SfinxLogo
@@ -52,8 +57,36 @@ export default function Header() {
                     />
                 </Link>
 
+                {/* Primary Navigation (role-based) */}
+                <nav className="flex items-center gap-6 justify-start">
+                    {(session?.user as any)?.role === "COMPANY" && (
+                        <Link
+                            href="/company-dashboard"
+                            className={`${linkStyles} ${
+                                pathname === "/company-dashboard"
+                                    ? activeLinkStyles
+                                    : inactiveLinkStyles
+                            }`}
+                        >
+                            Dashboard
+                        </Link>
+                    )}
+                    {(session?.user as any)?.role === "CANDIDATE" && (
+                        <Link
+                            href="/job-search"
+                            className={`${linkStyles} ${
+                                pathname === "/job-search"
+                                    ? activeLinkStyles
+                                    : inactiveLinkStyles
+                            }`}
+                        >
+                            Jobs
+                        </Link>
+                    )}
+                </nav>
+
                 {/* User Avatar and Menu */}
-                <div className="flex items-center">
+                <div className="flex items-center justify-end">
                     {session?.user && (
                         <Menu as="div" className="relative">
                             <Menu.Button className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden relative">
