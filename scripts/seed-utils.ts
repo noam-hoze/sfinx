@@ -64,3 +64,37 @@ export async function seedBasicCandidate(
     console.log(`✅ Created candidate: ${user.email}`);
     return user;
 }
+
+// Utility: fetch a job for a given companyId (e.g., "meta")
+export async function getJobForCompany(
+    prisma: PrismaClient,
+    companyId: string
+) {
+    const job = await prisma.job.findFirst({ where: { companyId } });
+    if (!job) {
+        throw new Error(
+            `No jobs found for companyId=${companyId}. Seed companies/jobs first.`
+        );
+    }
+    return job;
+}
+
+// Utility: ensure an Application exists for a candidate and company
+export async function ensureApplicationForCompany(
+    prisma: PrismaClient,
+    candidateId: string,
+    companyId: string
+) {
+    const job = await getJobForCompany(prisma, companyId);
+    // Upsert by the unique composite (candidateId, jobId)
+    const application = await prisma.application.upsert({
+        where: { candidateId_jobId: { candidateId, jobId: job.id } as any },
+        update: { status: "INTERVIEWING" },
+        create: {
+            candidateId,
+            jobId: job.id,
+            status: "INTERVIEWING",
+        },
+    });
+    return application;
+}

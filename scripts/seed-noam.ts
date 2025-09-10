@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import { seedBasicCandidate } from "./seed-utils";
+import { seedBasicCandidate, ensureApplicationForCompany } from "./seed-utils";
 
 const prisma = new PrismaClient();
 
@@ -18,25 +18,12 @@ export async function seedNoam() {
             skills: ["React", "TypeScript", "Node.js", "JavaScript"],
         });
 
-        // 3. Use an existing Meta job seeded by seed-data
-        const job = await prisma.job.findFirst({
-            where: { companyId: "meta" },
-        });
-        if (!job) {
-            throw new Error(
-                "No Meta jobs found. Run seed-data to seed companies and jobs before seedNoam."
-            );
-        }
-
-        // 5. Create Application
-        const application = await prisma.application.create({
-            data: {
-                id: "noam-application-id",
-                candidateId: user.id,
-                jobId: job.id,
-                status: "INTERVIEWING",
-            },
-        });
+        // 3/5. Ensure Meta application exists
+        const application = await ensureApplicationForCompany(
+            prisma,
+            user.id,
+            "meta"
+        );
         console.log("✅ Application created:", application.id);
 
         // 6. Create Interview Session
@@ -44,7 +31,7 @@ export async function seedNoam() {
             data: {
                 id: "noam-interview-session-id",
                 candidateId: user.id,
-                applicationId: "noam-application-id",
+                applicationId: application.id,
                 videoUrl: "/uploads/recordings/noam-meta-ai-heavy-usage.mp4",
                 status: "COMPLETED",
                 duration: 235,

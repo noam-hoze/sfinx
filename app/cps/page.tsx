@@ -494,10 +494,32 @@ function TelemetryContent() {
                                             onUpdateWorkstyle={(
                                                 updatedWorkstyle
                                             ) => {
-                                                setTelemetryData({
-                                                    ...telemetryData,
-                                                    workstyle: updatedWorkstyle,
+                                                // Update UI source of truth (sessions)
+                                                setSessions((prev) => {
+                                                    const next = [...prev];
+                                                    if (
+                                                        next[activeSessionIndex]
+                                                    ) {
+                                                        next[
+                                                            activeSessionIndex
+                                                        ] = {
+                                                            ...next[
+                                                                activeSessionIndex
+                                                            ],
+                                                            workstyle:
+                                                                updatedWorkstyle,
+                                                        };
+                                                    }
+                                                    return next;
                                                 });
+                                                // Keep payload for saving in telemetryData
+                                                setTelemetryData(
+                                                    (prev: any) => ({
+                                                        ...prev,
+                                                        workstyle:
+                                                            updatedWorkstyle,
+                                                    })
+                                                );
                                             }}
                                         />
                                     )}
@@ -507,10 +529,30 @@ function TelemetryContent() {
                                             onVideoJump={onVideoJump}
                                             editMode={editMode}
                                             onUpdateGaps={(updatedGaps) => {
-                                                setTelemetryData({
-                                                    ...telemetryData,
-                                                    gaps: updatedGaps,
+                                                // Update UI source of truth (sessions)
+                                                setSessions((prev) => {
+                                                    const next = [...prev];
+                                                    if (
+                                                        next[activeSessionIndex]
+                                                    ) {
+                                                        next[
+                                                            activeSessionIndex
+                                                        ] = {
+                                                            ...next[
+                                                                activeSessionIndex
+                                                            ],
+                                                            gaps: updatedGaps,
+                                                        };
+                                                    }
+                                                    return next;
                                                 });
+                                                // Keep payload for saving in telemetryData
+                                                setTelemetryData(
+                                                    (prev: any) => ({
+                                                        ...prev,
+                                                        gaps: updatedGaps,
+                                                    })
+                                                );
                                             }}
                                         />
                                     )}
