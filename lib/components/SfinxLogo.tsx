@@ -18,7 +18,7 @@ export default function SfinxLogo({
 }: SfinxLogoProps) {
     return (
         <Image
-            src="/logos/sfinx-logo-7.svg"
+            src="/logos/sfinx-logo.svg"
             alt="Sfinx Logo"
             width={width}
             height={height}
