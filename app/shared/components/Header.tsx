@@ -93,6 +93,16 @@ export default function Header() {
                             >
                                 Practice
                             </Link>
+                            <Link
+                                href="/mentors"
+                                className={`${linkStyles} ${
+                                    pathname === "/mentors"
+                                        ? activeLinkStyles
+                                        : inactiveLinkStyles
+                                }`}
+                            >
+                                Mentors
+                            </Link>
                         </>
                     )}
                 </nav>
