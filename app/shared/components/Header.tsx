@@ -5,7 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Menu } from "@headlessui/react";
 import { logger } from "../services";
 import SfinxLogo from "./SfinxLogo";
@@ -15,12 +15,49 @@ export default function Header() {
     const router = useRouter();
     const pathname = usePathname();
 
+    // Sliding indicator state
+    const [indicatorStyle, setIndicatorStyle] = useState({ width: 0, left: 0 });
+    const navRef = useRef<HTMLElement>(null);
+    const linkRefs = useRef<{ [key: string]: HTMLAnchorElement | null }>({});
+
     const linkStyles =
         "text-base font-medium transition-all duration-200 ease-in-out rounded-lg px-4 py-2 transform";
     const activeLinkStyles = "text-blue-700 scale-110";
     const inactiveLinkStyles = "text-gray-500 hover:text-gray-900";
 
+    // Function to update indicator position
+    const updateIndicator = useCallback(() => {
+        if (!navRef.current) return;
+
+        const navRect = navRef.current.getBoundingClientRect();
+        const headerRect = navRef.current
+            .closest("header")
+            ?.getBoundingClientRect();
+
+        if (!headerRect) return;
+
+        const activeLink = Object.values(linkRefs.current).find((link) => {
+            if (!link) return false;
+            return link.classList.contains("text-blue-700"); // Check for active class
+        });
+
+        if (activeLink) {
+            const linkRect = activeLink.getBoundingClientRect();
+            setIndicatorStyle({
+                width: linkRect.width,
+                left: linkRect.left - headerRect.left,
+            });
+        }
+    }, []);
+
     const noHeaderPaths = ["/", "/login", "/signup"];
+
+    // Update indicator on pathname change or mount
+    useEffect(() => {
+        // Small delay to ensure DOM is ready
+        const timer = setTimeout(updateIndicator, 100);
+        return () => clearTimeout(timer);
+    }, [pathname, updateIndicator]);
 
     if (noHeaderPaths.includes(pathname)) {
         return null;
@@ -46,7 +83,7 @@ export default function Header() {
             : "/settings";
 
     return (
-        <header className="bg-white border-b border-gray-200 px-4 py-4">
+        <header className="bg-white border-b border-gray-200 px-4 py-4 relative">
             <div className="grid grid-cols-[auto_1fr_auto] items-center gap-64">
                 {/* Logo/Brand */}
                 <Link href="/" className="flex items-center">
@@ -58,9 +95,15 @@ export default function Header() {
                 </Link>
 
                 {/* Primary Navigation (role-based) */}
-                <nav className="flex items-center gap-24 justify-start">
+                <nav
+                    ref={navRef}
+                    className="flex items-center gap-24 justify-start relative"
+                >
                     {(session?.user as any)?.role === "COMPANY" && (
                         <Link
+                            ref={(el) => {
+                                linkRefs.current["/company-dashboard"] = el;
+                            }}
                             href="/company-dashboard"
                             className={`${linkStyles} ${
                                 pathname === "/company-dashboard"
@@ -74,6 +117,9 @@ export default function Header() {
                     {(session?.user as any)?.role === "CANDIDATE" && (
                         <>
                             <Link
+                                ref={(el) => {
+                                    linkRefs.current["/job-search"] = el;
+                                }}
                                 href="/job-search"
                                 className={`${linkStyles} ${
                                     pathname === "/job-search"
@@ -84,6 +130,9 @@ export default function Header() {
                                 Jobs
                             </Link>
                             <Link
+                                ref={(el) => {
+                                    linkRefs.current["/practice"] = el;
+                                }}
                                 href="/practice"
                                 className={`${linkStyles} ${
                                     pathname === "/practice"
@@ -94,6 +143,9 @@ export default function Header() {
                                 Practice
                             </Link>
                             <Link
+                                ref={(el) => {
+                                    linkRefs.current["/mentors"] = el;
+                                }}
                                 href="/mentors"
                                 className={`${linkStyles} ${
                                     pathname === "/mentors"
@@ -106,6 +158,15 @@ export default function Header() {
                         </>
                     )}
                 </nav>
+
+                {/* Sliding indicator */}
+                <div
+                    className="absolute bottom-0 left-0 h-[1px] bg-blue-700 transition-all duration-300 ease-in-out"
+                    style={{
+                        width: indicatorStyle.width,
+                        left: indicatorStyle.left,
+                    }}
+                />
 
                 {/* User Avatar and Menu */}
                 <div className="flex items-center justify-end">

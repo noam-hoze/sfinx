@@ -1,14 +1,15 @@
 "use client";
 
+import Image from "next/image";
 import { AuthGuard } from "app/shared/components";
 
 // Mock mentor data - hardcoded for demo
 const mockMentors = [
     {
         id: "1",
-        name: "Sarah Chen",
+        name: "Benny Cohen",
         title: "Senior Software Engineer at Google",
-        avatar: "/logos/google-logo.png",
+        avatar: "https://i.pravatar.cc/150?u=sarahchen",
         hourlyRate: 85,
         expertise: ["React", "TypeScript", "System Design", "Code Reviews"],
         bio: "10+ years building scalable web applications. Specialize in React/TypeScript and helping engineers level up their architecture skills.",
@@ -20,7 +21,7 @@ const mockMentors = [
         id: "2",
         name: "Mark Johnson",
         title: "Principal Engineer at Meta",
-        avatar: "/logos/meta-profile.png",
+        avatar: "https://i.pravatar.cc/150?u=markjohnson",
         hourlyRate: 120,
         expertise: [
             "Python",
@@ -37,7 +38,7 @@ const mockMentors = [
         id: "3",
         name: "Elena Rodriguez",
         title: "Tech Lead at Netflix",
-        avatar: "/logos/netflix-logo.png",
+        avatar: "https://i.pravatar.cc/150?u=elenarodriguez",
         hourlyRate: 95,
         expertise: ["Java", "Microservices", "Leadership", "Career Growth"],
         bio: "Engineering leader passionate about mentorship. Help engineers navigate career progression and technical leadership roles.",
@@ -49,7 +50,7 @@ const mockMentors = [
         id: "4",
         name: "David Kim",
         title: "Staff Engineer at Stripe",
-        avatar: "/logos/stripe-logo.png",
+        avatar: "https://i.pravatar.cc/150?u=davidkim",
         hourlyRate: 110,
         expertise: ["Go", "Distributed Systems", "Performance", "Scaling"],
         bio: "Backend specialist with deep expertise in distributed systems. Guide engineers through complex architecture challenges.",
@@ -61,7 +62,7 @@ const mockMentors = [
         id: "5",
         name: "Lisa Thompson",
         title: "Senior Frontend Engineer at Airbnb",
-        avatar: "/logos/airbnb-logo.png",
+        avatar: "https://i.pravatar.cc/150?u=lisathompson",
         hourlyRate: 80,
         expertise: ["JavaScript", "CSS", "UI/UX", "Design Systems"],
         bio: "Frontend expert focused on creating exceptional user experiences. Help developers master modern frontend technologies.",
@@ -71,9 +72,9 @@ const mockMentors = [
     },
     {
         id: "6",
-        name: "Alex Patel",
+        name: "Rita Patel",
         title: "Engineering Manager at Slack",
-        avatar: "/logos/slack-logo.png",
+        avatar: "https://i.pravatar.cc/150?u=alexpatel",
         hourlyRate: 100,
         expertise: ["Management", "Team Leadership", "Communication", "Growth"],
         bio: "People-first engineering leader. Guide aspiring managers through leadership challenges and team dynamics.",
@@ -135,10 +136,12 @@ function MentorCard({ mentor }: { mentor: (typeof mockMentors)[0] }) {
                 <div className="flex items-start space-x-4">
                     {/* Avatar */}
                     <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
-                        <img
+                        <Image
                             src={mentor.avatar}
                             alt={mentor.name}
-                            className="w-full h-full object-cover"
+                            width={64}
+                            height={64}
+                            className="w-full h-full object-cover rounded-full"
                             onError={(e) => {
                                 e.currentTarget.style.display = "none";
                                 const parent = e.currentTarget.parentElement;
