@@ -55,5 +55,8 @@
         "typescript": "^5.5.4",
         "vitest": "^2.0.5",
         "ws": "^8.18.3"
+    },
+    "prisma": {
+        "schema": "server/prisma/schema.prisma"
     }
 }
