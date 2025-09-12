@@ -1,9 +1,9 @@
 .next
 node_modules
-#.env
-# .env.local
-#.env.production
-#.env.development
+.env
+.env.local
+.env.production
+.env.development
 pnpm-lock.yaml
 npm-lock.json
 dist
