@@ -172,7 +172,7 @@ const GapAnalysis: React.FC<GapAnalysisProps> = ({
                                         {(gap.evidenceLinks || []).length >
                                             0 && (
                                             <div className="flex flex-wrap gap-2">
-                                                {gap.evidenceLinks.map(
+                                                {(gap.evidenceLinks || []).map(
                                                     (timestamp, index) => (
                                                         <div
                                                             key={index}
@@ -205,7 +205,10 @@ const GapAnalysis: React.FC<GapAnalysisProps> = ({
                                                                                     ? {
                                                                                           ...g,
                                                                                           evidenceLinks:
-                                                                                              g.evidenceLinks.map(
+                                                                                              (
+                                                                                                  g.evidenceLinks ||
+                                                                                                  []
+                                                                                              ).map(
                                                                                                   (
                                                                                                       t,
                                                                                                       linkIndex
@@ -244,7 +247,10 @@ const GapAnalysis: React.FC<GapAnalysisProps> = ({
                                                                                     ? {
                                                                                           ...g,
                                                                                           evidenceLinks:
-                                                                                              g.evidenceLinks.filter(
+                                                                                              (
+                                                                                                  g.evidenceLinks ||
+                                                                                                  []
+                                                                                              ).filter(
                                                                                                   (
                                                                                                       _,
                                                                                                       linkIndex
