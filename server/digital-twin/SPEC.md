@@ -63,15 +63,21 @@
 1. Receive session context and latest candidate turn.
 2. Retrieve persona docs and recent memory via embeddings.
 3. Run policy agent (should ask follow-up? probe depth? provide hint?).
-4. Generate candidate twin response via OpenAI (prompt+RAG; or fine-tuned OpenAI model when available).
-5. Optionally call tools (rubric check, fact retrieval, code runner), then finalize.
-6. Return text (and spoke prosody directives if needed) with traces.
+4. Generate interviewer twin response via OpenAI (prompt+RAG; or fine-tuned model when available).
+5. Return structured tool-call: `respondWith{text, guidance, scoring}` (Zod-validated).
+6. Playback modes:
+    - ConvAI interviewer (legacy): ElevenLabs agent speaks; not twin-driven.
+    - Twin interviewer mode (current): UI calls `/api/digital-twin/respond`, then `/api/tts` to synthesize twin text to speech; ConvAI interviewer disabled.
+7. Emit traces (tokens, retrieval) and safety info.
 
-### 8) APIs (Proposed)
+### 8) APIs
 
 -   POST `/api/digital-twin/respond`
     -   Request: { interviewerId, sessionId, history[], candidateTurn, controls?, temperature? }
-    -   Response: { text, functionCalls?, traces, safety, latencyMs }
+    -   Response: { text, guidance?, scoring?, traces, safety, latencyMs }
+-   POST `/api/tts`
+    -   Request: { text, voiceId? }
+    -   Response: { audioUrl (data:audio/mpeg;base64,...) }
 -   POST `/api/digital-twin/train`
     -   Request: { interviewerId, datasetRef, options }
     -   Response: { jobId, status }
@@ -136,7 +142,7 @@
 -   Behavior
     -   OpenAI twin disabled in training sessions; no AI interviewer replies.
     -   Candidate prompts come from the ElevenLabs agent; interviewer is human.
-    -   Label turns as `role: "interviewer"` (human) and `role: "candidate"` (agent).
+    -   Label turns as `role: "interviewer"` (human) and `role: "candidate"` (agent). In normal mode, AI turns are labeled `role: "interviewer"`.
 -   Page & Flow
     -   Dedicated training page (e.g., `/training`): connect to ElevenLabs candidate agent, start mic, record screen+audio.
     -   Use existing `/api/interviews/session` + `/screen-recording` + `/telemetry` for storage.

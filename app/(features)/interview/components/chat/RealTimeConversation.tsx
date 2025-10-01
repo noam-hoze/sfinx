@@ -36,6 +36,7 @@ interface RealTimeConversationProps {
     candidateAgentId?: string;
     interviewSessionId?: string;
     trainingMode?: boolean;
+    twinInterviewerMode?: boolean;
     // Automatic mode controls
     automaticMode?: boolean;
     onAutoStartCoding?: () => void;
@@ -56,6 +57,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             candidateAgentId,
             interviewSessionId,
             trainingMode = false,
+            twinInterviewerMode = false,
             automaticMode = false,
             onAutoStartCoding,
         },
@@ -73,6 +75,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             useInterview();
         const hasAutoStartedRef = useRef<boolean>(false);
         const autoStartPendingRef = useRef<boolean>(false);
+        const speechRecRef = useRef<any>(null);
 
         // State machine functions are now passed as props from parent
 
@@ -201,9 +204,13 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                                 body: JSON.stringify({
                                     interviewSessionId,
                                     turn: {
-                                        role: isAiMessage
-                                            ? "candidate"
-                                            : "interviewer",
+                                        role: trainingMode
+                                            ? isAiMessage
+                                                ? "candidate"
+                                                : "interviewer"
+                                            : isAiMessage
+                                            ? "interviewer"
+                                            : "candidate",
                                         text: messageText,
                                         ts: new Date().toISOString(),
                                     },
@@ -242,10 +249,13 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
 
         const getSignedUrl = useCallback(async (): Promise<string> => {
             log.info("🔗 Interviewer: Fetching signed URL...");
-            const qs = candidateAgentId
-                ? `?agentId=${encodeURIComponent(candidateAgentId)}`
-                : "";
-            const response = await fetch(`/api/convai${qs}`);
+            // Normal flow uses interviewer agent; training uses candidate agent
+            const params = new URLSearchParams();
+            if (trainingMode && candidateAgentId) {
+                params.set("agentId", candidateAgentId);
+            }
+            params.set("role", trainingMode ? "candidate" : "interviewer");
+            const response = await fetch(`/api/convai?${params.toString()}`);
             log.info("🔗 Interviewer: Response status:", response.status);
 
             if (!response.ok) {
@@ -265,7 +275,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             }
 
             return data.signedUrl;
-        }, [candidateAgentId]);
+        }, [candidateAgentId, trainingMode]);
 
         // KB update refs
         const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -283,7 +293,87 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                 micStreamRef.current = micStream;
                 log.info("✅ Interviewer: Audio permissions granted");
 
-                setIsRecording(true);
+                if (twinInterviewerMode) {
+                    // Start local STT via Web Speech API
+                    try {
+                        // @ts-ignore
+                        const SpeechRecognition =
+                            (window as any).SpeechRecognition ||
+                            (window as any).webkitSpeechRecognition;
+                        if (!SpeechRecognition) {
+                            log.warn("Web Speech API not available");
+                        } else {
+                            const rec = new SpeechRecognition();
+                            rec.continuous = true;
+                            rec.interimResults = false;
+                            rec.lang = "en-US";
+                            rec.onresult = async (ev: any) => {
+                                for (
+                                    let i = ev.resultIndex;
+                                    i < ev.results.length;
+                                    i += 1
+                                ) {
+                                    const res = ev.results[i];
+                                    if (res.isFinal) {
+                                        const text = res[0].transcript.trim();
+                                        if (!text) continue;
+                                        // Post to chat as user
+                                        window.parent.postMessage(
+                                            {
+                                                type: "transcription",
+                                                text,
+                                                speaker: "user",
+                                                timestamp: new Date(),
+                                            },
+                                            "*"
+                                        );
+                                        // Forward to state machine and twin
+                                        try {
+                                            await handleUserTranscript?.(text);
+                                        } catch (_) {}
+                                        try {
+                                            await onCandidateTurn?.(text);
+                                        } catch (_) {}
+                                        // Persist transcript
+                                        if (interviewSessionId) {
+                                            try {
+                                                await fetch(
+                                                    "/api/interviews/session/transcript",
+                                                    {
+                                                        method: "POST",
+                                                        headers: {
+                                                            "Content-Type":
+                                                                "application/json",
+                                                        },
+                                                        body: JSON.stringify({
+                                                            interviewSessionId,
+                                                            turn: {
+                                                                role: "candidate",
+                                                                text,
+                                                                ts: new Date().toISOString(),
+                                                            },
+                                                        }),
+                                                    }
+                                                );
+                                            } catch (_) {}
+                                        }
+                                    }
+                                }
+                            };
+                            rec.onerror = (e: any) =>
+                                log.error("Speech error", e);
+                            rec.onend = () =>
+                                log.info("Speech recognition ended");
+                            rec.start();
+                            speechRecRef.current = rec;
+                        }
+                    } catch (err) {
+                        log.error("Failed to start Web Speech API", err);
+                    }
+                } else {
+                    setIsRecording(true);
+                }
+
                 log.info("✅ Interviewer: Audio setup complete");
             } catch (error) {
                 log.error("❌ Failed to start audio or conversation:", error);
@@ -315,6 +405,9 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         }, [getSignedUrl, conversation]);
 
         useEffect(() => {
+            if (twinInterviewerMode) {
+                return; // Do not connect ConvAI in twin interviewer mode
+            }
             if (isRecording) {
                 log.info("🔄 isRecording is true, connecting to ElevenLabs...");
                 connectToElevenLabs();
@@ -569,6 +662,15 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                     });
                     micStreamRef.current = null;
                 }
+                // Stop local speech recognition if running
+                try {
+                    if (
+                        speechRecRef.current &&
+                        typeof speechRecRef.current.stop === "function"
+                    ) {
+                        speechRecRef.current.stop();
+                    }
+                } catch (_) {}
                 hasSubmittedRef.current = false;
                 concludedRef.current = false;
                 disconnectFromConversation();

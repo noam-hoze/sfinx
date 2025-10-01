@@ -8,6 +8,8 @@ pnpm-lock.yaml
 npm-lock.json
 dist
 
+.DS_Store
+
 # API keys and sensitive files
 app/api/debug/seed/ok
 

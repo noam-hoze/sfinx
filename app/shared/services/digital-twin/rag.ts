@@ -26,8 +26,11 @@ export async function retrieveContext(
                 vector: number[];
             }>;
         };
-        // Filter by interviewer session if available
-        const pool = idx.chunks.filter((c) => c.sessionId === req.sessionId);
+        // Filter by interviewer session if available; otherwise, use full pool
+        let pool = idx.chunks.filter((c) => c.sessionId === req.sessionId);
+        if (pool.length === 0) {
+            pool = idx.chunks;
+        }
         const query = req.candidateTurn;
         // Embed query with a trivial projection: use zeros (placeholder). Real system would call embeddings.
         // To keep this local, do naive BM25-like scoring by text overlap

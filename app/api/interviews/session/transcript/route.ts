@@ -17,7 +17,8 @@ export async function POST(request: NextRequest) {
             "public",
             "uploads",
             "recordings",
-            "training"
+            "training",
+            "noam"
         );
         await mkdir(transcriptsDir, { recursive: true });
         const filename = `${interviewSessionId}.jsonl`;
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
             message: "Appended",
-            file: `/uploads/transcripts/${filename}`,
+            file: `/uploads/recordings/training/noam/${filename}`,
         });
     } catch (error) {
         return NextResponse.json({ error: "Failed" }, { status: 500 });

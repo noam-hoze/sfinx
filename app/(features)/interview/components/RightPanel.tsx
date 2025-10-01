@@ -20,6 +20,7 @@ interface RightPanelProps {
     candidateAgentId?: string;
     interviewSessionId?: string | null;
     trainingMode?: boolean;
+    twinInterviewerMode?: boolean;
     micMuted: boolean;
     onToggleMicMute: () => void;
     realTimeConversationRef: React.Ref<any>;
@@ -46,6 +47,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
     candidateAgentId,
     interviewSessionId,
     trainingMode,
+    twinInterviewerMode,
     micMuted,
     onToggleMicMute,
     realTimeConversationRef,
@@ -69,7 +71,11 @@ const RightPanel: React.FC<RightPanelProps> = ({
                                 }`}
                             ></div>
                             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                                {trainingMode ? "Larry" : "Carrie"}
+                                {twinInterviewerMode
+                                    ? "Noam Interviewer"
+                                    : trainingMode
+                                    ? "Larry Candidate"
+                                    : "Carrie"}
                             </h3>
                         </div>
                         <div className="text-xs font-medium">
@@ -100,6 +106,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
                         candidateAgentId={candidateAgentId}
                         interviewSessionId={interviewSessionId || undefined}
                         trainingMode={trainingMode}
+                        twinInterviewerMode={twinInterviewerMode}
                         automaticMode={automaticMode}
                         onAutoStartCoding={onAutoStartCoding}
                         onStartConversation={() => {

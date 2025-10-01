@@ -128,6 +128,8 @@ const InterviewerContent = () => {
     const doneMessageSentRef = useRef<boolean>(false);
     const router = useRouter();
     const automaticMode = process.env.NEXT_PUBLIC_AUTOMATIC_MODE === "true";
+    const twinInterviewerMode =
+        process.env.NEXT_PUBLIC_TWIN_INTERVIEWER_MODE === "true";
     const trainingMode =
         typeof window !== "undefined" &&
         window.location.pathname.includes("/interview/training");
@@ -197,7 +199,7 @@ const InterviewerContent = () => {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        interviewerId: "default",
+                        interviewerId: "noam",
                         sessionId: interviewSessionId || "local",
                         history: [],
                         candidateTurn: candidateText,
@@ -207,13 +209,67 @@ const InterviewerContent = () => {
                 const data = await res.json();
                 const reply = data?.text || "";
                 if (reply) {
-                    queueUserMessage(reply);
+                    if (twinInterviewerMode) {
+                        // Play TTS locally and log to chat + transcript
+                        try {
+                            const ttsRes = await fetch("/api/tts", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ text: reply }),
+                            });
+                            const tts = await ttsRes.json();
+                            const audio = new Audio(tts.audioUrl);
+                            audio.play().catch(() => {});
+                        } catch (_) {}
+
+                        // Show in chat panel
+                        window.parent.postMessage(
+                            {
+                                type: "transcription",
+                                text: reply,
+                                speaker: "ai",
+                                timestamp: new Date(),
+                            },
+                            "*"
+                        );
+
+                        // Persist as interviewer turn
+                        if (interviewSessionId) {
+                            try {
+                                await fetch(
+                                    "/api/interviews/session/transcript",
+                                    {
+                                        method: "POST",
+                                        headers: {
+                                            "Content-Type": "application/json",
+                                        },
+                                        body: JSON.stringify({
+                                            interviewSessionId,
+                                            turn: {
+                                                role: "interviewer",
+                                                text: reply,
+                                                ts: new Date().toISOString(),
+                                            },
+                                        }),
+                                    }
+                                );
+                            } catch (_) {}
+                        }
+                    } else {
+                        // Default: enqueue to ElevenLabs agent to speak
+                        queueUserMessage(reply);
+                    }
                 }
             } catch (_) {
                 // swallow in MVP
             }
         },
-        [trainingMode, interviewSessionId, queueUserMessage]
+        [
+            trainingMode,
+            interviewSessionId,
+            queueUserMessage,
+            twinInterviewerMode,
+        ]
     );
 
     const startCamera = useCallback(async () => {
@@ -867,11 +923,9 @@ const InterviewerContent = () => {
             await realTimeConversationRef.current?.startConversation();
             setIsInterviewActive(true);
 
-            // In training mode, coding starts immediately after interview starts
+            // In training mode, coding + timer start immediately after interview starts
             if (trainingMode) {
-                setIsCodingStarted(true);
-                setCodingStarted(true);
-                await setCodingState(true);
+                await handleStartCoding();
             }
 
             log.info("🎉 Interview started successfully!");
@@ -1177,6 +1231,7 @@ render(UserList);`;
                             onCandidateTurn={handleCandidateTurnToTwin}
                             interviewSessionId={interviewSessionId}
                             trainingMode={trainingMode}
+                            twinInterviewerMode={twinInterviewerMode}
                             automaticMode={automaticMode}
                             isCodingStarted={isCodingStarted}
                             onAutoStartCoding={() => {

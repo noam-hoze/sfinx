@@ -8,7 +8,20 @@
 */
 
 import { readdir, readFile, mkdir, writeFile } from "fs/promises";
-import { join } from "path";
+import { existsSync } from "fs";
+import { join, resolve } from "path";
+import dotenv from "dotenv";
+
+// Load environment variables from .env.local or .env
+(() => {
+    const localEnv = resolve(process.cwd(), ".env.local");
+    const defaultEnv = resolve(process.cwd(), ".env");
+    if (existsSync(localEnv)) {
+        dotenv.config({ path: localEnv });
+    } else if (existsSync(defaultEnv)) {
+        dotenv.config({ path: defaultEnv });
+    }
+})();
 
 type Turn = {
     interviewSessionId: string;
@@ -60,7 +73,8 @@ async function main() {
         "public",
         "uploads",
         "recordings",
-        "training"
+        "training",
+        "noam"
     );
     const files = (await readdir(trainingDir)).filter((f) =>
         f.endsWith(".jsonl")
