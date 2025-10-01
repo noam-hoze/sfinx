@@ -126,6 +126,25 @@
     -   Consent gate before recording; PII redaction before training.
     -   Least-privilege access; encryption in transit/at rest; configurable retention.
 
+### 12c) Training Mode (Inverted Roles)
+
+-   Purpose
+    -   Capture authentic interviewer behavior for model learning by reversing roles.
+-   Roles
+    -   Human (microphone) = interviewer; ElevenLabs agent = candidate voice.
+    -   Config: `ELEVENLABS_CANDIDATE_AGENT_ID` (provided later).
+-   Behavior
+    -   OpenAI twin disabled in training sessions; no AI interviewer replies.
+    -   Candidate prompts come from the ElevenLabs agent; interviewer is human.
+    -   Label turns as `role: "interviewer"` (human) and `role: "candidate"` (agent).
+-   Page & Flow
+    -   Dedicated training page (e.g., `/training`): connect to ElevenLabs candidate agent, start mic, record screen+audio.
+    -   Use existing `/api/interviews/session` + `/screen-recording` + `/telemetry` for storage.
+    -   Optional: scripted starter prompts, countdown, and consent gate.
+-   Data
+    -   Store transcripts, timestamps, and telemetry for the human interviewer’s turns; diarize audio if needed.
+    -   PII redaction before indexing; tag sessions as `mode: "training"`.
+
 ### 12b) Telemetry Event Types (MVP)
 
 -   Endpoint usage

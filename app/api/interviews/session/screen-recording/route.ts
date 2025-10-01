@@ -27,6 +27,8 @@ export async function POST(request: NextRequest) {
 
         const formData = await request.formData();
         const recording = formData.get("recording") as File;
+        const sessionId = formData.get("sessionId") as string | null;
+        const mode = (formData.get("mode") as string | null) || undefined;
 
         logger.info("📁 Recording file received:", recording ? "Yes" : "No");
         logger.info(
@@ -49,12 +51,16 @@ export async function POST(request: NextRequest) {
         }
 
         // Create recordings directory if it doesn't exist
-        const recordingsDir = join(
-            process.cwd(),
-            "public",
-            "uploads",
-            "recordings"
-        );
+        const recordingsDir =
+            mode === "training"
+                ? join(
+                      process.cwd(),
+                      "public",
+                      "uploads",
+                      "recordings",
+                      "training"
+                  )
+                : join(process.cwd(), "public", "uploads", "recordings");
         logger.info("📂 Creating directory:", recordingsDir);
 
         try {
@@ -67,9 +73,12 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Generate unique filename
+        // Generate filename. In training mode, use the provided sessionId for association
         const timestamp = Date.now();
-        const filename = `recording-${timestamp}.mp4`;
+        const filename =
+            mode === "training" && sessionId
+                ? `${sessionId}.mp4`
+                : `recording-${timestamp}.mp4`;
         const filepath = join(recordingsDir, filename);
 
         logger.info("💾 Saving file to:", filepath);
@@ -83,7 +92,10 @@ export async function POST(request: NextRequest) {
         logger.info("✅ File written successfully");
 
         // Create public URL for the recording
-        const recordingUrl = `/uploads/recordings/${filename}`;
+        const recordingUrl =
+            mode === "training"
+                ? `/uploads/recordings/training/${filename}`
+                : `/uploads/recordings/${filename}`;
 
         logger.info("✅ Recording uploaded successfully:", recordingUrl);
 

@@ -128,6 +128,14 @@ const InterviewerContent = () => {
     const doneMessageSentRef = useRef<boolean>(false);
     const router = useRouter();
     const automaticMode = process.env.NEXT_PUBLIC_AUTOMATIC_MODE === "true";
+    const trainingMode =
+        typeof window !== "undefined" &&
+        window.location.pathname.includes("/interview/training");
+    const candidateAgentId =
+        (typeof window !== "undefined" &&
+            new URLSearchParams(window.location.search).get("agentId")) ||
+        process.env.NEXT_PUBLIC_ELEVENLABS_CANDIDATE_AGENT_ID ||
+        undefined;
     // Start button now lives inside the overlay. No header button needed.
 
     // Helper: send hidden completion signal once
@@ -146,12 +154,15 @@ const InterviewerContent = () => {
         }
     }, [queueUserMessage]);
 
-    // Require companyId only outside of Practice page
+    // Require companyId only outside of Practice/Training pages
     useEffect(() => {
         const onPracticePage =
             typeof window !== "undefined" &&
             window.location.pathname === "/practice";
-        if (!companyId && !onPracticePage) {
+        const onTrainingPage =
+            typeof window !== "undefined" &&
+            window.location.pathname.startsWith("/interview/training");
+        if (!companyId && !onPracticePage && !onTrainingPage) {
             router.push("/job-search");
         }
     }, [companyId, router]);
@@ -176,6 +187,34 @@ const InterviewerContent = () => {
             realTimeConversationRef.current.toggleMicMute();
         }
     }, []);
+
+    // Pipe candidate turns -> OpenAI respond -> enqueue to ElevenLabs
+    const handleCandidateTurnToTwin = useCallback(
+        async (candidateText: string) => {
+            if (trainingMode) return; // In training mode, do not generate interviewer twin
+            try {
+                const res = await fetch("/api/digital-twin/respond", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        interviewerId: "default",
+                        sessionId: interviewSessionId || "local",
+                        history: [],
+                        candidateTurn: candidateText,
+                    }),
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                const reply = data?.text || "";
+                if (reply) {
+                    queueUserMessage(reply);
+                }
+            } catch (_) {
+                // swallow in MVP
+            }
+        },
+        [trainingMode, interviewSessionId, queueUserMessage]
+    );
 
     const startCamera = useCallback(async () => {
         try {
@@ -468,7 +507,32 @@ const InterviewerContent = () => {
                         "🚀 Auto-uploading recording for session:",
                         interviewSessionIdRef.current
                     );
-                    await uploadRecordingToServer(blob);
+                    if (trainingMode) {
+                        // In training, just save the file and skip DB PATCH
+                        try {
+                            const formData = new FormData();
+                            formData.append(
+                                "recording",
+                                blob,
+                                `${interviewSessionIdRef.current}.mp4`
+                            );
+                            formData.append(
+                                "sessionId",
+                                interviewSessionIdRef.current
+                            );
+                            formData.append("mode", "training");
+                            const uploadResponse = await fetch(
+                                "/api/interviews/session/screen-recording",
+                                { method: "POST", body: formData }
+                            );
+                            if (uploadResponse.ok) {
+                                log.info("✅ Training recording uploaded");
+                                setRecordingUploaded(true);
+                            }
+                        } catch (_) {}
+                    } else {
+                        await uploadRecordingToServer(blob);
+                    }
                 } else {
                     log.info(
                         "⏭️ Cannot auto-upload: sessionId=",
@@ -792,9 +856,23 @@ const InterviewerContent = () => {
             // Clear chat panel before starting new interview
             window.postMessage({ type: "clear-chat" }, "*");
 
+            // For training mode, synthesize a local session id for artifacts
+            if (trainingMode && !interviewSessionIdRef.current) {
+                const localId = `training-${Date.now()}`;
+                setInterviewSessionId(localId);
+                interviewSessionIdRef.current = localId;
+            }
+
             // Start real-time conversation (recording is already started above)
             await realTimeConversationRef.current?.startConversation();
             setIsInterviewActive(true);
+
+            // In training mode, coding starts immediately after interview starts
+            if (trainingMode) {
+                setIsCodingStarted(true);
+                setCodingStarted(true);
+                await setCodingState(true);
+            }
 
             log.info("🎉 Interview started successfully!");
         } catch (error) {
@@ -881,6 +959,16 @@ const InterviewerContent = () => {
 
             setIsTimerRunning(false);
             setIsCodingStarted(false);
+
+            // Training mode: finish interview after 1s without waiting for closing phrase
+            if (trainingMode) {
+                setTimeout(() => {
+                    try {
+                        realTimeConversationRef.current?.stopConversation?.();
+                    } catch (_) {}
+                    setInterviewConcluded(true);
+                }, 1000);
+            }
         } catch (error) {
             console.error("❌ Failed to submit solution:", error);
         }
@@ -1086,6 +1174,9 @@ render(UserList);`;
                             handleUserTranscript={handleUserTranscript}
                             updateKBVariables={updateKBVariables}
                             kbVariables={kbVariables}
+                            onCandidateTurn={handleCandidateTurnToTwin}
+                            interviewSessionId={interviewSessionId}
+                            trainingMode={trainingMode}
                             automaticMode={automaticMode}
                             isCodingStarted={isCodingStarted}
                             onAutoStartCoding={() => {
@@ -1106,6 +1197,7 @@ render(UserList);`;
                             onInterviewConcluded={() =>
                                 setInterviewConcluded(true)
                             }
+                            candidateAgentId={candidateAgentId}
                             micMuted={micMuted}
                             onToggleMicMute={toggleMicMute}
                             realTimeConversationRef={realTimeConversationRef}

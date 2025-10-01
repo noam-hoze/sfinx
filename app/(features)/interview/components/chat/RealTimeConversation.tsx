@@ -32,6 +32,10 @@ interface RealTimeConversationProps {
     handleUserTranscript?: (transcript: string) => Promise<void>;
     updateKBVariables?: (updates: any) => Promise<void>;
     kbVariables?: any;
+    onCandidateTurn?: (message: string) => Promise<void> | void;
+    candidateAgentId?: string;
+    interviewSessionId?: string;
+    trainingMode?: boolean;
     // Automatic mode controls
     automaticMode?: boolean;
     onAutoStartCoding?: () => void;
@@ -48,6 +52,10 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             handleUserTranscript,
             updateKBVariables,
             kbVariables,
+            onCandidateTurn,
+            candidateAgentId,
+            interviewSessionId,
+            trainingMode = false,
             automaticMode = false,
             onAutoStartCoding,
         },
@@ -75,13 +83,15 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                 setIsConnected(true);
                 setConnectionStatus("Connected");
 
-                // Prime KB variables immediately on connect
-                updateKBVariables?.({
-                    candidate_name: candidateName,
-                    is_coding: false,
-                    has_submitted: false,
-                    current_code_summary: state.currentCode ?? "",
-                });
+                // Prime KB variables immediately on connect (skip in training mode)
+                if (!trainingMode) {
+                    updateKBVariables?.({
+                        candidate_name: candidateName,
+                        is_coding: false,
+                        has_submitted: false,
+                        current_code_summary: state.currentCode ?? "",
+                    });
+                }
 
                 // Notify ChatPanel about recording status
                 window.parent.postMessage(
@@ -158,6 +168,16 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                         if (handleUserTranscript) {
                             await handleUserTranscript(messageText);
                         }
+                        if (onCandidateTurn) {
+                            try {
+                                await onCandidateTurn(messageText);
+                            } catch (error) {
+                                log.error(
+                                    "❌ Failed to handle candidate turn:",
+                                    error
+                                );
+                            }
+                        }
                     }
 
                     window.parent.postMessage(
@@ -169,6 +189,28 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                         },
                         "*"
                     );
+
+                    // Persist transcript turn to server
+                    try {
+                        if (interviewSessionId) {
+                            await fetch("/api/interviews/session/transcript", {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({
+                                    interviewSessionId,
+                                    turn: {
+                                        role: isAiMessage
+                                            ? "candidate"
+                                            : "interviewer",
+                                        text: messageText,
+                                        ts: new Date().toISOString(),
+                                    },
+                                }),
+                            });
+                        }
+                    } catch (_) {}
                 }
             },
             onError: (error: any) => {
@@ -200,7 +242,10 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
 
         const getSignedUrl = useCallback(async (): Promise<string> => {
             log.info("🔗 Interviewer: Fetching signed URL...");
-            const response = await fetch("/api/convai");
+            const qs = candidateAgentId
+                ? `?agentId=${encodeURIComponent(candidateAgentId)}`
+                : "";
+            const response = await fetch(`/api/convai${qs}`);
             log.info("🔗 Interviewer: Response status:", response.status);
 
             if (!response.ok) {
@@ -220,7 +265,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             }
 
             return data.signedUrl;
-        }, []);
+        }, [candidateAgentId]);
 
         // KB update refs
         const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -278,8 +323,11 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             }
         }, [isRecording]); // eslint-disable-line react-hooks/exhaustive-deps
 
-        // Auto KB_UPDATE on code changes (using state machine)
+        // Auto KB_UPDATE on code changes (using state machine) — disabled in training mode
         useEffect(() => {
+            if (trainingMode) {
+                return;
+            }
             if (conversation.status !== "connected") {
                 return;
             }
@@ -321,26 +369,31 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                     clearTimeout(updateTimeoutRef.current);
                 }
             };
-        }, [state.currentCode, conversation.status]); // eslint-disable-line react-hooks/exhaustive-deps
+        }, [state.currentCode, conversation.status, trainingMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
         // Flush queued updates/messages from context when connected
         useEffect(() => {
             if (conversation.status !== "connected") return;
 
-            // Flush contextual updates
-            const updates = state.contextUpdatesQueue || [];
-            if (updates.length > 0 && conversation.sendContextualUpdate) {
-                (async () => {
-                    for (const text of updates) {
-                        try {
-                            await conversation.sendContextualUpdate(text);
-                            log.info("✅ Flushed contextual update:", text);
-                        } catch (error) {
-                            log.error("❌ Failed contextual update:", error);
+            // Flush contextual updates (skip in training mode for clean slate)
+            if (!trainingMode) {
+                const updates = state.contextUpdatesQueue || [];
+                if (updates.length > 0 && conversation.sendContextualUpdate) {
+                    (async () => {
+                        for (const text of updates) {
+                            try {
+                                await conversation.sendContextualUpdate(text);
+                                log.info("✅ Flushed contextual update:", text);
+                            } catch (error) {
+                                log.error(
+                                    "❌ Failed contextual update:",
+                                    error
+                                );
+                            }
                         }
-                    }
-                    clearContextUpdates();
-                })();
+                        clearContextUpdates();
+                    })();
+                }
             }
 
             // Flush user messages
@@ -362,6 +415,8 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             conversation.status,
             state.contextUpdatesQueue,
             state.userMessagesQueue,
+            onCandidateTurn,
+            trainingMode,
         ]);
 
         const disconnectFromConversation = useCallback(() => {

@@ -19,6 +19,7 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute }: ChatPanelProps) => {
     const [transcriptions, setTranscriptions] = useState<
         TranscriptionMessage[]
     >([]);
+    const idCounterRef = useRef<number>(0);
     const [isRecording, setIsRecording] = useState(false);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -26,8 +27,9 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute }: ChatPanelProps) => {
     useEffect(() => {
         const handleTranscription = (event: MessageEvent) => {
             if (event.data.type === "transcription") {
+                const nextId = `${Date.now()}-${idCounterRef.current++}`;
                 const newTranscription: TranscriptionMessage = {
-                    id: Date.now().toString(),
+                    id: nextId,
                     text: event.data.text,
                     speaker: event.data.speaker || "user",
                     timestamp: new Date(),

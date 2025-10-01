@@ -16,6 +16,10 @@ interface RightPanelProps {
     onStartConversation: () => void;
     onEndConversation: () => void;
     onInterviewConcluded: () => void;
+    onCandidateTurn?: (message: string) => Promise<void> | void;
+    candidateAgentId?: string;
+    interviewSessionId?: string | null;
+    trainingMode?: boolean;
     micMuted: boolean;
     onToggleMicMute: () => void;
     realTimeConversationRef: React.Ref<any>;
@@ -38,6 +42,10 @@ const RightPanel: React.FC<RightPanelProps> = ({
     onStartConversation,
     onEndConversation,
     onInterviewConcluded,
+    onCandidateTurn,
+    candidateAgentId,
+    interviewSessionId,
+    trainingMode,
     micMuted,
     onToggleMicMute,
     realTimeConversationRef,
@@ -61,7 +69,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
                                 }`}
                             ></div>
                             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                                Carrie
+                                {trainingMode ? "Larry" : "Carrie"}
                             </h3>
                         </div>
                         <div className="text-xs font-medium">
@@ -88,6 +96,10 @@ const RightPanel: React.FC<RightPanelProps> = ({
                         handleUserTranscript={handleUserTranscript}
                         updateKBVariables={updateKBVariables}
                         kbVariables={kbVariables}
+                        onCandidateTurn={onCandidateTurn}
+                        candidateAgentId={candidateAgentId}
+                        interviewSessionId={interviewSessionId || undefined}
+                        trainingMode={trainingMode}
                         automaticMode={automaticMode}
                         onAutoStartCoding={onAutoStartCoding}
                         onStartConversation={() => {

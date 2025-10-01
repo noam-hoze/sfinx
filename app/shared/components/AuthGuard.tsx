@@ -6,7 +6,7 @@ import { useEffect } from "react";
 
 interface AuthGuardProps {
     children: React.ReactNode;
-    requiredRole?: "CANDIDATE" | "COMPANY" | "ADMIN";
+    requiredRole?: "CANDIDATE" | "COMPANY" | "ADMIN" | "ANY";
     fallback?: React.ReactNode;
 }
 
@@ -31,6 +31,11 @@ export default function AuthGuard({
 
         // Admin can access all pages
         if (userRole === "ADMIN") {
+            return;
+        }
+
+        // ANY allows any authenticated user regardless of role
+        if (requiredRole === "ANY") {
             return;
         }
 
@@ -61,6 +66,11 @@ export default function AuthGuard({
 
     // Admin can access all pages
     if (userRole === "ADMIN") {
+        return <>{children}</>;
+    }
+
+    // ANY allows any authenticated user regardless of role
+    if (requiredRole === "ANY") {
         return <>{children}</>;
     }
 
