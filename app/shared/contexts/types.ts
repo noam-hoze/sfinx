@@ -112,18 +112,24 @@ export interface WorkstyleMetrics {
         value: number; // 0-100
         level: "High" | "Moderate" | "Low";
         color: "blue" | "yellow" | "red";
+        // Top Performing Engineer benchmark (0-100). Optional.
+        tpe?: number;
         evidenceLinks?: number[]; // Array of video timestamps
     };
     debugLoops: {
         value: number; // 0-100
         level: "Fast" | "Moderate" | "Slow";
         color: "blue" | "yellow" | "red";
+        // Lower is better for debug loops. Benchmark of TPE (0-100).
+        tpe?: number;
         evidenceLinks?: number[];
     };
     refactorCleanups: {
         value: number; // 0-100
         level: "Strong" | "Moderate" | "Weak";
         color: "blue" | "yellow" | "red";
+        // TPE benchmark (0-100)
+        tpe?: number;
         evidenceLinks?: number[];
     };
     aiAssistUsage: {
@@ -131,6 +137,8 @@ export interface WorkstyleMetrics {
         level: "Minimal" | "Moderate" | "High";
         color: "white" | "yellow" | "red";
         isFairnessFlag: boolean;
+        // Lower is generally better; optional benchmark target
+        tpe?: number;
         evidenceLinks?: number[];
     };
 }

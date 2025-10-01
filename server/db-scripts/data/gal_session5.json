@@ -2,7 +2,7 @@
     "user": {
         "name": "Gal",
         "email": "gal@gmail.com",
-        "image": "/uploads/profiles/gal-profile.jpeg",
+        "image": "/uploads/profiles/noam-profile.jpeg",
         "jobTitle": "Software Engineer",
         "location": "Tel Aviv, Israel",
         "bio": "A talented software engineer.",
@@ -20,17 +20,22 @@
         "id": "gal-telemetry-id",
         "matchScore": 97,
         "confidence": "Medium",
-        "story": "Gal demonstrated solid problem-solving and built a functional UserList with API integration and basic states. He didn't handle loading and error cases. ",
+        "story": "Gal demonstrated solid problem-solving and built a functional UserList with API integration and basic states. He effectively used AI to understand API structure and clearly explained his AI usage approach when questioned. He didn't handle loading and error cases. ",
         "hasFairnessFlag": false
     },
     "workstyleMetrics": {
         "id": "gal-workstyle-id",
-        "iterationSpeed": 90,
-        "debugLoops": 30,
-        "refactorCleanups": 0,
-        "aiAssistUsage": 0
+        "iterationSpeed": 30,
+        "debugLoops": 40,
+        "refactorCleanups": 1,
+        "aiAssistUsage": 30
     },
     "gaps": [
+        {
+            "id": "gal-gap-3",
+            "severity": "Moderate",
+            "description": "Was not hands-on at all"
+        },
         {
             "id": "gal-gap-1",
             "severity": "Moderate",
@@ -62,10 +67,22 @@
             "category": "ITERATION_SPEED"
         },
         {
-            "id": "gal-evidence-4",
-            "title": "Debugs API error and fixes request",
-            "startTime": 70,
-            "category": "DEBUG_LOOP"
+            "id": "gal-evidence-5",
+            "title": "Copies from ChatGPT",
+            "startTime": 32,
+            "category": "AI_ASSIST_USAGE"
+        },
+        {
+            "id": "gal-evidence-6",
+            "title": "Pastes",
+            "startTime": 43,
+            "category": "AI_ASSIST_USAGE"
+        },
+        {
+            "id": "gal-evidence-7",
+            "title": "Explains AI usage and reasoning clearly",
+            "startTime": 47,
+            "category": "AI_ASSIST_USAGE"
         }
     ],
     "videoChapters": [
@@ -73,69 +90,55 @@
             "id": "gal-chapter-1",
             "title": "Intro",
             "startTime": 0,
-            "endTime": 37,
+            "endTime": 31,
             "captions": [
                 {
                     "id": "gal-caption-1-1",
-                    "text": "Setting up development environment",
+                    "text": "Introduction",
                     "startTime": 5,
                     "endTime": 20
                 },
                 {
                     "id": "gal-caption-1-2",
-                    "text": "Reviewing project requirements",
-                    "startTime": 25,
-                    "endTime": 40
+                    "text": "Asking the question",
+                    "startTime": 20,
+                    "endTime": 29
                 }
             ]
         },
         {
             "id": "gal-chapter-2",
-            "title": "1st iteration",
-            "startTime": 37,
-            "endTime": 69,
+            "title": "Using AI",
+            "startTime": 31,
+            "endTime": 43,
             "captions": [
                 {
                     "id": "gal-caption-2-1",
-                    "text": "checks if code works and receives an error",
-                    "startTime": 68,
-                    "endTime": 74
+                    "text": "Getting code from ChatGPT",
+                    "startTime": 31,
+                    "endTime": 42
                 }
             ]
         },
         {
             "id": "gal-chapter-3",
-            "title": "2nd iteration",
-            "startTime": 69,
+            "title": "Explaining AI Usage",
+            "startTime": 43,
             "endTime": 91,
             "captions": [
                 {
                     "id": "gal-caption-3-1",
-                    "text": "Checks and doesn't receive an error",
-                    "startTime": 89,
-                    "endTime": 93
-                }
-            ]
-        },
-        {
-            "id": "gal-chapter-4",
-            "title": "3rd iteration",
-            "startTime": 91,
-            "endTime": 134,
-            "captions": [
+                    "text": "Pasting code from ChatGPT",
+                    "startTime": 43,
+                    "endTime": 46
+                },
                 {
-                    "id": "gal-caption-4-1",
-                    "text": "Checks and doesn't receive an error",
-                    "startTime": 130,
-                    "endTime": 134
+                    "id": "gal-caption-3-2",
+                    "text": "Explaining why he's using useEffect",
+                    "startTime": 47,
+                    "endTime": 74
                 }
             ]
-        },
-        {
-            "id": "gal-chapter-5",
-            "title": "Submission",
-            "startTime": 134,
-            "endTime": 206
         }
     ]
 }

@@ -184,6 +184,8 @@ export async function GET(
                                       ? "yellow"
                                       : "red",
                               evidenceLinks: iterationSpeedLinks,
+                              // TPE center value (counts scale)
+                              tpe: 1,
                           },
                           debugLoops: {
                               value: telemetry.workstyleMetrics.debugLoops,
@@ -202,6 +204,8 @@ export async function GET(
                                       ? "yellow"
                                       : "red",
                               evidenceLinks: debugLoopsLinks,
+                              // TPE center value (counts scale)
+                              tpe: 1,
                           },
                           refactorCleanups: {
                               value: telemetry.workstyleMetrics
@@ -223,6 +227,8 @@ export async function GET(
                                       ? "yellow"
                                       : "red",
                               evidenceLinks: refactorCleanupsLinks,
+                              // TPE center value (counts scale)
+                              tpe: 1,
                           },
                           aiAssistUsage: {
                               value: telemetry.workstyleMetrics.aiAssistUsage,
@@ -243,6 +249,8 @@ export async function GET(
                               isFairnessFlag:
                                   telemetry.workstyleMetrics.aiAssistUsage > 50,
                               evidenceLinks: aiAssistUsageLinks,
+                              // TPE center value (counts scale)
+                              tpe: 1,
                           },
                       }
                     : null,

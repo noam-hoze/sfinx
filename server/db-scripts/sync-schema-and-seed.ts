@@ -1,7 +1,11 @@
 #!/usr/bin/env tsx
 
+import { config } from "dotenv";
 import { execSync } from "child_process";
 import { PrismaClient } from "@prisma/client";
+
+// Load environment variables from .env file
+config();
 
 async function syncSchemaAndSeed() {
     console.log("🔄 Starting database reset with new schema...");

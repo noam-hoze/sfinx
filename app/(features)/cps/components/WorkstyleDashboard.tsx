@@ -49,10 +49,58 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
         }
     };
 
+    // Relative position of candidate value with TPE centered at 50%
+    const getRelativePositionPercent = (
+        value?: number,
+        tpe?: number
+    ): string => {
+        if (typeof value !== "number") return "50%";
+        if (typeof tpe !== "number") return `${value}%`;
+        const pos = 50 + (value - tpe) * 0.5; // map [0..100] with TPE to center
+        const clamped = Math.max(0, Math.min(100, pos));
+        return `${clamped}%`;
+    };
+
+    // Color for the candidate dot relative to TPE
+    const getDotColorClass = (
+        key: string,
+        value?: number,
+        tpe?: number
+    ): string => {
+        // All dots are neutral gray now
+        return "bg-gray-400";
+    };
+
+    const getBaseLineClass = (key: string): string => {
+        if (key === "aiAssistUsage") {
+            return "h-[3px] bg-gray-200 rounded";
+        }
+        // Green to red gradient for performance scale
+        return "h-[3px] bg-gradient-to-r from-green-400 to-red-400 rounded";
+    };
+
+    const getDeltaTextColorClass = (
+        key: string,
+        value?: number,
+        tpe?: number
+    ): string => {
+        if (typeof value !== "number" || typeof tpe !== "number")
+            return "text-gray-500";
+        const lowerIsBetter =
+            key === "iterationSpeed" ||
+            key === "debugLoops" ||
+            key === "aiAssistUsage";
+        const delta = value - tpe;
+        if (lowerIsBetter) {
+            return delta <= 0 ? "text-green-600" : "text-red-600";
+        }
+        return delta >= 0 ? "text-green-600" : "text-red-600";
+    };
+
     const metrics = [
         {
             key: "iterationSpeed" as keyof WorkstyleMetrics,
-            label: "Iteration Speed",
+            label: "# Iterations",
             data: workstyle.iterationSpeed,
         },
         {
@@ -78,13 +126,16 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                 Workstyle
             </h3>
 
-            <div className="space-y-3">
+            <div className="divide-y divide-gray-100">
                 {metrics.map((metric) => {
                     const data = (metric as any).data;
                     if (data == null || (data as any).value == null)
                         return null;
                     return (
-                        <div key={metric.key} className="space-y-2">
+                        <div
+                            key={metric.key}
+                            className="py-3 first:pt-0 last:pb-0 px-2 rounded-md hover:bg-gray-50 transition"
+                        >
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <span className="text-sm font-medium text-gray-700">
@@ -125,38 +176,105 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                                             className="text-sm font-semibold text-gray-900 bg-white/50 border border-gray-300 rounded px-2 py-1 w-16 text-center"
                                         />
                                     ) : (
-                                        <span className="text-sm font-semibold text-gray-900">
-                                            {metric.data.value}%
-                                        </span>
+                                        <div className="flex items-center gap-1">
+                                            {(
+                                                metric.data.evidenceLinks ?? []
+                                            ).map(
+                                                (
+                                                    timestamp: number,
+                                                    index: number
+                                                ) => (
+                                                    <button
+                                                        key={index}
+                                                        onClick={() => {
+                                                            setClickedTimestamp(
+                                                                timestamp
+                                                            );
+                                                            onVideoJump(
+                                                                timestamp
+                                                            );
+                                                        }}
+                                                        className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-all duration-200 ${
+                                                            clickedTimestamp ===
+                                                            timestamp
+                                                                ? "text-blue-600 bg-blue-50"
+                                                                : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                                                        }`}
+                                                        title={`Jump to ${Math.floor(
+                                                            timestamp / 60
+                                                        )}:${(timestamp % 60)
+                                                            .toString()
+                                                            .padStart(2, "0")}`}
+                                                    >
+                                                        {index + 1}
+                                                    </button>
+                                                )
+                                            )}
+                                        </div>
                                     )}
-                                    <span
-                                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                            metric.data.color === "blue"
-                                                ? "bg-blue-100 text-blue-700"
-                                                : metric.data.color === "yellow"
-                                                ? "bg-yellow-100 text-yellow-700"
-                                                : metric.data.color === "red"
-                                                ? "bg-red-100 text-red-700"
-                                                : "bg-gray-100 text-gray-700"
-                                        }`}
-                                    >
-                                        {metric.data.level}
-                                    </span>
                                 </div>
                             </div>
 
-                            <div className="relative">
-                                <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                                    <div
-                                        className={`h-full ${getColorClass(
-                                            metric.data.color
-                                        )} transition-all duration-500 ease-out`}
-                                        style={{
-                                            width: `${metric.data.value}%`,
-                                        }}
-                                    ></div>
+                            <div className="relative h-6 mt-1">
+                                {/* Base line */}
+                                <div
+                                    className={`absolute left-0 right-0 top-1/2 -translate-y-1/2 ${getBaseLineClass(
+                                        metric.key as string
+                                    )}`}
+                                />
+                                {/* Center TPE tick */}
+                                <div className="absolute top-0 bottom-0 left-1/2 -translate-x-1/2 w-[3px] bg-gray-700 rounded-sm shadow-[0_0_0_2px_rgba(255,255,255,0.9)]" />
+                                <div className="absolute left-1/2 -translate-x-1/2 top-[calc(50%+10px)] text-[10px] text-gray-500">
+                                    TPE
+                                </div>
+                                {/* Candidate dot */}
+                                <div
+                                    className={`group absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full border border-white shadow ${getDotColorClass(
+                                        metric.key as string,
+                                        metric.data.value,
+                                        (metric.data as any).tpe
+                                    )}`}
+                                    style={{
+                                        left: getRelativePositionPercent(
+                                            metric.data.value,
+                                            (metric.data as any).tpe
+                                        ),
+                                    }}
+                                >
+                                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs bg-white text-gray-700 border border-gray-200 rounded px-2 py-1 opacity-0 pointer-events-none group-hover:opacity-100">
+                                        {metric.data.value}
+                                        {typeof (metric.data as any).tpe ===
+                                            "number" &&
+                                            ` vs TPE ${
+                                                (metric.data as any).tpe
+                                            }`}
+                                    </div>
                                 </div>
                             </div>
+                            {metric.key === "iterationSpeed" && (
+                                <div className="flex justify-between text-[11px] text-gray-400 mt-1">
+                                    <span>Efficient</span>
+                                    <span>Inefficient</span>
+                                </div>
+                            )}
+                            {metric.key === "debugLoops" && (
+                                <div className="flex justify-between text-[11px] text-gray-400 mt-1">
+                                    <span>Efficient</span>
+                                    <span>Inefficient</span>
+                                </div>
+                            )}
+                            {metric.key === "refactorCleanups" && (
+                                <div className="flex justify-between text-[11px] text-gray-400 mt-1">
+                                    <span>Efficient</span>
+                                    <span>Inefficient</span>
+                                </div>
+                            )}
+                            {metric.key === "aiAssistUsage" && (
+                                <div className="flex justify-between text-[11px] text-gray-400 mt-1">
+                                    <span>Hands-on</span>
+                                    <span>AI Assist</span>
+                                </div>
+                            )}
 
                             {/* Video Evidence Links */}
                             {editMode ? (
@@ -271,39 +389,7 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                                         </div>
                                     )}
                                 </div>
-                            ) : (
-                                metric.data.evidenceLinks &&
-                                metric.data.evidenceLinks.length > 0 && (
-                                    <div className="flex gap-1 mt-2">
-                                        {metric.data.evidenceLinks.map(
-                                            (timestamp, index) => (
-                                                <button
-                                                    key={index}
-                                                    onClick={() => {
-                                                        setClickedTimestamp(
-                                                            timestamp
-                                                        );
-                                                        onVideoJump(timestamp);
-                                                    }}
-                                                    className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-all duration-200 ${
-                                                        clickedTimestamp ===
-                                                        timestamp
-                                                            ? "text-blue-600 bg-blue-50"
-                                                            : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                                                    }`}
-                                                    title={`Jump to ${Math.floor(
-                                                        timestamp / 60
-                                                    )}:${(timestamp % 60)
-                                                        .toString()
-                                                        .padStart(2, "0")}`}
-                                                >
-                                                    {index + 1}
-                                                </button>
-                                            )
-                                        )}
-                                    </div>
-                                )
-                            )}
+                            ) : null}
                         </div>
                     );
                 })}

@@ -29,10 +29,10 @@ let hasSubmittedOnce = false;
 const instructAgentInCaseOfAIUsage = (addedCode: any) => `
 Don't answer this message in our voice conversation. It's just to inform you of something.
 The candidate has just used external AI. Now your using_ai variable is
-true. Ask the candidate one follow up question about: ${addedCode}. After he 
-answers that question, it doesn't matter what was the answer. It can include "I don't know" or a wrong answer.
-And it can be the right answer. You will need to answer it with an acknowledgemet. After that, you go back to waiting 
-for the user message in order to react. Don't say your closing line`;
+true. Ask the candidate one follow up question about: ${addedCode}. Then you have to wait for his answer. 
+Ignore noise and any other non lingual messages.
+After the user answers, you will reply with an acknowledgemet and that's it. You will not ask another followup question.
+After that, you go back to listening. Don't say your closing line`;
 
 /**
  * KBVariables: canonical context mirrored to ElevenLabs via KB_UPDATE.
