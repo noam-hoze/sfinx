@@ -131,6 +131,19 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                     const isAiMessage = message.source !== "user";
                     let messageText = message.message;
 
+                    // IMPORTANT: push to chat immediately to preserve arrival order
+                    try {
+                        window.parent.postMessage(
+                            {
+                                type: "transcription",
+                                text: messageText,
+                                speaker: isAiMessage ? "ai" : "user",
+                                timestamp: new Date(),
+                            },
+                            "*"
+                        );
+                    } catch (_) {}
+
                     if (isAiMessage) {
                         // Track AI responses for automatic interview ending
                         setLastAiResponse(messageText);
@@ -183,17 +196,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                         }
                     }
 
-                    window.parent.postMessage(
-                        {
-                            type: "transcription",
-                            text: messageText,
-                            speaker: isAiMessage ? "ai" : "user",
-                            timestamp: new Date(),
-                        },
-                        "*"
-                    );
-
-                    // Persist transcript turn to server
+                    // Persist transcript turn to server (async; do not block UI ordering)
                     try {
                         if (interviewSessionId) {
                             await fetch("/api/interviews/session/transcript", {
@@ -464,53 +467,11 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             };
         }, [state.currentCode, conversation.status, trainingMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-        // Flush queued updates/messages from context when connected
+        // IMPORTANT: Do not auto-flush queued updates/messages on connect in ConvAI flow.
+        // This caused delayed duplicate user sends that barge-in over agent TTS.
         useEffect(() => {
-            if (conversation.status !== "connected") return;
-
-            // Flush contextual updates (skip in training mode for clean slate)
-            if (!trainingMode) {
-                const updates = state.contextUpdatesQueue || [];
-                if (updates.length > 0 && conversation.sendContextualUpdate) {
-                    (async () => {
-                        for (const text of updates) {
-                            try {
-                                await conversation.sendContextualUpdate(text);
-                                log.info("✅ Flushed contextual update:", text);
-                            } catch (error) {
-                                log.error(
-                                    "❌ Failed contextual update:",
-                                    error
-                                );
-                            }
-                        }
-                        clearContextUpdates();
-                    })();
-                }
-            }
-
-            // Flush user messages
-            const messages = state.userMessagesQueue || [];
-            if (messages.length > 0) {
-                (async () => {
-                    for (const msg of messages) {
-                        try {
-                            await conversation.sendUserMessage(msg);
-                            log.info("✅ Flushed user message:", msg);
-                        } catch (error) {
-                            log.error("❌ Failed user message:", error);
-                        }
-                    }
-                    clearUserMessages();
-                })();
-            }
-        }, [
-            conversation.status,
-            state.contextUpdatesQueue,
-            state.userMessagesQueue,
-            onCandidateTurn,
-            trainingMode,
-        ]);
+            // Intentionally left blank; explicit sends elsewhere control timing.
+        }, [conversation.status]);
 
         const disconnectFromConversation = useCallback(() => {
             log.info("🔌 Disconnecting from conversation...");
