@@ -58,7 +58,8 @@ export async function POST(request: NextRequest) {
                       "public",
                       "uploads",
                       "recordings",
-                      "training"
+                      "training",
+                      "noam"
                   )
                 : join(process.cwd(), "public", "uploads", "recordings");
         logger.info("📂 Creating directory:", recordingsDir);
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
         // Create public URL for the recording
         const recordingUrl =
             mode === "training"
-                ? `/uploads/recordings/training/${filename}`
+                ? `/uploads/recordings/training/noam/${filename}`
                 : `/uploads/recordings/${filename}`;
 
         logger.info("✅ Recording uploaded successfully:", recordingUrl);
