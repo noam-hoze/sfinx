@@ -274,6 +274,15 @@ const InterviewerContent = ({
 
             updateCurrentCode(getInitialCode());
             window.postMessage({ type: "clear-chat" }, "*");
+            // Training mode: start timer and enable coding immediately after screen share approval
+            if (interviewer === "HUMAN" && candidate === "OPENAI") {
+                try {
+                    setIsCodingStarted(true);
+                    setCodingStarted(true);
+                    await setCodingState(true);
+                    startTimer();
+                } catch (_) {}
+            }
             // Start interviewer voice only when using ElevenLabs
             if (interviewer === "ELEVEN_LABS") {
                 log.info("🎙️ Starting ElevenLabs conversation (interviewer)");
