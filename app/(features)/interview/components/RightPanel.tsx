@@ -22,8 +22,7 @@ interface RightPanelProps {
     isAgentConnected: boolean;
     setIsAgentConnected: (v: boolean) => void;
     setIsInterviewActive: (v: boolean) => void;
-    timerInterval: NodeJS.Timeout | null;
-    clearTimerInterval: () => void;
+    onStopTimer: () => void;
 }
 
 const RightPanel: React.FC<RightPanelProps> = ({
@@ -44,8 +43,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
     isAgentConnected,
     setIsAgentConnected,
     setIsInterviewActive,
-    timerInterval,
-    clearTimerInterval,
+    onStopTimer,
 }) => {
     return (
         <div className="h-full flex flex-col border-t">
@@ -97,7 +95,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
                         onEndConversation={() => {
                             setIsInterviewActive(false);
                             setIsAgentConnected(false);
-                            clearTimerInterval();
+                            onStopTimer();
                             onEndConversation();
                         }}
                         onInterviewConcluded={onInterviewConcluded}

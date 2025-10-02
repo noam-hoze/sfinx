@@ -13,6 +13,7 @@ app/api/debug/seed/ok
 
 /lib/generated/prisma
 
+.DS_Store
+
 *.mp4
 *.jsonl
-.DS_Store
