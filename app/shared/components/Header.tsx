@@ -99,21 +99,37 @@ export default function Header() {
                     ref={navRef}
                     className="flex items-center gap-24 justify-start relative"
                 >
-                    {/* {(session?.user as any)?.role === "COMPANY" && (
-                        <Link
-                            ref={(el) => {
-                                linkRefs.current["/company-dashboard"] = el;
-                            }}
-                            href="/company-dashboard"
-                            className={`${linkStyles} ${
-                                pathname === "/company-dashboard"
-                                    ? activeLinkStyles
-                                    : inactiveLinkStyles
-                            }`}
-                        >
-                            Dashboard
-                        </Link>
-                    )} */}
+                    {(session?.user as any)?.role === "COMPANY" && (
+                        <>
+                            <Link
+                                ref={(el) => {
+                                    linkRefs.current["/company-dashboard"] = el;
+                                }}
+                                href="/company-dashboard"
+                                className={`${linkStyles} ${
+                                    pathname === "/company-dashboard"
+                                        ? activeLinkStyles
+                                        : inactiveLinkStyles
+                                }`}
+                            >
+                                Dashboard
+                            </Link>
+                            <Link
+                                ref={(el) => {
+                                    linkRefs.current["/interview/training"] =
+                                        el;
+                                }}
+                                href="/interview/training?companyId=meta"
+                                className={`${linkStyles} ${
+                                    pathname === "/interview/training"
+                                        ? activeLinkStyles
+                                        : inactiveLinkStyles
+                                }`}
+                            >
+                                Training
+                            </Link>
+                        </>
+                    )}
                     {(session?.user as any)?.role === "CANDIDATE" && (
                         <>
                             <Link

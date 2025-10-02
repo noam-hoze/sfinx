@@ -30,6 +30,12 @@ import { useThemePreference } from "./hooks/useThemePreference";
 import { createApplication } from "./services/applicationService";
 import { createInterviewSession } from "./services/interviewSessionService";
 import { fetchJobById } from "./services/jobService";
+import { applyCodeEditsSafely } from "../../../shared/services/applyCodeEdits";
+import {
+    computeHash,
+    mintNextVersionId,
+} from "../../../shared/services/versioning";
+import { TTSQueue } from "../../../shared/services/ttsQueue";
 
 const log = logger.for("@InterviewIDE.tsx");
 const INTERVIEW_DURATION_SECONDS = 30 * 60;
@@ -53,7 +59,18 @@ render(UserList);`;
 
 const getInitialCode = () => DEFAULT_CODE;
 
-const InterviewerContent = () => {
+type InterviewerMode = "ELEVEN_LABS" | "HUMAN";
+type CandidateMode = "OPENAI" | "HUMAN";
+
+interface InterviewerContentProps {
+    interviewer?: InterviewerMode;
+    candidate?: CandidateMode;
+}
+
+const InterviewerContent = ({
+    interviewer = "ELEVEN_LABS",
+    candidate = "HUMAN",
+}: InterviewerContentProps) => {
     const {
         state,
         getCurrentTask,
@@ -111,15 +128,20 @@ const InterviewerContent = () => {
         candidateName
     );
 
-    const [availableTabs, setAvailableTabs] = useState<Array<"editor" | "preview">>([
-        "editor",
-    ]);
+    const [availableTabs, setAvailableTabs] = useState<
+        Array<"editor" | "preview">
+    >(["editor"]);
     const [activeTab, setActiveTab] = useState<"editor" | "preview">("editor");
     const [isInterviewActive, setIsInterviewActive] = useState(false);
     const [isInterviewLoading, setIsInterviewLoading] = useState(false);
     const [isAgentConnected, setIsAgentConnected] = useState(false);
     const [isCodingStarted, setIsCodingStarted] = useState(false);
     const [micMuted, setMicMuted] = useState(false);
+    const versionIdRef = useRef<string>("v1");
+    const ttsRef = useRef<TTSQueue | null>(null);
+    const [trainingInput, setTrainingInput] = useState("");
+    const recognitionRef = useRef<any>(null);
+    const [isMicListening, setIsMicListening] = useState(false);
     const [applicationCreated, setApplicationCreated] = useState(false);
     const [interviewConcluded, setInterviewConcluded] = useState(false);
     const realTimeConversationRef = useRef<any>(null);
@@ -127,9 +149,23 @@ const InterviewerContent = () => {
 
     useThemePreference();
 
+    // Force-enable detailed logging for this component (dev/training visibility)
+    useEffect(() => {
+        try {
+            logger.setEnabled(true);
+            logger.setLevels(["debug", "info", "warn", "error"] as any);
+            logger.setModules(null);
+            log.info("🪵 Logging enabled for InterviewIDE");
+        } catch {}
+    }, []);
+
     const { isCameraOn, selfVideoRef, toggleCamera } = useCamera();
-    const { startRecording, stopRecording, interviewSessionId, setInterviewSessionId } =
-        useScreenRecording();
+    const {
+        startRecording,
+        stopRecording,
+        interviewSessionId,
+        setInterviewSessionId,
+    } = useScreenRecording();
 
     useEffect(() => {
         log.info("🔄 interviewSessionId changed to:", interviewSessionId);
@@ -195,13 +231,19 @@ const InterviewerContent = () => {
     const handleInterviewButtonClick = useCallback(async () => {
         try {
             setIsInterviewLoading(true);
+            log.info("▶️ Start Interview clicked", { interviewer, candidate });
             const recordingStarted = await startRecording();
             if (!recordingStarted) {
                 setIsInterviewLoading(false);
                 return;
             }
 
-            if (!applicationCreated && companyId) {
+            // Skip application/session creation for training mode
+            if (
+                interviewer === "ELEVEN_LABS" &&
+                !applicationCreated &&
+                companyId
+            ) {
                 try {
                     const application = await createApplication({
                         companyId,
@@ -226,7 +268,20 @@ const InterviewerContent = () => {
 
             updateCurrentCode(getInitialCode());
             window.postMessage({ type: "clear-chat" }, "*");
-            await realTimeConversationRef.current?.startConversation();
+            // Start interviewer voice only when using ElevenLabs
+            if (interviewer === "ELEVEN_LABS") {
+                log.info("🎙️ Starting ElevenLabs conversation (interviewer)");
+                await realTimeConversationRef.current?.startConversation();
+            }
+            // In training (candidate=OPENAI), mark candidate as connected for UI readiness
+            if (candidate === "OPENAI") {
+                setIsAgentConnected(true);
+                log.info(
+                    "✅ Candidate (OPENAI) marked connected; starting mic loop"
+                );
+                // Kick off mic transcript loop (human interviewer) → candidate TTS reply
+                startHumanMicLoop();
+            }
             setIsInterviewActive(true);
             log.info("🎉 Interview started successfully!");
         } catch (error) {
@@ -240,6 +295,8 @@ const InterviewerContent = () => {
         jobId,
         updateCurrentCode,
         setInterviewSessionId,
+        interviewer,
+        candidate,
     ]);
 
     const toggleMicMute = useCallback(() => {
@@ -276,6 +333,178 @@ const InterviewerContent = () => {
         if (!state.currentCode) {
             updateCurrentCode(getInitialCode());
         }
+    }, [state.currentCode, updateCurrentCode]);
+
+    const onTrainingSend = useCallback(async () => {
+        const onTrainingPage =
+            typeof window !== "undefined" &&
+            window.location.pathname === "/interview/training";
+        if (!onTrainingPage) return;
+        const playWithSpeech = async (text: string) =>
+            new Promise<void>((resolve, reject) => {
+                try {
+                    const utter = new SpeechSynthesisUtterance(text);
+                    utter.onend = () => resolve();
+                    utter.onerror = (e) => reject(e);
+                    window.speechSynthesis.speak(utter);
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        if (!ttsRef.current) {
+            ttsRef.current = new TTSQueue(playWithSpeech);
+        }
+        try {
+            const res = await fetch("/api/candidate/respond", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    context: {
+                        file: "training.tsx",
+                        versionId: versionIdRef.current,
+                        beforeHash: computeHash(state.currentCode),
+                    },
+                    history: [],
+                    controls: { allowCodeEdits: false },
+                    respondWithCandidate: {
+                        text: trainingInput,
+                        codeEdits: [],
+                    },
+                }),
+            });
+            const json = await res.json();
+            const reply: string | undefined = json?.respondWithCandidate?.text;
+            if (reply) {
+                await ttsRef.current!.speak(reply);
+                document.body.dataset.trainingSpoke = "true";
+            }
+            setTrainingInput("");
+        } catch (e) {
+            // no-op
+        }
+    }, [state.currentCode, trainingInput]);
+
+    const startHumanMicLoop = useCallback(() => {
+        if (interviewer !== "HUMAN" || candidate !== "OPENAI") return;
+        if (typeof window === "undefined") return;
+        // Browser STT (webkit prefix in Chrome)
+        const SpeechRecognition: any =
+            (window as any).SpeechRecognition ||
+            (window as any).webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            log.warn("SpeechRecognition not available in this browser");
+            return;
+        }
+        if (!ttsRef.current) {
+            ttsRef.current = new TTSQueue(
+                (text: string) =>
+                    new Promise<void>((resolve, reject) => {
+                        try {
+                            const u = new SpeechSynthesisUtterance(text);
+                            u.onend = () => resolve();
+                            u.onerror = (e) => reject(e);
+                            window.speechSynthesis.speak(u);
+                        } catch (e) {
+                            reject(e);
+                        }
+                    })
+            );
+        }
+        const recognition = new SpeechRecognition();
+        recognition.lang = "en-US";
+        recognition.continuous = true;
+        recognition.interimResults = false;
+        log.info("🎤 Starting HUMAN mic recognition loop");
+        recognition.onresult = async (event: any) => {
+            try {
+                const result = event.results[event.results.length - 1];
+                if (!result) return;
+                const transcript = result[0]?.transcript?.trim();
+                if (!transcript) return;
+                log.info("📝 Mic transcript", transcript);
+                // Pause mic while candidate speaks
+                recognition.stop();
+                setIsMicListening(false);
+                log.info("📨 Sending transcript to candidate API");
+                const res = await fetch("/api/candidate/respond", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        context: {
+                            file: "training.tsx",
+                            versionId: versionIdRef.current,
+                            beforeHash: computeHash(state.currentCode),
+                        },
+                        history: [],
+                        controls: { allowCodeEdits: false },
+                        transcript,
+                    }),
+                });
+                const json = await res.json();
+                const reply: string | undefined =
+                    json?.respondWithCandidate?.text;
+                if (reply) {
+                    log.info("🔊 Candidate reply", reply);
+                    await ttsRef.current!.speak(reply);
+                }
+            } catch (e) {
+                log.warn("Mic loop error", e);
+            } finally {
+                // Resume listening
+                try {
+                    recognition.start();
+                    setIsMicListening(true);
+                } catch {}
+            }
+        };
+        recognition.onend = () => {
+            // Auto-restart if interview still active
+            if (isInterviewActive) {
+                try {
+                    log.info("🔁 Mic recognition restarted");
+                    recognition.start();
+                    setIsMicListening(true);
+                } catch {}
+            }
+        };
+        recognitionRef.current = recognition;
+        try {
+            recognition.start();
+            setIsMicListening(true);
+        } catch {}
+    }, [interviewer, candidate, state.currentCode, isInterviewActive]);
+
+    useEffect(() => {
+        return () => {
+            try {
+                recognitionRef.current?.stop?.();
+            } catch {}
+        };
+    }, []);
+
+    useEffect(() => {
+        // Training integration: listen for externally posted code edits
+        const handler = (event: MessageEvent) => {
+            if (event.data?.type === "training-apply-edits") {
+                const { edits } = event.data as {
+                    edits: Array<{
+                        file: string;
+                        range: { start: number; end: number };
+                        replacement: string;
+                    }>;
+                };
+                const applyRes = applyCodeEditsSafely(state.currentCode, edits);
+                if (applyRes.ok) {
+                    updateCurrentCode(applyRes.text);
+                    versionIdRef.current = mintNextVersionId(
+                        versionIdRef.current
+                    );
+                    document.body.dataset.trainingApplied = "true";
+                }
+            }
+        };
+        window.addEventListener("message", handler);
+        return () => window.removeEventListener("message", handler);
     }, [state.currentCode, updateCurrentCode]);
 
     useEffect(() => {
@@ -458,10 +687,10 @@ const InterviewerContent = () => {
     );
 };
 
-const InterviewIDE = () => {
+const InterviewIDE = (props: InterviewerContentProps) => {
     return (
         <InterviewProvider>
-            <InterviewerContent />
+            <InterviewerContent {...props} />
         </InterviewProvider>
     );
 };

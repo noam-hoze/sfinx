@@ -17,3 +17,20 @@ app/api/debug/seed/ok
 
 *.mp4
 *.jsonl
+
+# Editor/IDE
+.vscode/
+.idea/
+
+# Next.js / Turborepo / Vercel
+.turbo/
+.vercel/
+
+# Coverage & test artifacts
+coverage/
+playwright-report/
+blob-report/
+test-results/
+
+# Logs
+*.log
