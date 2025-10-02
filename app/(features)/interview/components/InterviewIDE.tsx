@@ -36,6 +36,7 @@ import {
     mintNextVersionId,
 } from "../../../shared/services/versioning";
 import { TTSQueue } from "../../../shared/services/ttsQueue";
+// Local SpeechSynthesis for near-zero latency
 
 const log = logger.for("@InterviewIDE.tsx");
 const INTERVIEW_DURATION_SECONDS = 30 * 60;
@@ -139,7 +140,6 @@ const InterviewerContent = ({
     const [micMuted, setMicMuted] = useState(false);
     const versionIdRef = useRef<string>("v1");
     const ttsRef = useRef<TTSQueue | null>(null);
-    const [trainingInput, setTrainingInput] = useState("");
     const recognitionRef = useRef<any>(null);
     const [isMicListening, setIsMicListening] = useState(false);
     const [applicationCreated, setApplicationCreated] = useState(false);
@@ -335,54 +335,7 @@ const InterviewerContent = ({
         }
     }, [state.currentCode, updateCurrentCode]);
 
-    const onTrainingSend = useCallback(async () => {
-        const onTrainingPage =
-            typeof window !== "undefined" &&
-            window.location.pathname === "/interview/training";
-        if (!onTrainingPage) return;
-        const playWithSpeech = async (text: string) =>
-            new Promise<void>((resolve, reject) => {
-                try {
-                    const utter = new SpeechSynthesisUtterance(text);
-                    utter.onend = () => resolve();
-                    utter.onerror = (e) => reject(e);
-                    window.speechSynthesis.speak(utter);
-                } catch (e) {
-                    reject(e);
-                }
-            });
-        if (!ttsRef.current) {
-            ttsRef.current = new TTSQueue(playWithSpeech);
-        }
-        try {
-            const res = await fetch("/api/candidate/respond", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    context: {
-                        file: "training.tsx",
-                        versionId: versionIdRef.current,
-                        beforeHash: computeHash(state.currentCode),
-                    },
-                    history: [],
-                    controls: { allowCodeEdits: false },
-                    respondWithCandidate: {
-                        text: trainingInput,
-                        codeEdits: [],
-                    },
-                }),
-            });
-            const json = await res.json();
-            const reply: string | undefined = json?.respondWithCandidate?.text;
-            if (reply) {
-                await ttsRef.current!.speak(reply);
-                document.body.dataset.trainingSpoke = "true";
-            }
-            setTrainingInput("");
-        } catch (e) {
-            // no-op
-        }
-    }, [state.currentCode, trainingInput]);
+    // Removed unused manual training send helper
 
     const startHumanMicLoop = useCallback(() => {
         if (interviewer !== "HUMAN" || candidate !== "OPENAI") return;
