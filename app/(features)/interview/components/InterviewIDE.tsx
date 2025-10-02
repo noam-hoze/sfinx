@@ -415,6 +415,13 @@ const InterviewerContent = ({
         recognition.continuous = true;
         recognition.interimResults = false;
         log.info("🎤 Starting HUMAN mic recognition loop");
+        // Notify chat UI that recording is active
+        try {
+            window.postMessage(
+                { type: "recording-status", isRecording: true },
+                "*"
+            );
+        } catch {}
         recognition.onresult = async (event: any) => {
             try {
                 const result = event.results[event.results.length - 1];
@@ -422,9 +429,27 @@ const InterviewerContent = ({
                 const transcript = result[0]?.transcript?.trim();
                 if (!transcript) return;
                 log.info("📝 Mic transcript", transcript);
+                // Emit user message to chat (same channel as normal flow)
+                try {
+                    window.postMessage(
+                        {
+                            type: "transcription",
+                            text: transcript,
+                            speaker: "user",
+                            timestamp: new Date(),
+                        },
+                        "*"
+                    );
+                } catch {}
                 // Pause mic while candidate speaks
                 recognition.stop();
                 setIsMicListening(false);
+                try {
+                    window.postMessage(
+                        { type: "recording-status", isRecording: false },
+                        "*"
+                    );
+                } catch {}
                 log.info("📨 Sending transcript to candidate API");
                 const res = await fetch("/api/candidate/respond", {
                     method: "POST",
@@ -445,6 +470,18 @@ const InterviewerContent = ({
                     json?.respondWithCandidate?.text;
                 if (reply) {
                     log.info("🔊 Candidate reply", reply);
+                    // Emit AI message to chat
+                    try {
+                        window.postMessage(
+                            {
+                                type: "transcription",
+                                text: reply,
+                                speaker: "ai",
+                                timestamp: new Date(),
+                            },
+                            "*"
+                        );
+                    } catch {}
                     await ttsRef.current!.speak(reply);
                 }
             } catch (e) {
@@ -454,6 +491,12 @@ const InterviewerContent = ({
                 try {
                     recognition.start();
                     setIsMicListening(true);
+                    try {
+                        window.postMessage(
+                            { type: "recording-status", isRecording: true },
+                            "*"
+                        );
+                    } catch {}
                 } catch {}
             }
         };
