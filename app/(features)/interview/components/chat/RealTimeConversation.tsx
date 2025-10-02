@@ -289,6 +289,89 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
 
         const startConversation = useCallback(async () => {
             try {
+                if (trainingMode) {
+                    // In training, capture human interviewer speech via Web Speech API (local STT)
+                    log.info(
+                        "🎓 Training mode: initializing TTS-only flow with local STT"
+                    );
+                    setIsRecording(true);
+                    window.parent.postMessage(
+                        { type: "recording-status", isRecording: true },
+                        "*"
+                    );
+                    // Start Web Speech recognition for interviewer (human)
+                    try {
+                        // @ts-ignore
+                        const SpeechRecognition =
+                            (window as any).SpeechRecognition ||
+                            (window as any).webkitSpeechRecognition;
+                        if (!SpeechRecognition) {
+                            log.warn("Web Speech API not available");
+                        } else {
+                            const rec = new SpeechRecognition();
+                            rec.continuous = true;
+                            rec.interimResults = false;
+                            rec.lang = "en-US";
+                            rec.onresult = async (ev: any) => {
+                                for (
+                                    let i = ev.resultIndex;
+                                    i < ev.results.length;
+                                    i += 1
+                                ) {
+                                    const res = ev.results[i];
+                                    if (res.isFinal) {
+                                        const text = res[0].transcript.trim();
+                                        log.info("🎤 STT final:", text);
+                                        if (!text) continue;
+                                        // Post chat as interviewer (human user)
+                                        window.parent.postMessage(
+                                            {
+                                                type: "transcription",
+                                                text,
+                                                speaker: "user",
+                                                timestamp: new Date(),
+                                            },
+                                            "*"
+                                        );
+                                        // Persist transcript (role: interviewer)
+                                        if (interviewSessionId) {
+                                            try {
+                                                await fetch(
+                                                    "/api/interviews/session/transcript",
+                                                    {
+                                                        method: "POST",
+                                                        headers: {
+                                                            "Content-Type":
+                                                                "application/json",
+                                                        },
+                                                        body: JSON.stringify({
+                                                            interviewSessionId,
+                                                            turn: {
+                                                                role: "interviewer",
+                                                                text,
+                                                                ts: new Date().toISOString(),
+                                                            },
+                                                        }),
+                                                    }
+                                                );
+                                            } catch (_) {}
+                                        }
+                                    }
+                                }
+                            };
+                            rec.onerror = (e: any) =>
+                                log.error("Speech error", e);
+                            rec.onend = () =>
+                                log.info("Speech recognition ended");
+                            rec.start();
+                            speechRecRef.current = rec;
+                        }
+                    } catch (err) {
+                        log.error("Failed to start Web Speech API", err);
+                    }
+                    onStartConversation?.();
+                    return;
+                }
                 log.info("🎤 Interviewer: Requesting audio permissions...");
                 const micStream = await navigator.mediaDevices.getUserMedia({
                     audio: true,
@@ -408,7 +491,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         }, [getSignedUrl, conversation]);
 
         useEffect(() => {
-            if (twinInterviewerMode) {
+            if (twinInterviewerMode || trainingMode) {
                 return; // Do not connect ConvAI in twin interviewer mode
             }
             if (isRecording) {

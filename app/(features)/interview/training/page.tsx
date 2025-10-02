@@ -5,7 +5,7 @@ import { AuthGuard } from "app/shared/components";
 
 export default function InterviewTrainingPage() {
     return (
-        <AuthGuard requiredRole="ANY">
+        <AuthGuard requiredRole="COMPANY">
             <InterviewProvider>
                 <Suspense fallback={<div>Loading...</div>}>
                     <InterviewIDE />

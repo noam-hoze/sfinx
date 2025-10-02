@@ -157,6 +157,37 @@ export default function Header() {
                             </Link>
                         </>
                     )}
+                    {(session?.user as any)?.role === "COMPANY" && (
+                        <>
+                            <Link
+                                ref={(el) => {
+                                    linkRefs.current["/company-dashboard"] = el;
+                                }}
+                                href="/company-dashboard"
+                                className={`${linkStyles} ${
+                                    pathname === "/company-dashboard"
+                                        ? activeLinkStyles
+                                        : inactiveLinkStyles
+                                }`}
+                            >
+                                Dashboard
+                            </Link>
+                            <Link
+                                ref={(el) => {
+                                    linkRefs.current["/interview/training"] =
+                                        el;
+                                }}
+                                href="/interview/training"
+                                className={`${linkStyles} ${
+                                    pathname === "/interview/training"
+                                        ? activeLinkStyles
+                                        : inactiveLinkStyles
+                                }`}
+                            >
+                                Training
+                            </Link>
+                        </>
+                    )}
                 </nav>
 
                 {/* Sliding indicator */}

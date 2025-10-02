@@ -994,6 +994,167 @@ const InterviewerContent = () => {
         }
     };
 
+    // Candidate simulation (training only): call candidate model and apply code edits
+    const typingQueueRef = useRef<
+        Array<{ start: number; end: number; insert: string }>
+    >([]);
+    const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
+    function startTypingLoop() {
+        if (typingTimerRef.current) return;
+        const targetWPM = 38;
+        const msPerChar = Math.max(40, Math.floor(60000 / (targetWPM * 5)));
+        const burstMin = 3;
+        const burstMax = 7;
+        typingTimerRef.current = setInterval(() => {
+            if (typingQueueRef.current.length === 0) {
+                if (typingTimerRef.current) {
+                    clearInterval(typingTimerRef.current);
+                    typingTimerRef.current = null;
+                }
+                return;
+            }
+            const curr = state.currentCode || "";
+            const job = typingQueueRef.current[0];
+            if (job.end > job.start) {
+                const next = curr.slice(0, job.start) + curr.slice(job.end);
+                job.end = job.start;
+                updateCurrentCode(next);
+                handleCodeChange(next);
+                return;
+            }
+            if (job.insert.length > 0) {
+                const burst = Math.min(
+                    job.insert.length,
+                    Math.floor(Math.random() * (burstMax - burstMin + 1)) +
+                        burstMin
+                );
+                const chunk = job.insert.slice(0, burst);
+                const next =
+                    curr.slice(0, job.start) + chunk + curr.slice(job.start);
+                job.start += chunk.length;
+                job.insert = job.insert.slice(burst);
+                updateCurrentCode(next);
+                handleCodeChange(next);
+                return;
+            }
+            typingQueueRef.current.shift();
+        }, msPerChar);
+    }
+    function queueTypingEdit(
+        rangeStart: number,
+        rangeEnd: number,
+        replacement: string
+    ) {
+        typingQueueRef.current.push({
+            start: rangeStart,
+            end: rangeEnd,
+            insert: replacement,
+        });
+        startTypingLoop();
+    }
+    useEffect(() => {
+        if (!trainingMode) return;
+        if (!isInterviewActive) return;
+        // listen for interviewer messages and trigger candidate
+        const handler = async (event: MessageEvent) => {
+            const isTranscript = event.data?.type === "transcription";
+            const isInterviewerTurn =
+                isTranscript &&
+                (trainingMode
+                    ? event.data?.speaker === "user"
+                    : event.data?.speaker === "ai");
+            if (isInterviewerTurn) {
+                try {
+                    const interviewerText = String(event.data?.text || "");
+                    const allowEdits = isCodeRequested(interviewerText);
+                    log.info("🎯 Interviewer turn detected", {
+                        interviewerText,
+                        allowEdits,
+                    });
+                    const res = await fetch("/api/digital-twin/candidate", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            sessionId: interviewSessionIdRef.current,
+                            context: {
+                                file: "UserList.tsx",
+                                versionId:
+                                    lastSnapshotRef.current ||
+                                    hash(state.currentCode || ""),
+                                beforeHash: hash(state.currentCode || ""),
+                                text: state.currentCode,
+                            },
+                            history: [],
+                            controls: allowEdits
+                                ? { maxEdits: 3, maxEditSize: 2000 }
+                                : { maxEdits: 0 },
+                        }),
+                    });
+                    const data = await res.json();
+                    log.info("🤖 Candidate API response", {
+                        hasText: Boolean(data?.text),
+                        edits: (data?.codeEdits || []).length,
+                    });
+                    if (data?.text) {
+                        window.postMessage(
+                            {
+                                type: "transcription",
+                                text: data.text,
+                                speaker: "user",
+                                timestamp: new Date(),
+                            },
+                            "*"
+                        );
+                        try {
+                            const ttsRes = await fetch("/api/tts", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ text: data.text }),
+                            });
+                            const tts = await ttsRes.json();
+                            const audio = new Audio(tts.audioUrl);
+                            audio.play().catch(() => {});
+                        } catch (_) {}
+                    }
+                    if (allowEdits)
+                        for (const edit of data?.codeEdits || []) {
+                            const curr = state.currentCode || "";
+                            const start = Math.max(
+                                0,
+                                Math.min(curr.length, edit.range.start)
+                            );
+                            const end = Math.max(
+                                start,
+                                Math.min(curr.length, edit.range.end)
+                            );
+                            queueTypingEdit(start, end, edit.replacement);
+                        }
+                } catch (_) {}
+            }
+        };
+        window.addEventListener("message", handler);
+        return () => window.removeEventListener("message", handler);
+    }, [trainingMode, isInterviewActive, state.currentCode]);
+
+    function isCodeRequested(text: string): boolean {
+        const t = text.toLowerCase();
+        const keywords = [
+            "write code",
+            "start coding",
+            "begin coding",
+            "implement",
+            "build",
+            "create component",
+            "add function",
+            "modify the code",
+            "update the code",
+            "refactor",
+            "let's code",
+            "please code",
+        ];
+        return keywords.some((k) => t.includes(k));
+    }
+
     // (Removed) Redundant telemetry creation; telemetry is created server-side with session
 
     const handleSubmit = async () => {
@@ -1118,9 +1279,107 @@ render(UserList);`;
             .padStart(2, "0")}`;
     };
 
+    // Hybrid capture: debounce snapshots/diffs in training mode
+    const codeDebounceRef = useRef<NodeJS.Timeout | null>(null);
+    const lastSnapshotRef = useRef<string>("");
+    const lastCodeRef = useRef<string>("");
+    const hash = (s: string) => {
+        let h = 0;
+        for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+        return `${h}`;
+    };
+
+    const postCodeEvent = async (event: any) => {
+        try {
+            await fetch("/api/interviews/session/code", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    interviewSessionId: interviewSessionIdRef.current,
+                    event,
+                }),
+            });
+        } catch (_) {}
+    };
+
     const handleCodeChange = (code: string) => {
         updateCurrentCode(code);
+        if (!trainingMode) return;
+
+        // debounce 1.2s
+        if (codeDebounceRef.current) clearTimeout(codeDebounceRef.current);
+        codeDebounceRef.current = setTimeout(async () => {
+            const prev = lastCodeRef.current;
+            const diffChars = Math.abs(
+                (code || "").length - (prev || "").length
+            );
+            const multiLine =
+                (code.match(/\n/g) || []).length !==
+                (prev.match(/\n/g) || []).length;
+            if (diffChars < 50 && !multiLine) return;
+
+            const beforeHash = hash(prev);
+            const afterHash = hash(code);
+            const file = "UserList.tsx"; // current single-file IDE demo
+
+            // periodic snapshot if changed file or initial/rotating every ~45s by size heuristic
+            const shouldSnapshot =
+                !lastSnapshotRef.current || Math.random() < 0.2;
+            if (shouldSnapshot) {
+                lastSnapshotRef.current = afterHash;
+                await postCodeEvent({
+                    type: "code_snapshot",
+                    role: trainingMode ? "interviewer" : "candidate",
+                    file,
+                    versionId: afterHash,
+                    fullText: code, // can move to blob storage later
+                    fullTextHash: afterHash,
+                    symbolMap: buildSymbolMap(code),
+                });
+            } else {
+                await postCodeEvent({
+                    type: "code_edit",
+                    role: trainingMode ? "interviewer" : "candidate",
+                    file,
+                    beforeVersionId: beforeHash,
+                    afterVersionId: afterHash,
+                    beforeHash,
+                    afterHash,
+                    diffChars,
+                });
+            }
+
+            lastCodeRef.current = code;
+        }, 1200);
     };
+
+    function buildSymbolMap(
+        text: string
+    ): Array<{ name: string; start: number; end: number }> {
+        const symbols: Array<{ name: string; start: number; end: number }> = [];
+        const lines = text.split("\n");
+        const starts: Array<{ name: string; idx: number }> = [];
+        let offset = 0;
+        for (let i = 0; i < lines.length; i += 1) {
+            const line = lines[i];
+            const fnMatch = line.match(
+                /^(export\s+)?(async\s+)?function\s+([A-Za-z0-9_]+)/
+            );
+            const compMatch = line.match(/^const\s+([A-Za-z0-9_]+)\s*=\s*\(/);
+            const arrowMatch = line.match(
+                /^export\s+const\s+([A-Za-z0-9_]+)\s*=\s*\(/
+            );
+            const name = fnMatch?.[3] || compMatch?.[1] || arrowMatch?.[1];
+            if (name) starts.push({ name, idx: offset });
+            offset += line.length + 1;
+        }
+        for (let i = 0; i < starts.length; i += 1) {
+            const start = starts[i].idx;
+            const end = i + 1 < starts.length ? starts[i + 1].idx : text.length;
+            symbols.push({ name: starts[i].name, start, end });
+        }
+        return symbols;
+    }
 
     const handleRunCode = () => {
         if (!availableTabs.includes("preview")) {
