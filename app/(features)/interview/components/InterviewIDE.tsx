@@ -169,13 +169,6 @@ const InterviewerContent = () => {
         startTimer();
     }, [setCodingStarted, setCodingState, startTimer]);
 
-    const handleStopCoding = useCallback(async () => {
-        setIsCodingStarted(false);
-        setCodingStarted(false);
-        await setCodingState(false);
-        stopTimer();
-    }, [setCodingStarted, setCodingState, stopTimer]);
-
     const handleSubmit = useCallback(async () => {
         try {
             updateSubmission(state.currentCode);

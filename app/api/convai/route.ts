@@ -6,7 +6,8 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url);
         const customAgentId = searchParams.get("agentId");
 
-        const agentId = customAgentId || process.env.NEXT_PUBLIC_AGENT_ID;
+        const agentId =
+            customAgentId || process.env.ELEVEN_LABS_INTERVIEWER_AGENT_ID;
 
         logger.info("Test signed URL - Agent ID:", agentId);
         logger.info(
