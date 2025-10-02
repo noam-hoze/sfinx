@@ -1,0 +1,48 @@
+{
+    "id": "meta-sfe-001",
+    "company": "Meta",
+    "title": "Senior Frontend Engineer",
+    "department": "Product Engineering",
+    "location": "Menlo Park, CA (Hybrid)",
+    "employmentType": "Full-time",
+    "level": "Senior (IC5/IC6 equivalent)",
+    "summary": "Lead development of high‑impact, user‑facing web experiences at massive scale. Own complex frontend systems, mentor engineers, and partner cross‑functionally to ship delightful, accessible products.",
+    "responsibilities": [
+        "Design and build performant, accessible React/TypeScript applications.",
+        "Own large features end‑to‑end: scoping, architecture, implementation, rollout.",
+        "Advance frontend platform: component libraries, performance, observability.",
+        "Collaborate with Product, Design, and Backend to define roadmap and milestones.",
+        "Mentor and level‑up teammates; champion code quality and best practices."
+    ],
+    "minimumQualifications": [
+        "5+ years building production web apps with modern JS (ES2017+).",
+        "Expertise in React, TypeScript, HTML5, CSS3 (CSS‑in‑JS or utility frameworks).",
+        "Proficiency with performance profiling (Lighthouse, Web Vitals) and accessibility (WCAG, ARIA).",
+        "Experience with API integration, GraphQL/REST, and state management.",
+        "Strong testing background (unit/integration/E2E) and CI workflows."
+    ],
+    "preferredQualifications": [
+        "Experience at scale (millions of DAU) and progressive enhancement strategies.",
+        "SSR/SSG and routing (Next.js), and module federation/code‑splitting expertise.",
+        "Data visualization (Recharts/D3), i18n/l10n, and design systems."
+    ],
+    "techStack": [
+        "React",
+        "TypeScript",
+        "Next.js",
+        "GraphQL",
+        "Node.js",
+        "Jest",
+        "Playwright",
+        "Webpack/Vite",
+        "CI/CD"
+    ],
+    "compensation": {
+        "baseSalaryUSD": "$210k–$260k",
+        "equity": "Significant RSUs",
+        "bonus": "Performance bonus"
+    },
+    "postingUrl": "https://www.metacareers.com/",
+    "tags": ["frontend", "react", "typescript", "senior", "meta"],
+    "createdAt": "2025-10-02T00:00:00.000Z"
+}

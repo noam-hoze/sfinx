@@ -66,11 +66,13 @@ type CandidateMode = "OPENAI" | "HUMAN";
 interface InterviewerContentProps {
     interviewer?: InterviewerMode;
     candidate?: CandidateMode;
+    candidateName?: string;
 }
 
 const InterviewerContent = ({
     interviewer = "ELEVEN_LABS",
     candidate = "HUMAN",
+    candidateName: candidateNameProp,
 }: InterviewerContentProps) => {
     const {
         state,
@@ -88,7 +90,8 @@ const InterviewerContent = ({
     const companyId = searchParams.get("companyId");
     const jobId = searchParams.get("jobId");
     const [job, setJob] = useState<any | null>(null);
-    const candidateName = (session?.user as any)?.name || "Candidate";
+    const candidateName =
+        candidateNameProp || (session?.user as any)?.name || "Candidate";
 
     const onElevenLabsUpdate = useCallback(
         async (text: string) => {
@@ -142,6 +145,9 @@ const InterviewerContent = ({
     const ttsRef = useRef<TTSQueue | null>(null);
     const recognitionRef = useRef<any>(null);
     const [isMicListening, setIsMicListening] = useState(false);
+    const historyRef = useRef<
+        Array<{ role?: "candidate" | "interviewer"; text: string }>
+    >([]);
     const [applicationCreated, setApplicationCreated] = useState(false);
     const [interviewConcluded, setInterviewConcluded] = useState(false);
     const realTimeConversationRef = useRef<any>(null);
@@ -382,6 +388,12 @@ const InterviewerContent = ({
                 const transcript = result[0]?.transcript?.trim();
                 if (!transcript) return;
                 log.info("📝 Mic transcript", transcript);
+                // Update rolling history (last 6 turns)
+                historyRef.current.push({
+                    role: "interviewer",
+                    text: transcript,
+                });
+                historyRef.current = historyRef.current.slice(-12);
                 // Emit user message to chat (same channel as normal flow)
                 try {
                     window.postMessage(
@@ -413,7 +425,7 @@ const InterviewerContent = ({
                             versionId: versionIdRef.current,
                             beforeHash: computeHash(state.currentCode),
                         },
-                        history: [],
+                        history: historyRef.current,
                         controls: { allowCodeEdits: false },
                         transcript,
                     }),
@@ -423,6 +435,8 @@ const InterviewerContent = ({
                     json?.respondWithCandidate?.text;
                 if (reply) {
                     log.info("🔊 Candidate reply", reply);
+                    historyRef.current.push({ role: "candidate", text: reply });
+                    historyRef.current = historyRef.current.slice(-12);
                     // Emit AI message to chat
                     try {
                         window.postMessage(

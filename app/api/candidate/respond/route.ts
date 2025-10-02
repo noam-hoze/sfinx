@@ -191,8 +191,8 @@ async function generateCandidateReply(
                     },
                     body: JSON.stringify({
                         model,
-                        temperature: 0.6,
-                        max_tokens: 120,
+                        temperature: 0.3,
+                        max_tokens: 140,
                         messages,
                     }),
                 }

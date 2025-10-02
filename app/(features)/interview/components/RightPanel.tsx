@@ -59,7 +59,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
                                 }`}
                             ></div>
                             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                                Carrie
+                                {candidateName}
                             </h3>
                         </div>
                         <div className="text-xs font-medium">
