@@ -142,6 +142,8 @@ const InterviewerContent = ({
     const [isCodingStarted, setIsCodingStarted] = useState(false);
     const [micMuted, setMicMuted] = useState(false);
     const versionIdRef = useRef<string>("v1");
+    const isCodingRef = useRef<boolean>(false);
+    const shouldCodeNextRef = useRef<boolean>(false);
     const ttsRef = useRef<TTSQueue | null>(null);
     const recognitionRef = useRef<any>(null);
     const [isMicListening, setIsMicListening] = useState(false);
@@ -177,6 +179,10 @@ const InterviewerContent = ({
         log.info("🔄 interviewSessionId changed to:", interviewSessionId);
     }, [interviewSessionId]);
 
+    useEffect(() => {
+        isCodingRef.current = isCodingStarted === true;
+    }, [isCodingStarted]);
+
     const sendHiddenDoneMessage = useCallback(async () => {
         try {
             queueUserMessage(
@@ -209,6 +215,24 @@ const InterviewerContent = ({
         setCodingStarted(true);
         await setCodingState(true);
         startTimer();
+        // Silent context push: let model see the code immediately
+        try {
+            await fetch("/api/candidate/respond", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    context: {
+                        file: "UserList.tsx",
+                        versionId: versionIdRef.current,
+                        beforeHash: computeHash(state.currentCode),
+                        text: state.currentCode,
+                    },
+                    history: historyRef.current,
+                    mode: "chat",
+                    utterance: "",
+                }),
+            });
+        } catch {}
     }, [setCodingStarted, setCodingState, startTimer]);
 
     const handleSubmit = useCallback(async () => {
@@ -394,26 +418,44 @@ const InterviewerContent = ({
             try {
                 const result = event.results[event.results.length - 1];
                 if (!result) return;
-                const transcript = result[0]?.transcript?.trim();
+                const transcriptRaw = result[0]?.transcript || "";
+                const transcript = transcriptRaw.trim();
                 if (!transcript) return;
                 log.info("📝 Mic transcript", transcript);
+                // Detect strict trigger phrase
+                const normalized = transcript.toLowerCase();
+                const isOnlyTrigger = normalized === "start coding";
+                const endsWithTrigger = normalized.endsWith(" start coding");
+                if (isOnlyTrigger) {
+                    shouldCodeNextRef.current = true;
+                    log.info("🎯 One-shot code mode armed (now)");
+                }
+                const cleanedTranscript = isOnlyTrigger
+                    ? ""
+                    : endsWithTrigger
+                    ? transcript.replace(/\s*start coding\s*$/i, "").trim()
+                    : transcript;
                 // Update rolling history (last 6 turns)
-                historyRef.current.push({
-                    role: "interviewer",
-                    text: transcript,
-                });
-                historyRef.current = historyRef.current.slice(-12);
+                if (cleanedTranscript) {
+                    historyRef.current.push({
+                        role: "interviewer",
+                        text: cleanedTranscript,
+                    });
+                    historyRef.current = historyRef.current.slice(-12);
+                }
                 // Emit user message to chat (same channel as normal flow)
                 try {
-                    window.postMessage(
-                        {
-                            type: "transcription",
-                            text: transcript,
-                            speaker: "user",
-                            timestamp: new Date(),
-                        },
-                        "*"
-                    );
+                    if (cleanedTranscript) {
+                        window.postMessage(
+                            {
+                                type: "transcription",
+                                text: cleanedTranscript,
+                                speaker: "user",
+                                timestamp: new Date(),
+                            },
+                            "*"
+                        );
+                    }
                 } catch {}
                 // Pause mic while candidate speaks
                 recognition.stop();
@@ -425,24 +467,113 @@ const InterviewerContent = ({
                     );
                 } catch {}
                 log.info("📨 Sending transcript to candidate API");
+                const requestBeforeHash = computeHash(state.currentCode);
+                const requestedCodeMode = shouldCodeNextRef.current === true;
+                log.info("📤 Candidate API request", {
+                    mode: requestedCodeMode ? "code" : "chat",
+                    allowCodeEdits: requestedCodeMode,
+                    textLen: cleanedTranscript.length,
+                    codeLen: state.currentCode.length,
+                    versionId: versionIdRef.current,
+                    beforeHash: requestBeforeHash,
+                });
                 const res = await fetch("/api/candidate/respond", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         context: {
-                            file: "training.tsx",
+                            file: "UserList.tsx",
                             versionId: versionIdRef.current,
-                            beforeHash: computeHash(state.currentCode),
+                            beforeHash: requestBeforeHash,
+                            text: state.currentCode,
                         },
                         history: historyRef.current,
-                        controls: { allowCodeEdits: false },
-                        transcript,
+                        mode: requestedCodeMode ? "code" : "chat",
+                        controls: {
+                            allowCodeEdits: requestedCodeMode,
+                        },
+                        utterance: cleanedTranscript,
                     }),
                 });
                 const json = await res.json();
                 const reply: string | undefined =
                     json?.respondWithCandidate?.text;
-                if (reply) {
+                const edits: Array<{
+                    file: string;
+                    range: { start: number; end: number };
+                    replacement: string;
+                }> = json?.respondWithCandidate?.codeEdits || [];
+                log.info("📥 Candidate API response", {
+                    replyLen: reply ? reply.length : 0,
+                    editsCount: edits.length,
+                });
+
+                if (edits.length > 0) {
+                    // Fail fast on version/hash mismatch
+                    log.info("🧩 Applying edits", edits);
+                    const currentHashNow = computeHash(state.currentCode);
+                    if (currentHashNow !== requestBeforeHash) {
+                        log.warn("⚠️ Version/hash mismatch", {
+                            currentHashNow,
+                            requestBeforeHash,
+                        });
+                        try {
+                            window.postMessage(
+                                {
+                                    type: "transcription",
+                                    text: "Version conflict detected. Skipping edits; will rebase on next turn.",
+                                    speaker: "system",
+                                    timestamp: new Date(),
+                                },
+                                "*"
+                            );
+                        } catch {}
+                        // clear one-shot trigger even on conflict
+                        shouldCodeNextRef.current = false;
+                    } else {
+                        const applyRes = applyCodeEditsSafely(
+                            state.currentCode,
+                            edits
+                        );
+                        if (applyRes.ok) {
+                            updateCurrentCode(applyRes.text);
+                            versionIdRef.current = mintNextVersionId(
+                                versionIdRef.current
+                            );
+                            // clear one-shot trigger on successful apply
+                            shouldCodeNextRef.current = false;
+                            try {
+                                window.postMessage(
+                                    {
+                                        type: "transcription",
+                                        text: `Applied ${edits.length} edit(s) to ${edits[0].file}`,
+                                        speaker: "system",
+                                        timestamp: new Date(),
+                                    },
+                                    "*"
+                                );
+                            } catch {}
+                        } else {
+                            log.warn(
+                                "❌ Failed to apply edits:",
+                                applyRes.reason
+                            );
+                            // clear one-shot trigger on failure, too
+                            shouldCodeNextRef.current = false;
+                            try {
+                                window.postMessage(
+                                    {
+                                        type: "transcription",
+                                        text: `Failed to apply edits: ${applyRes.reason}`,
+                                        speaker: "system",
+                                        timestamp: new Date(),
+                                    },
+                                    "*"
+                                );
+                            } catch {}
+                        }
+                    }
+                } else if (reply) {
                     log.info("🔊 Candidate reply", reply);
                     historyRef.current.push({ role: "candidate", text: reply });
                     historyRef.current = historyRef.current.slice(-12);
@@ -459,6 +590,24 @@ const InterviewerContent = ({
                         );
                     } catch {}
                     await ttsRef.current!.speak(reply);
+                    // clear any pending trigger if we spoke instead of coding
+                    shouldCodeNextRef.current = false;
+                } else {
+                    if (requestedCodeMode) {
+                        log.warn("⚠️ Code mode returned no edits and no text");
+                        shouldCodeNextRef.current = false;
+                        try {
+                            window.postMessage(
+                                {
+                                    type: "transcription",
+                                    text: "No code edits were returned.",
+                                    speaker: "system",
+                                    timestamp: new Date(),
+                                },
+                                "*"
+                            );
+                        } catch {}
+                    }
                 }
             } catch (e) {
                 log.warn("Mic loop error", e);
