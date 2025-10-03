@@ -12,13 +12,19 @@ import { useConversation } from "@elevenlabs/react";
 import { useInterview } from "../../../../shared/contexts";
 import AnimatedWaveform from "./AnimatedWaveform";
 import { logger } from "../../../../shared/services";
+import { useConversationRoleBehavior } from "./useConversationRoleBehavior";
+import type { RoleConfig } from "../../../../shared/contexts/types";
 const log = logger.for("@RealTimeConversation.tsx");
 
 // Enable verbose logging for this module only
 if (typeof window !== "undefined") {
     logger.setEnabled(true);
     logger.setNamespacedOnly(true);
-    logger.setModules(["@RealTimeConversation.tsx"]);
+    logger.setModules([
+        "@RealTimeConversation.tsx",
+        "@InterviewIDE.tsx",
+        "@clientTools.ts",
+    ]);
     logger.setLevels(["debug", "info", "warn", "error"]);
 }
 
@@ -32,6 +38,7 @@ interface RealTimeConversationProps {
     onInterviewConcluded?: () => void;
     isInterviewActive?: boolean;
     candidateName?: string;
+    roles?: RoleConfig; // default interviewer=elevenLabs, candidate=human
     // State machine functions passed from parent
     handleUserTranscript?: (transcript: string) => Promise<void>;
     updateKBVariables?: (updates: any) => Promise<void>;
@@ -54,6 +61,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             onInterviewConcluded,
             isInterviewActive = false,
             candidateName = "Candidate",
+            roles = { interviewer: "elevenLabs", candidate: "human" },
             handleUserTranscript,
             updateKBVariables,
             kbVariables,
@@ -75,6 +83,9 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         const hasAutoStartedRef = useRef<boolean>(false);
         const autoStartPendingRef = useRef<boolean>(false);
 
+        // Role behavior strategy (keeps component transport-only)
+        const roleBehavior = useConversationRoleBehavior(roles, automaticMode);
+
         // State machine functions are now passed as props from parent
 
         // ElevenLabs conversation binding and event handlers
@@ -84,6 +95,16 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                 log.info("✅ Connected to Eleven Labs");
                 setIsConnected(true);
                 setConnectionStatus("Connected");
+
+                // Log client-tool API availability on connect
+                const anyConv: any = conversation as any;
+                log.info("Client-tool API availability on connect", {
+                    status: conversation.status,
+                    hasSet: typeof anyConv?.setClientTools === "function",
+                    hasRegister:
+                        typeof anyConv?.registerClientTool === "function",
+                    hasAdd: typeof anyConv?.addClientTool === "function",
+                });
 
                 // Prime KB variables immediately on connect
                 updateKBVariables?.({
@@ -128,42 +149,34 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                     const isAiMessage = message.source !== "user";
                     let messageText = message.message;
 
-                    if (isAiMessage) {
-                        // Track AI responses for automatic interview ending
-                        setLastAiResponse(messageText);
+                    // Client tools are now registered on the session; no interception here
 
-                        // Automatic start coding trigger
-                        if (automaticMode && !hasAutoStartedRef.current) {
-                            const normalized = messageText
-                                .toLowerCase()
-                                .replace(/[`'".,!?]/g, "")
-                                .replace(/\s+/g, " ")
-                                .trim();
-                            const trigger =
-                                "please build a react component called userlist";
-                            if (normalized.includes(trigger)) {
-                                autoStartPendingRef.current = true;
-                                log.info(
-                                    "🎯 Trigger phrase detected; will auto-start after agent finishes speaking"
-                                );
-                            }
-                        }
+                    // Track AI responses for automatic interview ending
+                    if (isAiMessage) setLastAiResponse(messageText);
 
-                        if (
-                            messageText
-                                .toLowerCase()
-                                .includes(
-                                    "the next steps will be shared with you shortly."
-                                )
-                        ) {
-                            log.info(
-                                "🎯 Detected closing message - preparing to end interview"
-                            );
-                            setIsClosingMessagePlaying(true);
-                        } else {
-                            log.info("❌ Closing message pattern not found");
-                        }
-                    } else {
+                    // Role-driven auto-start trigger
+                    if (
+                        !hasAutoStartedRef.current &&
+                        roleBehavior.shouldAutoStartFromMessage({
+                            text: messageText,
+                            source: isAiMessage ? "ai" : "user",
+                        })
+                    ) {
+                        autoStartPendingRef.current = true;
+                        log.info(
+                            "🎯 Trigger phrase detected; will auto-start after current speaker finishes"
+                        );
+                    }
+
+                    // Role-driven closing-line detection (interviewer=ElevenLabs only)
+                    if (roleBehavior.isClosingLine(messageText)) {
+                        log.info(
+                            "🎯 Detected closing message - preparing to end interview"
+                        );
+                        setIsClosingMessagePlaying(true);
+                    }
+
+                    if (!isAiMessage) {
                         // Handle user transcripts through state machine
                         if (handleUserTranscript) {
                             await handleUserTranscript(messageText);
@@ -213,7 +226,9 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
          */
         const getSignedUrl = useCallback(async (): Promise<string> => {
             log.info("🔗 Interviewer: Fetching signed URL...");
-            const response = await fetch("/api/convai");
+            const roleQuery =
+                roles.candidate === "elevenLabs" ? "candidate" : "interviewer";
+            const response = await fetch(`/api/convai?role=${roleQuery}`);
             log.info("🔗 Interviewer: Response status:", response.status);
 
             if (!response.ok) {
@@ -241,6 +256,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         const micStreamRef = useRef<MediaStream | null>(null);
         const hasSubmittedRef = useRef<boolean>(false);
         const concludedRef = useRef<boolean>(false);
+        const pendingClientToolsRef = useRef<any | null>(null);
 
         /**
          * Requests mic permissions and flips the recording flag to begin connect flow.
@@ -272,8 +288,15 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                 log.info("Got signed URL:", signedUrl);
                 log.info("🎯 Interviewer: Starting ElevenLabs session...");
 
-                // Remove delay to match test page
-                await conversation.startSession({ signedUrl });
+                // Transport-only: start session with signed URL; include client tools if provided via proxy prior to start
+                const startArgs: any = { signedUrl };
+                if (pendingClientToolsRef.current) {
+                    startArgs.clientTools = pendingClientToolsRef.current;
+                    log.info("Including client tools in startSession", {
+                        toolNames: Object.keys(pendingClientToolsRef.current),
+                    });
+                }
+                await conversation.startSession(startArgs);
                 log.info("Session started successfully");
             } catch (error) {
                 log.error("Failed to start conversation session:", error);
@@ -489,6 +512,43 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             sendUserMessage,
             micMuted,
             toggleMicMute,
+            // Expose minimal tool registration proxies for external wiring
+            setClientTools: (tools: any) => {
+                const anyConv: any = conversation as any;
+                log.info("RTC.setClientTools invoked", {
+                    hasSet: typeof anyConv?.setClientTools === "function",
+                    toolNames: Object.keys(tools || {}),
+                    status: conversation.status,
+                });
+                // Always cache tools for startSession fallback
+                pendingClientToolsRef.current = tools;
+                if (typeof anyConv.setClientTools === "function") {
+                    anyConv.setClientTools(tools);
+                }
+            },
+            registerClientTool: (name: string, handler: any) => {
+                const anyConv: any = conversation as any;
+                log.info("RTC.registerClientTool invoked", {
+                    hasRegister:
+                        typeof anyConv?.registerClientTool === "function",
+                    name,
+                    status: conversation.status,
+                });
+                if (typeof anyConv.registerClientTool === "function") {
+                    anyConv.registerClientTool(name, handler);
+                }
+            },
+            addClientTool: (name: string, handler: any) => {
+                const anyConv: any = conversation as any;
+                log.info("RTC.addClientTool invoked", {
+                    hasAdd: typeof anyConv?.addClientTool === "function",
+                    name,
+                    status: conversation.status,
+                });
+                if (typeof anyConv.addClientTool === "function") {
+                    anyConv.addClientTool(name, handler);
+                }
+            },
         }));
 
         // Monitor AI speaking state to detect when closing message audio ends

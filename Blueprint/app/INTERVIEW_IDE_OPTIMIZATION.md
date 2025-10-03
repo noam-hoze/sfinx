@@ -17,7 +17,7 @@ This document outlines the current architecture, responsibilities, and a priorit
     -   State: UI theme, coding timer, camera, screen recording (MediaRecorder), interview lifecycle, telemetry creation, tabs, code diff display, mic state.
     -   Data: fetches job by `jobId` for logo and context.
     -   Context/Providers: `useInterview`, `useJobApplication` from `lib`; drives code/task state and application status.
-    -   Voice/AI: integrates `useElevenLabsStateMachine` for KB variables, transcript handling, coding state, and submission; connects to `RealTimeConversation` via ref for start/stop/messaging.
+    -   Voice/AI: integrates `useElevenLabsAsInterviewer` for KB variables, transcript handling, coding state, and submission; connects to `RealTimeConversation` via ref for start/stop/messaging.
     -   Editor/Chat: renders `EditorPanel` (code editor, preview, diff controls) and `ChatPanel` (mic mute, transcript area).
     -   Recording: manages screen capture + mic/system audio mix, start/stop, chunk handling, blob creation, upload sequence, and session update.
     -   Interview/session: creates application and interview session, tracks `interviewSessionId`, triggers telemetry creation, completion screen, and navigation.

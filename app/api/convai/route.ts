@@ -5,15 +5,20 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const customAgentId = searchParams.get("agentId");
+        const role = searchParams.get("role");
 
         const agentId =
-            customAgentId || process.env.ELEVEN_LABS_INTERVIEWER_AGENT_ID;
+            customAgentId ||
+            (role === "candidate"
+                ? process.env.ELEVEN_LABS_CANDIDATE_AGENT_ID
+                : process.env.ELEVEN_LABS_INTERVIEWER_AGENT_ID);
 
         logger.info("Test signed URL - Agent ID:", agentId);
         logger.info(
             "Test signed URL - Custom agent ID provided:",
             !!customAgentId
         );
+        logger.info("Test signed URL - Role:", role || "interviewer");
         logger.info(
             "ELEVENLABS_API_KEY present:",
             !!process.env.ELEVENLABS_API_KEY

@@ -9,7 +9,7 @@ Single source of truth for the end-to-end interview behavior across UI, state ma
 -   App shell: `app/interview/components/InterviewIDE.tsx`
 -   Conversation bridge: `app/interview/components/chat/RealTimeConversation.tsx`
 -   Editor: `app/interview/components/editor/EditorPanel.tsx`
--   State machine: `lib/hooks/useElevenLabsStateMachine.ts`
+-   State machine: `lib/hooks/useElevenLabsAsInterviewer.ts`
 
 ### Canonical KB variables (mirrored to ElevenLabs)
 
@@ -37,9 +37,9 @@ Single source of truth for the end-to-end interview behavior across UI, state ma
 
 1. Check NEXT_PUBLIC_AUTOMATIC_MODE
     - if false
-        User clicks “Start Coding” → `is_coding=true` (KB_UPDATE).
+      User clicks “Start Coding” → `is_coding=true` (KB_UPDATE).
     - if true
-        The agent finishes saying "You can ask me anything you want"  → `is_coding=true` (KB_UPDATE).
+      The agent finishes saying "You can ask me anything you want" → `is_coding=true` (KB_UPDATE).
 2. Timer begins (30 minutes). Editor becomes writable.
 3. Code summary updates: throttled to ~1.5s; sent while connected.
 
@@ -96,13 +96,13 @@ Flow:
 -   All KB_UPDATE sends are logged.
 -   Detection of the closing line is logged; conclusion is logged exactly once.
 
-
 ### Possible caveats in prompt
+
 At the moment the flow is working.
 But if something breaks, check here:
 
-- Partially aligned: coding phase reactive rules match.
-- Gaps vs spec: task should come only after user affirms readiness; your prompt delivers it immediately.
-- Missing: AI-nudge behavior (ask exactly one question about added code, then revert to reactive).
-- Closing: prompt unconditionally lists the closing line; spec says only after hidden “I’m done” message (never otherwise).
-- Suggest: gate task on readiness, add AI-nudge rule, and condition closing strictly on hidden completion message.
+-   Partially aligned: coding phase reactive rules match.
+-   Gaps vs spec: task should come only after user affirms readiness; your prompt delivers it immediately.
+-   Missing: AI-nudge behavior (ask exactly one question about added code, then revert to reactive).
+-   Closing: prompt unconditionally lists the closing line; spec says only after hidden “I’m done” message (never otherwise).
+-   Suggest: gate task on readiness, add AI-nudge rule, and condition closing strictly on hidden completion message.

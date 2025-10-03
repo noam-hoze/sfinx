@@ -16,12 +16,16 @@ import InterviewOverlay from "./InterviewOverlay";
 import CameraPreview from "./CameraPreview";
 import HeaderControls from "./HeaderControls";
 import RightPanel from "./RightPanel";
+import type { RoleConfig } from "../../../shared/contexts/types";
 import {
     InterviewProvider,
     useInterview,
     useJobApplication,
 } from "../../../shared/contexts";
-import { useElevenLabsStateMachine } from "../../../shared/hooks/useElevenLabsStateMachine";
+import {
+    useElevenLabsAsInterviewer,
+    useElevenLabsAsCandidate,
+} from "../../../shared/hooks";
 import { logger } from "../../../shared/services";
 import { useCamera } from "./hooks/useCamera";
 import { useScreenRecording } from "./hooks/useScreenRecording";
@@ -60,7 +64,13 @@ const getInitialCode = () => DEFAULT_CODE;
  * Main interview container: orchestrates UI state, timers, recording,
  * and the ElevenLabs-driven state machine for conversation and coding flow.
  */
-const InterviewerContent = () => {
+const InterviewerContent = ({
+    candidateNameOverride,
+    roles: rolesProp,
+}: {
+    candidateNameOverride?: string;
+    roles?: RoleConfig;
+}) => {
     const {
         state,
         getCurrentTask,
@@ -77,7 +87,8 @@ const InterviewerContent = () => {
     const companyId = searchParams.get("companyId");
     const jobId = searchParams.get("jobId");
     const [job, setJob] = useState<any | null>(null);
-    const candidateName = (session?.user as any)?.name || "Candidate";
+    const candidateName =
+        candidateNameOverride || (session?.user as any)?.name || "Candidate";
 
     /**
      * Queues a contextual knowledge-base update for the agent (non-blocking).
@@ -118,7 +129,13 @@ const InterviewerContent = () => {
         kbVariables,
         handleUserTranscript,
         updateKBVariables,
-    } = useElevenLabsStateMachine(
+    } = useElevenLabsAsInterviewer(
+        onElevenLabsUpdate,
+        onSendUserMessage,
+        candidateName
+    );
+
+    const candidateHook = useElevenLabsAsCandidate(
         onElevenLabsUpdate,
         onSendUserMessage,
         candidateName
@@ -137,6 +154,10 @@ const InterviewerContent = () => {
     const [interviewConcluded, setInterviewConcluded] = useState(false);
     const realTimeConversationRef = useRef<any>(null);
     const automaticMode = process.env.NEXT_PUBLIC_AUTOMATIC_MODE === "true";
+    const roles: RoleConfig = rolesProp || {
+        interviewer: "elevenLabs",
+        candidate: "human",
+    };
 
     useThemePreference();
 
@@ -260,7 +281,44 @@ const InterviewerContent = () => {
 
             updateCurrentCode(getInitialCode());
             window.postMessage({ type: "clear-chat" }, "*");
-            await realTimeConversationRef.current?.startConversation();
+            // Before starting conversation, if candidate is ElevenLabs, register client tools
+            if (roles.candidate === "elevenLabs") {
+                try {
+                    const tools = candidateHook.getClientTools(
+                        () => state.currentCode,
+                        (code: string) => updateCurrentCode(code)
+                    );
+                    // Pre-register tools immediately to avoid early tool-call races
+                    try {
+                        const conv: any = realTimeConversationRef.current;
+                        log.info("RTC pre-register: APIs present", {
+                            hasSet: typeof conv?.setClientTools === "function",
+                            hasRegister:
+                                typeof conv?.registerClientTool === "function",
+                            hasAdd: typeof conv?.addClientTool === "function",
+                        });
+                        conv?.setClientTools?.(tools);
+                        log.info(
+                            "🔧 Pre-registered client tools before session start",
+                            { toolNames: Object.keys(tools) }
+                        );
+                    } catch (_) {}
+                    await realTimeConversationRef.current?.startConversation();
+                    const registered = await (
+                        candidateHook as any
+                    ).registerClientTools?.(
+                        realTimeConversationRef.current,
+                        tools
+                    );
+                    log.info("RTC post-connect tool registration result", {
+                        registered,
+                    });
+                } catch (_) {
+                    // ignore registration errors; session will still start
+                }
+            } else {
+                await realTimeConversationRef.current?.startConversation();
+            }
             setIsInterviewActive(true);
             log.info("🎉 Interview started successfully!");
         } catch (error) {
@@ -484,6 +542,7 @@ const InterviewerContent = () => {
 
                     <Panel defaultSize={30} minSize={25}>
                         <RightPanel
+                            roles={roles}
                             isInterviewActive={isInterviewActive}
                             candidateName={candidateName}
                             handleUserTranscript={handleUserTranscript}
@@ -496,9 +555,49 @@ const InterviewerContent = () => {
                                     void handleStartCoding();
                                 }
                             }}
-                            onStartConversation={() => {
+                            onStartConversation={async () => {
                                 log.info("Conversation started");
                                 setIsInterviewLoading(false);
+                                if (roles.candidate === "elevenLabs") {
+                                    try {
+                                        const tools =
+                                            candidateHook.getClientTools(
+                                                () => state.currentCode,
+                                                (code: string) =>
+                                                    updateCurrentCode(code)
+                                            );
+                                        const conv: any =
+                                            realTimeConversationRef.current;
+                                        log.info(
+                                            "RTC onConnect: APIs present",
+                                            {
+                                                status: (conv as any)?.status,
+                                                hasSet:
+                                                    typeof conv?.setClientTools ===
+                                                    "function",
+                                                hasRegister:
+                                                    typeof conv?.registerClientTool ===
+                                                    "function",
+                                                hasAdd:
+                                                    typeof conv?.addClientTool ===
+                                                    "function",
+                                            }
+                                        );
+                                        const registered = await (
+                                            candidateHook as any
+                                        ).registerClientTools?.(
+                                            realTimeConversationRef.current,
+                                            tools
+                                        );
+                                        log.info(
+                                            "RTC onConnect: tool registration result",
+                                            { registered }
+                                        );
+                                        log.info(
+                                            "🔧 Client tools registered on connect"
+                                        );
+                                    } catch (_) {}
+                                }
                             }}
                             onEndConversation={() => {
                                 log.info("Conversation ended");
@@ -528,10 +627,18 @@ const InterviewerContent = () => {
 /**
  * Root wrapper that provides interview context and renders the main content.
  */
-const InterviewIDE = () => {
+type InterviewIDEProps = {
+    candidateNameOverride?: string;
+    roles?: RoleConfig;
+};
+
+const InterviewIDE = ({ candidateNameOverride, roles }: InterviewIDEProps) => {
     return (
         <InterviewProvider>
-            <InterviewerContent />
+            <InterviewerContent
+                candidateNameOverride={candidateNameOverride}
+                roles={roles}
+            />
         </InterviewProvider>
     );
 };

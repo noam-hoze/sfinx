@@ -2,6 +2,7 @@
 
 import React from "react";
 import RealTimeConversation from "./chat/RealTimeConversation";
+import type { RoleConfig } from "../../../shared/contexts/types";
 import ChatPanel from "./chat/ChatPanel";
 
 interface RightPanelProps {
@@ -23,6 +24,7 @@ interface RightPanelProps {
     setIsAgentConnected: (v: boolean) => void;
     setIsInterviewActive: (v: boolean) => void;
     onStopTimer: () => void;
+    roles?: RoleConfig;
 }
 
 const RightPanel: React.FC<RightPanelProps> = ({
@@ -44,6 +46,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
     setIsAgentConnected,
     setIsInterviewActive,
     onStopTimer,
+    roles,
 }) => {
     return (
         <div className="h-full flex flex-col border-t">
@@ -59,7 +62,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
                                 }`}
                             ></div>
                             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                                Carrie
+                                {candidateName}
                             </h3>
                         </div>
                         <div className="text-xs font-medium">
@@ -83,6 +86,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
                         ref={realTimeConversationRef}
                         isInterviewActive={isInterviewActive}
                         candidateName={candidateName}
+                        roles={roles}
                         handleUserTranscript={handleUserTranscript}
                         updateKBVariables={updateKBVariables}
                         kbVariables={kbVariables}

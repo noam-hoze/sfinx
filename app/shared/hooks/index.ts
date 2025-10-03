@@ -1,2 +1,3 @@
 // Hooks Library Barrel Export
-export { useElevenLabsStateMachine } from "./useElevenLabsStateMachine";
+export { useElevenLabsAsInterviewer } from "./useElevenLabsAsInterviewer";
+export { useElevenLabsAsCandidate } from "./useElevenLabsAsCandidate";

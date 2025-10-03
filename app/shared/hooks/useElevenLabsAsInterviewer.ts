@@ -1,6 +1,6 @@
 "use client";
 /**
- * useElevenLabsStateMachine
+ * useElevenLabsAsInterviewer
  *
  * Purpose
  * - Minimal conduit between the app and ElevenLabs.
@@ -23,7 +23,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { logger } from "../services/logger";
-const log = logger.for("@useElevenLabsStateMachine.ts");
+const log = logger.for("@useElevenLabsAsInterviewer.ts");
 let hasSubmittedOnce = false;
 
 /**
@@ -56,7 +56,7 @@ export interface KBVariables {
 }
 
 /**
- * useElevenLabsStateMachine
+ * useElevenLabsAsInterviewer
  * @param onElevenLabsUpdate  Sends raw text updates (e.g. `KB_UPDATE: {...}`) to ElevenLabs
  * @param onSendUserMessage   Sends a hidden user message (not shown in chat panel)
  * @param candidateName       Initial candidate name (kept in sync if it changes)
@@ -72,7 +72,7 @@ export interface KBVariables {
  *   handleUserTranscript,
  *   setCodingState,
  *   handleSubmission,
- * } = useElevenLabsStateMachine(onElevenLabsUpdate, onSendUserMessage, candidateName);
+ * } = useElevenLabsAsInterviewer(onElevenLabsUpdate, onSendUserMessage, candidateName);
  *
  * // Start coding
  * await setCodingState(true);
@@ -84,7 +84,7 @@ export interface KBVariables {
  * await handleSubmission(code);
  * ```
  */
-export const useElevenLabsStateMachine = (
+export const useElevenLabsAsInterviewer = (
     onElevenLabsUpdate?: (text: string) => Promise<void>,
     onSendUserMessage?: (message: string) => Promise<boolean>,
     candidateName: string = "Candidate"

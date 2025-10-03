@@ -107,6 +107,12 @@ export interface VideoChapter {
     captions?: VideoCaption[];
 }
 
+// Role configuration for conversation participants
+export interface RoleConfig {
+    interviewer: "elevenLabs" | "human";
+    candidate: "elevenLabs" | "human";
+}
+
 export interface WorkstyleMetrics {
     iterationSpeed: {
         value: number; // 0-100

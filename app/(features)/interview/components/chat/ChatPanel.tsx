@@ -21,13 +21,19 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute }: ChatPanelProps) => {
     >([]);
     const [isRecording, setIsRecording] = useState(false);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
+    const idCounterRef = useRef<number>(0);
 
     // Listen for transcription events from RealTimeConversation
     useEffect(() => {
         const handleTranscription = (event: MessageEvent) => {
             if (event.data.type === "transcription") {
                 const newTranscription: TranscriptionMessage = {
-                    id: Date.now().toString(),
+                    id:
+                        typeof crypto !== "undefined" &&
+                        // @ts-ignore - crypto may be unavailable in some environments
+                        typeof crypto.randomUUID === "function"
+                            ? crypto.randomUUID()
+                            : `${Date.now()}-${idCounterRef.current++}`,
                     text: event.data.text,
                     speaker: event.data.speaker || "user",
                     timestamp: new Date(),
