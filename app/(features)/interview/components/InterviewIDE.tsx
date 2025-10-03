@@ -51,8 +51,15 @@ const UserList = () => {
 
 render(UserList);`;
 
+/**
+ * Returns the initial code template displayed in the editor when the interview starts.
+ */
 const getInitialCode = () => DEFAULT_CODE;
 
+/**
+ * Main interview container: orchestrates UI state, timers, recording,
+ * and the ElevenLabs-driven state machine for conversation and coding flow.
+ */
 const InterviewerContent = () => {
     const {
         state,
@@ -72,6 +79,9 @@ const InterviewerContent = () => {
     const [job, setJob] = useState<any | null>(null);
     const candidateName = (session?.user as any)?.name || "Candidate";
 
+    /**
+     * Queues a contextual knowledge-base update for the agent (non-blocking).
+     */
     const onElevenLabsUpdate = useCallback(
         async (text: string) => {
             try {
@@ -85,6 +95,9 @@ const InterviewerContent = () => {
         [queueContextUpdate]
     );
 
+    /**
+     * Queues a user-visible chat message to be sent to the agent.
+     */
     const onSendUserMessage = useCallback(
         async (message: string) => {
             try {
@@ -111,9 +124,9 @@ const InterviewerContent = () => {
         candidateName
     );
 
-    const [availableTabs, setAvailableTabs] = useState<Array<"editor" | "preview">>([
-        "editor",
-    ]);
+    const [availableTabs, setAvailableTabs] = useState<
+        Array<"editor" | "preview">
+    >(["editor"]);
     const [activeTab, setActiveTab] = useState<"editor" | "preview">("editor");
     const [isInterviewActive, setIsInterviewActive] = useState(false);
     const [isInterviewLoading, setIsInterviewLoading] = useState(false);
@@ -128,13 +141,25 @@ const InterviewerContent = () => {
     useThemePreference();
 
     const { isCameraOn, selfVideoRef, toggleCamera } = useCamera();
-    const { startRecording, stopRecording, interviewSessionId, setInterviewSessionId } =
-        useScreenRecording();
+    const {
+        startRecording,
+        stopRecording,
+        interviewSessionId,
+        setInterviewSessionId,
+    } = useScreenRecording();
 
+    /**
+     * Logs whenever the interview session ID changes (useful for tracing recording sessions).
+     */
     useEffect(() => {
         log.info("🔄 interviewSessionId changed to:", interviewSessionId);
     }, [interviewSessionId]);
 
+    /**
+     * Sends a hidden signal instructing the agent to deliver its closing line and end.
+     * Note: This is intended for the mode where ElevenLabs is the interviewer.
+     * When the Human is the interviewer, this should be disabled and not sent.
+     */
     const sendHiddenDoneMessage = useCallback(async () => {
         try {
             queueUserMessage(
@@ -162,6 +187,9 @@ const InterviewerContent = () => {
             },
         });
 
+    /**
+     * Enters coding mode and starts the interview timer.
+     */
     const handleStartCoding = useCallback(async () => {
         setIsCodingStarted(true);
         setCodingStarted(true);
@@ -169,6 +197,9 @@ const InterviewerContent = () => {
         startTimer();
     }, [setCodingStarted, setCodingState, startTimer]);
 
+    /**
+     * Submits the current solution, stops recording, exits coding mode, and stops the timer.
+     */
     const handleSubmit = useCallback(async () => {
         try {
             updateSubmission(state.currentCode);
@@ -192,6 +223,9 @@ const InterviewerContent = () => {
         stopTimer,
     ]);
 
+    /**
+     * Starts the interview: begins recording, creates application/session, resets code, and connects to the agent.
+     */
     const handleInterviewButtonClick = useCallback(async () => {
         try {
             setIsInterviewLoading(true);
@@ -242,21 +276,33 @@ const InterviewerContent = () => {
         setInterviewSessionId,
     ]);
 
+    /**
+     * Toggles microphone mute state via the real-time conversation ref.
+     */
     const toggleMicMute = useCallback(() => {
         if (realTimeConversationRef.current?.toggleMicMute) {
             realTimeConversationRef.current.toggleMicMute();
         }
     }, []);
 
+    /**
+     * Route guard: if no company is selected (and not on practice/training), redirect to job search.
+     */
     useEffect(() => {
         const onPracticePage =
             typeof window !== "undefined" &&
             window.location.pathname === "/practice";
-        if (!companyId && !onPracticePage) {
+        const onTrainingPage =
+            typeof window !== "undefined" &&
+            window.location.pathname === "/interview/training";
+        if (!companyId && !onPracticePage && !onTrainingPage) {
             router.push("/job-search");
         }
     }, [companyId, router]);
 
+    /**
+     * Fetches job details when `jobId` is available; cleans up if unmounted mid-request.
+     */
     useEffect(() => {
         if (!jobId) return;
         let mounted = true;
@@ -272,12 +318,18 @@ const InterviewerContent = () => {
         };
     }, [jobId]);
 
+    /**
+     * Initializes editor content with the default snippet if empty.
+     */
     useEffect(() => {
         if (!state.currentCode) {
             updateCurrentCode(getInitialCode());
         }
     }, [state.currentCode, updateCurrentCode]);
 
+    /**
+     * Resets editor code for specific tasks (e.g., task1-userlist) when task changes.
+     */
     useEffect(() => {
         const currentTask = getCurrentTask();
         if (currentTask?.id === "task1-userlist") {
@@ -285,6 +337,9 @@ const InterviewerContent = () => {
         }
     }, [getCurrentTask, state.currentTaskId, updateCurrentCode]);
 
+    /**
+     * After interview concludes, mark application as applied and optionally redirect to job search.
+     */
     useEffect(() => {
         if (interviewConcluded && companyId) {
             try {
@@ -305,6 +360,9 @@ const InterviewerContent = () => {
         }
     }, [interviewConcluded, companyId, router, markCompanyApplied]);
 
+    /**
+     * Listens for mic mute/unmute messages from child frames and syncs local state.
+     */
     useEffect(() => {
         const handleMicStateChange = (event: MessageEvent) => {
             if (event.data.type === "mic-state-changed") {
@@ -317,6 +375,9 @@ const InterviewerContent = () => {
             window.removeEventListener("message", handleMicStateChange);
     }, []);
 
+    /**
+     * Updates editor code state when user edits.
+     */
     const handleCodeChange = useCallback(
         (code: string) => {
             updateCurrentCode(code);
@@ -324,6 +385,9 @@ const InterviewerContent = () => {
         [updateCurrentCode]
     );
 
+    /**
+     * Switches to the preview tab, adding it if not present.
+     */
     const handleRunCode = useCallback(() => {
         if (!availableTabs.includes("preview")) {
             setAvailableTabs((tabs) => [...tabs, "preview"]);
@@ -331,6 +395,9 @@ const InterviewerContent = () => {
         setActiveTab("preview");
     }, [availableTabs]);
 
+    /**
+     * Switches between editor and preview tabs if the tab exists.
+     */
     const handleTabSwitch = useCallback(
         (tab: "editor" | "preview") => {
             if (availableTabs.includes(tab)) {
@@ -458,6 +525,9 @@ const InterviewerContent = () => {
     );
 };
 
+/**
+ * Root wrapper that provides interview context and renders the main content.
+ */
 const InterviewIDE = () => {
     return (
         <InterviewProvider>

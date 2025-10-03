@@ -26,6 +26,14 @@ import { logger } from "../services/logger";
 const log = logger.for("@useElevenLabsStateMachine.ts");
 let hasSubmittedOnce = false;
 
+/**
+ * Builds a hidden instruction for the ElevenLabs interviewer when external AI usage is detected.
+ * - Sent as a hidden user message (not shown in UI) to nudge a single follow-up question.
+ * - Assumes ElevenLabs is the interviewer.
+ *
+ * Example
+ *   await onSendUserMessage(instructAgentInCaseOfAIUsage("Refactored fetch logic"));
+ */
 const instructAgentInCaseOfAIUsage = (addedCode: any) => `
 Don't answer this message in our voice conversation. It's just to inform you of something.
 The candidate has just used external AI. Now your using_ai variable is
@@ -53,6 +61,29 @@ export interface KBVariables {
  * @param onSendUserMessage   Sends a hidden user message (not shown in chat panel)
  * @param candidateName       Initial candidate name (kept in sync if it changes)
  */
+/**
+ * React hook that coordinates KB variables and side-effects for an ElevenLabs interviewer.
+ *
+ * Usage
+ * ```ts
+ * const {
+ *   kbVariables,
+ *   updateKBVariables,
+ *   handleUserTranscript,
+ *   setCodingState,
+ *   handleSubmission,
+ * } = useElevenLabsStateMachine(onElevenLabsUpdate, onSendUserMessage, candidateName);
+ *
+ * // Start coding
+ * await setCodingState(true);
+ * // Update summary
+ * await updateKBVariables({ current_code_summary: code });
+ * // Handle user speech
+ * await handleUserTranscript("How should I structure this?");
+ * // Submit
+ * await handleSubmission(code);
+ * ```
+ */
 export const useElevenLabsStateMachine = (
     onElevenLabsUpdate?: (text: string) => Promise<void>,
     onSendUserMessage?: (message: string) => Promise<boolean>,
@@ -72,6 +103,11 @@ export const useElevenLabsStateMachine = (
      * - Merge partial updates into KB, sanitize, and emit a KB_UPDATE to ElevenLabs.
      * - Side effect: if using_ai transitions false -> true, send one hidden user message
      *   to nudge the interviewer to ask a single question about current_code_summary.
+     */
+    /**
+     * Merge partial updates into KB, sanitize booleans, emit KB_UPDATE.
+     * Also detects using_ai rising edge (false->true) and sends a one-off hidden message
+     * instructing the interviewer to ask exactly one follow-up question, then resets using_ai.
      */
     const updateKBVariables = useCallback(
         async (updates: Partial<KBVariables>) => {
@@ -157,6 +193,10 @@ export const useElevenLabsStateMachine = (
      * handleUserTranscript
      * - Minimal gate: only forwards transcripts while coding.
      */
+    /**
+     * Forwards user transcript to the agent only while coding.
+     * Keeps the interviewer focused during coding, ignores outside of coding.
+     */
     const handleUserTranscript = useCallback(
         async (transcript: string) => {
             log.info("🎤 User transcript received:", transcript);
@@ -174,6 +214,13 @@ export const useElevenLabsStateMachine = (
      * setCodingState
      * - Toggles coding phase and mirrors to ElevenLabs via KB_UPDATE.
      */
+    /**
+     * Toggles coding phase and mirrors to ElevenLabs via KB_UPDATE.
+     *
+     * Example
+     *   await setCodingState(true); // enter coding
+     *   await setCodingState(false); // exit coding
+     */
     const setCodingState = useCallback(
         async (isCoding: boolean) => {
             await updateKBVariables({
@@ -186,6 +233,12 @@ export const useElevenLabsStateMachine = (
     /**
      * handleSubmission
      * - Sends the final code summary, marks submission, and ends coding.
+     */
+    /**
+     * Finalizes the code summary and ends coding (idempotent: only first call wins).
+     *
+     * Example
+     *   await handleSubmission(finalCode);
      */
     const handleSubmission = useCallback(
         async (code: string) => {
@@ -202,6 +255,9 @@ export const useElevenLabsStateMachine = (
 
     /**
      * Sync candidate name into ElevenLabs KB if the caller changes it.
+     */
+    /**
+     * Keeps candidate name in sync with ElevenLabs KB when the caller updates it.
      */
     useEffect(() => {
         if (candidateName !== kbVariables.candidate_name) {

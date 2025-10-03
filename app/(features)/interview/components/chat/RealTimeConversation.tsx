@@ -22,6 +22,10 @@ if (typeof window !== "undefined") {
     logger.setLevels(["debug", "info", "warn", "error"]);
 }
 
+/**
+ * Props for RealTimeConversation
+ * - Bridges UI with ElevenLabs realtime session and the state machine.
+ */
 interface RealTimeConversationProps {
     onStartConversation?: () => void;
     onEndConversation?: () => void;
@@ -37,6 +41,11 @@ interface RealTimeConversationProps {
     onAutoStartCoding?: () => void;
 }
 
+/**
+ * RealTimeConversation
+ * - Manages the ElevenLabs realtime session lifecycle, mic state, and message flow.
+ * - Forwards transcripts and KB updates; supports auto-start-coding triggers.
+ */
 const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
     (
         {
@@ -68,6 +77,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
 
         // State machine functions are now passed as props from parent
 
+        // ElevenLabs conversation binding and event handlers
         const conversation = useConversation({
             micMuted,
             onConnect: () => {
@@ -198,6 +208,9 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             },
         });
 
+        /**
+         * Fetches a signed URL for ElevenLabs session initialization.
+         */
         const getSignedUrl = useCallback(async (): Promise<string> => {
             log.info("🔗 Interviewer: Fetching signed URL...");
             const response = await fetch("/api/convai");
@@ -229,6 +242,9 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         const hasSubmittedRef = useRef<boolean>(false);
         const concludedRef = useRef<boolean>(false);
 
+        /**
+         * Requests mic permissions and flips the recording flag to begin connect flow.
+         */
         const startConversation = useCallback(async () => {
             try {
                 log.info("🎤 Interviewer: Requesting audio permissions...");
@@ -246,6 +262,9 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             }
         }, []);
 
+        /**
+         * Starts the ElevenLabs realtime session using the signed URL.
+         */
         const connectToElevenLabs = useCallback(async () => {
             try {
                 log.info("Getting signed URL...");
@@ -269,6 +288,9 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             }
         }, [getSignedUrl, conversation]);
 
+        /**
+         * When recording turns on, connect to ElevenLabs; otherwise do nothing.
+         */
         useEffect(() => {
             if (isRecording) {
                 log.info("🔄 isRecording is true, connecting to ElevenLabs...");
@@ -279,6 +301,9 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         }, [isRecording]); // eslint-disable-line react-hooks/exhaustive-deps
 
         // Auto KB_UPDATE on code changes (using state machine)
+        /**
+         * Throttled code-summary KB updates while connected and before submission.
+         */
         useEffect(() => {
             if (conversation.status !== "connected") {
                 return;
@@ -324,6 +349,9 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         }, [state.currentCode, conversation.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
         // Flush queued updates/messages from context when connected
+        /**
+         * Flushes queued context updates and user messages when a connection is live.
+         */
         useEffect(() => {
             if (conversation.status !== "connected") return;
 
@@ -364,6 +392,9 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             state.userMessagesQueue,
         ]);
 
+        /**
+         * Gracefully ends session: clears timers, stops mic, closes session, updates UI.
+         */
         const disconnectFromConversation = useCallback(() => {
             log.info("🔌 Disconnecting from conversation...");
 
@@ -395,12 +426,18 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             log.info("✅ Disconnection complete");
         }, [conversation, onEndConversation]);
 
+        /**
+         * Public wrapper to end the session.
+         */
         const stopConversation = useCallback(async () => {
             log.info("🛑 Stop conversation called");
             disconnectFromConversation();
         }, [disconnectFromConversation]);
 
         // Toggle mic mute function
+        /**
+         * Toggles microphone mute state and notifies parent via postMessage.
+         */
         const toggleMicMute = useCallback(() => {
             setMicMuted((prev) => {
                 const newValue = !prev;
@@ -419,6 +456,9 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         // Minimal test function - exactly as requested
 
         // Send user message method
+        /**
+         * Sends a user message through the realtime session if connected.
+         */
         const sendUserMessage = useCallback(
             async (message: string) => {
                 try {
@@ -441,6 +481,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         );
 
         // Expose methods to parent component
+        // Expose imperative API to parent
         useImperativeHandle(ref, () => ({
             startConversation,
             stopConversation,
@@ -451,6 +492,11 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         }));
 
         // Monitor AI speaking state to detect when closing message audio ends
+        /**
+         * Tracks speaking state for two flows:
+         * 1) End interview after closing message finishes.
+         * 2) Auto-start coding after trigger text once speaker finishes (automatic mode).
+         */
         useEffect(() => {
             if (isClosingMessagePlaying && !conversation.isSpeaking) {
                 log.info(
@@ -501,6 +547,9 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         ]);
 
         // Cleanup on unmount
+        /**
+         * Cleanup on unmount: stop mic and close session.
+         */
         useEffect(() => {
             return () => {
                 // Stop microphone stream tracks on unmount
