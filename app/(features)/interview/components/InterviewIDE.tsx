@@ -542,6 +542,20 @@ const InterviewerContent = ({
                             );
                             // clear one-shot trigger on successful apply
                             shouldCodeNextRef.current = false;
+                            // Explicitly resume mic listening after code apply
+                            try {
+                                recognition.start();
+                                setIsMicListening(true);
+                                try {
+                                    window.postMessage(
+                                        {
+                                            type: "recording-status",
+                                            isRecording: true,
+                                        },
+                                        "*"
+                                    );
+                                } catch {}
+                            } catch {}
                             try {
                                 window.postMessage(
                                     {
