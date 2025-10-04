@@ -1,0 +1,78 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Recording Metadata",
+    "type": "object",
+    "required": [
+        "session_id",
+        "purpose",
+        "interviewer",
+        "candidate",
+        "task",
+        "environment",
+        "timestamps"
+    ],
+    "properties": {
+        "session_id": { "type": "string" },
+        "purpose": { "const": "train_interviewer_digital_twin" },
+        "interviewer": {
+            "type": "object",
+            "required": ["id", "role", "audio_recorded"],
+            "properties": {
+                "id": { "type": "string" },
+                "role": { "const": "human" },
+                "audio_recorded": { "type": "boolean" }
+            }
+        },
+        "candidate": {
+            "type": "object",
+            "required": [
+                "id",
+                "role",
+                "skill_level",
+                "behavior_model",
+                "ai_model",
+                "seed",
+                "temperature"
+            ],
+            "properties": {
+                "id": { "type": "string" },
+                "role": { "const": "ai" },
+                "skill_level": { "type": "number", "enum": [2.5, 5, 7, 9] },
+                "behavior_model": { "type": "string" },
+                "ai_model": { "type": "string" },
+                "seed": { "type": "integer" },
+                "temperature": { "type": "number", "minimum": 0, "maximum": 1 }
+            }
+        },
+        "task": {
+            "type": "object",
+            "required": ["id", "brief"],
+            "properties": {
+                "id": { "type": "string" },
+                "brief": { "type": "string" }
+            }
+        },
+        "environment": {
+            "type": "object",
+            "required": ["editor", "language", "framework", "tools_enabled"],
+            "properties": {
+                "editor": { "type": "string" },
+                "language": { "type": "string" },
+                "framework": { "type": "string" },
+                "tools_enabled": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                }
+            }
+        },
+        "timestamps": {
+            "type": "object",
+            "required": ["started_at"],
+            "properties": {
+                "started_at": { "type": "string" },
+                "ended_at": { "type": "string", "nullable": true }
+            }
+        },
+        "notes": { "type": "string" }
+    }
+}

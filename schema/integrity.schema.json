@@ -1,0 +1,21 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Integrity",
+    "type": "object",
+    "required": [
+        "model",
+        "seed",
+        "temperature",
+        "persona_hash",
+        "tool_policy",
+        "timestamp"
+    ],
+    "properties": {
+        "model": { "type": "string" },
+        "seed": { "type": "integer" },
+        "temperature": { "type": "number" },
+        "persona_hash": { "type": "string" },
+        "tool_policy": { "type": "string" },
+        "timestamp": { "type": "string" }
+    }
+}

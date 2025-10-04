@@ -1,0 +1,12 @@
+{
+  "step": {{step}},
+  "t": {{t}},
+  "file": "{{file}}",
+  "tool_call": "{{tool_call}}",
+  "params": {{params}},
+  "mode": "{{mode}}",
+  "content_sha256": "{{content_sha256}}",
+  "description": "{{description}}"
+}
+
+

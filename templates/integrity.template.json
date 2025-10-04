@@ -1,0 +1,10 @@
+{
+  "model": "gpt-5",
+  "seed": {{seed}},
+  "temperature": {{temperature}},
+  "persona_hash": "{{persona_hash}}",
+  "tool_policy": "edit-only-when-asked",
+  "timestamp": "{{timestamp}}"
+}
+
+

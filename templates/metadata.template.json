@@ -1,0 +1,35 @@
+{
+  "session_id": "{{session_id}}",
+  "purpose": "train_interviewer_digital_twin",
+  "interviewer": {
+    "id": "noam",
+    "role": "human",
+    "audio_recorded": {{audio_recorded}}
+  },
+  "candidate": {
+    "id": "larry_sim",
+    "role": "ai",
+    "skill_level": {{skill_level}},
+    "behavior_model": "{{behavior_model}}",
+    "ai_model": "gpt-5",
+    "seed": {{seed}},
+    "temperature": {{temperature}}
+  },
+  "task": {
+    "id": "{{task_id}}",
+    "brief": "{{task_brief}}"
+  },
+  "environment": {
+    "editor": "monaco",
+    "language": "typescript",
+    "framework": "react",
+    "tools_enabled": ["open_file", "write_file"]
+  },
+  "timestamps": {
+    "started_at": "{{started_at}}",
+    "ended_at": null
+  },
+  "notes": "{{notes}}"
+}
+
+

@@ -1,0 +1,18 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Transcript Line",
+    "type": "object",
+    "required": ["t", "role", "speaker", "text"],
+    "properties": {
+        "t": { "type": "number", "minimum": 0 },
+        "role": {
+            "type": "string",
+            "enum": ["interviewer", "candidate", "tool"]
+        },
+        "speaker": { "type": "string" },
+        "text": { "type": "string" },
+        "intent": { "type": "string" },
+        "persona_state": { "type": "string" }
+    },
+    "additionalProperties": true
+}

@@ -1,0 +1,22 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Code Step",
+    "type": "object",
+    "required": ["step", "t", "file", "tool_call", "params"],
+    "properties": {
+        "step": { "type": "integer", "minimum": 0 },
+        "t": { "type": "number", "minimum": 0 },
+        "file": { "type": "string" },
+        "tool_call": { "type": "string", "enum": ["open_file", "write_file"] },
+        "params": { "type": "object" },
+        "mode": {
+            "type": "string",
+            "enum": ["replace", "lineEdits"],
+            "nullable": true
+        },
+        "content_sha256": { "type": "string" },
+        "description": { "type": "string" },
+        "compile_ok": { "type": "boolean" }
+    },
+    "additionalProperties": true
+}
