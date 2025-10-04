@@ -16,9 +16,10 @@
         "purpose": { "const": "train_interviewer_digital_twin" },
         "interviewer": {
             "type": "object",
-            "required": ["id", "role", "audio_recorded"],
+            "required": ["id", "display_name", "role", "audio_recorded"],
             "properties": {
                 "id": { "type": "string" },
+                "display_name": { "type": "string" },
                 "role": { "const": "human" },
                 "audio_recorded": { "type": "boolean" }
             }
@@ -27,6 +28,7 @@
             "type": "object",
             "required": [
                 "id",
+                "display_name",
                 "role",
                 "skill_level",
                 "behavior_model",
@@ -36,6 +38,7 @@
             ],
             "properties": {
                 "id": { "type": "string" },
+                "display_name": { "type": "string" },
                 "role": { "const": "ai" },
                 "skill_level": { "type": "number", "enum": [2.5, 5, 7, 9] },
                 "behavior_model": { "type": "string" },

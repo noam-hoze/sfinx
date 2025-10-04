@@ -13,6 +13,8 @@ interface HeaderControlsProps {
     isInterviewActive: boolean;
     onStartCoding: () => void;
     onSubmit: () => void;
+    recordingEnabled?: boolean;
+    onToggleRecording?: () => void;
 }
 
 const HeaderControls: React.FC<HeaderControlsProps> = ({
@@ -25,9 +27,27 @@ const HeaderControls: React.FC<HeaderControlsProps> = ({
     isInterviewActive,
     onStartCoding,
     onSubmit,
+    recordingEnabled,
+    onToggleRecording,
 }) => {
     return (
         <div className="flex items-center space-x-4">
+            {/* Recording toggle (left of camera) */}
+            {typeof recordingEnabled !== "undefined" &&
+                typeof onToggleRecording === "function" && (
+                    <button
+                        onClick={onToggleRecording}
+                        className={`px-2 py-1 rounded border text-xs ${
+                            recordingEnabled
+                                ? "border-red-400 text-red-600"
+                                : "border-gray-300 text-gray-600"
+                        }`}
+                        title="Toggle recording"
+                    >
+                        {recordingEnabled ? "rec on" : "rec off"}
+                    </button>
+                )}
+
             {/* Camera toggle */}
             <button
                 onClick={onToggleCamera}
@@ -44,6 +64,9 @@ const HeaderControls: React.FC<HeaderControlsProps> = ({
                     <Camera className="w-5 h-5" />
                 )}
             </button>
+
+            {/* Recording toggle (header-only) */}
+            {/* removed duplicate instance; keeping a single button to the left of camera */}
 
             {/* Timer Display */}
             {isCodingStarted && (

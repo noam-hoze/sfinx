@@ -16,4 +16,4 @@ app/api/debug/seed/ok
 .DS_Store
 
 *.mp4
-*.jsonl
+# *.jsonl

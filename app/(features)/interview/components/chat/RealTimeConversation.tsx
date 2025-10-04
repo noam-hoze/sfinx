@@ -19,6 +19,7 @@ import {
     startRecordingSession,
     sendAudioChunk,
     endRecordingSession,
+    appendTranscriptLine,
 } from "../../../../shared/services/recordings";
 const log = logger.for("@RealTimeConversation.tsx");
 
@@ -216,6 +217,16 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                             "*"
                         );
                     }
+                    try {
+                        if (sessionIdRef.current) {
+                            void appendTranscriptLine(
+                                sessionIdRef.current,
+                                isAiMessage ? "candidate" : "interviewer",
+                                isAiMessage ? "larry_sim" : "noam",
+                                messageText
+                            );
+                        }
+                    } catch (_) {}
                 }
             },
             onError: (error: any) => {
@@ -289,6 +300,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         const pendingClientToolsRef = useRef<any | null>(null);
         const mediaRecorderRef = useRef<MediaRecorder | null>(null);
         const audioChunkIndexRef = useRef<number>(0);
+        const sessionIdRef = useRef<string | null>(null);
 
         /**
          * Requests mic permissions and flips the recording flag to begin connect flow.
@@ -303,52 +315,10 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                 log.info("✅ Interviewer: Audio permissions granted");
                 setIsRecording(true);
                 log.info("✅ Interviewer: Audio setup complete");
-                // Start audio recording (interviewer mic) - only if enabled
-                if (recordingEnabled)
-                    try {
-                        const sessionId = `session_${Date.now()}`;
-                        await startRecordingSession({
-                            session_id: sessionId,
-                            metadata: {
-                                session_id: sessionId,
-                                purpose: "train_interviewer_digital_twin",
-                                interviewer: {
-                                    id: "noam",
-                                    role: "human",
-                                    audio_recorded: true,
-                                },
-                                candidate: { id: "larry_sim", role: "ai" },
-                                task: { id: "unknown", brief: "" },
-                                environment: {
-                                    editor: "monaco",
-                                    language: "typescript",
-                                    framework: "react",
-                                    tools_enabled: ["open_file", "write_file"],
-                                },
-                                timestamps: {
-                                    started_at: new Date().toISOString(),
-                                    ended_at: null,
-                                },
-                                notes: "auto-start",
-                            },
-                        });
-                        const mr = new MediaRecorder(micStream, {
-                            mimeType: "audio/webm",
-                        });
-                        mediaRecorderRef.current = mr;
-                        audioChunkIndexRef.current = 0;
-                        mr.ondataavailable = async (e: BlobEvent) => {
-                            if (!e.data || e.data.size === 0) return;
-                            try {
-                                await sendAudioChunk(
-                                    sessionId,
-                                    e.data,
-                                    audioChunkIndexRef.current++
-                                );
-                            } catch (_) {}
-                        };
-                        mr.start(1000);
-                    } catch (_) {}
+                // Recording will be managed reactively by the toggle below
+                if (recordingEnabled) {
+                    // Defer actual start to reactive effect
+                }
                 if (engine === "openai") {
                     const SpeechRecognition: any =
                         (window as any).webkitSpeechRecognition ||
@@ -375,6 +345,10 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                             ) {
                                 if (e.results[i].isFinal) {
                                     const text = e.results[i][0].transcript;
+                                    log.info(
+                                        "🎤 onresult final user text",
+                                        text
+                                    );
                                     window.parent.postMessage(
                                         {
                                             type: "transcription",
@@ -385,6 +359,20 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                                         },
                                         "*"
                                     );
+                                    try {
+                                        if (sessionIdRef.current) {
+                                            log.info(
+                                                "🧾 append user line",
+                                                sessionIdRef.current
+                                            );
+                                            void appendTranscriptLine(
+                                                sessionIdRef.current,
+                                                "interviewer",
+                                                "noam",
+                                                text
+                                            );
+                                        }
+                                    } catch (_) {}
                                     void handleUserTranscript?.(text);
                                 }
                             }
@@ -589,12 +577,18 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                 micStreamRef.current = null;
                 log.info("✅ Microphone tracks stopped");
             }
-            // Stop recorder
+            // Stop recorder and end recording session if active
             if (mediaRecorderRef.current) {
                 try {
                     mediaRecorderRef.current.stop();
                 } catch (_) {}
                 mediaRecorderRef.current = null;
+            }
+            if (sessionIdRef.current) {
+                try {
+                    void endRecordingSession(sessionIdRef.current);
+                } catch (_) {}
+                sessionIdRef.current = null;
             }
 
             log.info("🔚 Ending session");
@@ -622,6 +616,83 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             log.info("🛑 Stop conversation called");
             disconnectFromConversation();
         }, [disconnectFromConversation]);
+
+        // React to recording toggle without interrupting conversation flow
+        useEffect(() => {
+            (async () => {
+                try {
+                    // Start recording when enabled and not already recording
+                    if (recordingEnabled && micStreamRef.current) {
+                        if (!sessionIdRef.current) {
+                            const iso = new Date()
+                                .toISOString()
+                                .replace(/[:.]/g, "-");
+                            const sessionId = `session_${iso}`;
+                            sessionIdRef.current = sessionId;
+                            await startRecordingSession({
+                                session_id: sessionId,
+                                metadata: {
+                                    session_id: sessionId,
+                                    purpose: "train_interviewer_digital_twin",
+                                    interviewer: {
+                                        id: "noam",
+                                        role: "human",
+                                        audio_recorded: true,
+                                    },
+                                    candidate: { id: "larry_sim", role: "ai" },
+                                    task: { id: "unknown", brief: "" },
+                                    environment: {
+                                        editor: "monaco",
+                                        language: "typescript",
+                                        framework: "react",
+                                        tools_enabled: [
+                                            "open_file",
+                                            "write_file",
+                                        ],
+                                    },
+                                    timestamps: {
+                                        started_at: new Date().toISOString(),
+                                        ended_at: null,
+                                    },
+                                    notes: "toggle-start",
+                                },
+                            });
+                            const mr = new MediaRecorder(micStreamRef.current, {
+                                mimeType: "audio/webm",
+                            });
+                            mediaRecorderRef.current = mr;
+                            audioChunkIndexRef.current = 0;
+                            mr.ondataavailable = async (e: BlobEvent) => {
+                                if (!e.data || e.data.size === 0) return;
+                                try {
+                                    await sendAudioChunk(
+                                        sessionId,
+                                        e.data,
+                                        audioChunkIndexRef.current++
+                                    );
+                                } catch (_) {}
+                            };
+                            mr.start(1000);
+                        }
+                    }
+                    // Stop recording when disabled
+                    if (!recordingEnabled) {
+                        if (mediaRecorderRef.current) {
+                            try {
+                                mediaRecorderRef.current.stop();
+                            } catch (_) {}
+                            mediaRecorderRef.current = null;
+                        }
+                        if (sessionIdRef.current) {
+                            try {
+                                await endRecordingSession(sessionIdRef.current);
+                            } catch (_) {}
+                            sessionIdRef.current = null;
+                        }
+                    }
+                } catch (_) {}
+            })();
+        }, [recordingEnabled]);
 
         // Toggle mic mute function
         /**

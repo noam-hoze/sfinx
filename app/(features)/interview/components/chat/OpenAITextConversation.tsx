@@ -11,6 +11,7 @@ import { useInterview } from "../../../../shared/contexts";
 import type { RoleConfig } from "../../../../shared/contexts/types";
 import { logger } from "../../../../shared/services";
 import { buildClientTools, registerClientTools } from "./clientTools";
+import { appendTranscriptLine } from "../../../../shared/services/recordings";
 import candidateProfile from "server/data/candidates/larry_frontend_developer.json";
 
 const log = logger.for("@OpenAITextConversation.tsx");
@@ -142,7 +143,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
                         };
                     }
 
-                    // Append user turn
+                    // Append user turn (transcript for interviewer is logged by RealTimeConversation via Web Speech)
                     messagesRef.current.push({
                         role: "user",
                         content: message,
@@ -259,6 +260,18 @@ const OpenAITextConversation = forwardRef<any, Props>(
 
                     if (assistantText) {
                         postChatMessage("ai", assistantText);
+                        try {
+                            const sessionId = (window as any)
+                                ?.__recordingSessionId;
+                            if (sessionId) {
+                                void appendTranscriptLine(
+                                    sessionId,
+                                    "candidate",
+                                    "larry_sim",
+                                    assistantText
+                                );
+                            }
+                        } catch (_) {}
                         messagesRef.current.push({
                             role: "assistant",
                             content: assistantText,

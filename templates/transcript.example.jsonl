@@ -1,0 +1,5 @@
+{"t": 0.0, "role": "interviewer", "speaker": "noam", "text": "Hey Larry."}
+{"t": 1.1, "role": "candidate", "speaker": "larry_sim", "text": "Hi, nice to be here.", "persona_state": "calm"}
+{"t": 3.2, "role": "interviewer", "speaker": "noam", "text": "Open the file and tell me what you see.", "intent": "instruction"}
+{"t": 5.0, "role": "tool", "speaker": "open_file", "text": "OK", "intent": "tool_call"}
+{"t": 7.3, "role": "interviewer", "speaker": "noam", "text": "Walk me through it.", "intent": "probe"}

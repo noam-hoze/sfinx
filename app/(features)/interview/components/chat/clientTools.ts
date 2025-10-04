@@ -70,11 +70,11 @@ function applyLineEdits(original: string, edits: LineEdit[]) {
     return { content: lines.join("\n"), diffs };
 }
 
-export function executeClientToolCall(
+export async function executeClientToolCall(
     call: ClientToolCall,
     getCode: () => string,
     setCode: (code: string) => void
-): ClientToolResult {
+): Promise<ClientToolResult> {
     log.info("🛠️ Executing client tool call:", call);
     try {
         if (call.tool_name === "open_file") {
@@ -89,6 +89,25 @@ export function executeClientToolCall(
             const { content, patch, lineEdits } = call.parameters || {};
             if (typeof content === "string") {
                 setCode(content);
+                try {
+                    const sessionId = (window as any)?.__recordingSessionId;
+                    const interviewerId = (window as any)?.__interviewerId;
+                    const candidateId = (window as any)?.__candidateId;
+                    if (sessionId) {
+                        await fetch("/api/recordings/code/snapshot", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                session_id: sessionId,
+                                interviewer_id: interviewerId,
+                                candidate_id: candidateId,
+                                ms: Date.now(),
+                                ts: new Date().toISOString(),
+                                content,
+                            }),
+                        });
+                    }
+                } catch (_) {}
                 return {
                     tool_call_id: call.tool_call_id,
                     result: {
@@ -112,6 +131,26 @@ export function executeClientToolCall(
                         : nextContent + "\n";
                     setCode(normalized);
                     log.info("✍️ Applied line edits:", diffs);
+                    // Snapshot after applying edits
+                    try {
+                        const sessionId = (window as any)?.__recordingSessionId;
+                        const interviewerId = (window as any)?.__interviewerId;
+                        const candidateId = (window as any)?.__candidateId;
+                        if (sessionId) {
+                            await fetch("/api/recordings/code/snapshot", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    session_id: sessionId,
+                                    interviewer_id: interviewerId,
+                                    candidate_id: candidateId,
+                                    ms: Date.now(),
+                                    ts: new Date().toISOString(),
+                                    content: normalized,
+                                }),
+                            });
+                        }
+                    } catch (_) {}
                     return {
                         tool_call_id: call.tool_call_id,
                         result: { ok: true, mode: "lineEdits", diffs },
@@ -167,7 +206,7 @@ export function buildClientTools(
 ) {
     return {
         open_file: async () => {
-            const result = executeClientToolCall(
+            const result = await executeClientToolCall(
                 { tool_name: "open_file", tool_call_id: "client" } as any,
                 getCode,
                 setCode
@@ -180,7 +219,7 @@ export function buildClientTools(
                     parameters.lineEdits = JSON.parse(parameters.lineEdits);
                 } catch (_) {}
             }
-            const result = executeClientToolCall(
+            const result = await executeClientToolCall(
                 {
                     tool_name: "write_file",
                     tool_call_id: "client",

@@ -515,6 +515,10 @@ const InterviewerContent = ({
                             isInterviewActive={isInterviewActive}
                             onStartCoding={handleStartCoding}
                             onSubmit={handleSubmit}
+                            recordingEnabled={recordingEnabled}
+                            onToggleRecording={() =>
+                                setRecordingEnabled((v) => !v)
+                            }
                         />
                     </div>
                 </div>

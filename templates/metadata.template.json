@@ -3,11 +3,13 @@
   "purpose": "train_interviewer_digital_twin",
   "interviewer": {
     "id": "noam",
+    "display_name": "Noam",
     "role": "human",
     "audio_recorded": {{audio_recorded}}
   },
   "candidate": {
     "id": "larry_sim",
+    "display_name": "Larry",
     "role": "ai",
     "skill_level": {{skill_level}},
     "behavior_model": "{{behavior_model}}",

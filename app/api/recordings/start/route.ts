@@ -13,7 +13,19 @@ export async function POST(req: Request) {
                 { status: 400 }
             );
         }
-        const root = path.join(process.cwd(), "recordings", session_id);
+        // derive nested path from metadata
+        const interviewerId: string | undefined = metadata?.interviewer?.id;
+        const candidateId: string | undefined = metadata?.candidate?.id;
+        const root =
+            interviewerId && candidateId
+                ? path.join(
+                      process.cwd(),
+                      "recordings",
+                      `${interviewerId}_interviewer`,
+                      `${candidateId}_candidate`,
+                      session_id
+                  )
+                : path.join(process.cwd(), "recordings", session_id);
         const codeDir = path.join(root, "code");
         const logsDir = path.join(root, "logs");
         fs.mkdirSync(codeDir, { recursive: true });
@@ -22,6 +34,11 @@ export async function POST(req: Request) {
             path.join(root, "metadata.json"),
             JSON.stringify(metadata, null, 2)
         );
+        // Ensure transcript file exists
+        const transcriptPath = path.join(root, "transcript.jsonl");
+        if (!fs.existsSync(transcriptPath)) {
+            fs.writeFileSync(transcriptPath, "");
+        }
         return NextResponse.json({ ok: true });
     } catch (e: any) {
         return NextResponse.json(

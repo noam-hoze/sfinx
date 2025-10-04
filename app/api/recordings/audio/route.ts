@@ -6,6 +6,8 @@ export async function POST(req: Request) {
     try {
         const { searchParams } = new URL(req.url);
         const session_id = searchParams.get("session_id");
+        const interviewer_id = searchParams.get("interviewer_id");
+        const candidate_id = searchParams.get("candidate_id");
         const index = Number(searchParams.get("index") || 0);
         if (!session_id) {
             return NextResponse.json(
@@ -13,7 +15,16 @@ export async function POST(req: Request) {
                 { status: 400 }
             );
         }
-        const root = path.join(process.cwd(), "recordings", session_id);
+        const root =
+            interviewer_id && candidate_id
+                ? path.join(
+                      process.cwd(),
+                      "recordings",
+                      `${interviewer_id}_interviewer`,
+                      `${candidate_id}_candidate`,
+                      session_id
+                  )
+                : path.join(process.cwd(), "recordings", session_id);
         const audioPath = path.join(root, "audio_interviewer.webm");
         const chunk = Buffer.from(await req.arrayBuffer());
         // Append chunk to WAV (assumes pre-encoded PCM/WAV chunks client-side)

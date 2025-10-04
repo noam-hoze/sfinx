@@ -63,7 +63,14 @@ if (!defs) {
     process.exit(1);
 }
 
-const root = path.join("recordings", session_id);
+const interviewerId = "noam";
+const candidateId = "larry_sim";
+const root = path.join(
+    "recordings",
+    `${interviewerId}_interviewer`,
+    `${candidateId}_candidate`,
+    session_id
+);
 const codeDir = path.join(root, "code");
 const logsDir = path.join(root, "logs");
 fs.mkdirSync(codeDir, { recursive: true });
