@@ -2,7 +2,7 @@
 
 import React from "react";
 import RealTimeConversation from "./chat/RealTimeConversation";
-import OpenAITextConversation from "./chat/OpenAITextConversation";
+import OpenAITextConversation from "app/(features)/interview/components/chat/OpenAITextConversation";
 import type { RoleConfig } from "../../../shared/contexts/types";
 import ChatPanel from "./chat/ChatPanel";
 
@@ -26,6 +26,8 @@ interface RightPanelProps {
     setIsInterviewActive: (v: boolean) => void;
     onStopTimer: () => void;
     roles?: RoleConfig;
+    recordingEnabled?: boolean;
+    onToggleRecording?: () => void;
 }
 
 const RightPanel: React.FC<RightPanelProps> = ({
@@ -48,6 +50,8 @@ const RightPanel: React.FC<RightPanelProps> = ({
     setIsInterviewActive,
     onStopTimer,
     roles,
+    recordingEnabled,
+    onToggleRecording,
 }) => {
     return (
         <div className="h-full flex flex-col border-t">
@@ -66,7 +70,18 @@ const RightPanel: React.FC<RightPanelProps> = ({
                                 {candidateName}
                             </h3>
                         </div>
-                        <div className="text-xs font-medium">
+                        <div className="text-xs font-medium flex items-center gap-3">
+                            <button
+                                onClick={onToggleRecording}
+                                className={`px-2 py-1 rounded border text-xs ${
+                                    recordingEnabled
+                                        ? "border-red-400 text-red-600"
+                                        : "border-gray-300 text-gray-600"
+                                }`}
+                                title="Toggle recording"
+                            >
+                                {recordingEnabled ? "rec on" : "rec off"}
+                            </button>
                             <span
                                 className={
                                     isInterviewActive && isAgentConnected
@@ -94,6 +109,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
                         kbVariables={kbVariables}
                         automaticMode={automaticMode}
                         onAutoStartCoding={onAutoStartCoding}
+                        recordingEnabled={recordingEnabled}
                         onStartConversation={() => {
                             setIsAgentConnected(true);
                             onStartConversation();

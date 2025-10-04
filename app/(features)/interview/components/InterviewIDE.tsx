@@ -163,6 +163,7 @@ const InterviewerContent = ({
     const [isAgentConnected, setIsAgentConnected] = useState(false);
     const [isCodingStarted, setIsCodingStarted] = useState(false);
     const [micMuted, setMicMuted] = useState(false);
+    const [recordingEnabled, setRecordingEnabled] = useState(false);
     const [applicationCreated, setApplicationCreated] = useState(false);
     const [interviewConcluded, setInterviewConcluded] = useState(false);
     const realTimeConversationRef = useRef<any>(null);
@@ -633,6 +634,10 @@ const InterviewerContent = ({
                             setIsAgentConnected={setIsAgentConnected}
                             setIsInterviewActive={setIsInterviewActive}
                             onStopTimer={stopTimer}
+                            recordingEnabled={recordingEnabled}
+                            onToggleRecording={() =>
+                                setRecordingEnabled((v) => !v)
+                            }
                         />
                     </Panel>
                 </PanelGroup>
