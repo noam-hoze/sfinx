@@ -157,3 +157,82 @@ export interface TelemetryData {
     workstyle: WorkstyleMetrics;
     hasFairnessFlag: boolean;
 }
+
+// Candidate Characteristics (1-5 scale)
+export interface CandidateCharacteristics {
+    independence: 1 | 2 | 3 | 4 | 5;
+    creativity: 1 | 2 | 3 | 4 | 5;
+    testingCode: 1 | 2 | 3 | 4 | 5;
+    documenting: 1 | 2 | 3 | 4 | 5;
+    speed: 1 | 2 | 3 | 4 | 5;
+    thoroughness: 1 | 2 | 3 | 4 | 5;
+    collaboration: 1 | 2 | 3 | 4 | 5;
+    problemSolving: 1 | 2 | 3 | 4 | 5;
+}
+
+export type CharacteristicLevel = 1 | 2 | 3 | 4 | 5;
+
+export type CandidateCharacteristicDescriptions = Record<
+    keyof CandidateCharacteristics,
+    Record<CharacteristicLevel, string>
+>;
+
+export const CANDIDATE_CHARACTERISTIC_DESCRIPTIONS: CandidateCharacteristicDescriptions =
+    {
+        independence: {
+            1: "Needs constant guidance to progress",
+            2: "Handles simple tasks with supervision",
+            3: "Works alone on familiar problems",
+            4: "Self-driven and proactive in resolving blockers",
+            5: "Operates fully autonomously and mentors others",
+        },
+        creativity: {
+            1: "Follows patterns without deviation",
+            2: "Occasionally suggests minor tweaks",
+            3: "Combines known ideas into new ones",
+            4: "Frequently produces fresh, effective solutions",
+            5: "Consistently invents original and elegant approaches",
+        },
+        testingCode: {
+            1: "Rarely tests, relies on others to find bugs",
+            2: "Tests only when errors occur",
+            3: "Writes basic unit tests when prompted",
+            4: "Actively tests edge cases and integrations",
+            5: "Designs robust, automated test coverage",
+        },
+        documenting: {
+            1: "Leaves code undocumented",
+            2: "Adds minimal notes when required",
+            3: "Documents main logic clearly",
+            4: "Maintains consistent, structured documentation",
+            5: "Produces exemplary, teachable documentation",
+        },
+        speed: {
+            1: "Works slowly, struggles to deliver",
+            2: "Completes simple tasks at a steady pace",
+            3: "Balanced between speed and quality",
+            4: "Delivers fast without major trade-offs",
+            5: "Exceptionally quick and efficient under pressure",
+        },
+        thoroughness: {
+            1: "Misses key details",
+            2: "Checks partial results",
+            3: "Reviews own work for major errors",
+            4: "Double-checks and validates all paths",
+            5: "Anticipates issues and ensures bulletproof output",
+        },
+        collaboration: {
+            1: "Struggles to work with others",
+            2: "Communicates reactively",
+            3: "Shares updates and feedback when asked",
+            4: "Contributes actively to team flow",
+            5: "Elevates group performance through clear, positive collaboration",
+        },
+        problemSolving: {
+            1: "Gets stuck without direction",
+            2: "Solves straightforward issues",
+            3: "Breaks problems into workable parts",
+            4: "Finds smart shortcuts and optimizations",
+            5: "Masters complex challenges with elegant reasoning",
+        },
+    };
