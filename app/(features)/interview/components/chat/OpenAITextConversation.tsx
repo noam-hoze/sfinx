@@ -189,15 +189,6 @@ const OpenAITextConversation = forwardRef<any, Props>(
                                     call.function?.name,
                                     parsedArgs
                                 );
-                                // Prefer animated typing when doing full replace
-                                if (
-                                    call.function?.name === "write_file" &&
-                                    parsedArgs &&
-                                    typeof parsedArgs === "object" &&
-                                    typeof parsedArgs.content === "string"
-                                ) {
-                                    parsedArgs.animate = true;
-                                }
                                 const output = await handler?.(parsedArgs);
                                 toolResults.push({
                                     tool_call_id: call.id,

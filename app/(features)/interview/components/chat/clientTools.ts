@@ -70,34 +70,6 @@ function applyLineEdits(original: string, edits: LineEdit[]) {
     return { content: lines.join("\n"), diffs };
 }
 
-let typingInProgress = false;
-async function animateTyping(
-    finalContent: string,
-    setCode: (code: string) => void,
-    opts?: { wpm?: number }
-) {
-    try {
-        typingInProgress = true;
-        const wpm = Math.max(10, Math.min(200, opts?.wpm ?? 50));
-        const dt = (60 / (wpm * 5)) * 1000; // ms per char
-        let buf = "";
-        setCode("");
-        const chars = Array.from(finalContent);
-        for (let i = 0; i < chars.length; i++) {
-            buf += chars[i];
-            setCode(buf);
-            const c = chars[i];
-            let delay = dt;
-            if (c === "\n") delay *= 1.6;
-            else if (/[,;)}\]]/.test(c)) delay *= 1.2;
-            // eslint-disable-next-line no-await-in-loop
-            await new Promise((r) => setTimeout(r, delay));
-        }
-    } finally {
-        typingInProgress = false;
-    }
-}
-
 export function executeClientToolCall(
     call: ClientToolCall,
     getCode: () => string,
@@ -114,14 +86,9 @@ export function executeClientToolCall(
         }
 
         if (call.tool_name === "write_file") {
-            const { content, patch, lineEdits, animate } =
-                call.parameters || {};
+            const { content, patch, lineEdits } = call.parameters || {};
             if (typeof content === "string") {
-                if (animate && !typingInProgress) {
-                    void animateTyping(content, setCode, { wpm: 50 });
-                } else {
-                    setCode(content);
-                }
+                setCode(content);
                 return {
                     tool_call_id: call.tool_call_id,
                     result: {
@@ -277,8 +244,10 @@ export async function registerClientTools(conversation: any, tools: any) {
             }
         }
         log.info("registerClientTools: result", { registered });
+        // No-op if SDK lacks APIs; RTC will remain transport-only
         return registered;
     } catch (_) {
+        // Swallow; RTC will log connection errors already
         return false;
     }
 }
