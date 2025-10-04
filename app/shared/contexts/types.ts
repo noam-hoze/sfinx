@@ -236,3 +236,73 @@ export const CANDIDATE_CHARACTERISTIC_DESCRIPTIONS: CandidateCharacteristicDescr
             5: "Masters complex challenges with elegant reasoning",
         },
     };
+
+// Personality traits (1-5 scale)
+export interface PersonalityTraits {
+    confidence: 1 | 2 | 3 | 4 | 5;
+    modesty: 1 | 2 | 3 | 4 | 5;
+    curiosity: 1 | 2 | 3 | 4 | 5;
+    emotionalAwareness: 1 | 2 | 3 | 4 | 5;
+    communication: 1 | 2 | 3 | 4 | 5;
+    calmnessUnderPressure: 1 | 2 | 3 | 4 | 5;
+    gratitude: 1 | 2 | 3 | 4 | 5;
+}
+
+export type PersonalityTraitLevel = 1 | 2 | 3 | 4 | 5;
+
+export type PersonalityTraitDescriptions = Record<
+    keyof PersonalityTraits,
+    Record<PersonalityTraitLevel, string>
+>;
+
+export const PERSONALITY_TRAIT_DESCRIPTIONS: PersonalityTraitDescriptions = {
+    confidence: {
+        1: "Hesitant, second-guesses every choice, overly cautious",
+        2: "Careful, seeks reassurance before acting, mild nervousness",
+        3: "Balanced confidence; calm, corrects mistakes without panic",
+        4: "Assured and composed; speaks clearly, owns success and errors",
+        5: "Strong self-belief; decisive, conviction without arrogance",
+    },
+    modesty: {
+        1: "Overly self-promoting; brags about achievements",
+        2: "Occasionally humble but eager to impress",
+        3: "Balanced; acknowledges success, credits teamwork",
+        4: "Naturally modest; honest about limits and growth",
+        5: "Deep humility; downplays achievements, deflects praise gracefully",
+    },
+    curiosity: {
+        1: "Passive; waits for orders, no initiative to learn",
+        2: "Asks questions only when confused",
+        3: "Seeks to understand the problem before acting",
+        4: "Actively curious; insightful, concise clarifying questions",
+        5: "Deeply inquisitive; explores context and implications",
+    },
+    emotionalAwareness: {
+        1: "Flat affect; no visible emotional reactions",
+        2: "Slight tension; rarely expresses feelings",
+        3: "Subtle reactions to success or stress (smiles, sighs, nods)",
+        4: "Authentic emotions appropriately (relief, gratitude, excitement)",
+        5: "Deeply attuned; mirrors tone, empathetic and warm",
+    },
+    communication: {
+        1: "Robotic/scripted; unnatural phrasing",
+        2: "Stilted; overly formal or dry",
+        3: "Clear and natural, slightly restrained",
+        4: "Conversational, relatable, warm; real expressions",
+        5: "Effortlessly human; dynamic tone, uses pauses/humor/emotion",
+    },
+    calmnessUnderPressure: {
+        1: "Panics easily; freezes or over-apologizes",
+        2: "Nervous but functional; small verbal fillers",
+        3: "Keeps focus; regains balance after mistakes",
+        4: "Steady tone/body language; adapts smoothly",
+        5: "Unflappable; handles stress with poise and quiet confidence",
+    },
+    gratitude: {
+        1: "Ungrateful or dismissive",
+        2: "Says thanks only when reminded",
+        3: "Says thank you when guided or praised",
+        4: "Warmly appreciative; genuine without excess",
+        5: "Deeply respectful; makes others feel valued",
+    },
+};
