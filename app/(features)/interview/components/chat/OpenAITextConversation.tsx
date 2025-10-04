@@ -11,6 +11,7 @@ import { useInterview } from "../../../../shared/contexts";
 import type { RoleConfig } from "../../../../shared/contexts/types";
 import { logger } from "../../../../shared/services";
 import { buildClientTools, registerClientTools } from "./clientTools";
+import candidateProfile from "server/data/candidates/larry_frontend_developer.json";
 
 const log = logger.for("@OpenAITextConversation.tsx");
 if (typeof window !== "undefined") {
@@ -54,6 +55,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
         const { state, clearUserMessages, updateCurrentCode } = useInterview();
         const connectedRef = useRef<boolean>(false);
         const controllerRef = useRef<AbortController | null>(null);
+        const messagesRef = useRef<any[]>([]);
 
         const postChatMessage = useCallback(
             (speaker: "ai" | "user", text: string) => {
@@ -88,7 +90,22 @@ const OpenAITextConversation = forwardRef<any, Props>(
                 tools
             );
             log.info("OpenAI adapter ready (text-only)");
-        }, [onStartConversation, state.currentCode, updateCurrentCode]);
+            // Seed system message with persona (name only)
+            const displayName =
+                (candidateProfile as any)?.displayName ||
+                candidateName ||
+                "Larry";
+            const systemContent = [
+                (candidateProfile as any)?.prompt || "",
+                `Name: ${displayName}`,
+            ].join("\n\n");
+            messagesRef.current = [{ role: "system", content: systemContent }];
+        }, [
+            onStartConversation,
+            state.currentCode,
+            updateCurrentCode,
+            candidateName,
+        ]);
 
         const stopConversation = useCallback(() => {
             controllerRef.current?.abort();
@@ -101,23 +118,38 @@ const OpenAITextConversation = forwardRef<any, Props>(
                 if (!connectedRef.current) return false;
 
                 try {
+                    // Refresh system persona (name only) each turn
+                    const displayName =
+                        (candidateProfile as any)?.displayName ||
+                        candidateName ||
+                        "Larry";
+                    const systemContent = [
+                        (candidateProfile as any)?.prompt || "",
+                        `Name: ${displayName}`,
+                    ].join("\n\n");
+                    if (
+                        messagesRef.current.length === 0 ||
+                        messagesRef.current[0]?.role !== "system"
+                    ) {
+                        messagesRef.current.unshift({
+                            role: "system",
+                            content: systemContent,
+                        });
+                    } else {
+                        messagesRef.current[0] = {
+                            role: "system",
+                            content: systemContent,
+                        };
+                    }
+
+                    // Append user turn
+                    messagesRef.current.push({
+                        role: "user",
+                        content: message,
+                    });
+
                     const payload = {
-                        messages: [
-                            {
-                                role: "system",
-                                content:
-                                    `You are the candidate named ${candidateName}. Keep responses short. ` +
-                                    `Tool usage policy: Only call open_file/write_file when KB.is_coding === true. When KB.is_coding === false, do not call tools; ask to start coding instead. ` +
-                                    `KB: ${JSON.stringify({
-                                        candidate_name: candidateName,
-                                        is_coding: !!kbVariables?.is_coding,
-                                        current_code_summary:
-                                            kbVariables?.current_code_summary ||
-                                            "",
-                                    })}`,
-                            },
-                            { role: "user", content: message },
-                        ],
+                        messages: messagesRef.current,
                         enableTools: true,
                     } as any;
 
@@ -136,6 +168,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
                         output: any;
                     }> = [];
                     if (Array.isArray(toolCalls) && toolCalls.length > 0) {
+                        log.info("OpenAI tool_calls", toolCalls);
                         for (const call of toolCalls) {
                             try {
                                 const tools = buildClientTools(
@@ -145,9 +178,18 @@ const OpenAITextConversation = forwardRef<any, Props>(
                                 const handler = (tools as any)[
                                     call.function.name
                                 ];
-                                const output = await handler?.(
-                                    call.function.arguments || {}
+                                const parsedArgs =
+                                    typeof call.function?.arguments === "string"
+                                        ? JSON.parse(
+                                              call.function.arguments || "{}"
+                                          )
+                                        : call.function?.arguments || {};
+                                log.info(
+                                    "Executing tool locally",
+                                    call.function?.name,
+                                    parsedArgs
                                 );
+                                const output = await handler?.(parsedArgs);
                                 toolResults.push({
                                     tool_call_id: call.id,
                                     output,
@@ -160,30 +202,67 @@ const OpenAITextConversation = forwardRef<any, Props>(
                             }
                         }
 
+                        // Build continuation: system + user + assistant(tool_calls) + tool results
+                        const displayName =
+                            (candidateProfile as any)?.displayName ||
+                            candidateName ||
+                            "Larray";
+                        const kbBlob = JSON.stringify({
+                            candidate_name: displayName,
+                            is_coding: !!kbVariables?.is_coding,
+                            current_code_summary:
+                                kbVariables?.current_code_summary || "",
+                        });
+                        const systemContent = [
+                            (candidateProfile as any)?.prompt || "",
+                            `Name: ${displayName}`,
+                            `KB: ${kbBlob}`,
+                        ].join("\n\n");
+
+                        const assistantToolMsg = {
+                            role: "assistant",
+                            content: null,
+                            tool_calls: toolCalls.map((tc: any) => ({
+                                id: tc.id,
+                                type: "function",
+                                function: {
+                                    name: tc.function?.name,
+                                    arguments: JSON.stringify(
+                                        tc.function?.arguments || {}
+                                    ),
+                                },
+                            })),
+                        } as any;
+                        // Persist assistant tool_calls and tool results
+                        messagesRef.current.push(assistantToolMsg);
+                        const toolMsgs = toolResults.map((r) => ({
+                            role: "tool",
+                            tool_call_id: r.tool_call_id,
+                            content: JSON.stringify(r.output),
+                        }));
+                        messagesRef.current.push(...toolMsgs);
+
                         const res2 = await fetch("/api/openai/chat", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
-                                messages: [
-                                    {
-                                        role: "system",
-                                        content:
-                                            "Tool results provided. Continue.",
-                                    },
-                                    {
-                                        role: "tool",
-                                        content: JSON.stringify(toolResults),
-                                    },
-                                ],
+                                messages: messagesRef.current,
                             }),
                             signal: controllerRef.current?.signal,
                         });
                         const data2 = await res2.json();
+                        if (!res2.ok) {
+                            log.error("OpenAI follow-up error", data2);
+                        }
                         assistantText = data2?.text || assistantText;
                     }
 
                     if (assistantText) {
                         postChatMessage("ai", assistantText);
+                        messagesRef.current.push({
+                            role: "assistant",
+                            content: assistantText,
+                        });
                     }
                     return true;
                 } catch (error) {
