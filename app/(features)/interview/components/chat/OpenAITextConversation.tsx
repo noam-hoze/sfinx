@@ -124,9 +124,11 @@ const OpenAITextConversation = forwardRef<any, Props>(
                         (candidateProfile as any)?.displayName ||
                         candidateName ||
                         "Larry";
+                    const editorBlob = (state.currentCode || "").slice(0, 8000);
                     const systemContent = [
                         (candidateProfile as any)?.prompt || "",
                         `Name: ${displayName}`,
+                        `EDITOR_CONTENT:\n${editorBlob}`,
                     ].join("\n\n");
                     if (
                         messagesRef.current.length === 0 ||
@@ -214,10 +216,15 @@ const OpenAITextConversation = forwardRef<any, Props>(
                             current_code_summary:
                                 kbVariables?.current_code_summary || "",
                         });
+                        const editorBlob2 = (state.currentCode || "").slice(
+                            0,
+                            8000
+                        );
                         const systemContent = [
                             (candidateProfile as any)?.prompt || "",
                             `Name: ${displayName}`,
                             `KB: ${kbBlob}`,
+                            `EDITOR_CONTENT:\n${editorBlob2}`,
                         ].join("\n\n");
 
                         const assistantToolMsg = {
@@ -320,6 +327,42 @@ const OpenAITextConversation = forwardRef<any, Props>(
                     connectedRef.current = isRec;
                     if (isRec) onStartConversation?.();
                     else onEndConversation?.();
+                }
+                // On coding start: prime system with current editor content (workaround because explicit local open_file didn't reliably ground the first turn)
+                if (event.data?.type === "coding-started") {
+                    (async () => {
+                        try {
+                            // Prime system with current editor content so the model "has eyes"
+                            const displayName =
+                                (candidateProfile as any)?.displayName ||
+                                candidateName ||
+                                "Larry";
+                            const editorBlob = (state.currentCode || "").slice(
+                                0,
+                                8000
+                            );
+                            const systemContent = [
+                                (candidateProfile as any)?.prompt || "",
+                                `Name: ${displayName}`,
+                                `EDITOR_CONTENT:\n${editorBlob}`,
+                            ].join("\n\n");
+                            if (
+                                messagesRef.current.length === 0 ||
+                                messagesRef.current[0]?.role !== "system"
+                            ) {
+                                messagesRef.current.unshift({
+                                    role: "system",
+                                    content: systemContent,
+                                });
+                            } else {
+                                messagesRef.current[0] = {
+                                    role: "system",
+                                    content: systemContent,
+                                } as any;
+                            }
+                        } catch (_) {}
+                    })();
+                    return;
                 }
                 // Consume interviewer (user) transcripts and forward to OpenAI
                 if (event.data?.type === "transcription") {

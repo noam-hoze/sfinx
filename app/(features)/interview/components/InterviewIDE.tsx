@@ -242,6 +242,8 @@ const InterviewerContent = ({
                     tag: "baseline_on_coding_start",
                 });
             }
+            // Notify OpenAI adapter to silently open the visible code
+            window.parent.postMessage({ type: "coding-started" }, "*");
         } catch (_) {}
     }, [setCodingStarted, setCodingState, startTimer]);
 
