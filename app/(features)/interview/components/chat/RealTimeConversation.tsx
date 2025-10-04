@@ -8,7 +8,8 @@ import React, {
     useImperativeHandle,
     useRef,
 } from "react";
-import { useConversation } from "@elevenlabs/react";
+import { useMicSession } from "./hooks/useMicSession";
+import { useTransportAdapter } from "./hooks/useTransportAdapter";
 import { useInterview } from "../../../../shared/contexts";
 import AnimatedWaveform from "./AnimatedWaveform";
 import { logger } from "../../../../shared/services";
@@ -24,6 +25,9 @@ if (typeof window !== "undefined") {
         "@RealTimeConversation.tsx",
         "@InterviewIDE.tsx",
         "@clientTools.ts",
+        "@OpenAITextConversation.tsx",
+        "@useOpenAiAsCandidate.ts",
+        "@RightPanel.tsx",
     ]);
     logger.setLevels(["debug", "info", "warn", "error"]);
 }
@@ -82,14 +86,20 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             useInterview();
         const hasAutoStartedRef = useRef<boolean>(false);
         const autoStartPendingRef = useRef<boolean>(false);
+        const webSpeechRef = useRef<any>(null);
 
         // Role behavior strategy (keeps component transport-only)
         const roleBehavior = useConversationRoleBehavior(roles, automaticMode);
 
         // State machine functions are now passed as props from parent
 
-        // ElevenLabs conversation binding and event handlers
-        const conversation = useConversation({
+        const engine =
+            process.env.NEXT_PUBLIC_CANDIDATE_ENGINE === "openai"
+                ? "openai"
+                : "elevenlabs";
+
+        // ElevenLabs conversation binding and event handlers via MicSession
+        const { conversation } = useMicSession({
             micMuted,
             onConnect: () => {
                 log.info("✅ Connected to Eleven Labs");
@@ -106,13 +116,15 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                     hasAdd: typeof anyConv?.addClientTool === "function",
                 });
 
-                // Prime KB variables immediately on connect
-                updateKBVariables?.({
-                    candidate_name: candidateName,
-                    is_coding: false,
-                    has_submitted: false,
-                    current_code_summary: state.currentCode ?? "",
-                });
+                if (engine !== "openai") {
+                    // Prime KB variables immediately on connect (ElevenLabs only)
+                    updateKBVariables?.({
+                        candidate_name: candidateName,
+                        is_coding: false,
+                        has_submitted: false,
+                        current_code_summary: state.currentCode ?? "",
+                    });
+                }
 
                 // Notify ChatPanel about recording status
                 window.parent.postMessage(
@@ -183,15 +195,20 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                         }
                     }
 
-                    window.parent.postMessage(
-                        {
-                            type: "transcription",
-                            text: messageText,
-                            speaker: isAiMessage ? "ai" : "user",
-                            timestamp: new Date(),
-                        },
-                        "*"
-                    );
+                    // Always forward user transcripts. For OpenAI engine, suppress AI messages (text-only candidate).
+                    if (engine === "openai" && isAiMessage) {
+                        // no-op: AI voice not used for OpenAI candidate
+                    } else {
+                        window.parent.postMessage(
+                            {
+                                type: "transcription",
+                                text: messageText,
+                                speaker: isAiMessage ? "ai" : "user",
+                                timestamp: new Date(),
+                            },
+                            "*"
+                        );
+                    }
                 }
             },
             onError: (error: any) => {
@@ -220,6 +237,12 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                 }
             },
         });
+
+        // Transport adapter (ElevenLabs/OpenAI)
+        const adapter = useTransportAdapter(
+            engine === "openai" ? "openai" : "elevenlabs",
+            { conversation }
+        );
 
         /**
          * Fetches a signed URL for ElevenLabs session initialization.
@@ -269,20 +292,83 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                 });
                 micStreamRef.current = micStream;
                 log.info("✅ Interviewer: Audio permissions granted");
-
                 setIsRecording(true);
                 log.info("✅ Interviewer: Audio setup complete");
+                if (engine === "openai") {
+                    const SpeechRecognition: any =
+                        (window as any).webkitSpeechRecognition ||
+                        (window as any).SpeechRecognition;
+                    if (SpeechRecognition) {
+                        const rec = new SpeechRecognition();
+                        rec.continuous = true;
+                        rec.interimResults = false;
+                        rec.lang = "en-US";
+                        rec.onstart = () => {
+                            setIsConnected(true);
+                            setConnectionStatus("Connected");
+                            window.parent.postMessage(
+                                { type: "recording-status", isRecording: true },
+                                "*"
+                            );
+                            onStartConversation?.();
+                        };
+                        rec.onresult = (e: any) => {
+                            for (
+                                let i = e.resultIndex;
+                                i < e.results.length;
+                                i++
+                            ) {
+                                if (e.results[i].isFinal) {
+                                    const text = e.results[i][0].transcript;
+                                    window.parent.postMessage(
+                                        {
+                                            type: "transcription",
+                                            text,
+                                            speaker: "user",
+                                            timestamp: new Date(),
+                                            origin: "mic-webspeech",
+                                        },
+                                        "*"
+                                    );
+                                    void handleUserTranscript?.(text);
+                                }
+                            }
+                        };
+                        rec.onerror = () => {};
+                        rec.onend = () => {};
+                        webSpeechRef.current = rec;
+                        rec.start();
+                    } else {
+                        // Fallback: treat as connected
+                        setIsConnected(true);
+                        setConnectionStatus("Connected");
+                        window.parent.postMessage(
+                            { type: "recording-status", isRecording: true },
+                            "*"
+                        );
+                        onStartConversation?.();
+                    }
+                    await adapter.start();
+                    return;
+                }
+                await adapter.start();
             } catch (error) {
                 log.error("❌ Failed to start audio or conversation:", error);
                 setConnectionStatus("Failed to start");
             }
-        }, []);
+        }, [engine, onStartConversation, adapter, handleUserTranscript]);
 
         /**
          * Starts the ElevenLabs realtime session using the signed URL.
          */
         const connectToElevenLabs = useCallback(async () => {
             try {
+                if (engine === "openai") {
+                    log.info(
+                        "🧠 OpenAI engine active: skipping ElevenLabs WS connect"
+                    );
+                    return;
+                }
                 log.info("Getting signed URL...");
                 const signedUrl = await getSignedUrl();
                 log.info("Got signed URL:", signedUrl);
@@ -309,19 +395,28 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                 }
                 setConnectionStatus("Connection failed");
             }
-        }, [getSignedUrl, conversation]);
+        }, [getSignedUrl, conversation, engine]);
 
         /**
          * When recording turns on, connect to ElevenLabs; otherwise do nothing.
          */
         useEffect(() => {
             if (isRecording) {
-                log.info("🔄 isRecording is true, connecting to ElevenLabs...");
-                connectToElevenLabs();
+                if (engine === "openai") {
+                    log.info(
+                        "🎙️ isRecording true (openai): using Web Speech STT only"
+                    );
+                    // startConversation already started recognition
+                } else {
+                    log.info(
+                        "🔄 isRecording is true, connecting to ElevenLabs..."
+                    );
+                    connectToElevenLabs();
+                }
             } else {
                 log.info("⏸️ isRecording is false, not connecting");
             }
-        }, [isRecording]); // eslint-disable-line react-hooks/exhaustive-deps
+        }, [isRecording, engine]); // eslint-disable-line react-hooks/exhaustive-deps
 
         // Auto KB_UPDATE on code changes (using state machine)
         /**
@@ -440,14 +535,23 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                 log.info("✅ Microphone tracks stopped");
             }
 
-            log.info("🔚 Ending ElevenLabs session");
-            conversation.endSession();
+            log.info("🔚 Ending session");
+            if (webSpeechRef.current) {
+                try {
+                    webSpeechRef.current.stop?.();
+                } catch (_) {}
+                webSpeechRef.current = null;
+            }
+            try {
+                conversation.endSession();
+            } catch (_) {}
             setIsRecording(false);
             setIsConnected(false);
             setConnectionStatus("Disconnected");
             onEndConversation?.();
             log.info("✅ Disconnection complete");
-        }, [conversation, onEndConversation]);
+            adapter.stop();
+        }, [conversation, onEndConversation, adapter]);
 
         /**
          * Public wrapper to end the session.
@@ -485,22 +589,15 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         const sendUserMessage = useCallback(
             async (message: string) => {
                 try {
-                    if (conversation.status !== "connected") {
-                        log.warn(
-                            "⏳ Conversation not connected, cannot send message"
-                        );
-                        return false;
-                    }
-
-                    await conversation.sendUserMessage(message);
-                    logger.info("✅ User message sent successfully:", message);
-                    return true;
+                    const ok = await adapter.sendUserMessage(message);
+                    logger.info("✅ User message sent via adapter:", message);
+                    return ok;
                 } catch (error) {
                     logger.error("❌ Failed to send user message:", error);
                     return false;
                 }
             },
-            [conversation]
+            [adapter]
         );
 
         // Expose methods to parent component
@@ -622,6 +719,12 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                         track.stop();
                     });
                     micStreamRef.current = null;
+                }
+                if (webSpeechRef.current) {
+                    try {
+                        webSpeechRef.current.stop?.();
+                    } catch (_) {}
+                    webSpeechRef.current = null;
                 }
                 hasSubmittedRef.current = false;
                 concludedRef.current = false;

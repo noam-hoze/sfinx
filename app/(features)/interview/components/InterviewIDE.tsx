@@ -36,6 +36,19 @@ import { createInterviewSession } from "./services/interviewSessionService";
 import { fetchJobById } from "./services/jobService";
 
 const log = logger.for("@InterviewIDE.tsx");
+if (typeof window !== "undefined") {
+    logger.setEnabled(true);
+    logger.setNamespacedOnly(true);
+    logger.setModules([
+        "@RealTimeConversation.tsx",
+        "@InterviewIDE.tsx",
+        "@clientTools.ts",
+        "@OpenAITextConversation.tsx",
+        "@useOpenAiAsCandidate.ts",
+        "@RightPanel.tsx",
+    ]);
+    logger.setLevels(["debug", "info", "warn", "error"]);
+}
 const INTERVIEW_DURATION_SECONDS = 30 * 60;
 const DEFAULT_CODE = `// Welcome to your coding interview!
 // Create a UserList component that fetches users from an API
@@ -557,6 +570,10 @@ const InterviewerContent = ({
                             }}
                             onStartConversation={async () => {
                                 log.info("Conversation started");
+                                log.info(
+                                    "Engine:",
+                                    process.env.NEXT_PUBLIC_CANDIDATE_ENGINE
+                                );
                                 setIsInterviewLoading(false);
                                 if (roles.candidate === "elevenLabs") {
                                     try {

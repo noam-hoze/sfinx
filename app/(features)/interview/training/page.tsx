@@ -18,8 +18,15 @@ const TrainingPage = () => {
         }
     }, [session, status, router]);
 
-    // Wrap to inject candidate name override via context queue
-    const roles: RoleConfig = { interviewer: "human", candidate: "elevenLabs" };
+    // Select candidate engine via env (NEXT_PUBLIC_CANDIDATE_ENGINE)
+    const engine =
+        process.env.NEXT_PUBLIC_CANDIDATE_ENGINE === "openai"
+            ? "openai"
+            : "elevenLabs";
+    const roles: RoleConfig = {
+        interviewer: "human",
+        candidate: engine as any,
+    };
     return (
         <InterviewIDE
             candidateNameOverride="Larrey (Candidate)"

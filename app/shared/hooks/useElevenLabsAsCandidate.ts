@@ -39,17 +39,7 @@ export const useElevenLabsAsCandidate = (
                 ),
             } as KBVariables;
             setKBVariables(sanitized);
-            if (onElevenLabsUpdate) {
-                const outbound = {
-                    candidate_name: sanitized.candidate_name,
-                    is_coding: sanitized.is_coding,
-                    using_ai: sanitized.using_ai,
-                    current_code_summary: sanitized.current_code_summary,
-                };
-                await onElevenLabsUpdate(
-                    `KB_UPDATE: ${JSON.stringify(outbound)}`
-                );
-            }
+            // Candidate mode: no KB_UPDATE emissions
         },
         [kbVariables, onElevenLabsUpdate]
     );

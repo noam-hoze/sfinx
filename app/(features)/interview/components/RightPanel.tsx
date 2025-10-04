@@ -2,6 +2,7 @@
 
 import React from "react";
 import RealTimeConversation from "./chat/RealTimeConversation";
+import OpenAITextConversation from "./chat/OpenAITextConversation";
 import type { RoleConfig } from "../../../shared/contexts/types";
 import ChatPanel from "./chat/ChatPanel";
 
@@ -82,6 +83,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
                 </div>
 
                 <div className="flex-1 p-4">
+                    {/* Always mount RealTimeConversation for mic/STT/connection indicator */}
                     <RealTimeConversation
                         ref={realTimeConversationRef}
                         isInterviewActive={isInterviewActive}
@@ -104,6 +106,18 @@ const RightPanel: React.FC<RightPanelProps> = ({
                         }}
                         onInterviewConcluded={onInterviewConcluded}
                     />
+                    {/* When OpenAI is candidate, also mount the text adapter to consume transcripts and respond */}
+                    {roles?.candidate === "openai" && (
+                        <OpenAITextConversation
+                            isInterviewActive={isInterviewActive}
+                            candidateName={candidateName}
+                            handleUserTranscript={handleUserTranscript}
+                            updateKBVariables={updateKBVariables}
+                            kbVariables={kbVariables}
+                            onStartConversation={() => {}}
+                            onEndConversation={() => {}}
+                        />
+                    )}
                 </div>
             </div>
 

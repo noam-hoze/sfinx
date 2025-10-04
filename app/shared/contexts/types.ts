@@ -110,7 +110,7 @@ export interface VideoChapter {
 // Role configuration for conversation participants
 export interface RoleConfig {
     interviewer: "elevenLabs" | "human";
-    candidate: "elevenLabs" | "human";
+    candidate: "elevenLabs" | "human" | "openai";
 }
 
 export interface WorkstyleMetrics {
