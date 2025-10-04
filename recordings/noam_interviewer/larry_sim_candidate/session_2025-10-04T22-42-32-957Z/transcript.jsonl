@@ -1,8 +1,0 @@
-{"t":1759617756983,"role":"interviewer","speaker":"noam","text":"hey Larry open the file please"}
-{"t":1759617758504,"role":"candidate","speaker":"larry_sim","text":"Got it, I have the file content here. What would you like me to do with it?"}
-{"t":1759617766581,"role":"interviewer","speaker":"noam","text":" now I want you to add a use effect and in that use effect I want you to fetch data"}
-{"t":1759617767365,"role":"candidate","speaker":"larry_sim","text":"Sure! Just to confirm, should I include loading and error states as well?"}
-{"t":1759617772066,"role":"interviewer","speaker":"noam","text":" not right now"}
-{"t":1759617776996,"role":"candidate","speaker":"larry_sim","text":"I added the useEffect to fetch the user data. It logs the data to the console for now. How does that look?"}
-{"t":1759617780593,"role":"interviewer","speaker":"noam","text":" okay that looks great"}
-{"t":1759617781267,"role":"candidate","speaker":"larry_sim","text":"Awesome, glad to hear that! What would you like to do next?"}

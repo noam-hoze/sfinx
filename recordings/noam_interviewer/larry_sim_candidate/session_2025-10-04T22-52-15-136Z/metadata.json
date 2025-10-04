@@ -1,5 +1,5 @@
 {
-  "session_id": "session_2025-10-04T22-42-32-957Z",
+  "session_id": "session_2025-10-04T22-52-15-136Z",
   "purpose": "train_interviewer_digital_twin",
   "interviewer": {
     "id": "noam",
@@ -24,7 +24,7 @@
     ]
   },
   "timestamps": {
-    "started_at": "2025-10-04T22:42:32.957Z",
+    "started_at": "2025-10-04T22:52:15.136Z",
     "ended_at": null
   },
   "notes": "toggle-start"

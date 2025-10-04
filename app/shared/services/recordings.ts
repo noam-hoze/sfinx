@@ -134,3 +134,35 @@ export async function appendTranscriptLine(
     if (!res.ok) throw new Error(await res.text());
     log.info("appendTranscriptLine: ok", true);
 }
+
+export async function appendCodeSnapshot(
+    sessionId: string,
+    content: string,
+    options?: { initial?: boolean; tag?: string }
+) {
+    let interviewerId: string | undefined;
+    let candidateId: string | undefined;
+    try {
+        if (typeof window !== "undefined") {
+            interviewerId = (window as any)?.__interviewerId;
+            candidateId = (window as any)?.__candidateId;
+        }
+    } catch (_) {}
+    const payload: any = {
+        session_id: sessionId,
+        interviewer_id: interviewerId,
+        candidate_id: candidateId,
+        ms: Date.now(),
+        ts: new Date().toISOString(),
+        content,
+    };
+    if (options?.initial !== undefined)
+        payload.initial_code = !!options.initial;
+    if (options?.tag) payload.tag = options.tag;
+    const res = await fetch("/api/recordings/code/snapshot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(await res.text());
+}

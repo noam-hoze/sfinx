@@ -34,6 +34,7 @@ import { useThemePreference } from "./hooks/useThemePreference";
 import { createApplication } from "./services/applicationService";
 import { createInterviewSession } from "./services/interviewSessionService";
 import { fetchJobById } from "./services/jobService";
+import { appendCodeSnapshot } from "../../../shared/services/recordings";
 
 const log = logger.for("@InterviewIDE.tsx");
 if (typeof window !== "undefined") {
@@ -230,6 +231,18 @@ const InterviewerContent = ({
         setCodingStarted(true);
         await setCodingState(true);
         startTimer();
+        try {
+            const sid = (window as any)?.__recordingSessionId as
+                | string
+                | undefined;
+            if (sid) {
+                const code = state.currentCode || "";
+                await appendCodeSnapshot(sid, code, {
+                    initial: true,
+                    tag: "baseline_on_coding_start",
+                });
+            }
+        } catch (_) {}
     }, [setCodingStarted, setCodingState, startTimer]);
 
     /**
@@ -639,9 +652,6 @@ const InterviewerContent = ({
                             setIsInterviewActive={setIsInterviewActive}
                             onStopTimer={stopTimer}
                             recordingEnabled={recordingEnabled}
-                            onToggleRecording={() =>
-                                setRecordingEnabled((v) => !v)
-                            }
                         />
                     </Panel>
                 </PanelGroup>

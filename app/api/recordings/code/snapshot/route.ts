@@ -9,6 +9,10 @@ export async function POST(req: Request) {
         const content: string | undefined = body?.content;
         const interviewer_id: string | undefined = body?.interviewer_id;
         const candidate_id: string | undefined = body?.candidate_id;
+        const initial_code: boolean | undefined =
+            typeof body?.initial_code === "boolean"
+                ? (body.initial_code as boolean)
+                : undefined;
         const ms: number = typeof body?.ms === "number" ? body.ms : Date.now();
         const ts: string = body?.ts || new Date().toISOString();
         if (!session_id || typeof content !== "string") {
@@ -30,7 +34,11 @@ export async function POST(req: Request) {
         const root = path.join(base, "code");
         fs.mkdirSync(root, { recursive: true });
         const filePath = path.join(root, "snapshots.jsonl");
-        const line = JSON.stringify({ ms, ts, content }) + "\n";
+        const payload: any = { ms, ts, content };
+        if (typeof initial_code === "boolean")
+            payload.initial_code = initial_code;
+        if (body?.tag && typeof body.tag === "string") payload.tag = body.tag;
+        const line = JSON.stringify(payload) + "\n";
         fs.appendFileSync(filePath, line);
         return NextResponse.json({ ok: true });
     } catch (e: any) {

@@ -673,6 +673,38 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                                 } catch (_) {}
                             };
                             mr.start(1000);
+                            // Emit initial baseline snapshot if code exists
+                            try {
+                                const currentCode = state.currentCode || "";
+                                if (currentCode) {
+                                    const sid = sessionIdRef.current;
+                                    if (sid) {
+                                        const url = new URL(
+                                            "/api/recordings/code/snapshot",
+                                            window.location.origin
+                                        );
+                                        await fetch(url.toString(), {
+                                            method: "POST",
+                                            headers: {
+                                                "Content-Type":
+                                                    "application/json",
+                                            },
+                                            body: JSON.stringify({
+                                                session_id: sid,
+                                                interviewer_id: (window as any)
+                                                    ?.__interviewerId,
+                                                candidate_id: (window as any)
+                                                    ?.__candidateId,
+                                                ms: Date.now(),
+                                                ts: new Date().toISOString(),
+                                                content: currentCode,
+                                                initial_code: true,
+                                                tag: "baseline_at_session_start",
+                                            }),
+                                        });
+                                    }
+                                }
+                            } catch (_) {}
                         }
                     }
                     // Stop recording when disabled
