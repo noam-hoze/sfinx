@@ -95,6 +95,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         const hasAutoStartedRef = useRef<boolean>(false);
         const autoStartPendingRef = useRef<boolean>(false);
         const webSpeechRef = useRef<any>(null);
+        const webSpeechShouldRunRef = useRef<boolean>(false);
 
         // Role behavior strategy (keeps component transport-only)
         const roleBehavior = useConversationRoleBehavior(roles, automaticMode);
@@ -328,6 +329,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                         rec.continuous = true;
                         rec.interimResults = false;
                         rec.lang = "en-US";
+                        webSpeechShouldRunRef.current = true;
                         rec.onstart = () => {
                             setIsConnected(true);
                             setConnectionStatus("Connected");
@@ -377,8 +379,27 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                                 }
                             }
                         };
-                        rec.onerror = () => {};
-                        rec.onend = () => {};
+                        rec.onerror = (err: any) => {
+                            log.warn("🎙️ Web Speech onerror", err);
+                            // Restart recognition if interview still active
+                            if (webSpeechShouldRunRef.current) {
+                                try {
+                                    setTimeout(() => {
+                                        try {
+                                            rec.start();
+                                        } catch (_) {}
+                                    }, 200);
+                                } catch (_) {}
+                            }
+                        };
+                        rec.onend = () => {
+                            log.info("🎙️ Web Speech onend");
+                            if (webSpeechShouldRunRef.current) {
+                                try {
+                                    rec.start();
+                                } catch (_) {}
+                            }
+                        };
                         webSpeechRef.current = rec;
                         rec.start();
                     } else {
@@ -594,6 +615,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             log.info("🔚 Ending session");
             if (webSpeechRef.current) {
                 try {
+                    webSpeechShouldRunRef.current = false;
                     webSpeechRef.current.stop?.();
                 } catch (_) {}
                 webSpeechRef.current = null;
@@ -893,6 +915,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                 }
                 if (webSpeechRef.current) {
                     try {
+                        webSpeechShouldRunRef.current = false;
                         webSpeechRef.current.stop?.();
                     } catch (_) {}
                     webSpeechRef.current = null;

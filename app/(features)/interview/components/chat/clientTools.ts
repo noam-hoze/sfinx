@@ -1,6 +1,48 @@
 import { logger } from "../../../../shared/services";
 const log = logger.for("@clientTools.ts");
 
+// Simple simulated typing delay factor (ms per character)
+const INSERTION_DELAY_PER_CHAR_MS = 200;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Compute character-level edit distance (Levenshtein) to estimate real changes
+function computeCharEditDistance(a: string, b: string): number {
+    if (a === b) return 0;
+    const n = a.length;
+    const m = b.length;
+    if (n === 0) return m;
+    if (m === 0) return n;
+    // Ensure b is longer for slightly better cache behavior
+    if (n > m) return computeCharEditDistance(b, a);
+    const prev = new Array(m + 1);
+    const curr = new Array(m + 1);
+    for (let j = 0; j <= m; j++) prev[j] = j;
+    for (let i = 1; i <= n; i++) {
+        curr[0] = i;
+        const ai = a.charCodeAt(i - 1);
+        for (let j = 1; j <= m; j++) {
+            const cost = ai === b.charCodeAt(j - 1) ? 0 : 1;
+            const del = prev[j] + 1;
+            const ins = curr[j - 1] + 1;
+            const sub = prev[j - 1] + cost;
+            curr[j] =
+                del < ins ? (del < sub ? del : sub) : ins < sub ? ins : sub;
+        }
+        for (let j = 0; j <= m; j++) prev[j] = curr[j];
+    }
+    return prev[m];
+}
+
+async function countdownDelay(totalMs: number) {
+    const secs = Math.floor(totalMs / 1000);
+    for (let s = secs; s >= 1; s--) {
+        log.info(`⏳ ${s}sec`);
+        await sleep(1000);
+    }
+    const rem = totalMs - secs * 1000;
+    if (rem > 0) await sleep(rem);
+}
+
 export type ClientToolCall = {
     type?: string;
     tool_name: "open_file" | "write_file";
@@ -88,6 +130,17 @@ export async function executeClientToolCall(
         if (call.tool_name === "write_file") {
             const { content, patch, lineEdits } = call.parameters || {};
             if (typeof content === "string") {
+                const current = getCode();
+                const charDiff = computeCharEditDistance(
+                    current || "",
+                    content || ""
+                );
+                const delayMs = INSERTION_DELAY_PER_CHAR_MS * charDiff;
+                log.info("🧮 Char edit distance (replace)", {
+                    charDiff,
+                    delayMs,
+                });
+                await countdownDelay(delayMs);
                 setCode(content);
                 try {
                     const sessionId = (window as any)?.__recordingSessionId;
@@ -129,6 +182,17 @@ export async function executeClientToolCall(
                     const normalized = nextContent.endsWith("\n")
                         ? nextContent
                         : nextContent + "\n";
+                    const charDiff = computeCharEditDistance(
+                        current || "",
+                        normalized || ""
+                    );
+                    const delayMs = INSERTION_DELAY_PER_CHAR_MS * charDiff;
+                    log.info("🧮 Char edit distance (lineEdits)", {
+                        charDiff,
+                        delayMs,
+                        diffs,
+                    });
+                    await countdownDelay(delayMs);
                     setCode(normalized);
                     log.info("✍️ Applied line edits:", diffs);
                     // Snapshot after applying edits
