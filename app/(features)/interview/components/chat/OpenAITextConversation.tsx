@@ -12,7 +12,6 @@ import type { RoleConfig } from "../../../../shared/contexts/types";
 import { logger } from "../../../../shared/services";
 import { buildClientTools, registerClientTools } from "./clientTools";
 import { appendTranscriptLine } from "../../../../shared/services/recordings";
-import candidateProfile from "server/data/candidates/larry_frontend_developer.json";
 
 const log = logger.for("@OpenAITextConversation.tsx");
 if (typeof window !== "undefined") {
@@ -78,6 +77,25 @@ const OpenAITextConversation = forwardRef<any, Props>(
             connectedRef.current = true;
             controllerRef.current = new AbortController();
             onStartConversation?.();
+            // Load interview profile dynamically (no fallback)
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const company = params.get("company");
+                const role = params.get("role");
+                if (!company || !role) throw new Error("Missing company/role");
+                const res = await fetch(
+                    `/api/interviews/config?company=${encodeURIComponent(
+                        company
+                    )}&role=${encodeURIComponent(role)}`
+                );
+                if (!res.ok)
+                    throw new Error(`Config load failed: ${res.status}`);
+                const data = await res.json();
+                (window as any).__interviewProfile = data.profile;
+            } catch (e) {
+                log.error("Interview profile load error", e);
+                throw e;
+            }
             const tools = buildClientTools(
                 () => state.currentCode || "",
                 (code: string) => updateCurrentCode(code)
@@ -92,12 +110,10 @@ const OpenAITextConversation = forwardRef<any, Props>(
             );
             log.info("OpenAI adapter ready (text-only)");
             // Seed system message with persona (name only)
-            const displayName =
-                (candidateProfile as any)?.displayName ||
-                candidateName ||
-                "Larry";
+            const profile = (window as any).__interviewProfile || {};
+            const displayName = profile.displayName || candidateName || "Larry";
             const systemContent = [
-                (candidateProfile as any)?.prompt || "",
+                profile.prompt || "",
                 `Name: ${displayName}`,
             ].join("\n\n");
             messagesRef.current = [{ role: "system", content: systemContent }];
@@ -120,13 +136,12 @@ const OpenAITextConversation = forwardRef<any, Props>(
 
                 try {
                     // Refresh system persona (name only) each turn
+                    const profile = (window as any).__interviewProfile || {};
                     const displayName =
-                        (candidateProfile as any)?.displayName ||
-                        candidateName ||
-                        "Larry";
+                        profile.displayName || candidateName || "Larry";
                     const editorBlob = (state.currentCode || "").slice(0, 8000);
                     const systemContent = [
-                        (candidateProfile as any)?.prompt || "",
+                        profile.prompt || "",
                         `Name: ${displayName}`,
                         `EDITOR_CONTENT:\n${editorBlob}`,
                     ].join("\n\n");
@@ -206,10 +221,10 @@ const OpenAITextConversation = forwardRef<any, Props>(
                         }
 
                         // Build continuation: system + user + assistant(tool_calls) + tool results
+                        const profile =
+                            (window as any).__interviewProfile || {};
                         const displayName =
-                            (candidateProfile as any)?.displayName ||
-                            candidateName ||
-                            "Larray";
+                            profile.displayName || candidateName || "Larry";
                         const kbBlob = JSON.stringify({
                             candidate_name: displayName,
                             is_coding: !!kbVariables?.is_coding,
@@ -221,7 +236,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
                             8000
                         );
                         const systemContent = [
-                            (candidateProfile as any)?.prompt || "",
+                            profile.prompt || "",
                             `Name: ${displayName}`,
                             `KB: ${kbBlob}`,
                             `EDITOR_CONTENT:\n${editorBlob2}`,
@@ -305,6 +320,25 @@ const OpenAITextConversation = forwardRef<any, Props>(
             sendUserMessage,
         }));
 
+        // Drive lifecycle from communication state (not recording)
+        useEffect(() => {
+            (async () => {
+                try {
+                    if (isInterviewActive) {
+                        if (!connectedRef.current) {
+                            await startConversation();
+                        }
+                    } else {
+                        if (connectedRef.current) {
+                            stopConversation();
+                        }
+                    }
+                } catch (e) {
+                    log.error("OpenAI adapter start/stop error", e);
+                }
+            })();
+        }, [isInterviewActive, startConversation, stopConversation]);
+
         useEffect(() => {
             if (!connectedRef.current) return;
             const msgs = state.userMessagesQueue || [];
@@ -333,16 +367,16 @@ const OpenAITextConversation = forwardRef<any, Props>(
                     (async () => {
                         try {
                             // Prime system with current editor content so the model "has eyes"
+                            const profile =
+                                (window as any).__interviewProfile || {};
                             const displayName =
-                                (candidateProfile as any)?.displayName ||
-                                candidateName ||
-                                "Larry";
+                                profile.displayName || candidateName || "Larry";
                             const editorBlob = (state.currentCode || "").slice(
                                 0,
                                 8000
                             );
                             const systemContent = [
-                                (candidateProfile as any)?.prompt || "",
+                                profile.prompt || "",
                                 `Name: ${displayName}`,
                                 `EDITOR_CONTENT:\n${editorBlob}`,
                             ].join("\n\n");

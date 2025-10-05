@@ -51,28 +51,37 @@ if (typeof window !== "undefined") {
     logger.setLevels(["debug", "info", "warn", "error"]);
 }
 const INTERVIEW_DURATION_SECONDS = 30 * 60;
-const DEFAULT_CODE = `// Welcome to your coding interview!
-// Create a UserList component that fetches users from an API
 
-const UserList = () => {
-    // Fetch users from: https://jsonplaceholder.typicode.com/users
-    // Display name and email for each user
-    // Add loading and error states
-
-    return (
-        <div>
-            <h2>User List</h2>
-            {/* Implement your user list here */}
-        </div>
+async function loadCodingChallenge(
+    company: string | null,
+    role: string | null
+) {
+    if (!company || !role) {
+        throw new Error("Missing required interview params: company and role");
+    }
+    const res = await fetch(
+        `/api/interviews/config?company=${encodeURIComponent(
+            company
+        )}&role=${encodeURIComponent(role)}`
     );
-};
-
-render(UserList);`;
+    if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(
+            `Failed to load interview config: ${res.status} ${txt}`
+        );
+    }
+    const data = await res.json();
+    const code: string = data?.profile?.codingChallenge || "";
+    if (!code) {
+        throw new Error("codingChallenge not found in interview profile");
+    }
+    return code;
+}
 
 /**
  * Returns the initial code template displayed in the editor when the interview starts.
  */
-const getInitialCode = () => DEFAULT_CODE;
+const getInitialCode = () => "";
 
 /**
  * Main interview container: orchestrates UI state, timers, recording,
@@ -100,6 +109,8 @@ const InterviewerContent = ({
     const { data: session } = useSession();
     const companyId = searchParams.get("companyId");
     const jobId = searchParams.get("jobId");
+    const companyParam = searchParams.get("company");
+    const roleParam = searchParams.get("role");
     const [job, setJob] = useState<any | null>(null);
     const candidateName =
         candidateNameOverride || (session?.user as any)?.name || "Candidate";
@@ -308,7 +319,9 @@ const InterviewerContent = ({
                 }
             }
 
-            updateCurrentCode(getInitialCode());
+            // Load coding challenge dynamically (no fallback)
+            const code = await loadCodingChallenge(companyParam, roleParam);
+            updateCurrentCode(code);
             window.postMessage({ type: "clear-chat" }, "*");
             // Before starting conversation, if candidate is ElevenLabs, register client tools
             if (roles.candidate === "elevenLabs") {
@@ -329,7 +342,9 @@ const InterviewerContent = ({
                         conv?.setClientTools?.(tools);
                         log.info(
                             "🔧 Pre-registered client tools before session start",
-                            { toolNames: Object.keys(tools) }
+                            {
+                                toolNames: Object.keys(tools),
+                            }
                         );
                     } catch (_) {}
                     await realTimeConversationRef.current?.startConversation();
@@ -406,13 +421,23 @@ const InterviewerContent = ({
     }, [jobId]);
 
     /**
-     * Initializes editor content with the default snippet if empty.
+     * Initializes editor content with the dynamic coding challenge if empty.
      */
     useEffect(() => {
-        if (!state.currentCode) {
-            updateCurrentCode(getInitialCode());
-        }
-    }, [state.currentCode, updateCurrentCode]);
+        (async () => {
+            if (!state.currentCode) {
+                try {
+                    const code = await loadCodingChallenge(
+                        companyParam,
+                        roleParam
+                    );
+                    updateCurrentCode(code);
+                } catch (e) {
+                    log.error("Failed to load coding challenge:", e);
+                }
+            }
+        })();
+    }, [state.currentCode, updateCurrentCode, companyParam, roleParam]);
 
     /**
      * Resets editor code for specific tasks (e.g., task1-userlist) when task changes.
@@ -420,9 +445,25 @@ const InterviewerContent = ({
     useEffect(() => {
         const currentTask = getCurrentTask();
         if (currentTask?.id === "task1-userlist") {
-            updateCurrentCode(getInitialCode());
+            (async () => {
+                try {
+                    const code = await loadCodingChallenge(
+                        companyParam,
+                        roleParam
+                    );
+                    updateCurrentCode(code);
+                } catch (e) {
+                    log.error("Failed to reset coding challenge:", e);
+                }
+            })();
         }
-    }, [getCurrentTask, state.currentTaskId, updateCurrentCode]);
+    }, [
+        getCurrentTask,
+        state.currentTaskId,
+        updateCurrentCode,
+        companyParam,
+        roleParam,
+    ]);
 
     /**
      * After interview concludes, mark application as applied and optionally redirect to job search.

@@ -27,6 +27,23 @@ const TrainingPage = () => {
         interviewer: "human",
         candidate: engine as any,
     };
+
+    // Ensure required interview params are present in URL (no fallback semantics)
+    useEffect(() => {
+        try {
+            const url = new URL(window.location.href);
+            const hasCompany = url.searchParams.has("company");
+            const hasRole = url.searchParams.has("role");
+            if (!hasCompany || !hasRole) {
+                url.searchParams.set("company", "meta");
+                url.searchParams.set("role", "frontend-developer");
+                router.replace(
+                    url.pathname + "?" + url.searchParams.toString()
+                );
+            }
+        } catch (_) {}
+    }, [router]);
+
     return (
         <InterviewIDE
             candidateNameOverride="Larrey (Candidate)"
