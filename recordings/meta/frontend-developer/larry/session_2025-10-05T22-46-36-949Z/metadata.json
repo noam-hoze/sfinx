@@ -1,5 +1,5 @@
 {
-  "session_id": "session_2025-10-04T22-52-15-136Z",
+  "session_id": "session_2025-10-05T22-46-36-949Z",
   "purpose": "train_interviewer_digital_twin",
   "interviewer": {
     "id": "noam",
@@ -24,8 +24,11 @@
     ]
   },
   "timestamps": {
-    "started_at": "2025-10-04T22:52:15.136Z",
+    "started_at": "2025-10-05T22:46:36.949Z",
     "ended_at": null
   },
-  "notes": "toggle-start"
+  "notes": "toggle-start",
+  "company": "meta",
+  "role": "frontend-developer",
+  "candidate_slug": "larry"
 }

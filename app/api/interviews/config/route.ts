@@ -31,26 +31,29 @@ export async function GET(req: NextRequest) {
 
         const candidatePromptPath = path.join(base, "candidatePrompt.txt");
         const jobDescriptionPath = path.join(base, "jobDescription.txt");
-        const interviewScriptPath = path.join(base, "interviewScript.txt");
+        const interviewScriptTxt = path.join(base, "interviewScript.txt");
+        const interviewScriptMd = path.join(base, "interviewScript.md");
         const codingChallengePath = path.join(base, "codingChallenge.tsx");
         const codingChallengeAnswerPath = path.join(
             base,
             "codingChallengeAnswer.tsx"
         );
 
-        const [
-            prompt,
-            jobDescription,
-            interviewScript,
-            codingChallenge,
-            codingChallengeAnswer,
-        ] = await Promise.all([
-            readText(candidatePromptPath),
-            readText(jobDescriptionPath),
-            readText(interviewScriptPath),
-            readText(codingChallengePath),
-            readText(codingChallengeAnswerPath),
-        ]);
+        const [prompt, jobDescription, codingChallenge, codingChallengeAnswer] =
+            await Promise.all([
+                readText(candidatePromptPath),
+                readText(jobDescriptionPath),
+                readText(codingChallengePath),
+                readText(codingChallengeAnswerPath),
+            ]);
+
+        // interviewScript: support .txt or .md
+        let interviewScript = "";
+        try {
+            interviewScript = await readText(interviewScriptTxt);
+        } catch (_) {
+            interviewScript = await readText(interviewScriptMd);
+        }
 
         // Minimal profile fields (display name inferred from prompt header if needed)
         const profile = {

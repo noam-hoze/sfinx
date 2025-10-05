@@ -6,8 +6,9 @@ export async function POST(req: Request) {
     try {
         const { searchParams } = new URL(req.url);
         const session_id = searchParams.get("session_id");
-        const interviewer_id = searchParams.get("interviewer_id");
-        const candidate_id = searchParams.get("candidate_id");
+        const company = searchParams.get("company");
+        const role = searchParams.get("role");
+        const candidate = searchParams.get("candidate");
         const index = Number(searchParams.get("index") || 0);
         if (!session_id) {
             return NextResponse.json(
@@ -16,12 +17,13 @@ export async function POST(req: Request) {
             );
         }
         const root =
-            interviewer_id && candidate_id
+            company && role && candidate
                 ? path.join(
                       process.cwd(),
                       "recordings",
-                      `${interviewer_id}_interviewer`,
-                      `${candidate_id}_candidate`,
+                      company,
+                      role,
+                      candidate,
                       session_id
                   )
                 : path.join(process.cwd(), "recordings", session_id);

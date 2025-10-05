@@ -14,15 +14,17 @@ export async function POST(req: Request) {
             );
         }
         // derive nested path from metadata
-        const interviewerId: string | undefined = metadata?.interviewer?.id;
-        const candidateId: string | undefined = metadata?.candidate?.id;
+        const company: string | undefined = metadata?.company;
+        const role: string | undefined = metadata?.role;
+        const candidateSlug: string | undefined = metadata?.candidate_slug;
         const root =
-            interviewerId && candidateId
+            company && role && candidateSlug
                 ? path.join(
                       process.cwd(),
                       "recordings",
-                      `${interviewerId}_interviewer`,
-                      `${candidateId}_candidate`,
+                      company,
+                      role,
+                      candidateSlug,
                       session_id
                   )
                 : path.join(process.cwd(), "recordings", session_id);

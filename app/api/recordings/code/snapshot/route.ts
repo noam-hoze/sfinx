@@ -7,8 +7,9 @@ export async function POST(req: Request) {
         const body = await req.json();
         const session_id: string | undefined = body?.session_id;
         const content: string | undefined = body?.content;
-        const interviewer_id: string | undefined = body?.interviewer_id;
-        const candidate_id: string | undefined = body?.candidate_id;
+        const company: string | undefined = body?.company;
+        const job_role: string | undefined = body?.job_role;
+        const candidate: string | undefined = body?.candidate;
         const initial_code: boolean | undefined =
             typeof body?.initial_code === "boolean"
                 ? (body.initial_code as boolean)
@@ -22,12 +23,13 @@ export async function POST(req: Request) {
             );
         }
         const base =
-            interviewer_id && candidate_id
+            company && job_role && candidate
                 ? path.join(
                       process.cwd(),
                       "recordings",
-                      `${interviewer_id}_interviewer`,
-                      `${candidate_id}_candidate`,
+                      company,
+                      job_role,
+                      candidate,
                       session_id
                   )
                 : path.join(process.cwd(), "recordings", session_id);

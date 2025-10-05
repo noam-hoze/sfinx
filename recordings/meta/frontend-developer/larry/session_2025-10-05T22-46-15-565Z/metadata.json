@@ -1,0 +1,34 @@
+{
+  "session_id": "session_2025-10-05T22-46-15-565Z",
+  "purpose": "train_interviewer_digital_twin",
+  "interviewer": {
+    "id": "noam",
+    "role": "human",
+    "audio_recorded": true
+  },
+  "candidate": {
+    "id": "larry_sim",
+    "role": "ai"
+  },
+  "task": {
+    "id": "unknown",
+    "brief": ""
+  },
+  "environment": {
+    "editor": "monaco",
+    "language": "typescript",
+    "framework": "react",
+    "tools_enabled": [
+      "open_file",
+      "write_file"
+    ]
+  },
+  "timestamps": {
+    "started_at": "2025-10-05T22:46:15.566Z",
+    "ended_at": null
+  },
+  "notes": "toggle-start",
+  "company": "meta",
+  "role": "frontend-developer",
+  "candidate_slug": "larry"
+}
