@@ -402,6 +402,17 @@ const InterviewerContent = ({
         }
     }, [companyId, router]);
 
+    // Sync recordingEnabled with URL param `rec=on|off`
+    useEffect(() => {
+        try {
+            const rec = searchParams.get("rec");
+            const shouldEnable = rec === "on";
+            setRecordingEnabled((prev) =>
+                prev === shouldEnable ? prev : shouldEnable
+            );
+        } catch (_) {}
+    }, [searchParams]);
+
     /**
      * Fetches job details when `jobId` is available; cleans up if unmounted mid-request.
      */

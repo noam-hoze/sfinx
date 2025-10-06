@@ -32,22 +32,6 @@ const HeaderControls: React.FC<HeaderControlsProps> = ({
 }) => {
     return (
         <div className="flex items-center space-x-4">
-            {/* Recording toggle (left of camera) */}
-            {typeof recordingEnabled !== "undefined" &&
-                typeof onToggleRecording === "function" && (
-                    <button
-                        onClick={onToggleRecording}
-                        className={`px-2 py-1 rounded border text-xs ${
-                            recordingEnabled
-                                ? "border-red-400 text-red-600"
-                                : "border-gray-300 text-gray-600"
-                        }`}
-                        title="Toggle recording"
-                    >
-                        {recordingEnabled ? "rec on" : "rec off"}
-                    </button>
-                )}
-
             {/* Camera toggle */}
             <button
                 onClick={onToggleCamera}

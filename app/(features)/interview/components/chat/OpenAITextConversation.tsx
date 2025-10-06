@@ -14,6 +14,44 @@ import { buildClientTools, registerClientTools } from "./clientTools";
 import { appendTranscriptLine } from "../../../../shared/services/recordings";
 
 const log = logger.for("@OpenAITextConversation.tsx");
+// Simple question matcher: token overlap on lowercased words (no stopwords)
+function normalize(text: string): string[] {
+    return (text || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter(
+            (w) =>
+                w &&
+                !new Set([
+                    "the",
+                    "a",
+                    "an",
+                    "and",
+                    "or",
+                    "to",
+                    "of",
+                    "in",
+                    "on",
+                    "for",
+                    "with",
+                    "how",
+                    "what",
+                    "do",
+                    "you",
+                ]).has(w)
+        );
+}
+function overlapScore(a: string, b: string): number {
+    const A = new Set(normalize(a));
+    const B = new Set(normalize(b));
+    if (A.size === 0 || B.size === 0) return 0;
+    let inter = 0;
+    for (const w of A) if (B.has(w)) inter++;
+    const denom = Math.min(A.size, B.size);
+    return inter / denom;
+}
+
 if (typeof window !== "undefined") {
     logger.setEnabled(true);
     logger.setNamespacedOnly(true);
@@ -82,16 +120,31 @@ const OpenAITextConversation = forwardRef<any, Props>(
                 const params = new URLSearchParams(window.location.search);
                 const company = params.get("company");
                 const role = params.get("role");
+                const candidateId =
+                    params.get("candidateId") || params.get("candidate");
                 if (!company || !role) throw new Error("Missing company/role");
                 const res = await fetch(
                     `/api/interviews/config?company=${encodeURIComponent(
                         company
-                    )}&role=${encodeURIComponent(role)}`
+                    )}&role=${encodeURIComponent(role)}${
+                        candidateId
+                            ? `&candidateId=${encodeURIComponent(candidateId)}`
+                            : ""
+                    }`
                 );
                 if (!res.ok)
                     throw new Error(`Config load failed: ${res.status}`);
                 const data = await res.json();
                 (window as any).__interviewProfile = data.profile;
+                // Log full candidate config for verification
+                try {
+                    log.info("🔍 Candidate profile", {
+                        company,
+                        role,
+                        candidateId: data?.candidateId || candidateId,
+                        candidate: data?.profile?.candidate,
+                    });
+                } catch (_) {}
             } catch (e) {
                 log.error("Interview profile load error", e);
                 throw e;
@@ -109,13 +162,35 @@ const OpenAITextConversation = forwardRef<any, Props>(
                 tools
             );
             log.info("OpenAI adapter ready (text-only)");
-            // Seed system message with persona (name only)
+            // Seed system message with persona and QA guidance
             const profile = (window as any).__interviewProfile || {};
-            const displayName = profile.displayName || candidateName || "Larry";
+            const displayName =
+                profile.displayName || candidateName || "Candidate";
+            const qaBlock = (() => {
+                try {
+                    const qa: Array<{ question: string; answer: string }> =
+                        profile?.candidate?.answers || [];
+                    if (!qa.length) return "";
+                    const lines = qa
+                        .map(
+                            (p: any, i: number) =>
+                                `Q${i + 1}: ${p.question}\nA${i + 1}: ${
+                                    p.answer
+                                }`
+                        )
+                        .join("\n\n");
+                    return `INTERVIEW_QA (use these when the question matches):\n${lines}`;
+                } catch (_) {
+                    return "";
+                }
+            })();
             const systemContent = [
                 profile.prompt || "",
                 `Name: ${displayName}`,
-            ].join("\n\n");
+                qaBlock,
+            ]
+                .filter(Boolean)
+                .join("\n\n");
             messagesRef.current = [{ role: "system", content: systemContent }];
         }, [
             onStartConversation,
@@ -138,13 +213,36 @@ const OpenAITextConversation = forwardRef<any, Props>(
                     // Refresh system persona (name only) each turn
                     const profile = (window as any).__interviewProfile || {};
                     const displayName =
-                        profile.displayName || candidateName || "Larry";
+                        profile.displayName || candidateName || "Candidate";
                     const editorBlob = (state.currentCode || "").slice(0, 8000);
+                    const qaBlock = (() => {
+                        try {
+                            const qa: Array<{
+                                question: string;
+                                answer: string;
+                            }> = profile?.candidate?.answers || [];
+                            if (!qa.length) return "";
+                            const lines = qa
+                                .map(
+                                    (p: any, i: number) =>
+                                        `Q${i + 1}: ${p.question}\nA${i + 1}: ${
+                                            p.answer
+                                        }`
+                                )
+                                .join("\n\n");
+                            return `INTERVIEW_QA (use these when the question matches):\n${lines}`;
+                        } catch (_) {
+                            return "";
+                        }
+                    })();
                     const systemContent = [
                         profile.prompt || "",
                         `Name: ${displayName}`,
+                        qaBlock,
                         `EDITOR_CONTENT:\n${editorBlob}`,
-                    ].join("\n\n");
+                    ]
+                        .filter(Boolean)
+                        .join("\n\n");
                     if (
                         messagesRef.current.length === 0 ||
                         messagesRef.current[0]?.role !== "system"
@@ -224,7 +322,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
                         const profile =
                             (window as any).__interviewProfile || {};
                         const displayName =
-                            profile.displayName || candidateName || "Larry";
+                            profile.displayName || candidateName || "Candidate";
                         const kbBlob = JSON.stringify({
                             candidate_name: displayName,
                             is_coding: !!kbVariables?.is_coding,
@@ -370,7 +468,9 @@ const OpenAITextConversation = forwardRef<any, Props>(
                             const profile =
                                 (window as any).__interviewProfile || {};
                             const displayName =
-                                profile.displayName || candidateName || "Larry";
+                                profile.displayName ||
+                                candidateName ||
+                                "Candidate";
                             const editorBlob = (state.currentCode || "").slice(
                                 0,
                                 8000

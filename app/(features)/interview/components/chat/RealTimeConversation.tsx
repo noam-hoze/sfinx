@@ -221,10 +221,15 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                     }
                     try {
                         if (sessionIdRef.current) {
+                            const interviewerId =
+                                (window as any)?.__interviewerId ||
+                                "interviewer";
+                            const candidateId =
+                                (window as any)?.__candidateId || "candidate";
                             void appendTranscriptLine(
                                 sessionIdRef.current,
                                 isAiMessage ? "candidate" : "interviewer",
-                                isAiMessage ? "larry_sim" : "noam",
+                                isAiMessage ? candidateId : interviewerId,
                                 messageText
                             );
                         }
@@ -652,6 +657,19 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                                 .replace(/[:.]/g, "-");
                             const sessionId = `session_${iso}`;
                             sessionIdRef.current = sessionId;
+                            // Derive path parts from URL (company/role/candidate slug)
+                            let companyParam: string | null = null;
+                            let roleParam: string | null = null;
+                            let candidateSlug: string | null = null;
+                            try {
+                                const url = new URL(window.location.href);
+                                companyParam = url.searchParams.get("company");
+                                roleParam = url.searchParams.get("role");
+                                candidateSlug =
+                                    url.searchParams.get("candidateId") ||
+                                    url.searchParams.get("candidate");
+                            } catch (_) {}
+
                             await startRecordingSession({
                                 session_id: sessionId,
                                 metadata: {
@@ -662,7 +680,10 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                                         role: "human",
                                         audio_recorded: true,
                                     },
-                                    candidate: { id: "larry_sim", role: "ai" },
+                                    candidate_info: {
+                                        id: "larry_sim",
+                                        role: "ai",
+                                    },
                                     task: { id: "unknown", brief: "" },
                                     environment: {
                                         editor: "monaco",
@@ -678,6 +699,9 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                                         ended_at: null,
                                     },
                                     notes: "toggle-start",
+                                    company: companyParam || undefined,
+                                    role: roleParam || undefined,
+                                    candidate: candidateSlug || undefined,
                                 },
                             });
                             const mr = new MediaRecorder(micStreamRef.current, {
