@@ -79,7 +79,7 @@ function deriveCharacteristics(score: number) {
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const company = searchParams.get("company");
-    const role = searchParams.get("role");
+    const roleRaw = searchParams.get("role");
     const candidateId =
         searchParams.get("candidateId") ||
         searchParams.get("candidate") ||
@@ -90,12 +90,24 @@ export async function GET(req: NextRequest) {
         "json"
     ).toLowerCase();
 
-    if (!company || !role) {
+    if (!company || !roleRaw) {
         return NextResponse.json(
             { error: "Missing required query params: company and role" },
             { status: 400 }
         );
     }
+
+    // Normalize role slug and apply aliases (DB may use engineer vs developer wording)
+    const roleSlug = roleRaw
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+    const roleAliases: Record<string, string> = {
+        "frontend-engineer": "frontend-developer",
+        "front-end-engineer": "frontend-developer",
+        "front-end-developer": "frontend-developer",
+    };
+    const role = roleAliases[roleSlug] || roleSlug;
 
     const base = path.resolve(
         process.cwd(),

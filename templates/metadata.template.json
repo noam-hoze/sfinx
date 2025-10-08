@@ -8,7 +8,7 @@
     "audio_recorded": {{audio_recorded}}
   },
   "candidate": {
-    "id": "larry_sim",
+    "id": "ava_taylor",
     "display_name": "Larry",
     "role": "ai",
     "skill_level": {{skill_level}},

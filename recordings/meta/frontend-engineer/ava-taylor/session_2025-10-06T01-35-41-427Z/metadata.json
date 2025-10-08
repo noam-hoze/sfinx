@@ -1,0 +1,35 @@
+{
+  "session_id": "session_2025-10-06T01-35-41-427Z",
+  "purpose": "train_interviewer_digital_twin",
+  "interviewer": {
+    "id": "noam",
+    "role": "human",
+    "audio_recorded": true
+  },
+  "candidate_info": {
+    "id": "ava_taylor",
+    "role": "ai"
+  },
+  "task": {
+    "id": "unknown",
+    "brief": ""
+  },
+  "environment": {
+    "editor": "monaco",
+    "language": "typescript",
+    "framework": "react",
+    "tools_enabled": [
+      "open_file",
+      "write_file"
+    ]
+  },
+  "timestamps": {
+    "started_at": "2025-10-06T01:35:41.427Z",
+    "ended_at": null
+  },
+  "notes": "toggle-start",
+  "company": "meta",
+  "role": "frontend-engineer",
+  "candidate": "ava-taylor",
+  "candidate_slug": "ava-taylor"
+}

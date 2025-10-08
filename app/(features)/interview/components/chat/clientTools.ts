@@ -1,4 +1,5 @@
 import { logger } from "../../../../shared/services";
+import { appendCodeSnapshot } from "../../../../shared/services/recordings";
 const log = logger.for("@clientTools.ts");
 
 // Simple simulated typing delay factor (ms per character)
@@ -144,20 +145,9 @@ export async function executeClientToolCall(
                 setCode(content);
                 try {
                     const sessionId = (window as any)?.__recordingSessionId;
-                    const interviewerId = (window as any)?.__interviewerId;
-                    const candidateId = (window as any)?.__candidateId;
                     if (sessionId) {
-                        await fetch("/api/recordings/code/snapshot", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                session_id: sessionId,
-                                interviewer_id: interviewerId,
-                                candidate_id: candidateId,
-                                ms: Date.now(),
-                                ts: new Date().toISOString(),
-                                content,
-                            }),
+                        await appendCodeSnapshot(sessionId, content, {
+                            tag: "edit_replace",
                         });
                     }
                 } catch (_) {}
@@ -198,20 +188,9 @@ export async function executeClientToolCall(
                     // Snapshot after applying edits
                     try {
                         const sessionId = (window as any)?.__recordingSessionId;
-                        const interviewerId = (window as any)?.__interviewerId;
-                        const candidateId = (window as any)?.__candidateId;
                         if (sessionId) {
-                            await fetch("/api/recordings/code/snapshot", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                    session_id: sessionId,
-                                    interviewer_id: interviewerId,
-                                    candidate_id: candidateId,
-                                    ms: Date.now(),
-                                    ts: new Date().toISOString(),
-                                    content: normalized,
-                                }),
+                            await appendCodeSnapshot(sessionId, normalized, {
+                                tag: "edit_lineEdits",
                             });
                         }
                     } catch (_) {}

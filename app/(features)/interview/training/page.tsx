@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import InterviewIDE from "../components/InterviewIDE";
 import type { RoleConfig } from "../../../shared/contexts/types";
 import { InterviewProvider, useInterview } from "../../../shared/contexts";
@@ -46,20 +46,107 @@ const TrainingPage = () => {
         } catch (_) {}
     }, [router]);
 
-    // Candidate dropdown data
-    const candidates = useMemo(() => createCandidates(""), []);
+    // Role from URL and company
+    const selectedRole = searchParams.get("role");
+    const companyQuery = searchParams.get("company") || "meta";
+
+    // Fetch roles for the selected company from the DB (via /api/companies)
+    const [roleOptions, setRoleOptions] = useState<
+        Array<{ slug: string; title: string }>
+    >([]);
     useEffect(() => {
-        try {
-            const url = new URL(window.location.href);
-            const hasCandidate = url.searchParams.has("candidateId");
-            if (!hasCandidate && candidates.length > 0) {
-                url.searchParams.set("candidateId", candidates[0].id);
-                router.replace(
-                    (url.pathname + "?" + url.searchParams.toString()) as any
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch(
+                    `/api/companies?company=${encodeURIComponent(companyQuery)}`
                 );
-            }
-        } catch (_) {}
-    }, [router, candidates]);
+                if (!res.ok) return;
+                const data = await res.json();
+                const company =
+                    (data?.companies || []).find(
+                        (c: any) =>
+                            c?.id === companyQuery ||
+                            c?.name?.toLowerCase() ===
+                                companyQuery?.toLowerCase()
+                    ) || (data?.companies || [])[0];
+                const jobs: Array<any> = company?.jobs || [];
+                const opts = jobs.map((j: any) => {
+                    const title: string = j?.title || "";
+                    const slug = title
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, "-")
+                        .replace(/(^-|-$)/g, "");
+                    return { slug, title };
+                });
+                if (!cancelled) setRoleOptions(opts);
+                if (!selectedRole && opts.length > 0) {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set("role", opts[0].slug);
+                    url.searchParams.delete("candidateId");
+                    router.replace(
+                        (url.pathname +
+                            "?" +
+                            url.searchParams.toString()) as any
+                    );
+                }
+            } catch (_) {}
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [companyQuery]);
+
+    // Candidate dropdown data (scoped by company+role)
+    const [candidates, setCandidates] = useState<
+        Array<{ id: string; name: string; tier: string; score: number }>
+    >([]);
+    useEffect(() => {
+        (async () => {
+            try {
+                if (!selectedRole) return;
+                const url = `/api/interviews/config?company=${encodeURIComponent(
+                    companyQuery
+                )}&role=${encodeURIComponent(selectedRole)}`;
+                const res = await fetch(url);
+                if (!res.ok) {
+                    setCandidates([]);
+                    return;
+                }
+                const data = await res.json();
+                const script: string = data?.profile?.interviewScript || "";
+                const list = createCandidates(script) as any[];
+                setCandidates(list);
+                // Ensure a candidate is selected in URL
+                const u = new URL(window.location.href);
+                if (!u.searchParams.get("candidateId") && list.length > 0) {
+                    u.searchParams.set("candidateId", list[0].id);
+                    router.replace(
+                        (u.pathname + "?" + u.searchParams.toString()) as any
+                    );
+                }
+            } catch (_) {}
+        })();
+    }, [companyQuery, selectedRole, router]);
+
+    // Prefetch full config for the chosen candidate (also handles the initial default)
+    useEffect(() => {
+        (async () => {
+            try {
+                const cid = searchParams.get("candidateId");
+                if (!cid || !selectedRole) return;
+                const url = `/api/interviews/config?company=${encodeURIComponent(
+                    companyQuery
+                )}&role=${encodeURIComponent(
+                    selectedRole
+                )}&candidateId=${encodeURIComponent(cid)}`;
+                const res = await fetch(url);
+                if (!res.ok) return;
+                const data = await res.json();
+                (window as any).__interviewProfile = data.profile;
+            } catch (_) {}
+        })();
+    }, [companyQuery, selectedRole, searchParams, router]);
 
     const selectedCandidateId =
         searchParams.get("candidateId") || candidates[0]?.id || "";
@@ -69,12 +156,47 @@ const TrainingPage = () => {
             <div className="sticky top-14 z-30 border-b border-gray-200/70 dark:border-gray-800/60 bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl">
                 <div className="max-w-8xl mx-auto px-3 py-2">
                     <div className="flex items-center gap-3">
+                        {/* Role selector */}
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm text-gray-600">
+                                Role
+                            </label>
+                            <select
+                                className="border rounded px-2 py-1 text-sm bg-white/80 backdrop-blur-md hover:bg-white transition"
+                                value={selectedRole || ""}
+                                onChange={(e) => {
+                                    try {
+                                        const url = new URL(
+                                            window.location.href
+                                        );
+                                        url.searchParams.set(
+                                            "role",
+                                            e.target.value
+                                        );
+                                        // Reset candidate when role changes
+                                        url.searchParams.delete("candidateId");
+                                        router.replace(
+                                            (url.pathname +
+                                                "?" +
+                                                url.searchParams.toString()) as any
+                                        );
+                                    } catch (_) {}
+                                }}
+                            >
+                                {roleOptions.map((r) => (
+                                    <option key={r.slug} value={r.slug}>
+                                        {r.title || r.slug}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
                         <div className="flex items-center gap-2">
                             <label className="text-sm text-gray-600">
                                 Candidate
                             </label>
                             <select
                                 className="border rounded px-2 py-1 text-sm bg-white/80 backdrop-blur-md hover:bg-white transition"
+                                disabled={!selectedRole}
                                 value={selectedCandidateId}
                                 onChange={(e) => {
                                     const id = e.target.value;

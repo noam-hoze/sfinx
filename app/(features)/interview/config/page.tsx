@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 type Profile = {
     displayName?: string;
     prompt?: string;
+    interviewScript?: string;
     questions?: string[];
     characteristics?: {
         scale?: number;
@@ -47,9 +48,151 @@ const PreBlock: React.FC<{ text?: string; lang?: string }> = ({
     text,
     lang,
 }) => (
-    <pre className="p-4 overflow-auto text-[12px] leading-5 whitespace-pre-wrap">
-        <code>{text || ""}</code>
+    <pre className="p-4 overflow-auto text-[12px] leading-5 whitespace-pre">
+        <code className={lang ? `language-${lang}` : undefined}>
+            {text || ""}
+        </code>
     </pre>
+);
+
+function escapeHtml(s: string) {
+    return s
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+function renderMarkdown(md?: string): string {
+    if (!md) return "";
+    const lines = md.replace(/\r\n?/g, "\n").split("\n");
+    let html = "";
+    let i = 0;
+    let inCode = false;
+    let codeLang = "";
+    let listOpen = false;
+    while (i < lines.length) {
+        const raw = lines[i];
+        const line = raw.trimEnd();
+        // code fence
+        const codeFence = line.match(/^```(.*)$/);
+        if (codeFence) {
+            if (!inCode) {
+                inCode = true;
+                codeLang = (codeFence[1] || "").trim();
+                html += `<pre class=\"p-4 overflow-auto text-[12px] leading-5 whitespace-pre\"><code class=\"${
+                    codeLang ? `language-${escapeHtml(codeLang)}` : ""
+                }\">`;
+            } else {
+                html += `</code></pre>`;
+                inCode = false;
+                codeLang = "";
+            }
+            i++;
+            continue;
+        }
+        if (inCode) {
+            html += `${escapeHtml(raw)}\n`;
+            i++;
+            continue;
+        }
+        // horizontal rule
+        if (/^\s*-{3,}\s*$/.test(line)) {
+            if (listOpen) {
+                html += `</ul>`;
+                listOpen = false;
+            }
+            html += `<hr/>`;
+            i++;
+            continue;
+        }
+        // heading
+        const h = line.match(/^(#{1,3})\s+(.*)$/);
+        if (h) {
+            if (listOpen) {
+                html += `</ul>`;
+                listOpen = false;
+            }
+            const lvl = h[1].length;
+            const text = h[2];
+            const textHtml = escapeHtml(text)
+                .replace(
+                    /\[([^\]]+)\]\(([^)]+)\)/g,
+                    '<a href="$2" target="_blank" rel="noopener">$1</a>'
+                )
+                .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+                .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, "<em>$1</em>")
+                .replace(/`([^`]+)`/g, "<code>$1</code>");
+            html += `<h${lvl} class=\"px-4 pt-4 font-semibold\">${textHtml}</h${lvl}>`;
+            i++;
+            continue;
+        }
+        // list item
+        const li = line.match(/^[-*]\s+(.*)$/);
+        if (li) {
+            if (!listOpen) {
+                html += `<ul class=\"px-6 py-2 list-disc space-y-1\">`;
+                listOpen = true;
+            }
+            const liHtml = escapeHtml(li[1])
+                .replace(
+                    /\[([^\]]+)\]\(([^)]+)\)/g,
+                    '<a href="$2" target="_blank" rel="noopener">$1</a>'
+                )
+                .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+                .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, "<em>$1</em>")
+                .replace(/`([^`]+)`/g, "<code>$1</code>");
+            html += `<li>${liHtml}</li>`;
+            i++;
+            continue;
+        }
+        // blockquote
+        const bq = line.match(/^>\s+(.*)$/);
+        if (bq) {
+            const bqHtml = escapeHtml(bq[1])
+                .replace(
+                    /\[([^\]]+)\]\(([^)]+)\)/g,
+                    '<a href="$2" target="_blank" rel="noopener">$1</a>'
+                )
+                .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+                .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, "<em>$1</em>")
+                .replace(/`([^`]+)`/g, "<code>$1</code>");
+            html += `<blockquote class=\"px-4 py-1 border-l-4 border-gray-300 dark:border-gray-700 ml-2 text-gray-700 dark:text-gray-300\">${bqHtml}</blockquote>`;
+            i++;
+            continue;
+        }
+        // blank line
+        if (line.trim() === "") {
+            if (listOpen) {
+                html += `</ul>`;
+                listOpen = false;
+            }
+            html += "";
+            i++;
+            continue;
+        }
+        // paragraph with inline code and bold
+        let p = escapeHtml(line)
+            .replace(
+                /\[([^\]]+)\]\(([^)]+)\)/g,
+                '<a href="$2" target="_blank" rel="noopener">$1</a>'
+            )
+            .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+            .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, "<em>$1</em>")
+            .replace(/`([^`]+)`/g, "<code>$1</code>");
+        html += `<p class=\"px-4 py-1\">${p}</p>`;
+        i++;
+    }
+    if (listOpen) html += `</ul>`;
+    return html;
+}
+
+const MarkdownBlock: React.FC<{ text?: string }> = ({ text }) => (
+    <div
+        className="prose prose-sm max-w-none p-2"
+        dangerouslySetInnerHTML={{ __html: renderMarkdown(text) }}
+    />
 );
 
 const CandidateConfigPage = () => {
@@ -102,7 +245,9 @@ const CandidateConfigPage = () => {
         return `${name} · ${company}/${role}`;
     }, [profile, company, role]);
 
-    const [activeTab, setActiveTab] = useState<"prompt" | "solution">("prompt");
+    const [activeTab, setActiveTab] = useState<
+        "prompt" | "solution" | "script"
+    >("prompt");
 
     const qaPairs: Array<{ question: string; answer: string }> = useMemo(() => {
         const raw = (profile as any)?.candidate?.answers;
@@ -177,19 +322,39 @@ const CandidateConfigPage = () => {
                                     >
                                         Candidate Solution
                                     </button>
+                                    <button
+                                        onClick={() => setActiveTab("script")}
+                                        className={`px-3 py-1.5 text-xs rounded-lg border transition ${
+                                            activeTab === "script"
+                                                ? "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800"
+                                                : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-300 dark:border-gray-800"
+                                        }`}
+                                        aria-current={activeTab === "script"}
+                                    >
+                                        Interview Script
+                                    </button>
                                 </div>
-                                {activeTab === "prompt" ? (
+                                {activeTab === "prompt" && (
                                     <Section title="Prompt (effective system message)">
-                                        <PreBlock text={effectivePrompt} />
+                                        <MarkdownBlock text={effectivePrompt} />
                                     </Section>
-                                ) : (
+                                )}
+                                {activeTab === "solution" && (
                                     <Section title="Candidate Solution (single-file React)">
                                         <PreBlock
+                                            lang="tsx"
                                             text={
                                                 (profile as any).candidate
                                                     ?.code ||
                                                 "No solution attached."
                                             }
+                                        />
+                                    </Section>
+                                )}
+                                {activeTab === "script" && (
+                                    <Section title="Interview Script">
+                                        <MarkdownBlock
+                                            text={profile.interviewScript}
                                         />
                                     </Section>
                                 )}
