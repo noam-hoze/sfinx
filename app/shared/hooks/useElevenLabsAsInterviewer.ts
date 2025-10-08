@@ -43,16 +43,33 @@ After the user answers, you will reply with an acknowledgemet and that's it. You
 After that, you go back to listening. Don't say your closing line`;
 
 /**
+ * Builds a hidden instruction for a single follow-up question when the user
+ * clicks a follow-up button after new edits.
+ */
+const instructAgentForFollowupDelta = (delta: any) => `
+Don't answer this message in our voice conversation. It's just to inform you of something.
+The candidate clicked "I'm Done" after new edits. Now your followup_ready variable is
+true. Ask the candidate one follow up question about: ${delta}. Then you have to wait for his answer.
+Ignore noise and any other non lingual messages.
+After the user answers, you will reply with an acknowledgemet and that's it. You will not ask another followup question.
+After that, you go back to listening. Don't say your closing line`;
+
+/**
  * KBVariables: canonical context mirrored to ElevenLabs via KB_UPDATE.
  * All booleans are sanitized before sending.
  */
 export interface KBVariables {
     candidate_name: string;
     is_coding: boolean;
+    // When true, indicates the interviewer should announce the coding task
+    // and we are in the coding question context.
+    is_in_coding_question?: boolean;
     using_ai: boolean;
+    followup_ready?: boolean;
     current_code_summary: string;
     has_submitted: boolean;
     ai_added_code?: string;
+    followup_delta?: string;
 }
 
 /**
@@ -93,7 +110,9 @@ export const useElevenLabsAsInterviewer = (
     const [kbVariables, setKBVariables] = useState<KBVariables>({
         candidate_name: candidateName,
         is_coding: false,
+        is_in_coding_question: false,
         using_ai: false,
+        followup_ready: false,
         current_code_summary: "",
         has_submitted: false,
     });
@@ -118,11 +137,20 @@ export const useElevenLabsAsInterviewer = (
                 kbVariables.using_ai === false &&
                 Boolean(updates.using_ai) === true;
 
+            // Detect rising edge: followup_ready false -> true
+            const isFollowupRisingEdge =
+                (kbVariables.followup_ready ?? false) === false &&
+                Boolean((updates as any).followup_ready) === true;
+
             // Ensure booleans are actual boolean values, not stringified
             const sanitizedKB = {
                 candidate_name: newKB.candidate_name,
                 is_coding: Boolean(newKB.is_coding),
+                is_in_coding_question: Boolean(
+                    (newKB as any).is_in_coding_question
+                ),
                 using_ai: Boolean(newKB.using_ai),
+                followup_ready: Boolean((newKB as any).followup_ready),
                 current_code_summary: newKB.current_code_summary,
                 has_submitted: Boolean(newKB.has_submitted),
             };
@@ -135,7 +163,11 @@ export const useElevenLabsAsInterviewer = (
                     const kbForUpdate = {
                         candidate_name: sanitizedKB.candidate_name,
                         is_coding: sanitizedKB.is_coding,
+                        is_in_coding_question:
+                            (sanitizedKB as any).is_in_coding_question === true,
                         using_ai: sanitizedKB.using_ai,
+                        followup_ready:
+                            (sanitizedKB as any).followup_ready === true,
                         current_code_summary: sanitizedKB.current_code_summary,
                     };
                     const text = `KB_UPDATE: ${JSON.stringify(kbForUpdate)}`;
@@ -182,6 +214,45 @@ export const useElevenLabsAsInterviewer = (
                 } catch (err) {
                     log.error(
                         "❌ WAS NOT SENT - Dynamic AI usage message with added code"
+                    );
+                }
+            }
+
+            // After successfully updating KB, send single follow-up question on rising edge
+            if (isFollowupRisingEdge && onSendUserMessage) {
+                try {
+                    const delta = (updates as any).followup_delta || "";
+                    await onSendUserMessage(
+                        instructAgentForFollowupDelta(delta)
+                    );
+                    log.info(
+                        "✅ SENT - Follow-up question instruction with delta"
+                    );
+
+                    // Immediately reset followup_ready to false
+                    const resetKB = {
+                        ...sanitizedKB,
+                        followup_ready: false,
+                    };
+                    setKBVariables(resetKB);
+                    if (onElevenLabsUpdate) {
+                        try {
+                            await onElevenLabsUpdate(
+                                `KB_UPDATE: ${JSON.stringify(resetKB)}`
+                            );
+                            log.info(
+                                "✅ KB variables reset: followup_ready=false"
+                            );
+                        } catch (error) {
+                            log.error(
+                                "❌ Failed to send reset KB_UPDATE:",
+                                error
+                            );
+                        }
+                    }
+                } catch (err) {
+                    log.error(
+                        "❌ WAS NOT SENT - Follow-up question instruction"
                     );
                 }
             }

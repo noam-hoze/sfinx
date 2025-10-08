@@ -9,11 +9,13 @@ import React, {
     useRef,
 } from "react";
 import { useMicSession } from "./hooks/useMicSession";
-import { useTransportAdapter } from "./hooks/useTransportAdapter";
+import { useElevenLabsTransport } from "./hooks/useElevenLabsTransport";
 import { useInterview } from "../../../../shared/contexts";
 import AnimatedWaveform from "./AnimatedWaveform";
 import { logger } from "../../../../shared/services";
 import { useConversationRoleBehavior } from "./useConversationRoleBehavior";
+import { useKBUpdates } from "./hooks/useKBUpdates";
+import { useFlushQueues } from "./hooks/useFlushQueues";
 import type { RoleConfig } from "../../../../shared/contexts/types";
 import {
     startRecordingSession,
@@ -58,6 +60,7 @@ interface RealTimeConversationProps {
     automaticMode?: boolean;
     onAutoStartCoding?: () => void;
     recordingEnabled?: boolean;
+    initialContextUpdates?: string[];
 }
 
 /**
@@ -80,6 +83,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             automaticMode = false,
             onAutoStartCoding,
             recordingEnabled = false,
+            initialContextUpdates = [],
         },
         ref
     ) => {
@@ -97,21 +101,19 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         const autoStartPendingRef = useRef<boolean>(false);
         const webSpeechRef = useRef<any>(null);
         const webSpeechShouldRunRef = useRef<boolean>(false);
+        const initialPromptSentRef = useRef<boolean>(false);
 
         // Role behavior strategy (keeps component transport-only)
         const roleBehavior = useConversationRoleBehavior(roles, automaticMode);
 
         // State machine functions are now passed as props from parent
 
-        const engine =
-            process.env.NEXT_PUBLIC_CANDIDATE_ENGINE === "openai"
-                ? "openai"
-                : "elevenlabs";
+        // Interviewer-only adapter: always use ElevenLabs transport
 
         // ElevenLabs conversation binding and event handlers via MicSession
         const { conversation } = useMicSession({
             micMuted,
-            onConnect: () => {
+            onConnect: async () => {
                 log.info("✅ Connected to Eleven Labs");
                 setIsConnected(true);
                 setConnectionStatus("Connected");
@@ -126,15 +128,37 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                     hasAdd: typeof anyConv?.addClientTool === "function",
                 });
 
-                if (engine !== "openai") {
-                    // Prime KB variables immediately on connect (ElevenLabs only)
-                    updateKBVariables?.({
-                        candidate_name: candidateName,
-                        is_coding: false,
-                        has_submitted: false,
-                        current_code_summary: state.currentCode ?? "",
-                    });
-                }
+                // Prime KB variables immediately on connect (ElevenLabs only)
+                updateKBVariables?.({
+                    candidate_name: candidateName,
+                    is_coding: false,
+                    has_submitted: false,
+                    current_code_summary: state.currentCode ?? "",
+                });
+
+                // Disabled: initial contextual update (prompt) send on connect
+                // try {
+                //     const first =
+                //         Array.isArray(initialContextUpdates) &&
+                //         initialContextUpdates.length > 0
+                //             ? initialContextUpdates[0]
+                //             : "";
+                //     if (
+                //         !initialPromptSentRef.current &&
+                //         first &&
+                //         (conversation as any)?.sendContextualUpdate
+                //     ) {
+                //         log.info(
+                //             "📤 Initial interviewer prompt (contextual update):",
+                //             first
+                //         );
+                //         await (conversation as any).sendContextualUpdate(first);
+                //         initialPromptSentRef.current = true;
+                //         log.info(
+                //             "✅ Sent initial interviewer prompt via contextual update"
+                //         );
+                //     }
+                // } catch (_) {}
 
                 // Notify ChatPanel about recording status
                 window.parent.postMessage(
@@ -205,20 +229,16 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                         }
                     }
 
-                    // Always forward user transcripts. For OpenAI engine, suppress AI messages (text-only candidate).
-                    if (engine === "openai" && isAiMessage) {
-                        // no-op: AI voice not used for OpenAI candidate
-                    } else {
-                        window.parent.postMessage(
-                            {
-                                type: "transcription",
-                                text: messageText,
-                                speaker: isAiMessage ? "ai" : "user",
-                                timestamp: new Date(),
-                            },
-                            "*"
-                        );
-                    }
+                    // Always forward user transcripts
+                    window.parent.postMessage(
+                        {
+                            type: "transcription",
+                            text: messageText,
+                            speaker: isAiMessage ? "ai" : "user",
+                            timestamp: new Date(),
+                        },
+                        "*"
+                    );
                     try {
                         if (sessionIdRef.current) {
                             const interviewerId =
@@ -264,10 +284,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
         });
 
         // Transport adapter (ElevenLabs/OpenAI)
-        const adapter = useTransportAdapter(
-            engine === "openai" ? "openai" : "elevenlabs",
-            { conversation }
-        );
+        const adapter = useElevenLabsTransport({ conversation });
 
         /**
          * Fetches a signed URL for ElevenLabs session initialization.
@@ -326,119 +343,18 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                 if (recordingEnabled) {
                     // Defer actual start to reactive effect
                 }
-                if (engine === "openai") {
-                    const SpeechRecognition: any =
-                        (window as any).webkitSpeechRecognition ||
-                        (window as any).SpeechRecognition;
-                    if (SpeechRecognition) {
-                        const rec = new SpeechRecognition();
-                        rec.continuous = true;
-                        rec.interimResults = false;
-                        rec.lang = "en-US";
-                        webSpeechShouldRunRef.current = true;
-                        rec.onstart = () => {
-                            setIsConnected(true);
-                            setConnectionStatus("Connected");
-                            window.parent.postMessage(
-                                { type: "recording-status", isRecording: true },
-                                "*"
-                            );
-                            onStartConversation?.();
-                        };
-                        rec.onresult = (e: any) => {
-                            for (
-                                let i = e.resultIndex;
-                                i < e.results.length;
-                                i++
-                            ) {
-                                if (e.results[i].isFinal) {
-                                    const text = e.results[i][0].transcript;
-                                    log.info(
-                                        "🎤 onresult final user text",
-                                        text
-                                    );
-                                    window.parent.postMessage(
-                                        {
-                                            type: "transcription",
-                                            text,
-                                            speaker: "user",
-                                            timestamp: new Date(),
-                                            origin: "mic-webspeech",
-                                        },
-                                        "*"
-                                    );
-                                    try {
-                                        if (sessionIdRef.current) {
-                                            log.info(
-                                                "🧾 append user line",
-                                                sessionIdRef.current
-                                            );
-                                            void appendTranscriptLine(
-                                                sessionIdRef.current,
-                                                "interviewer",
-                                                "noam",
-                                                text
-                                            );
-                                        }
-                                    } catch (_) {}
-                                    void handleUserTranscript?.(text);
-                                }
-                            }
-                        };
-                        rec.onerror = (err: any) => {
-                            log.warn("🎙️ Web Speech onerror", err);
-                            // Restart recognition if interview still active
-                            if (webSpeechShouldRunRef.current) {
-                                try {
-                                    setTimeout(() => {
-                                        try {
-                                            rec.start();
-                                        } catch (_) {}
-                                    }, 200);
-                                } catch (_) {}
-                            }
-                        };
-                        rec.onend = () => {
-                            log.info("🎙️ Web Speech onend");
-                            if (webSpeechShouldRunRef.current) {
-                                try {
-                                    rec.start();
-                                } catch (_) {}
-                            }
-                        };
-                        webSpeechRef.current = rec;
-                        rec.start();
-                    } else {
-                        // Fallback: treat as connected
-                        setIsConnected(true);
-                        setConnectionStatus("Connected");
-                        window.parent.postMessage(
-                            { type: "recording-status", isRecording: true },
-                            "*"
-                        );
-                        onStartConversation?.();
-                    }
-                    await adapter.start();
-                    return;
-                }
                 await adapter.start();
             } catch (error) {
                 log.error("❌ Failed to start audio or conversation:", error);
                 setConnectionStatus("Failed to start");
             }
-        }, [engine, onStartConversation, adapter, handleUserTranscript]);
+        }, [adapter, recordingEnabled]);
 
         /**
          * Starts the ElevenLabs realtime session using the signed URL.
          */
         const connectToElevenLabs = useCallback(async () => {
             try {
-                if (engine === "openai") {
-                    log.info(
-                        "🧠 OpenAI engine active: skipping ElevenLabs WS connect"
-                    );
-                    return;
-                }
                 log.info("Getting signed URL...");
                 const signedUrl = await getSignedUrl();
                 log.info("Got signed URL:", signedUrl);
@@ -465,120 +381,36 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                 }
                 setConnectionStatus("Connection failed");
             }
-        }, [getSignedUrl, conversation, engine]);
+        }, [getSignedUrl, conversation]);
 
         /**
          * When recording turns on, connect to ElevenLabs; otherwise do nothing.
          */
         useEffect(() => {
             if (isRecording) {
-                if (engine === "openai") {
-                    log.info(
-                        "🎙️ isRecording true (openai): using Web Speech STT only"
-                    );
-                    // startConversation already started recognition
-                } else {
-                    log.info(
-                        "🔄 isRecording is true, connecting to ElevenLabs..."
-                    );
-                    connectToElevenLabs();
-                }
+                log.info("🔄 isRecording is true, connecting to ElevenLabs...");
+                connectToElevenLabs();
             } else {
                 log.info("⏸️ isRecording is false, not connecting");
             }
-        }, [isRecording, engine]); // eslint-disable-line react-hooks/exhaustive-deps
+        }, [isRecording]); // eslint-disable-line react-hooks/exhaustive-deps
 
-        // Auto KB_UPDATE on code changes (using state machine)
-        /**
-         * Throttled code-summary KB updates while connected and before submission.
-         */
-        useEffect(() => {
-            if (conversation.status !== "connected") {
-                return;
-            }
+        // Throttled code-summary KB updates while connected and before submission.
+        useKBUpdates({
+            conversation,
+            kbVariables,
+            currentCode: state.currentCode,
+            updateKBVariables,
+        });
 
-            // Suppress code summary updates after submission
-            if (hasSubmittedRef.current || kbVariables?.has_submitted) {
-                return;
-            }
-
-            // Skip if code hasn't changed
-            if (lastSentCodeRef.current === state.currentCode) {
-                return;
-            }
-
-            // Clear previous timeout
-            if (updateTimeoutRef.current) {
-                clearTimeout(updateTimeoutRef.current);
-            }
-
-            // Set new timeout for throttled update
-            updateTimeoutRef.current = setTimeout(async () => {
-                try {
-                    // Update through state machine to maintain consistency
-                    await updateKBVariables?.({
-                        current_code_summary: state.currentCode,
-                    });
-                    lastSentCodeRef.current = state.currentCode;
-                    log.info(
-                        "✅ Code summary KB_UPDATE sent via state machine"
-                    );
-                } catch (error) {
-                    log.error("❌ Code summary KB_UPDATE failed:", error);
-                }
-            }, 1500);
-
-            // Cleanup timeout on unmount
-            return () => {
-                if (updateTimeoutRef.current) {
-                    clearTimeout(updateTimeoutRef.current);
-                }
-            };
-        }, [state.currentCode, conversation.status]); // eslint-disable-line react-hooks/exhaustive-deps
-
-        // Flush queued updates/messages from context when connected
-        /**
-         * Flushes queued context updates and user messages when a connection is live.
-         */
-        useEffect(() => {
-            if (conversation.status !== "connected") return;
-
-            // Flush contextual updates
-            const updates = state.contextUpdatesQueue || [];
-            if (updates.length > 0 && conversation.sendContextualUpdate) {
-                (async () => {
-                    for (const text of updates) {
-                        try {
-                            await conversation.sendContextualUpdate(text);
-                            log.info("✅ Flushed contextual update:", text);
-                        } catch (error) {
-                            log.error("❌ Failed contextual update:", error);
-                        }
-                    }
-                    clearContextUpdates();
-                })();
-            }
-
-            // Flush user messages
-            const messages = state.userMessagesQueue || [];
-            if (messages.length > 0) {
-                (async () => {
-                    for (const msg of messages) {
-                        try {
-                            await conversation.sendUserMessage(msg);
-                            log.info("✅ Flushed user message:", msg);
-                        } catch (error) {
-                            log.error("❌ Failed user message:", error);
-                        }
-                    }
-                    clearUserMessages();
-                })();
-            }
-        }, [
-            conversation.status,
-            state.contextUpdatesQueue,
-            state.userMessagesQueue,
-        ]);
+        // Flush queued context updates and user messages when connected
+        useFlushQueues({
+            conversation,
+            contextUpdates: state.contextUpdatesQueue || [],
+            userMessages: state.userMessagesQueue || [],
+            clearContextUpdates,
+            clearUserMessages,
+        });
 
         /**
          * Gracefully ends session: clears timers, stops mic, closes session, updates UI.
@@ -750,7 +582,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                     }
                 } catch (_) {}
             })();
-        }, [recordingEnabled]);
+        }, [recordingEnabled, state.currentCode]);
 
         // Toggle mic mute function
         /**
@@ -892,6 +724,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             stopConversation,
             onInterviewConcluded,
             automaticMode,
+            onAutoStartCoding,
         ]);
 
         // Cleanup on unmount

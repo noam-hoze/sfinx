@@ -20,14 +20,9 @@ const TrainingPage = () => {
         }
     }, [session, status, router]);
 
-    // Select candidate engine via env (NEXT_PUBLIC_CANDIDATE_ENGINE)
-    const engine =
-        process.env.NEXT_PUBLIC_CANDIDATE_ENGINE === "openai"
-            ? "openai"
-            : "elevenLabs";
     const roles: RoleConfig = {
         interviewer: "human",
-        candidate: engine as any,
+        candidate: "openai",
     };
 
     // Ensure required interview params are present in URL (no fallback semantics)

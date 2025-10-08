@@ -27,6 +27,7 @@ interface RightPanelProps {
     onStopTimer: () => void;
     roles?: RoleConfig;
     recordingEnabled?: boolean;
+    initialContextUpdates?: string[];
 }
 
 const RightPanel: React.FC<RightPanelProps> = ({
@@ -50,6 +51,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
     onStopTimer,
     roles,
     recordingEnabled,
+    initialContextUpdates,
 }) => {
     return (
         <div className="h-full flex flex-col border-t">
@@ -85,31 +87,33 @@ const RightPanel: React.FC<RightPanelProps> = ({
                 </div>
 
                 <div className="flex-1 p-4">
-                    {/* Always mount RealTimeConversation for mic/STT/connection indicator */}
-                    <RealTimeConversation
-                        ref={realTimeConversationRef}
-                        isInterviewActive={isInterviewActive}
-                        candidateName={candidateName}
-                        roles={roles}
-                        handleUserTranscript={handleUserTranscript}
-                        updateKBVariables={updateKBVariables}
-                        kbVariables={kbVariables}
-                        automaticMode={automaticMode}
-                        onAutoStartCoding={onAutoStartCoding}
-                        recordingEnabled={recordingEnabled}
-                        onStartConversation={() => {
-                            setIsAgentConnected(true);
-                            onStartConversation();
-                        }}
-                        onEndConversation={() => {
-                            setIsInterviewActive(false);
-                            setIsAgentConnected(false);
-                            onStopTimer();
-                            onEndConversation();
-                        }}
-                        onInterviewConcluded={onInterviewConcluded}
-                    />
-                    {/* When OpenAI is candidate, also mount the text adapter to consume transcripts and respond */}
+                    {/* Mount interviewer (ElevenLabs) or candidate (OpenAI text) adapter based on roles */}
+                    {roles?.interviewer === "elevenLabs" && (
+                        <RealTimeConversation
+                            ref={realTimeConversationRef}
+                            isInterviewActive={isInterviewActive}
+                            candidateName={candidateName}
+                            roles={roles}
+                            handleUserTranscript={handleUserTranscript}
+                            updateKBVariables={updateKBVariables}
+                            kbVariables={kbVariables}
+                            automaticMode={automaticMode}
+                            onAutoStartCoding={onAutoStartCoding}
+                            recordingEnabled={recordingEnabled}
+                            initialContextUpdates={initialContextUpdates}
+                            onStartConversation={() => {
+                                setIsAgentConnected(true);
+                                onStartConversation();
+                            }}
+                            onEndConversation={() => {
+                                setIsInterviewActive(false);
+                                setIsAgentConnected(false);
+                                onStopTimer();
+                                onEndConversation();
+                            }}
+                            onInterviewConcluded={onInterviewConcluded}
+                        />
+                    )}
                     {roles?.candidate === "openai" && (
                         <OpenAITextConversation
                             isInterviewActive={isInterviewActive}

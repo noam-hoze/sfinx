@@ -78,6 +78,16 @@ async function loadCodingChallenge(
     return code;
 }
 
+function deriveRoleFromJobId(jobId: string | null, company: string | null) {
+    if (!jobId) return null;
+    const slug = jobId.toLowerCase();
+    if (company && slug.startsWith(`${company.toLowerCase()}-`)) {
+        return slug.slice(company.length + 1);
+    }
+    const idx = slug.indexOf("-");
+    return idx > -1 ? slug.slice(idx + 1) : slug;
+}
+
 /**
  * Returns the initial code template displayed in the editor when the interview starts.
  */
@@ -109,8 +119,9 @@ const InterviewerContent = ({
     const { data: session } = useSession();
     const companyId = searchParams.get("companyId");
     const jobId = searchParams.get("jobId");
-    const companyParam = searchParams.get("company");
-    const roleParam = searchParams.get("role");
+    const companyParam = searchParams.get("company") || companyId;
+    const roleParam =
+        searchParams.get("role") || deriveRoleFromJobId(jobId, companyParam);
     const [job, setJob] = useState<any | null>(null);
     const candidateName =
         candidateNameOverride || (session?.user as any)?.name || "Candidate";
@@ -184,6 +195,10 @@ const InterviewerContent = ({
         interviewer: "elevenLabs",
         candidate: "human",
     };
+    const [initialContextUpdates, setInitialContextUpdates] = useState<
+        string[]
+    >([]);
+    const [interviewerPrompt, setInterviewerPrompt] = useState<string>("");
 
     useThemePreference();
 
@@ -323,6 +338,22 @@ const InterviewerContent = ({
             const code = await loadCodingChallenge(companyParam, roleParam);
             updateCurrentCode(code);
             window.postMessage({ type: "clear-chat" }, "*");
+            // Prefetch interviewer prompt and stage for RTC to send on connect
+            try {
+                if (companyParam && roleParam) {
+                    const res = await fetch(
+                        `/api/interviews/config?company=${encodeURIComponent(
+                            companyParam
+                        )}&role=${encodeURIComponent(roleParam)}`
+                    );
+                    if (res.ok) {
+                        const data = await res.json();
+                        const prompt: string = data?.interviewerPrompt || "";
+                        setInitialContextUpdates(prompt ? [prompt] : []);
+                        setInterviewerPrompt(prompt || "");
+                    }
+                }
+            } catch (_) {}
             // Before starting conversation, if candidate is ElevenLabs, register client tools
             if (roles.candidate === "elevenLabs") {
                 try {
@@ -437,6 +468,10 @@ const InterviewerContent = ({
     useEffect(() => {
         (async () => {
             if (!state.currentCode) {
+                if (!companyParam || !roleParam) {
+                    // Wait until URL params are available
+                    return;
+                }
                 try {
                     const code = await loadCodingChallenge(
                         companyParam,
@@ -457,6 +492,7 @@ const InterviewerContent = ({
         const currentTask = getCurrentTask();
         if (currentTask?.id === "task1-userlist") {
             (async () => {
+                if (!companyParam || !roleParam) return;
                 try {
                     const code = await loadCodingChallenge(
                         companyParam,
@@ -551,6 +587,27 @@ const InterviewerContent = ({
         [job]
     );
 
+    const openInterviewerPromptInNewTab = useCallback(() => {
+        try {
+            const content =
+                (initialContextUpdates && initialContextUpdates[0]) ||
+                interviewerPrompt ||
+                "";
+            const escape = (s: string) =>
+                s
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;");
+            const html = `<!doctype html><html><head><meta charset="utf-8" /><title>Interviewer Prompt</title><style>body{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;margin:16px;white-space:pre-wrap;line-height:1.45}</style></head><body><pre>${escape(
+                content
+            )}</pre></body></html>`;
+            const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            window.open(url, "_blank", "noopener,noreferrer");
+            setTimeout(() => URL.revokeObjectURL(url), 15000);
+        } catch (_) {}
+    }, [initialContextUpdates, interviewerPrompt]);
+
     return (
         <div className="h-screen flex flex-col bg-soft-white text-deep-slate dark:bg-gray-900 dark:text-white">
             <header className="border-b border-gray-200/30 dark:border-gray-700/30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl px-3 py-1">
@@ -590,6 +647,63 @@ const InterviewerContent = ({
                     </div>
                 </div>
             </header>
+
+            {roles.interviewer === "elevenLabs" && interviewerPrompt && (
+                <div className="sticky top-[4.5rem] z-20 border-b border-gray-200/70 dark:border-gray-800/60 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl">
+                    <div className="max-w-8xl mx-auto px-3 py-2 flex items-center justify-between">
+                        <div className="text-xs text-gray-600 dark:text-gray-300">
+                            AI Interviewer configured. You can view the initial
+                            prompt sent to ElevenLabs.
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={openInterviewerPromptInNewTab}
+                                className="inline-flex items-center gap-2 px-3 py-1 rounded-lg border border-gray-200/70 bg-white/90 hover:bg-white shadow-sm transition-all text-xs font-medium text-gray-700 dark:text-gray-200"
+                                title="Open interviewer prompt in new tab"
+                            >
+                                View Interviewer Prompt
+                            </button>
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    try {
+                                        await updateKBVariables({
+                                            is_in_coding_question: true,
+                                        } as any);
+                                        await onSendUserMessage(
+                                            "Don't answer this message in our voice conversation. It's just to inform you of something. Now your is_in_coding_question variable is true. Announce the coding task once, then you have to wait for his answer. Ignore noise and any other non lingual messages. After that, you go back to listening. Don't say your closing line"
+                                        );
+                                    } catch (_) {}
+                                }}
+                                className="inline-flex items-center gap-2 px-3 py-1 rounded-lg border border-purple-200/70 bg-purple-50 hover:bg-purple-100 shadow-sm transition-all text-xs font-medium text-purple-700 dark:text-purple-300 dark:bg-purple-900/20 dark:hover:bg-purple-900/30 dark:border-purple-900/30"
+                                title="Unlock editor and start the coding question"
+                            >
+                                go to coding question
+                            </button>
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    try {
+                                        const delta = window.prompt(
+                                            "Follow-up delta (what changed)?",
+                                            ""
+                                        );
+                                        await updateKBVariables({
+                                            followup_ready: true,
+                                            followup_delta: delta || "",
+                                        } as any);
+                                    } catch (_) {}
+                                }}
+                                className="inline-flex items-center gap-2 px-3 py-1 rounded-lg border border-blue-200/70 bg-blue-50 hover:bg-blue-100 shadow-sm transition-all text-xs font-medium text-blue-700 dark:text-blue-300 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 dark:border-blue-900/30"
+                                title="Trigger one follow-up question about the recent edits"
+                            >
+                                trigger follow-up
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="flex-1 overflow-hidden mt-6">
                 <PanelGroup direction="horizontal">
@@ -635,6 +749,7 @@ const InterviewerContent = ({
                             kbVariables={kbVariables}
                             automaticMode={automaticMode}
                             isCodingStarted={isCodingStarted}
+                            initialContextUpdates={initialContextUpdates}
                             onAutoStartCoding={() => {
                                 if (!isCodingStarted) {
                                     void handleStartCoding();
@@ -642,10 +757,6 @@ const InterviewerContent = ({
                             }}
                             onStartConversation={async () => {
                                 log.info("Conversation started");
-                                log.info(
-                                    "Engine:",
-                                    process.env.NEXT_PUBLIC_CANDIDATE_ENGINE
-                                );
                                 setIsInterviewLoading(false);
                                 if (roles.candidate === "elevenLabs") {
                                     try {
