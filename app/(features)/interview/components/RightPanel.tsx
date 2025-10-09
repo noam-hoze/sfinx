@@ -2,6 +2,7 @@
 
 import React from "react";
 import RealTimeConversation from "./chat/RealTimeConversation";
+import OpenAIConversation from "./chat/OpenAIConversation";
 import ChatPanel from "./chat/ChatPanel";
 
 interface RightPanelProps {
@@ -79,27 +80,52 @@ const RightPanel: React.FC<RightPanelProps> = ({
                 </div>
 
                 <div className="flex-1 p-4">
-                    <RealTimeConversation
-                        ref={realTimeConversationRef}
-                        isInterviewActive={isInterviewActive}
-                        candidateName={candidateName}
-                        handleUserTranscript={handleUserTranscript}
-                        updateKBVariables={updateKBVariables}
-                        kbVariables={kbVariables}
-                        automaticMode={automaticMode}
-                        onAutoStartCoding={onAutoStartCoding}
-                        onStartConversation={() => {
-                            setIsAgentConnected(true);
-                            onStartConversation();
-                        }}
-                        onEndConversation={() => {
-                            setIsInterviewActive(false);
-                            setIsAgentConnected(false);
-                            onStopTimer();
-                            onEndConversation();
-                        }}
-                        onInterviewConcluded={onInterviewConcluded}
-                    />
+                    {(process.env.NEXT_PUBLIC_VOICE_ENGINE || "elevenlabs") ===
+                    "openai" ? (
+                        <OpenAIConversation
+                            ref={realTimeConversationRef}
+                            isInterviewActive={isInterviewActive}
+                            candidateName={candidateName}
+                            handleUserTranscript={handleUserTranscript}
+                            updateKBVariables={updateKBVariables}
+                            kbVariables={kbVariables}
+                            automaticMode={automaticMode}
+                            onAutoStartCoding={onAutoStartCoding}
+                            onStartConversation={() => {
+                                setIsAgentConnected(true);
+                                onStartConversation();
+                            }}
+                            onEndConversation={() => {
+                                setIsInterviewActive(false);
+                                setIsAgentConnected(false);
+                                onStopTimer();
+                                onEndConversation();
+                            }}
+                            onInterviewConcluded={onInterviewConcluded}
+                        />
+                    ) : (
+                        <RealTimeConversation
+                            ref={realTimeConversationRef}
+                            isInterviewActive={isInterviewActive}
+                            candidateName={candidateName}
+                            handleUserTranscript={handleUserTranscript}
+                            updateKBVariables={updateKBVariables}
+                            kbVariables={kbVariables}
+                            automaticMode={automaticMode}
+                            onAutoStartCoding={onAutoStartCoding}
+                            onStartConversation={() => {
+                                setIsAgentConnected(true);
+                                onStartConversation();
+                            }}
+                            onEndConversation={() => {
+                                setIsInterviewActive(false);
+                                setIsAgentConnected(false);
+                                onStopTimer();
+                                onEndConversation();
+                            }}
+                            onInterviewConcluded={onInterviewConcluded}
+                        />
+                    )}
                 </div>
             </div>
 
