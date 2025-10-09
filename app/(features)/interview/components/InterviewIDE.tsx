@@ -35,6 +35,7 @@ import { createApplication } from "./services/applicationService";
 import { createInterviewSession } from "./services/interviewSessionService";
 import { fetchJobById } from "./services/jobService";
 import { appendCodeSnapshot } from "../../../shared/services/recordings";
+import { summarizeDelta } from "../../../shared/utils/diff";
 
 const log = logger.for("@InterviewIDE.tsx");
 if (typeof window !== "undefined") {
@@ -199,6 +200,14 @@ const InterviewerContent = ({
         string[]
     >([]);
     const [interviewerPrompt, setInterviewerPrompt] = useState<string>("");
+    const lastBaselineCodeRef = useRef<string>("");
+    const isDirty = useMemo(() => {
+        const normalize = (s: string) => (s || "").trim();
+        return (
+            normalize(state.currentCode || "") !==
+            normalize(lastBaselineCodeRef.current || "")
+        );
+    }, [state.currentCode]);
 
     useThemePreference();
 
@@ -257,6 +266,10 @@ const InterviewerContent = ({
         setCodingStarted(true);
         await setCodingState(true);
         startTimer();
+        // Capture baseline for follow-up delta comparisons
+        try {
+            lastBaselineCodeRef.current = state.currentCode || "";
+        } catch (_) {}
         try {
             const sid = (window as any)?.__recordingSessionId as
                 | string
@@ -272,6 +285,8 @@ const InterviewerContent = ({
             window.parent.postMessage({ type: "coding-started" }, "*");
         } catch (_) {}
     }, [setCodingStarted, setCodingState, startTimer]);
+
+    // summarizeDelta now imported from shared utils
 
     /**
      * Submits the current solution, stops recording, exits coding mode, and stops the timer.
@@ -291,6 +306,7 @@ const InterviewerContent = ({
         }
     }, [
         state.currentCode,
+        updateSubmission,
         stopRecording,
         stateMachineHandleSubmission,
         sendHiddenDoneMessage,
@@ -478,12 +494,24 @@ const InterviewerContent = ({
                         roleParam
                     );
                     updateCurrentCode(code);
+                    // Initialize baseline to loaded challenge so it's not dirty on load
+                    try {
+                        lastBaselineCodeRef.current = code || "";
+                    } catch (_) {}
                 } catch (e) {
                     log.error("Failed to load coding challenge:", e);
                 }
             }
         })();
     }, [state.currentCode, updateCurrentCode, companyParam, roleParam]);
+
+    // If code is already present on mount, initialize baseline once
+    useEffect(() => {
+        if (!lastBaselineCodeRef.current && state.currentCode) {
+            lastBaselineCodeRef.current = state.currentCode || "";
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     /**
      * Resets editor code for specific tasks (e.g., task1-userlist) when task changes.
@@ -685,17 +713,26 @@ const InterviewerContent = ({
                                 type="button"
                                 onClick={async () => {
                                     try {
-                                        const delta = window.prompt(
-                                            "Follow-up delta (what changed)?",
-                                            ""
+                                        const effectiveDelta = summarizeDelta(
+                                            lastBaselineCodeRef.current,
+                                            state.currentCode || ""
                                         );
+                                        // Update baseline after triggering follow-up
+                                        lastBaselineCodeRef.current =
+                                            state.currentCode || "";
                                         await updateKBVariables({
                                             followup_ready: true,
-                                            followup_delta: delta || "",
+                                            followup_delta:
+                                                effectiveDelta || "",
                                         } as any);
                                     } catch (_) {}
                                 }}
-                                className="inline-flex items-center gap-2 px-3 py-1 rounded-lg border border-blue-200/70 bg-blue-50 hover:bg-blue-100 shadow-sm transition-all text-xs font-medium text-blue-700 dark:text-blue-300 dark:bg-blue-900/20 dark:hover:bg-blue-900/30 dark:border-blue-900/30"
+                                disabled={!isCodingStarted || !isDirty}
+                                className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg border border-blue-200/70 bg-blue-50 ${
+                                    !isCodingStarted || !isDirty
+                                        ? "opacity-50 cursor-not-allowed hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                        : "hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                                } shadow-sm transition-all text-xs font-medium text-blue-700 dark:text-blue-300 dark:bg-blue-900/20 dark:border-blue-900/30`}
                                 title="Trigger one follow-up question about the recent edits"
                             >
                                 trigger follow-up
