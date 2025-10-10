@@ -25,6 +25,12 @@ export const useScreenRecording = () => {
         setRecordingUploaded(false);
     }, []);
 
+    // Allows developers to skip the screen sharing prompt during local debugging.
+    // When NEXT_PUBLIC_SKIP_SCREEN_SHARE=true, we bypass requesting display/media permissions
+    // and pretend permissions are granted so the interview can begin immediately.
+    const skipScreenShare =
+        process.env.NEXT_PUBLIC_SKIP_SCREEN_SHARE === "true";
+
     const uploadRecordingToServer = useCallback(
         async (blob: Blob) => {
             log.info(
@@ -116,6 +122,14 @@ export const useScreenRecording = () => {
     );
 
     const requestRecordingPermission = useCallback(async () => {
+        if (skipScreenShare) {
+            log.info(
+                "⏭️ Skipping screen share due to NEXT_PUBLIC_SKIP_SCREEN_SHARE"
+            );
+            setMicPermissionGranted(true);
+            setRecordingPermissionGranted(true);
+            return true;
+        }
         try {
             const displayStream = await navigator.mediaDevices.getDisplayMedia({
                 video: true,
@@ -180,7 +194,10 @@ export const useScreenRecording = () => {
             selectedMimeTypeRef.current = mimeType;
 
             mediaRecorder.ondataavailable = (event) => {
-                log.info("📡 ondataavailable fired, data size:", event.data.size);
+                log.info(
+                    "📡 ondataavailable fired, data size:",
+                    event.data.size
+                );
                 if (event.data.size > 0) {
                     recordedChunksRef.current.push(event.data);
                     log.info(
@@ -270,6 +287,12 @@ export const useScreenRecording = () => {
     }, [recordingUploaded, uploadRecordingToServer]);
 
     const startRecording = useCallback(async () => {
+        if (skipScreenShare) {
+            log.info("⏭️ startRecording: bypassing media capture (dev mode)");
+            setRecordingPermissionGranted(true);
+            setMicPermissionGranted(true);
+            return true;
+        }
         if (!recordingPermissionGranted || !mediaRecorderRef.current) {
             const permissionGranted = await requestRecordingPermission();
             if (!permissionGranted) {
@@ -289,11 +312,7 @@ export const useScreenRecording = () => {
         }
 
         return false;
-    }, [
-        isRecording,
-        recordingPermissionGranted,
-        requestRecordingPermission,
-    ]);
+    }, [isRecording, recordingPermissionGranted, requestRecordingPermission]);
 
     const stopRecording = useCallback(async () => {
         if (mediaRecorderRef.current && isRecording) {
