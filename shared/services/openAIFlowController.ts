@@ -16,17 +16,18 @@ export function openAIFlowController() {
         stage = "awaiting_ready";
     };
 
-    const onUserFinal = (session: any) => {
-        if (stage === "awaiting_ready") return askBackground(session);
+    const onUserFinal = (session: any, backgroundQuestion?: string) => {
+        if (stage === "awaiting_ready")
+            return askBackground(session, backgroundQuestion);
         if (stage === "background_asked") return acknowledgeBackground(session);
         return false;
     };
 
-    const askBackground = (session: any) => {
-        send(
-            session,
-            "Ask one background question about the candidate’s experience. Keep it ≤2 sentences. After asking, wait silently for their answer."
-        );
+    const askBackground = (session: any, backgroundQuestion?: string) => {
+        const text = backgroundQuestion?.trim()
+            ? `Ask exactly this background question: "${backgroundQuestion}". Keep it ≤2 sentences. After asking, wait silently for their answer.`
+            : "Ask one background question about the candidate’s experience. Keep it ≤2 sentences. After asking, wait silently for their answer.";
+        send(session, text);
         stage = "background_asked";
         return true;
     };

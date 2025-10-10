@@ -87,8 +87,22 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
 
         // Compose hooks/services: realtime session + flow controller
         const flow = openAIFlowController();
+        const scriptRef = useRef<{
+            backgroundQuestion?: string;
+            codingPrompt?: string;
+        } | null>(null);
         const { connected, session, connect } = useOpenAIRealtimeSession(
-            (m) => postToChat(m.text, m.role),
+            (m) => {
+                postToChat(m.text, m.role);
+                if (m.role === "user") {
+                    try {
+                        flow.onUserFinal(
+                            session.current,
+                            scriptRef.current?.backgroundQuestion
+                        );
+                    } catch {}
+                }
+            },
             { agentName: "Carrie", instructions: OPENAI_INTERVIEWER_PROMPT }
         );
 
@@ -98,7 +112,14 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 // Use new hook
                 await connect();
                 sessionRef.current = session.current;
-                // Greet via flow controller
+                // Load interview script dynamically (company/role can come from params in future)
+                try {
+                    const resp = await fetch(
+                        `/api/interviews/script?company=meta&role=frontend-engineer`
+                    );
+                    if (resp.ok) scriptRef.current = await resp.json();
+                } catch {}
+                // Greet and proceed
                 flow.greet(sessionRef.current, candidateName);
                 setIsConnected(true);
                 onStartConversation?.();

@@ -67,7 +67,7 @@ export function createTurnBuffer(options?: { graceMs?: number }): TurnBuffer {
             }
             return flushed;
         }
-        // Assistant final ⇒ attach to most recent turn without AI; if none, pre-create next turn
+        // Assistant final ⇒ attach to most recent turn without AI; if none, open a new turn and emit immediately
         if (evt?.type === "response.done") {
             const items = evt?.response?.output ?? [];
             const parts: string[] = [];
@@ -92,11 +92,19 @@ export function createTurnBuffer(options?: { graceMs?: number }): TurnBuffer {
                     break;
                 }
             }
-            if (targetTurn === 0) targetTurn = turnCounter + 1;
+            if (targetTurn === 0) {
+                // Open a new turn for AI-first greeting and emit immediately
+                turnCounter += 1;
+                targetTurn = turnCounter;
+            }
             const rec = ensureTurn(targetTurn);
             if (full) rec.ai = full;
-            if (rec.user) flushed.push(...flush(targetTurn));
-            else scheduleFlush(targetTurn);
+            // If user already present, flush paired; otherwise emit AI immediately (no delay)
+            if (rec.user) {
+                flushed.push(...flush(targetTurn));
+            } else {
+                flushed.push(...flush(targetTurn));
+            }
             return flushed;
         }
         return flushed;
