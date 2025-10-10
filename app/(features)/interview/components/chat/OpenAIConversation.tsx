@@ -14,6 +14,7 @@ import {
     extractAssistantFinalText,
     extractUserTranscript,
 } from "@/shared/services/openAIRealtimeExtractors";
+import { OPENAI_INTERVIEWER_PROMPT } from "@/shared/prompts/openAIInterviewerPrompt";
 const log = logger.for("@OpenAIConversation.tsx");
 
 interface OpenAIConversationProps {
@@ -51,6 +52,10 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
         const micStreamRef = useRef<MediaStream | null>(null);
         const sessionRef = useRef<any>(null);
         const micMutedRef = useRef<boolean>(false);
+        // Simple stage control for early flow: greeting → background
+        const stageRef = useRef<
+            "awaiting_ready" | "background_asked" | "background_done"
+        >("awaiting_ready");
 
         const notifyRecording = useCallback((val: boolean) => {
             window.parent.postMessage(
@@ -90,8 +95,8 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                     "@openai/agents/realtime"
                 );
                 const agent = new RealtimeAgent({
-                    name: "Assistant",
-                    instructions: "You are a helpful assistant.",
+                    name: "Carrie",
+                    instructions: OPENAI_INTERVIEWER_PROMPT,
                 });
                 const session = new RealtimeSession(agent, {
                     model: "gpt-4o-realtime-preview",
@@ -163,6 +168,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                         type: "response.create",
                     });
                 } catch (_) {}
+                stageRef.current = "awaiting_ready";
 
                 const turnBuffer = createTurnBuffer();
                 (session.on as any)?.("transport_event", (evt: any) => {
@@ -175,6 +181,51 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                         if (text) {
                             const flushed = turnBuffer.ingest(evt);
                             for (const m of flushed) post(m.text, m.role);
+                            // Stage transitions
+                            if (stageRef.current === "awaiting_ready") {
+                                try {
+                                    (session as any)?.transport?.sendEvent?.({
+                                        type: "conversation.item.create",
+                                        item: {
+                                            type: "message",
+                                            role: "system",
+                                            content: [
+                                                {
+                                                    type: "input_text",
+                                                    text: "Ask one background question about the candidate’s experience. Keep it ≤2 sentences. After asking, wait silently for their answer.",
+                                                },
+                                            ],
+                                        },
+                                    });
+                                    (session as any)?.transport?.sendEvent?.({
+                                        type: "response.create",
+                                    });
+                                } catch (_) {}
+                                stageRef.current = "background_asked";
+                            } else if (
+                                stageRef.current === "background_asked"
+                            ) {
+                                // Candidate answered background question → acknowledge once, then finish stage
+                                try {
+                                    (session as any)?.transport?.sendEvent?.({
+                                        type: "conversation.item.create",
+                                        item: {
+                                            type: "message",
+                                            role: "system",
+                                            content: [
+                                                {
+                                                    type: "input_text",
+                                                    text: "Acknowledge briefly in one sentence. Do not ask further background questions.",
+                                                },
+                                            ],
+                                        },
+                                    });
+                                    (session as any)?.transport?.sendEvent?.({
+                                        type: "response.create",
+                                    });
+                                } catch (_) {}
+                                stageRef.current = "background_done";
+                            }
                         }
                         return;
                     }
