@@ -9,11 +9,8 @@ import React, {
     forwardRef,
 } from "react";
 import { logger } from "../../../../shared/services";
-import { createTurnBuffer } from "@/shared/services/openAIRealtimeTurnBuffer";
-import {
-    extractAssistantFinalText,
-    extractUserTranscript,
-} from "@/shared/services/openAIRealtimeExtractors";
+import { useOpenAIRealtimeSession } from "@/shared/hooks/useOpenAIRealtimeSession";
+import { openAIFlowController } from "@/shared/services/openAIFlowController";
 import { OPENAI_INTERVIEWER_PROMPT } from "@/shared/prompts/openAIInterviewerPrompt";
 const log = logger.for("@OpenAIConversation.tsx");
 
@@ -24,7 +21,6 @@ interface OpenAIConversationProps {
     isInterviewActive?: boolean;
     candidateName?: string;
     handleUserTranscript?: (transcript: string) => Promise<void>;
-    updateKBVariables?: (updates: any) => Promise<void>;
     kbVariables?: any;
     automaticMode?: boolean;
     onAutoStartCoding?: () => void;
@@ -43,7 +39,6 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
             onEndConversation,
             isInterviewActive = false,
             candidateName = "Candidate",
-            updateKBVariables,
         },
         ref
     ) => {
@@ -52,10 +47,8 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
         const micStreamRef = useRef<MediaStream | null>(null);
         const sessionRef = useRef<any>(null);
         const micMutedRef = useRef<boolean>(false);
-        // Simple stage control for early flow: greeting → background
-        const stageRef = useRef<
-            "awaiting_ready" | "background_asked" | "background_done"
-        >("awaiting_ready");
+        type Stage = "awaiting_ready" | "background_asked" | "background_done";
+        const stageRef = useRef<Stage>("awaiting_ready");
 
         const notifyRecording = useCallback((val: boolean) => {
             window.parent.postMessage(
@@ -78,180 +71,47 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
             }
         }, [notifyRecording]);
 
-        const connect = useCallback(async () => {
-            try {
-                const res = await fetch("/api/openai/realtime", {
-                    method: "POST",
-                });
-                if (!res.ok) {
-                    const text = await res.text();
-                    throw new Error(text || "Failed to mint ephemeral key");
-                }
-                const { value: apiKey } = await res.json();
-                if (!apiKey)
-                    throw new Error("Missing ephemeral key in response");
-
-                const { RealtimeAgent, RealtimeSession } = await import(
-                    "@openai/agents/realtime"
-                );
-                const agent = new RealtimeAgent({
-                    name: "Carrie",
-                    instructions: OPENAI_INTERVIEWER_PROMPT,
-                });
-                const session = new RealtimeSession(agent, {
-                    model: "gpt-4o-realtime-preview",
-                    outputModalities: ["audio", "text"],
-                } as any);
-
-                // Connect
-                // eslint-disable-next-line no-console
-                console.info("[OpenAIConversation] connecting...");
-                await session.connect({ apiKey });
-                sessionRef.current = session;
-                // eslint-disable-next-line no-console
-                console.info("[OpenAIConversation] connected", {
-                    hasOn: typeof (session as any).on === "function",
-                });
-                // eslint-disable-next-line no-console
-                console.info(
-                    "[OpenAIConversation] session object below — expand to inspect handlers"
-                );
-                // eslint-disable-next-line no-console
-                console.dir(sessionRef.current);
-
-                // Prime KB on connect
-                updateKBVariables?.({
-                    candidate_name: candidateName,
-                    is_coding: false,
-                    has_submitted: false,
-                });
-
-                // Transcript listeners (transport_event + turn buffer to preserve order)
-                const post = (text: string, speaker: "user" | "ai") => {
-                    if (!text) return;
-                    try {
-                        window.parent.postMessage(
-                            { type: "transcription", text, speaker },
-                            "*"
-                        );
-                    } catch (_) {}
-                };
-
-                // Align with POC: configure transcription + server VAD after connect via transport
+        // --- helpers ------------------------------------------------------------
+        const postToChat = useCallback(
+            (text: string, speaker: "user" | "ai") => {
+                if (!text) return;
                 try {
-                    (session as any)?.transport?.updateSessionConfig?.({
-                        audio: {
-                            input: {
-                                transcription: { model: "whisper-1" },
-                                turnDetection: { type: "server_vad" },
-                            },
-                        },
-                    });
-                } catch {}
-
-                // Initial greeting: ask readiness, personalized with candidate name
-                try {
-                    (session as any)?.transport?.sendEvent?.({
-                        type: "conversation.item.create",
-                        item: {
-                            type: "message",
-                            role: "system",
-                            content: [
-                                {
-                                    type: "input_text",
-                                    text: `You are Carrie, an AI interviewer. Greet ${candidateName} warmly and ask if they are ready to begin.`,
-                                },
-                            ],
-                        },
-                    });
-                    (session as any)?.transport?.sendEvent?.({
-                        type: "response.create",
-                    });
+                    window.parent.postMessage(
+                        { type: "transcription", text, speaker },
+                        "*"
+                    );
                 } catch (_) {}
-                stageRef.current = "awaiting_ready";
+            },
+            []
+        );
 
-                const turnBuffer = createTurnBuffer();
-                (session.on as any)?.("transport_event", (evt: any) => {
-                    if (
-                        evt?.type ===
-                        "conversation.item.input_audio_transcription.completed"
-                    ) {
-                        // Normalize via extractor (handles variant payloads)
-                        const text = extractUserTranscript(evt);
-                        if (text) {
-                            const flushed = turnBuffer.ingest(evt);
-                            for (const m of flushed) post(m.text, m.role);
-                            // Stage transitions
-                            if (stageRef.current === "awaiting_ready") {
-                                try {
-                                    (session as any)?.transport?.sendEvent?.({
-                                        type: "conversation.item.create",
-                                        item: {
-                                            type: "message",
-                                            role: "system",
-                                            content: [
-                                                {
-                                                    type: "input_text",
-                                                    text: "Ask one background question about the candidate’s experience. Keep it ≤2 sentences. After asking, wait silently for their answer.",
-                                                },
-                                            ],
-                                        },
-                                    });
-                                    (session as any)?.transport?.sendEvent?.({
-                                        type: "response.create",
-                                    });
-                                } catch (_) {}
-                                stageRef.current = "background_asked";
-                            } else if (
-                                stageRef.current === "background_asked"
-                            ) {
-                                // Candidate answered background question → acknowledge once, then finish stage
-                                try {
-                                    (session as any)?.transport?.sendEvent?.({
-                                        type: "conversation.item.create",
-                                        item: {
-                                            type: "message",
-                                            role: "system",
-                                            content: [
-                                                {
-                                                    type: "input_text",
-                                                    text: "Acknowledge briefly in one sentence. Do not ask further background questions.",
-                                                },
-                                            ],
-                                        },
-                                    });
-                                    (session as any)?.transport?.sendEvent?.({
-                                        type: "response.create",
-                                    });
-                                } catch (_) {}
-                                stageRef.current = "background_done";
-                            }
-                        }
-                        return;
-                    }
-                    if (evt?.type === "response.done") {
-                        // Ensure assistant final text available; buffer handles attachment
-                        const _text = extractAssistantFinalText(evt);
-                        const flushed = turnBuffer.ingest(evt);
-                        for (const m of flushed) post(m.text, m.role);
-                        return;
-                    }
-                });
+        // Compose hooks/services: realtime session + flow controller
+        const flow = openAIFlowController();
+        const { connected, session, connect } = useOpenAIRealtimeSession(
+            (m) => postToChat(m.text, m.role),
+            { agentName: "Carrie", instructions: OPENAI_INTERVIEWER_PROMPT }
+        );
 
-                // (removed agent-level diagnostics; not needed for PoC)
-
+        // --- connect & wire -----------------------------------------------------
+        const connectLegacy = useCallback(async () => {
+            try {
+                // Use new hook
+                await connect();
+                sessionRef.current = session.current;
+                // Greet via flow controller
+                flow.greet(sessionRef.current, candidateName);
                 setIsConnected(true);
                 onStartConversation?.();
             } catch (e) {
                 log.error("❌ OpenAIConversation: connect failed", e);
             }
-        }, [candidateName, onStartConversation, updateKBVariables]);
+        }, [candidateName, connect, flow, onStartConversation, session]);
 
         useEffect(() => {
             if (isRecording && !isConnected) {
-                void connect();
+                void connectLegacy();
             }
-        }, [isRecording, isConnected, connect]);
+        }, [isRecording, isConnected, connectLegacy]);
 
         const disconnect = useCallback(() => {
             try {
