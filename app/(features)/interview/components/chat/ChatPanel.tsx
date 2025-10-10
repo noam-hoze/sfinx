@@ -27,7 +27,10 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute }: ChatPanelProps) => {
         const handleTranscription = (event: MessageEvent) => {
             if (event.data.type === "transcription") {
                 const newTranscription: TranscriptionMessage = {
-                    id: Date.now().toString(),
+                    id:
+                        typeof crypto !== "undefined" && crypto.randomUUID
+                            ? crypto.randomUUID()
+                            : `${Date.now()}-${Math.random()}`,
                     text: event.data.text,
                     speaker: event.data.speaker || "user",
                     timestamp: new Date(),

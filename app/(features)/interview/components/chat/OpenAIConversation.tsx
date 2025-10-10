@@ -9,6 +9,11 @@ import React, {
     forwardRef,
 } from "react";
 import { logger } from "../../../../shared/services";
+import { createTurnBuffer } from "@/shared/services/openAIRealtimeTurnBuffer";
+import {
+    extractAssistantFinalText,
+    extractUserTranscript,
+} from "@/shared/services/openAIRealtimeExtractors";
 const log = logger.for("@OpenAIConversation.tsx");
 
 interface OpenAIConversationProps {
@@ -91,14 +96,6 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 const session = new RealtimeSession(agent, {
                     model: "gpt-4o-realtime-preview",
                     outputModalities: ["audio", "text"],
-                    audio: {
-                        input: {
-                            transcription: { model: "whisper-1" },
-                            turnDetection: { type: "server_vad" },
-                        },
-                    },
-                    // Try enabling text delta emission if supported
-                    transcribedTextDeltas: true as any,
                 } as any);
 
                 // Connect
@@ -124,7 +121,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                     has_submitted: false,
                 });
 
-                // Transcript listeners (conversation mode)
+                // Transcript listeners (transport_event + turn buffer to preserve order)
                 const post = (text: string, speaker: "user" | "ai") => {
                     if (!text) return;
                     try {
@@ -135,62 +132,40 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                     } catch (_) {}
                 };
 
-                const userTextBuffer: { current: string } = { current: "" };
-                const aiTextBuffer: { current: string } = { current: "" };
+                // Align with POC: configure transcription + server VAD after connect via transport
+                try {
+                    (session as any)?.transport?.updateSessionConfig?.({
+                        audio: {
+                            input: {
+                                transcription: { model: "whisper-1" },
+                                turnDetection: { type: "server_vad" },
+                            },
+                        },
+                    });
+                } catch {}
 
-                // User speech transcription (input audio)
-                (session.on as any)?.(
-                    "conversation.item.input_audio_transcription.delta",
-                    (e: any) => {
-                        const delta = e?.delta || "";
-                        userTextBuffer.current += delta;
+                const turnBuffer = createTurnBuffer();
+                (session.on as any)?.("transport_event", (evt: any) => {
+                    if (
+                        evt?.type ===
+                        "conversation.item.input_audio_transcription.completed"
+                    ) {
+                        // Normalize via extractor (handles variant payloads)
+                        const text = extractUserTranscript(evt);
+                        if (text) {
+                            const flushed = turnBuffer.ingest(evt);
+                            for (const m of flushed) post(m.text, m.role);
+                        }
+                        return;
                     }
-                );
-                (session.on as any)?.(
-                    "conversation.item.input_audio_transcription.completed",
-                    (e: any) => {
-                        
-                        console.log("I see a user message")
-                        const text =
-                            e?.transcript || userTextBuffer.current || "";
-                        userTextBuffer.current = "";
-                        post(text, "user");
+                    if (evt?.type === "response.done") {
+                        // Ensure assistant final text available; buffer handles attachment
+                        const _text = extractAssistantFinalText(evt);
+                        const flushed = turnBuffer.ingest(evt);
+                        for (const m of flushed) post(m.text, m.role);
+                        return;
                     }
-                );
-
-                // AI text output (if text modality enabled)
-                (session.on as any)?.(
-                    "response.output_text.delta",
-                    (e: any) => {
-                        const delta = e?.delta || "";
-                        aiTextBuffer.current += delta;
-                    }
-                );
-                (session.on as any)?.(
-                    "response.output_text.done",
-                    (_e: any) => {
-                        const text = aiTextBuffer.current;
-                        aiTextBuffer.current = "";
-                        post(text, "ai");
-                    }
-                );
-
-                // AI audio transcript (when speaking)
-                (session.on as any)?.(
-                    "response.output_audio_transcript.delta",
-                    (e: any) => {
-                        const delta = e?.delta || "";
-                        aiTextBuffer.current += delta;
-                    }
-                );
-                (session.on as any)?.(
-                    "response.output_audio_transcript.done",
-                    (_e: any) => {
-                        const text = aiTextBuffer.current;
-                        aiTextBuffer.current = "";
-                        post(text, "ai");
-                    }
-                );
+                });
 
                 // (removed agent-level diagnostics; not needed for PoC)
 
