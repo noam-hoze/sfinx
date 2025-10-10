@@ -61,7 +61,11 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
             try {
                 // Request mic perms upfront for UX parity with EL adapter
                 const micStream = await navigator.mediaDevices.getUserMedia({
-                    audio: true,
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                    } as MediaTrackConstraints,
                 });
                 micStreamRef.current = micStream;
                 setIsRecording(true);
@@ -119,6 +123,14 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                     );
                     if (resp.ok) scriptRef.current = await resp.json();
                 } catch {}
+                // If transport didn't auto-attach mic, attach our noise-suppressed track
+                try {
+                    const track = micStreamRef.current?.getAudioTracks?.()[0];
+                    if (track && (session as any)?.addInputTrack) {
+                        (session as any).addInputTrack(track);
+                    }
+                } catch {}
+
                 // Greet and proceed
                 flow.greet(sessionRef.current, candidateName);
                 setIsConnected(true);
