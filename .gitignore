@@ -17,3 +17,4 @@ app/api/debug/seed/ok
 
 *.mp4
 *.jsonl
+server/keys/service-account.json
