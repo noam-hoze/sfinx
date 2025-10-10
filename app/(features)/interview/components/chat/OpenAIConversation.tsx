@@ -154,6 +154,26 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                                 } catch {}
                                 didAskBackgroundRef.current = true;
                             }
+                            // If user just answered the background question → present coding challenge next
+                            if (
+                                ms.state === "background_answered_by_user" &&
+                                (scriptRef.current as any)?.codingPrompt
+                            ) {
+                                const text = `Present the coding challenge exactly as follows, then wait for questions: "${String(
+                                    (scriptRef.current as any).codingPrompt
+                                )}"`;
+                                session.current?.transport?.sendEvent?.({
+                                    type: "conversation.item.create",
+                                    item: {
+                                        type: "message",
+                                        role: "system",
+                                        content: [{ type: "input_text", text }],
+                                    },
+                                });
+                                try {
+                                    respond();
+                                } catch {}
+                            }
                         } catch {}
                     } else if (m.role === "ai") {
                         try {
@@ -171,6 +191,26 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                                         type: "input_audio_buffer.clear",
                                     });
                                     expectingUserRef.current = true;
+                                }
+                                // When coding challenge is presented, enable auto turns
+                                if (
+                                    ms.state ===
+                                    "coding_challenge_presented_by_ai"
+                                ) {
+                                    session.current?.transport?.updateSessionConfig?.(
+                                        {
+                                            audio: {
+                                                input: {
+                                                    transcription: {
+                                                        model: "whisper-1",
+                                                    },
+                                                    turnDetection: {
+                                                        type: "server_vad",
+                                                    },
+                                                },
+                                            },
+                                        }
+                                    );
                                 }
                             } catch {}
                         } catch {}

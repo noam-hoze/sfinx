@@ -6,6 +6,7 @@ export type InterviewState =
     | "greeting_responded_by_user"
     | "background_asked_by_ai"
     | "background_answered_by_user"
+    | "coding_challenge_presented_by_ai"
     | "ended";
 
 export type InterviewMachineState = {
@@ -43,6 +44,9 @@ const interviewMachineSlice = createSlice({
                 ) {
                     state.state = "background_asked_by_ai";
                 }
+            } else if (state.state === "background_answered_by_user") {
+                // After we instruct the AI to present the coding challenge, mark it when AI responds
+                state.state = "coding_challenge_presented_by_ai";
             }
         },
         userFinal: (state) => {
