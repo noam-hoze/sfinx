@@ -132,12 +132,8 @@ function createTurnBuffer(options?: { graceMs?: number }) {
 function updateTranscriptionConfig(session: any) {
     try {
         session?.transport?.updateSessionConfig?.({
-            audio: {
-                input: {
-                    transcription: { model: "whisper-1" },
-                    turnDetection: { type: "server_vad" },
-                },
-            },
+            turn_detection: null,
+            input_audio_transcription: { model: "whisper-1" },
         });
     } catch {}
 }
@@ -149,6 +145,7 @@ export function useOpenAIRealtimeSession(
     const [connected, setConnected] = useState(false);
     const sessionRef = useRef<any>(null);
     const bufferRef = useRef(createTurnBuffer());
+    const allowNextRef = useRef<boolean>(false);
 
     const add = useCallback((evt: any) => bufferRef.current.ingest(evt), []);
     const reset = useCallback(() => bufferRef.current.reset(), []);
@@ -166,10 +163,10 @@ export function useOpenAIRealtimeSession(
             );
             const agent = new RealtimeAgent({
                 name: opts?.agentName || "Carrie",
-                instructions: opts?.instructions,
+                // Do not pass instructions; we will inject system text only when replying
             });
             const session: any = new RealtimeSession(agent, {
-                model: "gpt-4o-realtime-preview",
+                model: "gpt-4o-realtime-preview-2024-12-17",
                 outputModalities: ["audio", "text"],
             } as any);
             await session.connect({ apiKey });
@@ -177,6 +174,23 @@ export function useOpenAIRealtimeSession(
             updateTranscriptionConfig(session);
 
             (session.on as any)?.("transport_event", (evt: any) => {
+                // Cancel unsolicited replies immediately unless explicitly allowed
+                if (
+                    evt?.type === "response.created" ||
+                    evt?.type === "response.output_text.delta"
+                ) {
+                    if (!allowNextRef.current) {
+                        try {
+                            sessionRef.current?.transport?.sendEvent?.({
+                                type: "response.cancel",
+                            });
+                        } catch {}
+                        return;
+                    }
+                }
+                if (evt?.type === "response.done") {
+                    allowNextRef.current = false; // close gate after any response finishes
+                }
                 if (
                     evt?.type ===
                         "conversation.item.input_audio_transcription.completed" ||
@@ -191,7 +205,7 @@ export function useOpenAIRealtimeSession(
             setConnected(false);
             throw e;
         }
-    }, [add, connected, onFinal, opts?.agentName, opts?.instructions]);
+    }, [add, connected, onFinal, opts?.agentName]);
 
     useEffect(
         () => () => {
@@ -203,5 +217,24 @@ export function useOpenAIRealtimeSession(
         [reset]
     );
 
-    return { connected, session: sessionRef, connect };
+    const respond = useCallback(() => {
+        allowNextRef.current = true;
+        try {
+            sessionRef.current?.transport?.sendEvent?.({
+                type: "response.create",
+            });
+        } catch {}
+    }, []);
+
+    const allowNextResponse = useCallback(() => {
+        allowNextRef.current = true;
+    }, []);
+
+    return {
+        connected,
+        session: sessionRef,
+        connect,
+        respond,
+        allowNextResponse,
+    };
 }

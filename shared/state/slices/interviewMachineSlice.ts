@@ -4,11 +4,14 @@ export type InterviewState =
     | "idle"
     | "greeting_said_by_ai"
     | "greeting_responded_by_user"
+    | "background_asked_by_ai"
+    | "background_answered_by_user"
     | "ended";
 
 export type InterviewMachineState = {
     state: InterviewState;
     candidateName?: string;
+    expectedBackgroundQuestion?: string;
 };
 
 const initialState: InterviewMachineState = {
@@ -30,12 +33,30 @@ const interviewMachineSlice = createSlice({
                 if ((action.payload.text || "").trim() === expected) {
                     state.state = "greeting_said_by_ai";
                 }
+            } else if (state.state === "greeting_responded_by_user") {
+                const expectedQ = (
+                    state.expectedBackgroundQuestion || ""
+                ).trim();
+                if (
+                    expectedQ &&
+                    (action.payload.text || "").trim() === expectedQ
+                ) {
+                    state.state = "background_asked_by_ai";
+                }
             }
         },
         userFinal: (state) => {
             if (state.state === "greeting_said_by_ai") {
                 state.state = "greeting_responded_by_user";
+            } else if (state.state === "background_asked_by_ai") {
+                state.state = "background_answered_by_user";
             }
+        },
+        setExpectedBackgroundQuestion: (
+            state,
+            action: PayloadAction<{ question: string }>
+        ) => {
+            state.expectedBackgroundQuestion = action.payload.question;
         },
         end: (state) => {
             state.state = "ended";
@@ -43,10 +64,17 @@ const interviewMachineSlice = createSlice({
         reset: (state) => {
             state.state = "idle";
             state.candidateName = undefined;
+            state.expectedBackgroundQuestion = undefined;
         },
     },
 });
 
-export const { start, aiFinal, userFinal, end, reset } =
-    interviewMachineSlice.actions;
+export const {
+    start,
+    aiFinal,
+    userFinal,
+    setExpectedBackgroundQuestion,
+    end,
+    reset,
+} = interviewMachineSlice.actions;
 export default interviewMachineSlice.reducer;

@@ -27,6 +27,7 @@ import {
     start as machineStart,
     aiFinal as machineAiFinal,
     userFinal as machineUserFinal,
+    setExpectedBackgroundQuestion,
 } from "@/shared/state/slices/interviewMachineSlice";
 const log = logger.for("@OpenAIConversation.tsx");
 
@@ -68,6 +69,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
         const dispatch = useDispatch();
         const didConnectRef = useRef<boolean>(false);
         const didStartRef = useRef<boolean>(false);
+        const didAskBackgroundRef = useRef<boolean>(false);
 
         const notifyRecording = useCallback(
             (val: boolean) => {
@@ -118,24 +120,64 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
             } catch {}
         }, []);
         const scriptRef = useRef<null>(null);
-        const { connected, session, connect } = useOpenAIRealtimeSession(
-            (m) => {
-                if (m.role === "user") {
-                    try {
-                        dispatch(machineUserFinal());
-                        emitMachineState();
-                        postToChat(m.text, m.role);
-                    } catch {}
-                } else if (m.role === "ai") {
-                    try {
-                        dispatch(machineAiFinal({ text: m.text }));
-                        emitMachineState();
-                        postToChat(m.text, m.role);
-                    } catch {}
-                }
-            },
-            { agentName: "Carrie", instructions: OPENAI_INTERVIEWER_PROMPT }
-        );
+        const expectingUserRef = useRef<boolean>(false);
+        const { connected, session, connect, respond } =
+            useOpenAIRealtimeSession(
+                (m) => {
+                    if (m.role === "user") {
+                        try {
+                            dispatch(machineUserFinal());
+                            emitMachineState();
+                            postToChat(m.text, m.role);
+                            const ms = store.getState().interviewMachine;
+                            const expectedQ = (scriptRef.current as any)
+                                ?.backgroundQuestion;
+                            if (
+                                ms.state === "greeting_responded_by_user" &&
+                                expectedQ &&
+                                !didAskBackgroundRef.current
+                            ) {
+                                const text = `Ask exactly: "${String(
+                                    expectedQ
+                                )}"`;
+                                session.current?.transport?.sendEvent?.({
+                                    type: "conversation.item.create",
+                                    item: {
+                                        type: "message",
+                                        role: "system",
+                                        content: [{ type: "input_text", text }],
+                                    },
+                                });
+                                // respond gated
+                                try {
+                                    respond();
+                                } catch {}
+                                didAskBackgroundRef.current = true;
+                            }
+                        } catch {}
+                    } else if (m.role === "ai") {
+                        try {
+                            dispatch(machineAiFinal({ text: m.text }));
+                            emitMachineState();
+                            postToChat(m.text, m.role);
+                            // After AI turn, expect user and clear input buffer to avoid overlap
+                            try {
+                                const ms = store.getState().interviewMachine;
+                                if (
+                                    ms.state === "greeting_said_by_ai" ||
+                                    ms.state === "background_asked_by_ai"
+                                ) {
+                                    session.current?.transport?.sendEvent?.({
+                                        type: "input_audio_buffer.clear",
+                                    });
+                                    expectingUserRef.current = true;
+                                }
+                            } catch {}
+                        } catch {}
+                    }
+                },
+                { agentName: "Carrie" }
+            );
 
         // --- connect & wire -----------------------------------------------------
         const connectLegacy = useCallback(async () => {
@@ -150,7 +192,17 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                     const resp = await fetch(
                         `/api/interviews/script?company=meta&role=frontend-engineer`
                     );
-                    if (resp.ok) scriptRef.current = await resp.json();
+                    if (resp.ok) {
+                        const data = await resp.json();
+                        scriptRef.current = data;
+                        if (data?.backgroundQuestion) {
+                            dispatch(
+                                setExpectedBackgroundQuestion({
+                                    question: String(data.backgroundQuestion),
+                                })
+                            );
+                        }
+                    }
                 } catch {}
                 // If transport didn't auto-attach mic, attach our noise-suppressed track
                 try {
@@ -173,9 +225,9 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                             content: [{ type: "input_text", text }],
                         },
                     });
-                    sessionRef.current?.transport?.sendEvent?.({
-                        type: "response.create",
-                    });
+                    try {
+                        respond();
+                    } catch {}
                     didStartRef.current = true;
                 }
                 emitMachineState();
