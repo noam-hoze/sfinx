@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/shared/state/store";
 import { MessageSquare, Mic, MicOff } from "lucide-react";
 
 interface TranscriptionMessage {
@@ -16,42 +18,17 @@ interface ChatPanelProps {
 }
 
 const ChatPanel = ({ micMuted = false, onToggleMicMute }: ChatPanelProps) => {
-    const [transcriptions, setTranscriptions] = useState<
-        TranscriptionMessage[]
-    >([]);
-    const [isRecording, setIsRecording] = useState(false);
+    const chat = useSelector((s: RootState) => s.interviewChat);
+    const transcriptions: TranscriptionMessage[] = chat.messages.map((m) => ({
+        id: m.id,
+        text: m.text,
+        speaker: m.speaker,
+        timestamp: new Date(m.timestamp),
+    }));
+    const isRecording = chat.isRecording;
     const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-    // Listen for transcription events from RealTimeConversation
-    useEffect(() => {
-        const handleTranscription = (event: MessageEvent) => {
-            if (event.data.type === "transcription") {
-                const newTranscription: TranscriptionMessage = {
-                    id:
-                        typeof crypto !== "undefined" && crypto.randomUUID
-                            ? crypto.randomUUID()
-                            : `${Date.now()}-${Math.random()}`,
-                    text: event.data.text,
-                    speaker: event.data.speaker || "user",
-                    timestamp: new Date(),
-                };
-                setTranscriptions((prev) => [...prev, newTranscription]);
-            }
-
-            // Handle recording status updates
-            if (event.data.type === "recording-status") {
-                setIsRecording(event.data.isRecording);
-            }
-
-            // Handle clear chat command
-            if (event.data.type === "clear-chat") {
-                setTranscriptions([]);
-            }
-        };
-
-        window.addEventListener("message", handleTranscription);
-        return () => window.removeEventListener("message", handleTranscription);
-    }, []);
+    useEffect(() => {}, [transcriptions, isRecording]);
 
     // Auto-scroll to bottom when new messages arrive (smooth)
     useEffect(() => {

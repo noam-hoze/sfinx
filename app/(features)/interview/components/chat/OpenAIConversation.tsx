@@ -16,8 +16,18 @@ import React, {
 } from "react";
 import { logger } from "../../../../shared/services";
 import { useOpenAIRealtimeSession } from "@/shared/hooks/useOpenAIRealtimeSession";
-import { openAIFlowController } from "@/shared/services/openAIFlowController";
+import { store } from "@/shared/state/store";
 import { OPENAI_INTERVIEWER_PROMPT } from "@/shared/prompts/openAIInterviewerPrompt";
+import { useDispatch } from "react-redux";
+import {
+    addMessage,
+    setRecording,
+} from "@/shared/state/slices/interviewChatSlice";
+import {
+    start as machineStart,
+    aiFinal as machineAiFinal,
+    userFinal as machineUserFinal,
+} from "@/shared/state/slices/interviewMachineSlice";
 const log = logger.for("@OpenAIConversation.tsx");
 
 interface OpenAIConversationProps {
@@ -55,13 +65,16 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
         const micMutedRef = useRef<boolean>(false);
         type Stage = "awaiting_ready" | "background_asked" | "background_done";
         const stageRef = useRef<Stage>("awaiting_ready");
+        const dispatch = useDispatch();
+        const didConnectRef = useRef<boolean>(false);
+        const didStartRef = useRef<boolean>(false);
 
-        const notifyRecording = useCallback((val: boolean) => {
-            window.parent.postMessage(
-                { type: "recording-status", isRecording: val },
-                "*"
-            );
-        }, []);
+        const notifyRecording = useCallback(
+            (val: boolean) => {
+                dispatch(setRecording(val));
+            },
+            [dispatch]
+        );
 
         const startConversation = useCallback(async () => {
             try {
@@ -85,31 +98,39 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
         const postToChat = useCallback(
             (text: string, speaker: "user" | "ai") => {
                 if (!text) return;
-                try {
-                    window.parent.postMessage(
-                        { type: "transcription", text, speaker },
-                        "*"
-                    );
-                } catch (_) {}
+                dispatch(addMessage({ text, speaker }));
             },
-            []
+            [dispatch]
         );
 
-        // Compose hooks/services: realtime session + flow controller
-        const flow = openAIFlowController();
-        const scriptRef = useRef<{
-            backgroundQuestion?: string;
-            codingPrompt?: string;
-        } | null>(null);
+        // Compose: realtime session + interview state store
+        const emitMachineState = useCallback(() => {
+            try {
+                const ms = store.getState().interviewMachine;
+                const state = ms.state;
+                const context = { candidateName: ms.candidateName };
+                // eslint-disable-next-line no-console
+                console.log("[interview-machine]", state, context);
+                window.parent.postMessage(
+                    { type: "interview-machine", state, context },
+                    "*"
+                );
+            } catch {}
+        }, []);
+        const scriptRef = useRef<null>(null);
         const { connected, session, connect } = useOpenAIRealtimeSession(
             (m) => {
-                postToChat(m.text, m.role);
                 if (m.role === "user") {
                     try {
-                        flow.onUserFinal(
-                            session.current,
-                            scriptRef.current?.backgroundQuestion
-                        );
+                        dispatch(machineUserFinal());
+                        emitMachineState();
+                        postToChat(m.text, m.role);
+                    } catch {}
+                } else if (m.role === "ai") {
+                    try {
+                        dispatch(machineAiFinal({ text: m.text }));
+                        emitMachineState();
+                        postToChat(m.text, m.role);
                     } catch {}
                 }
             },
@@ -118,6 +139,8 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
 
         // --- connect & wire -----------------------------------------------------
         const connectLegacy = useCallback(async () => {
+            if (didConnectRef.current) return;
+            didConnectRef.current = true;
             try {
                 // Use new hook
                 await connect();
@@ -137,20 +160,44 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                     }
                 } catch {}
 
-                // Greet and proceed
-                flow.greet(sessionRef.current, candidateName);
+                // Start: enqueue deterministic greeting (once)
+                if (!didStartRef.current) {
+                    dispatch(machineStart({ candidateName }));
+                    const name = candidateName || "Candidate";
+                    const text = `Say exactly: "Hi ${name}, I'm Carrie. I'll be the one interviewing today!"`;
+                    sessionRef.current?.transport?.sendEvent?.({
+                        type: "conversation.item.create",
+                        item: {
+                            type: "message",
+                            role: "system",
+                            content: [{ type: "input_text", text }],
+                        },
+                    });
+                    sessionRef.current?.transport?.sendEvent?.({
+                        type: "response.create",
+                    });
+                    didStartRef.current = true;
+                }
+                emitMachineState();
                 setIsConnected(true);
                 onStartConversation?.();
             } catch (e) {
                 log.error("❌ OpenAIConversation: connect failed", e);
             }
-        }, [candidateName, connect, flow, onStartConversation, session]);
+        }, [
+            candidateName,
+            connect,
+            emitMachineState,
+            onStartConversation,
+            session,
+            dispatch,
+        ]);
 
         useEffect(() => {
             if (isRecording && !isConnected) {
                 void connectLegacy();
             }
-        }, [isRecording, isConnected, connectLegacy]);
+        }, [isRecording, isConnected]);
 
         const disconnect = useCallback(() => {
             try {
@@ -196,6 +243,10 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
         }));
 
         useEffect(() => {
+            try {
+                // @ts-ignore expose redux store for inspection
+                (window as any).__sfinxStore = store;
+            } catch {}
             return () => {
                 if (micStreamRef.current) {
                     micStreamRef.current.getTracks().forEach((t) => t.stop());

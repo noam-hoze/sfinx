@@ -50,6 +50,9 @@ importers:
       '@react-three/fiber':
         specifier: 8.15.19
         version: 8.15.19(@types/react@18.3.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(three@0.158.0)
+      '@reduxjs/toolkit':
+        specifier: ^2.9.0
+        version: 2.9.0(react-redux@9.2.0(@types/react@18.3.23)(react@18.3.1)(redux@5.0.1))(react@18.3.1)
       '@vidstack/react':
         specifier: ^1.12.13
         version: 1.12.13(@types/react@18.3.23)(react@18.3.1)
@@ -95,6 +98,9 @@ importers:
       react-live:
         specifier: ^4.1.8
         version: 4.1.8(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react-redux:
+        specifier: ^9.2.0
+        version: 9.2.0(@types/react@18.3.23)(react@18.3.1)(redux@5.0.1)
       react-resizable-panels:
         specifier: ^3.0.5
         version: 3.0.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)

@@ -7,8 +7,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FinalMessage } from "../types/openAIRealtime";
 
-// Local lightweight TurnBuffer implementation (previously in services)
-type TurnRecord = { user?: string; ai?: string };
+// Local lightweight TurnBuffer implementation (ordered, emits per-arrival)
+type TurnRecord = {
+    user?: string;
+    ai?: string;
+    userEmitted?: boolean;
+    aiEmitted?: boolean;
+};
 function createTurnBuffer(options?: { graceMs?: number }) {
     const graceMs = options?.graceMs ?? 400;
     let turnCounter = 0;
@@ -28,17 +33,14 @@ function createTurnBuffer(options?: { graceMs?: number }) {
         }
     }
 
-    function flush(turn: number): FinalMessage[] {
+    function maybeFlushCompleted(turn: number): FinalMessage[] {
         const out: FinalMessage[] = [];
         const rec = turns.get(turn);
         if (!rec) return out;
-        const ts = Date.now();
-        if (typeof rec.user === "string")
-            out.push({ role: "user", text: rec.user, turn, ts });
-        if (typeof rec.ai === "string")
-            out.push({ role: "ai", text: rec.ai, turn, ts });
-        clearTimer(turn);
-        turns.delete(turn);
+        if (rec.userEmitted && rec.aiEmitted) {
+            clearTimer(turn);
+            turns.delete(turn);
+        }
         return out;
     }
 
@@ -58,8 +60,16 @@ function createTurnBuffer(options?: { graceMs?: number }) {
                 turnCounter += 1;
                 const rec = ensureTurn(turnCounter);
                 rec.user = text;
-                if (typeof rec.ai === "string")
-                    flushed.push(...flush(turnCounter));
+                if (!rec.userEmitted) {
+                    flushed.push({
+                        role: "user",
+                        text,
+                        turn: turnCounter,
+                        ts: Date.now(),
+                    });
+                    rec.userEmitted = true;
+                }
+                flushed.push(...maybeFlushCompleted(turnCounter));
             }
             return flushed;
         }
@@ -93,7 +103,16 @@ function createTurnBuffer(options?: { graceMs?: number }) {
             }
             const rec = ensureTurn(targetTurn);
             if (full) rec.ai = full;
-            flushed.push(...flush(targetTurn));
+            if (!rec.aiEmitted && full) {
+                flushed.push({
+                    role: "ai",
+                    text: full,
+                    turn: targetTurn,
+                    ts: Date.now(),
+                });
+                rec.aiEmitted = true;
+            }
+            flushed.push(...maybeFlushCompleted(targetTurn));
             return flushed;
         }
         return flushed;
