@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useRealtimeVoiceAgent } from "@/shared/hooks/useRealtimeVoiceAgent";
+import { useOpenAIRealtimeVoiceAgent } from "@/shared/hooks/useOpenAIRealtimeVoiceAgent";
 
 export default function RealtimePOCPage() {
     const { status, error, connect, reapplyConfig, onFinalMessage } =
-        useRealtimeVoiceAgent();
+        useOpenAIRealtimeVoiceAgent();
     const connectRef = useRef<() => void>(() => {});
 
     useEffect(() => {

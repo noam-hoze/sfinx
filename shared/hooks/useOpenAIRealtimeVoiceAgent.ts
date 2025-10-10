@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createTurnBuffer } from "../services/realtimeTurnBuffer";
+import { createTurnBuffer } from "../services/openAIRealtimeTurnBuffer";
 import {
     extractAssistantFinalText,
     extractUserTranscript,
-} from "../services/realtimeExtractors";
-import type { FinalMessage } from "../types/realtime";
+} from "../services/openAIRealtimeExtractors";
+import type { FinalMessage } from "../types/openAIRealtime";
 
-export type UseRealtimeVoiceAgent = {
+export type UseOpenAIRealtimeVoiceAgent = {
     status: "idle" | "connecting" | "connected" | "error";
     error: string | null;
     connect: () => Promise<void>;
@@ -14,7 +14,7 @@ export type UseRealtimeVoiceAgent = {
     onFinalMessage: (cb: (m: FinalMessage) => void) => void;
 };
 
-export function useRealtimeVoiceAgent(): UseRealtimeVoiceAgent {
+export function useOpenAIRealtimeVoiceAgent(): UseOpenAIRealtimeVoiceAgent {
     const [status, setStatus] = useState<
         "idle" | "connecting" | "connected" | "error"
     >("idle");

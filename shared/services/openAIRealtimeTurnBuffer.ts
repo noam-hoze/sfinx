@@ -1,4 +1,8 @@
-import type { FinalMessage, TurnBuffer, TurnRecord } from "../types/realtime";
+import type {
+    FinalMessage,
+    TurnBuffer,
+    TurnRecord,
+} from "../types/openAIRealtime";
 
 export function createTurnBuffer(options?: { graceMs?: number }): TurnBuffer {
     const graceMs = options?.graceMs ?? 400;
@@ -16,12 +20,10 @@ export function createTurnBuffer(options?: { graceMs?: number }): TurnBuffer {
         const rec = turns.get(turn);
         if (!rec) return out;
         const ts = Date.now();
-        if (typeof rec.user === "string") {
+        if (typeof rec.user === "string")
             out.push({ role: "user", text: rec.user, turn, ts });
-        }
-        if (typeof rec.ai === "string") {
+        if (typeof rec.ai === "string")
             out.push({ role: "ai", text: rec.ai, turn, ts });
-        }
         clearTimer(turn);
         turns.delete(turn);
         return out;
@@ -30,7 +32,6 @@ export function createTurnBuffer(options?: { graceMs?: number }): TurnBuffer {
     function clearTimer(turn: number) {
         const id = timers.get(turn);
         if (id) {
-            // eslint-disable-next-line @typescript-eslint/no-implied-eval
             clearTimeout(id as unknown as number);
             timers.delete(turn);
         }
