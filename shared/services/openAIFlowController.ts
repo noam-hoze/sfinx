@@ -1,3 +1,8 @@
+/**
+ * openAIFlowController: deterministic conversational stage helper.
+ * - Orchestrates greeting → background question → acknowledgement.
+ * - Sends system nudges via session.transport; exposes tiny state machine.
+ */
 export type FlowStage =
     | "awaiting_ready"
     | "background_asked"

@@ -1,3 +1,8 @@
+/**
+ * Types for Realtime interview messaging and buffering.
+ * - FinalMessage: ordered unit emitted by buffers; includes turn and timestamp.
+ * - TurnBuffer: interface for ingesting transport events deterministically.
+ */
 export type RealtimeRole = "user" | "ai";
 
 export type FinalMessage = {

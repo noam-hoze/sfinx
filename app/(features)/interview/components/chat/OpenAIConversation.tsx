@@ -1,3 +1,9 @@
+/**
+ * OpenAIConversation: UI-free adapter wiring WebRTC Realtime into the interview flow.
+ * - Requests mic, opens session via useOpenAIRealtimeSession, posts final texts to parent.
+ * - Delegates deterministic flow to openAIFlowController (greeting → background → ack).
+ * - Exposes imperative API for parent: start/stop, mic toggle, contextual updates.
+ */
 "use client";
 
 import React, {
