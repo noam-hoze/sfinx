@@ -144,6 +144,26 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                     });
                 } catch {}
 
+                // Initial greeting: ask readiness, personalized with candidate name
+                try {
+                    (session as any)?.transport?.sendEvent?.({
+                        type: "conversation.item.create",
+                        item: {
+                            type: "message",
+                            role: "system",
+                            content: [
+                                {
+                                    type: "input_text",
+                                    text: `You are Carrie, an AI interviewer. Greet ${candidateName} warmly and ask if they are ready to begin.`,
+                                },
+                            ],
+                        },
+                    });
+                    (session as any)?.transport?.sendEvent?.({
+                        type: "response.create",
+                    });
+                } catch (_) {}
+
                 const turnBuffer = createTurnBuffer();
                 (session.on as any)?.("transport_event", (evt: any) => {
                     if (
