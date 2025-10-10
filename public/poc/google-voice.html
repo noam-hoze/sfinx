@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Google Voice PoC</title>
+        <style>
+            body {
+                font-family: -apple-system, system-ui, Segoe UI, Roboto, Arial,
+                    sans-serif;
+                margin: 24px;
+            }
+            .messages {
+                height: 320px;
+                overflow: auto;
+                border: 1px solid #e5e7eb;
+                padding: 12px;
+                border-radius: 8px;
+            }
+            .row {
+                margin-bottom: 8px;
+            }
+            .role {
+                font-weight: 600;
+                margin-right: 4px;
+            }
+            button {
+                background: #111;
+                color: #fff;
+                border: 0;
+                border-radius: 8px;
+                padding: 8px 14px;
+                cursor: pointer;
+            }
+            button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+            .controls {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                margin-bottom: 12px;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Google Voice PoC</h1>
+        <div class="controls">
+            <button id="start">Start</button>
+            <button id="stop" disabled>Stop</button>
+            <span id="status">idle</span>
+        </div>
+        <div class="messages" id="messages"></div>
+        <audio
+            id="player"
+            controls
+            style="width: 100%; margin-top: 12px"
+        ></audio>
+
+        <script>
+            const startBtn = document.getElementById("start");
+            const stopBtn = document.getElementById("stop");
+            const statusEl = document.getElementById("status");
+            const messages = document.getElementById("messages");
+            const player = document.getElementById("player");
+
+            let ws = null;
+            let rec = null;
+
+            function addMessage(role, text) {
+                const row = document.createElement("div");
+                row.className = "row";
+                const roleEl = document.createElement("span");
+                roleEl.className = "role";
+                roleEl.textContent = role + ":";
+                const textEl = document.createElement("span");
+                textEl.textContent = text;
+                row.appendChild(roleEl);
+                row.appendChild(textEl);
+                messages.appendChild(row);
+                messages.scrollTop = messages.scrollHeight;
+                if (role !== "system") console.log(role + ":", text);
+            }
+
+            function arrayBufferToBase64(buffer) {
+                const bytes = new Uint8Array(buffer);
+                let binary = "";
+                for (let i = 0; i < bytes.byteLength; i++)
+                    binary += String.fromCharCode(bytes[i]);
+                return btoa(binary);
+            }
+
+            startBtn.onclick = async () => {
+                if (ws) return;
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                statusEl.textContent = "connecting...";
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                });
+                ws = new WebSocket(
+                    `ws://localhost:${location.port || 3050}/voice`
+                );
+                ws.onopen = () => {
+                    statusEl.textContent = "connected";
+                };
+                ws.onclose = () => {
+                    statusEl.textContent = "closed";
+                    ws = null;
+                };
+                ws.onmessage = (ev) => {
+                    try {
+                        const msg = JSON.parse(ev.data);
+                        if (msg.type === "status")
+                            addMessage("system", msg.message);
+                        else if (msg.type === "user_text")
+                            addMessage("user", msg.text);
+                        else if (msg.type === "ai_text")
+                            addMessage("ai", msg.text);
+                        else if (msg.type === "ai_audio") {
+                            const bytes = atob(msg.wavBase64);
+                            const arr = new Uint8Array(bytes.length);
+                            for (let i = 0; i < bytes.length; i++)
+                                arr[i] = bytes.charCodeAt(i);
+                            const blob = new Blob([arr], { type: "audio/wav" });
+                            const url = URL.createObjectURL(blob);
+                            player.src = url;
+                            player.play().catch(() => {});
+                        }
+                    } catch {}
+                };
+
+                rec = new MediaRecorder(stream, {
+                    mimeType: "audio/webm;codecs=opus",
+                });
+                rec.ondataavailable = async (ev) => {
+                    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+                    if (!ev.data || ev.data.size === 0) return;
+                    const buf = await ev.data.arrayBuffer();
+                    const b64 = arrayBufferToBase64(buf);
+                    ws.send(JSON.stringify({ type: "audio", base64: b64 }));
+                };
+                rec.start(250);
+            };
+
+            stopBtn.onclick = () => {
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                statusEl.textContent = "idle";
+                if (rec && rec.state !== "inactive") rec.stop();
+                rec = null;
+                if (ws)
+                    try {
+                        ws.close();
+                    } catch {}
+                ws = null;
+            };
+        </script>
+    </body>
+</html>
