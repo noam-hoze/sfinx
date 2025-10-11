@@ -479,6 +479,19 @@ const InterviewerContent = () => {
                                 readOnly={!isCodingStarted}
                                 onElevenLabsUpdate={onElevenLabsUpdate}
                                 updateKBVariables={updateKBVariables}
+                                onAskFollowup={(delta) => {
+                                    try {
+                                        const ref =
+                                            realTimeConversationRef.current;
+                                        if (
+                                            ref?.askFollowupOnDelta &&
+                                            typeof ref.askFollowupOnDelta ===
+                                                "function"
+                                        ) {
+                                            ref.askFollowupOnDelta(delta);
+                                        }
+                                    } catch {}
+                                }}
                             />
                             <InterviewOverlay
                                 isCodingStarted={isCodingStarted}

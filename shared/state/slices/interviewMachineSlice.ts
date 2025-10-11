@@ -7,6 +7,7 @@ export type InterviewState =
     | "background_asked_by_ai"
     | "background_answered_by_user"
     | "in_coding_session"
+    | "followup_question"
     | "ended";
 
 export type InterviewMachineState = {
@@ -70,7 +71,12 @@ const interviewMachineSlice = createSlice({
                 state.state = "greeting_responded_by_user";
             } else if (state.state === "background_asked_by_ai") {
                 state.state = "background_answered_by_user";
+            } else if (state.state === "followup_question") {
+                state.state = "in_coding_session";
             }
+        },
+        startFollowup: (state) => {
+            state.state = "followup_question";
         },
         setExpectedBackgroundQuestion: (
             state,
@@ -96,6 +102,7 @@ export const {
     start,
     aiFinal,
     userFinal,
+    startFollowup,
     setExpectedBackgroundQuestion,
     setCompanyContext,
     end,

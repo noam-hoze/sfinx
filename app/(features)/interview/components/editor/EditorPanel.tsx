@@ -2,9 +2,10 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
-import { Play, RotateCcw } from "lucide-react";
+import { Play, RotateCcw, MessageSquare } from "lucide-react";
 import CodePreview from "./CodePreview";
 import { logger } from "../../../../shared/services";
+import { diffWords } from "diff";
 
 function computeInsertedSegment(oldText: string, newText: string): string {
     let start = 0;
@@ -46,6 +47,7 @@ interface EditorPanelProps {
     readOnly?: boolean;
     onElevenLabsUpdate?: (text: string) => Promise<void>;
     updateKBVariables?: (updates: any) => Promise<void>;
+    onAskFollowup?: (diffText: string) => void;
 }
 
 const EditorPanel: React.FC<EditorPanelProps> = ({
@@ -64,6 +66,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     readOnly = false,
     onElevenLabsUpdate,
     updateKBVariables,
+    onAskFollowup,
 }) => {
     const [currentCode, setCurrentCode] = useState(propCurrentCode || "");
 
@@ -98,6 +101,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     }, []);
 
     const editorRef = useRef<any>(null);
+    const followupBaselineRef = useRef<string>(propCurrentCode || "");
 
     // Watch for dark mode changes and update Monaco theme
     useEffect(() => {
@@ -214,6 +218,25 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
         }
     };
 
+    const askFollowup = useCallback(() => {
+        try {
+            const baseline = followupBaselineRef.current || "";
+            const current = currentCode || "";
+            // Build precise added-only delta using jsdiff
+            const parts = diffWords(baseline, current);
+            const added = parts
+                .filter((p: any) => p.added && p.value)
+                .map((p: any) => p.value)
+                .join("");
+            const delta = added || "";
+            // Log the precise delta being sent to the interviewer
+            // eslint-disable-next-line no-console
+            console.log("[Editor] Follow-up delta:", delta);
+            onAskFollowup?.(delta);
+            followupBaselineRef.current = current;
+        } catch {}
+    }, [currentCode, onAskFollowup]);
+
     if (showDiff) {
         return (
             <div className="h-full flex flex-col">
@@ -300,13 +323,27 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                         </button>
                     ))}
                 </div>
-                <button
-                    onClick={runCode}
-                    className="p-2 text-sm bg-[#2463eb] text-white rounded hover:bg-[#1d4ed8] transition-all duration-200 hover:shadow-sm transform hover:scale-[1.02] flex items-center dark:bg-[#2463eb] dark:hover:bg-[#1d4ed8]"
-                    title="Run Code"
-                >
-                    <Play className="w-4 h-4" />
-                </button>
+                <div className="flex items-center space-x-2">
+                    <button
+                        onClick={askFollowup}
+                        disabled={readOnly}
+                        className={`p-2 text-sm rounded transition-all duration-200 hover:shadow-sm transform hover:scale-[1.02] flex items-center ${
+                            readOnly
+                                ? "bg-gray-200 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400"
+                                : "bg-gray-100 text-deep-slate hover:bg-gray-200 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
+                        }`}
+                        title="Ask one follow-up about recent changes"
+                    >
+                        <MessageSquare className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={runCode}
+                        className="p-2 text-sm bg-[#2463eb] text-white rounded hover:bg-[#1d4ed8] transition-all duration-200 hover:shadow-sm transform hover:scale-[1.02] flex items-center dark:bg-[#2463eb] dark:hover:bg-[#1d4ed8]"
+                        title="Run Code"
+                    >
+                        <Play className="w-4 h-4" />
+                    </button>
+                </div>
             </div>
 
             {/* Dynamic Content */}

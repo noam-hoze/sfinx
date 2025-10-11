@@ -356,6 +356,35 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
             sendUserMessage,
             micMuted: micMutedRef.current,
             toggleMicMute,
+            askFollowupOnDelta: async (delta: string) => {
+                try {
+                    // Transition to followup state so UI and flow can react
+                    try {
+                        const { startFollowup } = await import(
+                            "@/shared/state/slices/interviewMachineSlice"
+                        );
+                        dispatch(startFollowup());
+                        emitMachineState();
+                    } catch {}
+
+                    const text = `Ask exactly one short follow-up question about this code delta, then wait silently for the user's answer: "${String(
+                        delta || ""
+                    )}"`;
+                    session.current?.transport?.sendEvent?.({
+                        type: "conversation.item.create",
+                        item: {
+                            type: "message",
+                            role: "system",
+                            content: [{ type: "input_text", text }],
+                        },
+                    });
+                    try {
+                        respond();
+                    } catch {}
+                } catch (e) {
+                    log.error("askFollowupOnDelta failed", e);
+                }
+            },
         }));
 
         useEffect(() => {
