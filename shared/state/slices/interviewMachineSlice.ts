@@ -6,15 +6,13 @@ export type InterviewState =
     | "greeting_responded_by_user"
     | "background_asked_by_ai"
     | "background_answered_by_user"
-    | "coding_challenge_presented_by_ai"
+    | "in_coding_session"
     | "ended";
 
 export type InterviewMachineState = {
     state: InterviewState;
     candidateName?: string;
     expectedBackgroundQuestion?: string;
-    // True once the coding challenge AI text is received (coding session active)
-    is_in_coding_session: boolean;
     // Company/role context for dynamic prompts and script selection
     companyName?: string;
     companySlug?: string;
@@ -23,7 +21,6 @@ export type InterviewMachineState = {
 
 const initialState: InterviewMachineState = {
     state: "idle",
-    is_in_coding_session: false,
 };
 
 const interviewMachineSlice = createSlice({
@@ -64,9 +61,8 @@ const interviewMachineSlice = createSlice({
                     state.state = "background_asked_by_ai";
                 }
             } else if (state.state === "background_answered_by_user") {
-                // After we instruct the AI to present the coding challenge, mark it when AI responds
-                state.state = "coding_challenge_presented_by_ai";
-                state.is_in_coding_session = true;
+                // Upon AI response completion, enter coding session directly
+                state.state = "in_coding_session";
             }
         },
         userFinal: (state) => {
@@ -89,7 +85,6 @@ const interviewMachineSlice = createSlice({
             state.state = "idle";
             state.candidateName = undefined;
             state.expectedBackgroundQuestion = undefined;
-            state.is_in_coding_session = false;
             state.companyName = undefined;
             state.companySlug = undefined;
             state.roleSlug = undefined;

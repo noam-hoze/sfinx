@@ -56,6 +56,8 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
             onEndConversation,
             isInterviewActive = false,
             candidateName = "Candidate",
+            automaticMode = false,
+            onAutoStartCoding,
         },
         ref
     ) => {
@@ -70,6 +72,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
         const didConnectRef = useRef<boolean>(false);
         const didStartRef = useRef<boolean>(false);
         const didAskBackgroundRef = useRef<boolean>(false);
+        const didAutoStartCodingRef = useRef<boolean>(false);
 
         const notifyRecording = useCallback(
             (val: boolean) => {
@@ -194,7 +197,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                                     expectingUserRef.current = true;
                                 }
                                 // When coding session becomes active, enable auto turns & hook hands-free
-                                if (ms.is_in_coding_session) {
+                                if (ms.state === "in_coding_session") {
                                     session.current?.transport?.updateSessionConfig?.(
                                         {
                                             turn_detection: {
@@ -208,6 +211,13 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                                     try {
                                         enableHandsFree();
                                     } catch {}
+                                    // In automatic mode, start coding immediately once in coding session
+                                    if (automaticMode && !didAutoStartCodingRef.current) {
+                                        try {
+                                            onAutoStartCoding?.();
+                                        } catch {}
+                                        didAutoStartCodingRef.current = true;
+                                    }
                                 }
                             } catch {}
                         } catch {}
