@@ -121,7 +121,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
         }, []);
         const scriptRef = useRef<null>(null);
         const expectingUserRef = useRef<boolean>(false);
-        const { connected, session, connect, respond } =
+        const { connected, session, connect, respond, enableHandsFree } =
             useOpenAIRealtimeSession(
                 (m) => {
                     if (m.role === "user") {
@@ -174,14 +174,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                                     respond();
                                 } catch {}
                             }
-                            // Hands-free: if challenge already presented, auto-respond to user turns
-                            if (
-                                ms.state === "coding_challenge_presented_by_ai"
-                            ) {
-                                try {
-                                    respond();
-                                } catch {}
-                            }
+                            // Do not auto-respond in UI; hook will handle hands-free once enabled
                         } catch {}
                     } else if (m.role === "ai") {
                         try {
@@ -200,11 +193,8 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                                     });
                                     expectingUserRef.current = true;
                                 }
-                                // When coding challenge is presented, enable auto turns
-                                if (
-                                    ms.state ===
-                                    "coding_challenge_presented_by_ai"
-                                ) {
+                                // When coding session becomes active, enable auto turns & hook hands-free
+                                if (ms.is_in_coding_session) {
                                     session.current?.transport?.updateSessionConfig?.(
                                         {
                                             turn_detection: {
@@ -215,6 +205,9 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                                             },
                                         }
                                     );
+                                    try {
+                                        enableHandsFree();
+                                    } catch {}
                                 }
                             } catch {}
                         } catch {}

@@ -13,10 +13,13 @@ export type InterviewMachineState = {
     state: InterviewState;
     candidateName?: string;
     expectedBackgroundQuestion?: string;
+    // True once the coding challenge AI text is received (coding session active)
+    is_in_coding_session: boolean;
 };
 
 const initialState: InterviewMachineState = {
     state: "idle",
+    is_in_coding_session: false,
 };
 
 const interviewMachineSlice = createSlice({
@@ -47,6 +50,7 @@ const interviewMachineSlice = createSlice({
             } else if (state.state === "background_answered_by_user") {
                 // After we instruct the AI to present the coding challenge, mark it when AI responds
                 state.state = "coding_challenge_presented_by_ai";
+                state.is_in_coding_session = true;
             }
         },
         userFinal: (state) => {
@@ -69,6 +73,7 @@ const interviewMachineSlice = createSlice({
             state.state = "idle";
             state.candidateName = undefined;
             state.expectedBackgroundQuestion = undefined;
+            state.is_in_coding_session = false;
         },
     },
 });

@@ -146,6 +146,7 @@ export function useOpenAIRealtimeSession(
     const sessionRef = useRef<any>(null);
     const bufferRef = useRef(createTurnBuffer());
     const allowNextRef = useRef<boolean>(false);
+    const handsFreeRef = useRef<boolean>(false);
 
     const add = useCallback((evt: any) => bufferRef.current.ingest(evt), []);
     const reset = useCallback(() => bufferRef.current.reset(), []);
@@ -199,6 +200,19 @@ export function useOpenAIRealtimeSession(
                     const flushed = add(evt);
                     if (flushed && onFinal) flushed.forEach(onFinal);
                 }
+                // Hands-free: immediately trigger reply when user's transcript completes
+                if (
+                    evt?.type ===
+                        "conversation.item.input_audio_transcription.completed" &&
+                    handsFreeRef.current
+                ) {
+                    allowNextRef.current = true;
+                    try {
+                        sessionRef.current?.transport?.sendEvent?.({
+                            type: "response.create",
+                        });
+                    } catch {}
+                }
             });
             setConnected(true);
         } catch (e) {
@@ -236,5 +250,11 @@ export function useOpenAIRealtimeSession(
         connect,
         respond,
         allowNextResponse,
+        enableHandsFree: () => {
+            handsFreeRef.current = true;
+        },
+        disableHandsFree: () => {
+            handsFreeRef.current = false;
+        },
     };
 }
