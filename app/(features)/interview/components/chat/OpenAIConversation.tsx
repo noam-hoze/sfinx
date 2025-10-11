@@ -174,6 +174,14 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                                     respond();
                                 } catch {}
                             }
+                            // Hands-free: if challenge already presented, auto-respond to user turns
+                            if (
+                                ms.state === "coding_challenge_presented_by_ai"
+                            ) {
+                                try {
+                                    respond();
+                                } catch {}
+                            }
                         } catch {}
                     } else if (m.role === "ai") {
                         try {
@@ -199,15 +207,11 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                                 ) {
                                     session.current?.transport?.updateSessionConfig?.(
                                         {
-                                            audio: {
-                                                input: {
-                                                    transcription: {
-                                                        model: "whisper-1",
-                                                    },
-                                                    turnDetection: {
-                                                        type: "server_vad",
-                                                    },
-                                                },
+                                            turn_detection: {
+                                                type: "server_vad",
+                                            },
+                                            input_audio_transcription: {
+                                                model: "whisper-1",
                                             },
                                         }
                                     );
