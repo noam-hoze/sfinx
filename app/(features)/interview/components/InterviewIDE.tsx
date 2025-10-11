@@ -30,6 +30,8 @@ import { useThemePreference } from "./hooks/useThemePreference";
 import { createApplication } from "./services/applicationService";
 import { createInterviewSession } from "./services/interviewSessionService";
 import { fetchJobById } from "./services/jobService";
+import { useDispatch } from "react-redux";
+import { setCompanyContext } from "@/shared/state/slices/interviewMachineSlice";
 
 const log = logger.for("@InterviewIDE.tsx");
 const INTERVIEW_DURATION_SECONDS = 30 * 60;
@@ -76,6 +78,7 @@ const InterviewerContent = () => {
     const { data: session } = useSession();
     const companyId = searchParams.get("companyId");
     const jobId = searchParams.get("jobId");
+    const dispatch = useDispatch();
     const [job, setJob] = useState<any | null>(null);
     const candidateName = (session?.user as any)?.name || "Candidate";
 
@@ -310,6 +313,20 @@ const InterviewerContent = () => {
             .then((data) => {
                 if (mounted) {
                     setJob(data.job);
+                    try {
+                        const companyName = data?.job?.company?.name;
+                        const companySlug = (companyName || "").toLowerCase();
+                        const roleSlug = (data?.job?.title || "")
+                            .toLowerCase()
+                            .replace(/\s+/g, "-");
+                        dispatch(
+                            setCompanyContext({
+                                companyName,
+                                companySlug,
+                                roleSlug,
+                            })
+                        );
+                    } catch {}
                 }
             })
             .catch(() => {});

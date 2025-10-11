@@ -15,6 +15,10 @@ export type InterviewMachineState = {
     expectedBackgroundQuestion?: string;
     // True once the coding challenge AI text is received (coding session active)
     is_in_coding_session: boolean;
+    // Company/role context for dynamic prompts and script selection
+    companyName?: string;
+    companySlug?: string;
+    roleSlug?: string;
 };
 
 const initialState: InterviewMachineState = {
@@ -28,6 +32,18 @@ const interviewMachineSlice = createSlice({
     reducers: {
         start: (state, action: PayloadAction<{ candidateName: string }>) => {
             state.candidateName = action.payload.candidateName;
+        },
+        setCompanyContext: (
+            state,
+            action: PayloadAction<{
+                companyName?: string;
+                companySlug?: string;
+                roleSlug?: string;
+            }>
+        ) => {
+            state.companyName = action.payload.companyName;
+            state.companySlug = action.payload.companySlug;
+            state.roleSlug = action.payload.roleSlug;
         },
         aiFinal: (state, action: PayloadAction<{ text: string }>) => {
             if (state.state === "idle") {
@@ -74,6 +90,9 @@ const interviewMachineSlice = createSlice({
             state.candidateName = undefined;
             state.expectedBackgroundQuestion = undefined;
             state.is_in_coding_session = false;
+            state.companyName = undefined;
+            state.companySlug = undefined;
+            state.roleSlug = undefined;
         },
     },
 });
@@ -83,6 +102,7 @@ export const {
     aiFinal,
     userFinal,
     setExpectedBackgroundQuestion,
+    setCompanyContext,
     end,
     reset,
 } = interviewMachineSlice.actions;

@@ -17,7 +17,7 @@ import React, {
 import { logger } from "../../../../shared/services";
 import { useOpenAIRealtimeSession } from "@/shared/hooks/useOpenAIRealtimeSession";
 import { store } from "@/shared/state/store";
-import { OPENAI_INTERVIEWER_PROMPT } from "@/shared/prompts/openAIInterviewerPrompt";
+import { buildOpenAIInterviewerPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
 import { useDispatch } from "react-redux";
 import {
     addMessage,
@@ -224,10 +224,27 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 // Use new hook
                 await connect();
                 sessionRef.current = session.current;
-                // Load interview script dynamically (company/role can come from params in future)
+                // Inject interviewer persona as a system prompt (no respond here)
                 try {
+                    const ms = store.getState().interviewMachine;
+                    const companyName = ms.companyName || "Company";
+                    const persona = buildOpenAIInterviewerPrompt(companyName);
+                    sessionRef.current?.transport?.sendEvent?.({
+                        type: "conversation.item.create",
+                        item: {
+                            type: "message",
+                            role: "system",
+                            content: [{ type: "input_text", text: persona }],
+                        },
+                    });
+                } catch {}
+                // Load interview script dynamically (company/role from store when available)
+                try {
+                    const ms = store.getState().interviewMachine;
+                    const companySlug = ms.companySlug || "meta";
+                    const roleSlug = ms.roleSlug || "frontend-engineer";
                     const resp = await fetch(
-                        `/api/interviews/script?company=meta&role=frontend-engineer`
+                        `/api/interviews/script?company=${companySlug}&role=${roleSlug}`
                     );
                     if (resp.ok) {
                         const data = await resp.json();
