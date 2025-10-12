@@ -222,6 +222,21 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                                         } catch {}
                                         didAutoStartCodingRef.current = true;
                                     }
+                                    // Send hidden reference answer for interviewer context if available
+                                    try {
+                                        const answer = (scriptRef.current as any)?.codingAnswer;
+                                        if (answer && String(answer).trim().length > 0) {
+                                            const text = `Context (do not reveal to user): Here is the canonical reference solution the candidate is expected to implement. Use it only to evaluate and ask precise follow-ups.\n\n"""\n${String(answer)}\n"""`;
+                                            session.current?.transport?.sendEvent?.({
+                                                type: "conversation.item.create",
+                                                item: {
+                                                    type: "message",
+                                                    role: "system",
+                                                    content: [{ type: "input_text", text }],
+                                                },
+                                            });
+                                        }
+                                    } catch {}
                                 }
                                 // If awaiting closing, end on exact-match final text (response.done)
                                 const expectedRaw = (closingExpectedRef.current || "").trim();
@@ -391,7 +406,12 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
             sendUserMessage,
             micMuted: micMutedRef.current,
             toggleMicMute,
-            askFollowupOnDelta: async (delta: string) => {
+            askFollowupOnDelta: async (payload: {
+                added: string;
+                removed: string;
+                addedChars: number;
+                removedChars: number;
+            }) => {
                 try {
                     // Transition to followup state so UI and flow can react
                     try {
@@ -402,9 +422,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                         emitMachineState();
                     } catch {}
 
-                    const text = `Ask exactly one short follow-up question about this code delta, then wait silently for the user's answer: "${String(
-                        delta || ""
-                    )}"`;
+                    const text = `Context: Code changes since last snapshot.\nAdded (${payload.addedChars} chars):\n"""\n${payload.added}\n"""\nRemoved (${payload.removedChars} chars):\n"""\n${payload.removed}\n"""\nInstruction: Ask exactly one short follow-up question about these changes, then wait silently for the user's answer.`;
                     session.current?.transport?.sendEvent?.({
                         type: "conversation.item.create",
                         item: {

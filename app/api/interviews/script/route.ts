@@ -21,7 +21,9 @@ export async function GET(req: NextRequest) {
         const json = JSON.parse(raw || "{}");
         const backgroundQuestion = json?.backgroundQuestion || "";
         const codingPrompt = json?.codingChallenge?.prompt || "";
-        return NextResponse.json({ backgroundQuestion, codingPrompt });
+        const codingTemplate = json?.codingChallenge?.template || "";
+        const codingAnswer = json?.codingChallenge?.answer || "";
+        return NextResponse.json({ backgroundQuestion, codingPrompt, codingTemplate, codingAnswer });
     } catch (error: any) {
         return NextResponse.json(
             {

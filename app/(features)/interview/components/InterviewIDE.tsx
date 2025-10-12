@@ -35,23 +35,7 @@ import { setCompanyContext } from "@/shared/state/slices/interviewMachineSlice";
 
 const log = logger.for("@InterviewIDE.tsx");
 const INTERVIEW_DURATION_SECONDS = 30 * 60;
-const DEFAULT_CODE = `// Welcome to your coding interview!
-// Create a UserList component that fetches users from an API
-
-const UserList = () => {
-    // Fetch users from: https://jsonplaceholder.typicode.com/users
-    // Display name and email for each user
-    // Add loading and error states
-
-    return (
-        <div>
-            <h2>User List</h2>
-            {/* Implement your user list here */}
-        </div>
-    );
-};
-
-render(UserList);`;
+const DEFAULT_CODE = ``;
 
 /**
  * Returns the initial code template displayed in the editor when the interview starts.
@@ -343,9 +327,26 @@ const InterviewerContent = () => {
      * Initializes editor content with the default snippet if empty.
      */
     useEffect(() => {
-        if (!state.currentCode) {
+        // If no code loaded yet, try fetching the coding template from the active script
+        (async () => {
+            if (state.currentCode) return;
+            try {
+                const ms = (window as any).__sfinxStore?.getState?.()?.interviewMachine;
+                const companySlug = ms?.companySlug || "meta";
+                const roleSlug = ms?.roleSlug || "frontend-engineer";
+                const resp = await fetch(`/api/interviews/script?company=${companySlug}&role=${roleSlug}`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    const tmpl = String(data?.codingTemplate || "");
+                    if (tmpl.trim().length > 0) {
+                        updateCurrentCode(tmpl);
+                        return;
+                    }
+                }
+            } catch {}
+            // Fallback
             updateCurrentCode(getInitialCode());
-        }
+        })();
     }, [state.currentCode, updateCurrentCode]);
 
     /**
@@ -488,7 +489,7 @@ const InterviewerContent = () => {
                                 readOnly={!isCodingStarted}
                                 onElevenLabsUpdate={onElevenLabsUpdate}
                                 updateKBVariables={updateKBVariables}
-                                onAskFollowup={(delta) => {
+                                onAskFollowup={(payload) => {
                                     try {
                                         const ref =
                                             realTimeConversationRef.current;
@@ -497,7 +498,7 @@ const InterviewerContent = () => {
                                             typeof ref.askFollowupOnDelta ===
                                                 "function"
                                         ) {
-                                            ref.askFollowupOnDelta(delta);
+                                            ref.askFollowupOnDelta(payload);
                                         }
                                     } catch {}
                                 }}

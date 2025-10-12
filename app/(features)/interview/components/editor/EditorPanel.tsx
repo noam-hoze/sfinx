@@ -47,7 +47,12 @@ interface EditorPanelProps {
     readOnly?: boolean;
     onElevenLabsUpdate?: (text: string) => Promise<void>;
     updateKBVariables?: (updates: any) => Promise<void>;
-    onAskFollowup?: (diffText: string) => void;
+    onAskFollowup?: (payload: {
+        added: string;
+        removed: string;
+        addedChars: number;
+        removedChars: number;
+    }) => void;
 }
 
 const EditorPanel: React.FC<EditorPanelProps> = ({
@@ -89,6 +94,10 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
             previousCodeRef.current = propCurrentCode;
             // Reset timestamp when code is first loaded
             lastChangeTimeRef.current = Date.now();
+            // Initialize baseline on first non-empty code load
+            if (!followupBaselineRef.current) {
+                followupBaselineRef.current = propCurrentCode;
+            }
         }
     }, [propCurrentCode, currentCode]);
 
@@ -219,22 +228,46 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     };
 
     const askFollowup = useCallback(() => {
+        const baseline = followupBaselineRef.current || "";
+        if (baseline.trim().length === 0) {
+            throw new Error("Follow-up baseline is empty; coding template not initialized.");
+        }
         try {
-            const baseline = followupBaselineRef.current || "";
             const current = currentCode || "";
-            // Build precise added-only delta using jsdiff
+            // Build precise delta (added and removed) using jsdiff
             const parts = diffWords(baseline, current);
             const added = parts
                 .filter((p: any) => p.added && p.value)
                 .map((p: any) => p.value)
                 .join("");
-            const delta = added || "";
-            // Log the precise delta being sent to the interviewer
+            const removed = parts
+                .filter((p: any) => p.removed && p.value)
+                .map((p: any) => p.value)
+                .join("");
+
+            const addedChars = added.length;
+            const removedChars = removed.length;
+
+            // Optional truncation to avoid oversized prompts
+            const truncate = (s: string, max = 2000) =>
+                s.length > max ? s.slice(0, max) + "\n... [truncated]" : s;
+
+            const payload = {
+                added: truncate(added),
+                removed: truncate(removed),
+                addedChars,
+                removedChars,
+            };
+
             // eslint-disable-next-line no-console
-            console.log("[Editor] Follow-up delta:", delta);
-            onAskFollowup?.(delta);
+            console.log("[Editor] Follow-up payload:", payload);
+            onAskFollowup?.(payload);
             followupBaselineRef.current = current;
-        } catch {}
+        } catch (e) {
+            // eslint-disable-next-line no-console
+            console.error(e);
+            throw e;
+        }
     }, [currentCode, onAskFollowup]);
 
     if (showDiff) {
