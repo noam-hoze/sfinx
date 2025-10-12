@@ -327,27 +327,25 @@ const InterviewerContent = () => {
      * Initializes editor content with the default snippet if empty.
      */
     useEffect(() => {
-        // If no code loaded yet, try fetching the coding template from the active script
+        // If no code yet, fetch the coding template once company/role are known
         (async () => {
             if (state.currentCode) return;
+            if (!job) return; // wait until job is loaded and store context set
+            const ms = (window as any).__sfinxStore?.getState?.()?.interviewMachine;
+            const companySlug = ms?.companySlug;
+            const roleSlug = ms?.roleSlug;
+            if (!companySlug || !roleSlug) return;
             try {
-                const ms = (window as any).__sfinxStore?.getState?.()?.interviewMachine;
-                const companySlug = ms?.companySlug || "meta";
-                const roleSlug = ms?.roleSlug || "frontend-engineer";
                 const resp = await fetch(`/api/interviews/script?company=${companySlug}&role=${roleSlug}`);
-                if (resp.ok) {
-                    const data = await resp.json();
-                    const tmpl = String(data?.codingTemplate || "");
-                    if (tmpl.trim().length > 0) {
-                        updateCurrentCode(tmpl);
-                        return;
-                    }
+                if (!resp.ok) return;
+                const data = await resp.json();
+                const tmpl = String(data?.codingTemplate || "");
+                if (tmpl.trim().length > 0) {
+                    updateCurrentCode(tmpl);
                 }
             } catch {}
-            // Fallback
-            updateCurrentCode(getInitialCode());
         })();
-    }, [state.currentCode, updateCurrentCode]);
+    }, [state.currentCode, updateCurrentCode, job]);
 
     /**
      * Resets editor code for specific tasks (e.g., task1-userlist) when task changes.
@@ -433,10 +431,7 @@ const InterviewerContent = () => {
         [availableTabs]
     );
 
-    const companyLogo = useMemo(
-        () => job?.company?.logo || "/logos/meta-logo.png",
-        [job]
-    );
+    const companyLogo = useMemo(() => job?.company?.logo, [job]);
 
     return (
         <div className="h-screen flex flex-col bg-soft-white text-deep-slate dark:bg-gray-900 dark:text-white">
@@ -448,15 +443,17 @@ const InterviewerContent = () => {
                         </h1>
                     </div>
                     <div className="flex justify-center items-center justify-self-center">
-                        <div className="relative h-20 w-20">
-                            <Image
-                                src={companyLogo}
-                                alt="Company Logo"
-                                fill
-                                sizes="80px"
-                                className="object-contain scale-125"
-                            />
-                        </div>
+                        {companyLogo ? (
+                            <div className="relative h-20 w-20">
+                                <Image
+                                    src={companyLogo}
+                                    alt="Company Logo"
+                                    fill
+                                    sizes="80px"
+                                    className="object-contain scale-125"
+                                />
+                            </div>
+                        ) : null}
                     </div>
                     <div className="justify-self-end">
                         <HeaderControls
