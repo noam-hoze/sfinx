@@ -144,6 +144,7 @@ export function useOpenAIRealtimeSession(
 ) {
     const [connected, setConnected] = useState(false);
     const sessionRef = useRef<any>(null);
+    const transportHandlerRef = useRef<any>(null);
     const bufferRef = useRef(createTurnBuffer());
     const allowNextRef = useRef<boolean>(false);
     const handsFreeRef = useRef<boolean>(false);
@@ -174,7 +175,7 @@ export function useOpenAIRealtimeSession(
             sessionRef.current = session;
             updateTranscriptionConfig(session);
 
-            (session.on as any)?.("transport_event", (evt: any) => {
+            const handler = (evt: any) => {
                 // Cancel unsolicited replies immediately unless explicitly allowed
                 if (
                     evt?.type === "response.created" ||
@@ -213,7 +214,11 @@ export function useOpenAIRealtimeSession(
                         });
                     } catch {}
                 }
-            });
+            };
+            (session.on as any)?.("transport_event", handler);
+            transportHandlerRef.current = handler;
+            // eslint-disable-next-line no-console
+            console.log("[openai][hook] connected; handler attached");
             setConnected(true);
         } catch (e) {
             setConnected(false);
@@ -225,7 +230,16 @@ export function useOpenAIRealtimeSession(
         () => () => {
             try {
                 reset();
+                try {
+                    const off = (sessionRef.current?.off as any);
+                    if (off && transportHandlerRef.current) {
+                        off("transport_event", transportHandlerRef.current);
+                    }
+                } catch {}
+                // eslint-disable-next-line no-console
+                console.log("[openai][hook] unmount cleanup: disconnect");
                 sessionRef.current?.disconnect?.();
+                sessionRef.current = null;
             } catch {}
         },
         [reset]
@@ -255,6 +269,28 @@ export function useOpenAIRealtimeSession(
         },
         disableHandsFree: () => {
             handsFreeRef.current = false;
+        },
+        destroy: () => {
+            // eslint-disable-next-line no-console
+            console.log("[openai][hook] destroy() called");
+            try {
+                reset();
+            } catch {}
+            try {
+                const off = (sessionRef.current?.off as any);
+                if (off && transportHandlerRef.current) {
+                    off("transport_event", transportHandlerRef.current);
+                }
+            } catch {}
+            try {
+                sessionRef.current?.disconnect?.();
+            } catch {}
+            sessionRef.current = null;
+            allowNextRef.current = false;
+            handsFreeRef.current = false;
+            setConnected(false);
+            // eslint-disable-next-line no-console
+            console.log("[openai][hook] destroy() completed");
         },
     };
 }

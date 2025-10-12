@@ -7,6 +7,7 @@ interface HeaderControlsProps {
     isCameraOn: boolean;
     onToggleCamera: () => void;
     isCodingStarted: boolean;
+    hasSubmitted: boolean;
     timeLeft: number;
     formatTime: (seconds: number) => string;
     automaticMode: boolean;
@@ -19,6 +20,7 @@ const HeaderControls: React.FC<HeaderControlsProps> = ({
     isCameraOn,
     onToggleCamera,
     isCodingStarted,
+    hasSubmitted,
     timeLeft,
     formatTime,
     automaticMode,
@@ -60,12 +62,12 @@ const HeaderControls: React.FC<HeaderControlsProps> = ({
 
             {/* Coding Control Button */}
             {automaticMode ? (
-                isCodingStarted && (
+                (isCodingStarted || hasSubmitted) && (
                     <button
                         onClick={onSubmit}
-                        disabled={!isInterviewActive && !isCodingStarted}
+                        disabled={hasSubmitted || (!isInterviewActive && !isCodingStarted)}
                         className={`px-4 py-2 text-sm font-medium rounded-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-sm ${"bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20"} ${
-                            !isInterviewActive && !isCodingStarted
+                            hasSubmitted || (!isInterviewActive && !isCodingStarted)
                                 ? "opacity-50 cursor-not-allowed"
                                 : ""
                         }`}
@@ -76,26 +78,26 @@ const HeaderControls: React.FC<HeaderControlsProps> = ({
                 )
             ) : (
                 <button
-                    onClick={isCodingStarted ? onSubmit : onStartCoding}
-                    disabled={!isInterviewActive && !isCodingStarted}
+                    onClick={(isCodingStarted || hasSubmitted) ? onSubmit : onStartCoding}
+                    disabled={hasSubmitted || (!isInterviewActive && !isCodingStarted)}
                     className={`px-4 py-2 text-sm font-medium rounded-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-sm ${
-                        isCodingStarted
+                        (isCodingStarted || hasSubmitted)
                             ? "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20"
                             : "bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/10 dark:text-purple-400 dark:hover:bg-purple-900/20"
                     } ${
-                        !isInterviewActive && !isCodingStarted
+                        hasSubmitted || (!isInterviewActive && !isCodingStarted)
                             ? "opacity-50 cursor-not-allowed"
                             : ""
                     }`}
                     title={
-                        isCodingStarted
+                        (isCodingStarted || hasSubmitted)
                             ? "Submit your solution"
                             : isInterviewActive
                             ? "Start 30-minute coding timer"
                             : "Start interview first"
                     }
                 >
-                    {isCodingStarted ? "Submit" : "Start Coding"}
+                    {(isCodingStarted || hasSubmitted) ? "Submit" : "Start Coding"}
                 </button>
             )}
         </div>

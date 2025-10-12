@@ -96,6 +96,12 @@ const RightPanel: React.FC<RightPanelProps> = ({
                                 onStartConversation();
                             }}
                             onEndConversation={() => {
+                                try {
+                                    const ref = realTimeConversationRef as any;
+                                    if (ref?.current?.stopConversation) {
+                                        ref.current.stopConversation();
+                                    }
+                                } catch {}
                                 setIsInterviewActive(false);
                                 setIsAgentConnected(false);
                                 onStopTimer();

@@ -27,6 +27,7 @@ import {
     start as machineStart,
     aiFinal as machineAiFinal,
     userFinal as machineUserFinal,
+    end as machineEnd,
     setExpectedBackgroundQuestion,
 } from "@/shared/state/slices/interviewMachineSlice";
 const log = logger.for("@OpenAIConversation.tsx");
@@ -54,6 +55,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
         {
             onStartConversation,
             onEndConversation,
+            onInterviewConcluded,
             isInterviewActive = false,
             candidateName = "Candidate",
             automaticMode = false,
@@ -73,6 +75,8 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
         const didStartRef = useRef<boolean>(false);
         const didAskBackgroundRef = useRef<boolean>(false);
         const didAutoStartCodingRef = useRef<boolean>(false);
+        const awaitingClosingRef = useRef<boolean>(false);
+        const closingExpectedRef = useRef<string>("");
 
         const notifyRecording = useCallback(
             (val: boolean) => {
@@ -219,6 +223,35 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                                         didAutoStartCodingRef.current = true;
                                     }
                                 }
+                                // If awaiting closing, end on exact-match final text (response.done)
+                                const expectedRaw = (closingExpectedRef.current || "").trim();
+                                const receivedRaw = (m.text || "").trim();
+                                const normalize = (s: string) =>
+                                    s
+                                        .toLowerCase()
+                                        .replace(/[`'".,!?]/g, "")
+                                        .replace(/\s+/g, " ")
+                                        .trim();
+                                const expected = expectedRaw;
+                                const received = receivedRaw;
+                                const expectedN = normalize(expectedRaw);
+                                const receivedN = normalize(receivedRaw);
+                                const matches =
+                                    expectedN.length > 0 &&
+                                    (receivedN === expectedN ||
+                                        receivedN.includes(expectedN));
+                                if (awaitingClosingRef.current && matches) {
+                                    dispatch(machineEnd());
+                                    emitMachineState();
+                                    awaitingClosingRef.current = false;
+                                    // Immediately disconnect the realtime session to fully tear down audio and events
+                                    try {
+                                        onEndConversation?.();
+                                    } catch {}
+                                    try {
+                                        onInterviewConcluded?.();
+                                    } catch {}
+                                }
                             } catch {}
                         } catch {}
                     }
@@ -347,7 +380,9 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
 
         useImperativeHandle(ref, () => ({
             startConversation,
-            stopConversation: disconnect,
+            stopConversation: () => {
+                disconnect();
+            },
             sendContextualUpdate: async (_text: string) => {
                 log.warn(
                     "OpenAIConversation.sendContextualUpdate not yet implemented"
@@ -383,6 +418,54 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                     } catch {}
                 } catch (e) {
                     log.error("askFollowupOnDelta failed", e);
+                }
+            },
+            sayClosingLine: async (name?: string) => {
+                try {
+                    const candidate = (name || candidateName || "Candidate").trim();
+                    const expected = `Thank you so much ${candidate}, the next steps will be shared with you shortly.`;
+                    closingExpectedRef.current = expected;
+                    awaitingClosingRef.current = true;
+                    // Interrupt any ongoing AI response and clear input buffer
+                    try {
+                        // eslint-disable-next-line no-console
+                        console.log("[closing][submit] sending response.cancel");
+                        session.current?.transport?.sendEvent?.({
+                            type: "response.cancel",
+                        });
+                        // eslint-disable-next-line no-console
+                        console.log("[closing][submit] response.cancel sent");
+                    } catch {}
+                    try {
+                        // eslint-disable-next-line no-console
+                        console.log("[closing][submit] clearing input_audio_buffer");
+                        session.current?.transport?.sendEvent?.({
+                            type: "input_audio_buffer.clear",
+                        });
+                        // eslint-disable-next-line no-console
+                        console.log("[closing][submit] input_audio_buffer cleared");
+                    } catch {}
+                    const text = `Say exactly: "${expected}"`;
+                    // eslint-disable-next-line no-console
+                    console.log("[closing][submit] enqueue closing item.create", { text });
+                    session.current?.transport?.sendEvent?.({
+                        type: "conversation.item.create",
+                        item: {
+                            type: "message",
+                            role: "system",
+                            content: [{ type: "input_text", text }],
+                        },
+                    });
+                    // Removed local Web Speech fallback to preserve voice consistency
+                    try {
+                        // eslint-disable-next-line no-console
+                        console.log("[closing][submit] triggering respond()");
+                        respond();
+                        // eslint-disable-next-line no-console
+                        console.log("[closing][submit] respond() called");
+                    } catch {}
+                } catch (e) {
+                    log.error("sayClosingLine failed", e);
                 }
             },
         }));

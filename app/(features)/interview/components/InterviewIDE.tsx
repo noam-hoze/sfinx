@@ -184,7 +184,13 @@ const InterviewerContent = () => {
                 updateSubmission(state.currentCode);
                 await stopRecording();
                 await stateMachineHandleSubmission(state.currentCode);
-                await sendHiddenDoneMessage();
+                // OpenAI flow: say closing line and end via response.done
+                try {
+                    const ref = realTimeConversationRef.current;
+                    if (ref?.sayClosingLine && typeof ref.sayClosingLine === "function") {
+                        await ref.sayClosingLine(candidateName);
+                    }
+                } catch {}
                 setIsCodingStarted(false);
                 setCodingStarted(false);
             },
@@ -208,7 +214,13 @@ const InterviewerContent = () => {
             updateSubmission(state.currentCode);
             await stopRecording();
             await stateMachineHandleSubmission(state.currentCode);
-            await sendHiddenDoneMessage();
+            // OpenAI flow: say closing line and rely on response.done to end
+            try {
+                const ref = realTimeConversationRef.current;
+                if (ref?.sayClosingLine && typeof ref.sayClosingLine === "function") {
+                    await ref.sayClosingLine(candidateName);
+                }
+            } catch {}
             await setCodingState(false);
             setCodingStarted(false);
             setIsCodingStarted(false);
@@ -216,15 +228,7 @@ const InterviewerContent = () => {
         } catch (error) {
             log.error("❌ Failed to submit solution:", error);
         }
-    }, [
-        state.currentCode,
-        stopRecording,
-        stateMachineHandleSubmission,
-        sendHiddenDoneMessage,
-        setCodingState,
-        setCodingStarted,
-        stopTimer,
-    ]);
+    }, [candidateName, setCodingStarted, setCodingState, state.currentCode, stateMachineHandleSubmission, stopRecording, stopTimer, updateSubmission]);
 
     /**
      * Starts the interview: begins recording, creates application/session, resets code, and connects to the agent.
@@ -371,8 +375,12 @@ const InterviewerContent = () => {
                 window.location.pathname === "/practice";
             if (!onPracticePage) {
                 setTimeout(() => {
-                    router.push("/job-search");
-                }, 2000);
+                    try {
+                        window.location.href = "/job-search";
+                    } catch {
+                        router.push("/job-search");
+                    }
+                }, 4000);
             }
         }
     }, [interviewConcluded, companyId, router, markCompanyApplied]);
@@ -454,10 +462,11 @@ const InterviewerContent = () => {
                             isCameraOn={isCameraOn}
                             onToggleCamera={toggleCamera}
                             isCodingStarted={isCodingStarted}
+                            hasSubmitted={Boolean(state.hasSubmitted)}
                             timeLeft={timeLeft}
                             formatTime={formatTime}
                             automaticMode={automaticMode}
-                            isInterviewActive={isInterviewActive}
+                            isInterviewActive={Boolean(isInterviewActive)}
                             onStartCoding={handleStartCoding}
                             onSubmit={handleSubmit}
                         />
