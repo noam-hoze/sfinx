@@ -31,6 +31,8 @@ import {
     end as machineEnd,
     setExpectedBackgroundQuestion,
 } from "@/shared/state/slices/interviewMachineSlice";
+import { interviewChatStore } from "@/shared/state/interviewChatStore";
+import { shouldAdvanceBackgroundStage } from "../../../../shared/services";
 const logger = log;
 
 interface OpenAIConversationProps {
@@ -78,6 +80,52 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
         const didAutoStartCodingRef = useRef<boolean>(false);
         const awaitingClosingRef = useRef<boolean>(false);
         const closingExpectedRef = useRef<string>("");
+        const didPresentCodingRef = useRef<boolean>(false);
+        // After the user’s first answer to the initial background question,
+        // CONTROL becomes required on every subsequent AI background turn
+        const controlRequiredRef = useRef<boolean>(false);
+        const controlTimerRef = useRef<number | null>(null);
+
+        const clearControlTimer = useCallback(() => {
+            if (controlTimerRef.current) {
+                clearTimeout(controlTimerRef.current as unknown as number);
+                controlTimerRef.current = null;
+            }
+        }, []);
+
+        function requestControlBackchannel() {
+            if (!controlRequiredRef.current) return;
+            try {
+                const sys =
+                    "CONTROL_REQUEST: Do not speak to the candidate. Return ONLY JSON {\"overallConfidence\":number,\"pillars\":{\"adaptability\":number,\"creativity\":number,\"reasoning\":number},\"readyToProceed\":boolean}.";
+                session.current?.transport?.sendEvent?.({
+                    type: "conversation.item.create",
+                    item: {
+                        type: "message",
+                        role: "system",
+                        content: [{ type: "input_text", text: sys }],
+                    },
+                });
+                session.current?.transport?.sendEvent?.({
+                    type: "response.create",
+                    response: {
+                        modalities: ["text"],
+                        instructions:
+                            "Return ONLY JSON: {\\\"overallConfidence\\\":number,\\\"pillars\\\":{\\\"adaptability\\\":number,\\\"creativity\\\":number,\\\"reasoning\\\":number},\\\"readyToProceed\\\":boolean}. No preface.",
+                    },
+                });
+                clearControlTimer();
+                controlTimerRef.current = window.setTimeout(() => {
+                    logger.error("[control] timeout: no CONTROL received within 5s");
+                    clearControlTimer();
+                }, 5000) as unknown as number;
+                logger.info("[openai] CONTROL backchannel requested");
+            } catch (e) {
+                logger.error("[openai] Failed to request CONTROL backchannel", {
+                    error: (e as any)?.message || String(e),
+                });
+            }
+        }
 
         const notifyRecording = useCallback(
             (val: boolean) => {
@@ -128,7 +176,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
         }, []);
         const scriptRef = useRef<null>(null);
         const expectingUserRef = useRef<boolean>(false);
-        const { connected, session, connect, respond, enableHandsFree } =
+        const { connected, session, connect, respond, enableHandsFree, allowNextResponse } =
             useOpenAIRealtimeSession(
                 (m) => {
                     if (m.role === "user") {
@@ -136,6 +184,16 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                             dispatch(machineUserFinal());
                             emitMachineState();
                             postToChat(m.text, m.role);
+                            // Stage: greeting → background on first user reply
+                            try {
+                                const s = interviewChatStore.getState();
+                                if (s.stage === "greeting") {
+                                    interviewChatStore.dispatch({
+                                        type: "SET_STAGE",
+                                        payload: "background",
+                                    });
+                                }
+                            } catch {}
                             const ms = store.getState().interviewMachine;
                             const expectedQ = (scriptRef.current as any)
                                 ?.backgroundQuestion;
@@ -161,113 +219,115 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                                 } catch {}
                                 didAskBackgroundRef.current = true;
                             }
-                            // If user just answered the background question → present coding challenge next
-                            if (
-                                ms.state === "background_answered_by_user" &&
-                                (scriptRef.current as any)?.codingPrompt
-                            ) {
-                                const text = `Present the coding challenge exactly as follows, then wait for questions: "${String(
-                                    (scriptRef.current as any).codingPrompt
-                                )}"`;
-                                session.current?.transport?.sendEvent?.({
-                                    type: "conversation.item.create",
-                                    item: {
-                                        type: "message",
-                                        role: "system",
-                                        content: [{ type: "input_text", text }],
-                                    },
-                                });
+                            // After any user background answer, allow the model to ask the next follow-up
+                            if (ms.state === "background_answered_by_user") {
+                                // From now on, require CONTROL on every AI turn in background
+                                controlRequiredRef.current = true;
                                 try {
                                     respond();
                                 } catch {}
+                                // Fire-and-forget CONTROL backchannel once per user background answer
+                                requestControlBackchannel();
                             }
-                            // Do not auto-respond in UI; hook will handle hands-free once enabled
+                            // Do not present coding yet; will be triggered by CONTROL gate
                         } catch {}
                     } else if (m.role === "ai") {
                         try {
-                            dispatch(machineAiFinal({ text: m.text }));
-                            emitMachineState();
-                            postToChat(m.text, m.role);
-                            // After AI turn, expect user and clear input buffer to avoid overlap
-                            try {
-                                const ms = store.getState().interviewMachine;
-                                if (
-                                    ms.state === "greeting_said_by_ai" ||
-                                    ms.state === "background_asked_by_ai"
-                                ) {
-                                    session.current?.transport?.sendEvent?.({
-                                        type: "input_audio_buffer.clear",
-                                    });
-                                    expectingUserRef.current = true;
-                                }
-                                // When coding session becomes active, enable auto turns & hook hands-free
-                                if (ms.state === "in_coding_session") {
-                                    session.current?.transport?.updateSessionConfig?.(
-                                        {
-                                            turn_detection: {
-                                                type: "server_vad",
-                                            },
-                                            input_audio_transcription: {
-                                                model: "whisper-1",
-                                            },
+                            const textRaw = String(m.text || "").trim();
+                            // Try to interpret pure JSON as CONTROL backchannel (no visible posting)
+                            let handledAsControl = false;
+                            if (controlRequiredRef.current) {
+                                try {
+                                    // Fast-check brackets to avoid noisy parse attempts
+                                    const looksJson =
+                                        textRaw.startsWith("{") && textRaw.endsWith("}");
+                                    const maybe = looksJson ? JSON.parse(textRaw) : null;
+                                    if (
+                                        maybe &&
+                                        typeof maybe.overallConfidence === "number" &&
+                                        typeof maybe.readyToProceed === "boolean" &&
+                                        maybe.pillars
+                                    ) {
+                                        handledAsControl = true;
+                                        logger.info("[openai] CONTROL parsed:", maybe);
+                                        clearControlTimer();
+                                        const s = interviewChatStore.getState();
+                                        interviewChatStore.dispatch({
+                                            type: "BG_SET_CONFIDENCE",
+                                            payload: Number(maybe.overallConfidence) || 0,
+                                        });
+                                        interviewChatStore.dispatch({ type: "BG_INC_QUESTIONS" });
+                                        const gate = shouldAdvanceBackgroundStage({
+                                            currentConfidence: Number(maybe.overallConfidence) || 0,
+                                            questionsAsked: s.background.questionsAsked + 1,
+                                            transitioned: s.background.transitioned,
+                                        });
+                                        if (gate.shouldAdvance && maybe.readyToProceed === true) {
+                                            interviewChatStore.dispatch({ type: "BG_MARK_TRANSITION" });
+                                            interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" });
+                                            logger.info("[openai] Gate passed by CONTROL: advancing to coding");
+                                            // Present coding challenge now (once), using codingChallenge.prompt
+                                            try {
+                                                if (!didPresentCodingRef.current) {
+                                                    const prompt = (scriptRef.current as any)?.codingChallenge?.prompt;
+                                                    if (typeof prompt === "string" && prompt.trim().length > 0) {
+                                                        const sys = `Present the coding challenge exactly as follows, then wait for questions: "${String(
+                                                            prompt
+                                                        )}"`;
+                                                        session.current?.transport?.sendEvent?.({
+                                                            type: "conversation.item.create",
+                                                            item: {
+                                                                type: "message",
+                                                                role: "system",
+                                                                content: [{ type: "input_text", text: sys }],
+                                                            },
+                                                        });
+                                                        try {
+                                                            respond();
+                                                        } catch {}
+                                                        didPresentCodingRef.current = true;
+                                                    }
+                                                }
+                                            } catch {}
+                                        } else {
+                                            // Not ready yet: ask one concise follow-up question
+                                            try {
+                                                const sysF =
+                                                    "Ask ONE short follow-up question about the candidate's last background answer. Do not mention confidence or readiness.";
+                                                session.current?.transport?.sendEvent?.({
+                                                    type: "conversation.item.create",
+                                                    item: {
+                                                        type: "message",
+                                                        role: "system",
+                                                        content: [{ type: "input_text", text: sysF }],
+                                                    },
+                                                });
+                                                respond();
+                                            } catch {}
                                         }
-                                    );
-                                    try {
-                                        enableHandsFree();
-                                    } catch {}
-                                    // In automatic mode, start coding immediately once in coding session
-                                    if (automaticMode && !didAutoStartCodingRef.current) {
-                                        try {
-                                            onAutoStartCoding?.();
-                                        } catch {}
-                                        didAutoStartCodingRef.current = true;
                                     }
-                                    // Send hidden reference answer for interviewer context if available
-                                    try {
-                                        const answer = (scriptRef.current as any)?.codingAnswer;
-                                        if (answer && String(answer).trim().length > 0) {
-                                            const text = `Context (do not reveal to user): Here is the canonical reference solution the candidate is expected to implement. Use it only to evaluate and ask precise follow-ups.\n\n"""\n${String(answer)}\n"""`;
-                                            session.current?.transport?.sendEvent?.({
-                                                type: "conversation.item.create",
-                                                item: {
-                                                    type: "message",
-                                                    role: "system",
-                                                    content: [{ type: "input_text", text }],
-                                                },
-                                            });
-                                        }
-                                    } catch {}
+                                } catch (e) {
+                                    logger.error("[openai] CONTROL raw (non-JSON)", {
+                                        text: textRaw.slice(0, 200),
+                                    });
                                 }
-                                // If awaiting closing, end on exact-match final text (response.done)
-                                const expectedRaw = (closingExpectedRef.current || "").trim();
-                                const receivedRaw = (m.text || "").trim();
-                                const normalize = (s: string) =>
-                                    s
-                                        .toLowerCase()
-                                        .replace(/[`'".,!?]/g, "")
-                                        .replace(/\s+/g, " ")
-                                        .trim();
-                                const expected = expectedRaw;
-                                const received = receivedRaw;
-                                const expectedN = normalize(expectedRaw);
-                                const receivedN = normalize(receivedRaw);
-                                const matches =
-                                    expectedN.length > 0 &&
-                                    (receivedN === expectedN ||
-                                        receivedN.includes(expectedN));
-                                if (awaitingClosingRef.current && matches) {
-                                    dispatch(machineEnd());
-                                    emitMachineState();
-                                    awaitingClosingRef.current = false;
-                                    // Immediately disconnect the realtime session to fully tear down audio and events
-                                    try {
-                                        onEndConversation?.();
-                                    } catch {}
-                                    try {
-                                        onInterviewConcluded?.();
-                                    } catch {}
+                            }
+                            // If not CONTROL-only, treat as visible spoken turn
+                            if (!handledAsControl) {
+                                // Detect CONTROL leakage into spoken output (policy violation)
+                                if (
+                                    controlRequiredRef.current &&
+                                    /overallConfidence|\"pillars\"|readyToProceed/i.test(textRaw)
+                                ) {
+                                    logger.error("[policy] CONTROL leaked into spoken output", {
+                                        text: textRaw.slice(0, 200),
+                                    });
                                 }
-                            } catch {}
+                                dispatch(machineAiFinal({ text: textRaw }));
+                                emitMachineState();
+                                if (textRaw) postToChat(textRaw, m.role);
+                                // No control request here; it is sent after user's background answer
+                            }
                         } catch {}
                     }
                 },

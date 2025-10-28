@@ -14,6 +14,10 @@ import { useInterview } from "../../../../shared/contexts";
 import AnimatedWaveform from "./AnimatedWaveform";
 import { log } from "../../../../shared/services";
 const logRef = log;
+import { interviewChatStore } from "@/shared/state/interviewChatStore";
+import {
+    shouldAdvanceBackgroundStage,
+} from "../../../../shared/services";
 
 // Enable verbose logging for this module only
 // (Removed dynamic runtime configuration; controlled centrally via config)
@@ -125,6 +129,40 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                     let messageText = message.message;
 
                     if (isAiMessage) {
+                        // Parse CONTROL JSON lines (hidden control output)
+                        try {
+                            const trimmed = (messageText || "").trim();
+                            if (trimmed.startsWith("CONTROL:")) {
+                                const jsonStr = trimmed.slice("CONTROL:".length).trim();
+                                const control = JSON.parse(jsonStr) as {
+                                    overallConfidence: number;
+                                    pillars?: any;
+                                    readyToProceed?: boolean;
+                                };
+                                const s = interviewChatStore.getState();
+                                // Update confidence and increment question count (one per candidate answer cycle)
+                                interviewChatStore.dispatch({
+                                    type: "BG_SET_CONFIDENCE",
+                                    payload: Number(control.overallConfidence) || 0,
+                                });
+                                interviewChatStore.dispatch({ type: "BG_INC_QUESTIONS" });
+                                const gate = shouldAdvanceBackgroundStage({
+                                    currentConfidence: Number(control.overallConfidence) || 0,
+                                    questionsAsked: s.background.questionsAsked + 1,
+                                    transitioned: s.background.transitioned,
+                                });
+                                if (gate.shouldAdvance && control.readyToProceed === true) {
+                                    interviewChatStore.dispatch({ type: "BG_MARK_TRANSITION" });
+                                    interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" });
+                                    logRef.info("✅ Gate passed by CONTROL: advancing to coding");
+                                }
+                                // Do not forward CONTROL to UI
+                                return;
+                            }
+                        } catch (e) {
+                            logRef.warn("CONTROL parse failed or absent:", e);
+                        }
+
                         // Track AI responses for automatic interview ending
                         setLastAiResponse(messageText);
 
@@ -164,6 +202,18 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                         if (handleUserTranscript) {
                             await handleUserTranscript(messageText);
                         }
+
+                        // If we are currently in greeting, move to background on first user reply
+                        try {
+                            const s = interviewChatStore.getState();
+                            if (s.stage === "greeting") {
+                                interviewChatStore.dispatch({
+                                    type: "SET_STAGE",
+                                    payload: "background",
+                                });
+                                logRef.info("➡️ Stage changed: greeting → background");
+                            }
+                        } catch {}
                     }
 
                     window.parent.postMessage(

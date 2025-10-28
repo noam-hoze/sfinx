@@ -1,15 +1,17 @@
 /**
  * openAIFlowController: deterministic conversational stage helper.
- * - Orchestrates greeting → background question → acknowledgement.
- * - Sends system nudges via session.transport; exposes tiny state machine.
+ * - Encodes Greeting → Background → Coding → Submission → Wrap‑up.
+ * - Sends system nudges via session.transport; exposes minimal stage API.
  */
 export type FlowStage =
-    | "awaiting_ready"
-    | "background_asked"
-    | "background_done";
+    | "greeting"
+    | "background"
+    | "coding"
+    | "submission"
+    | "wrapup";
 
 export function openAIFlowController() {
-    let stage: FlowStage = "awaiting_ready";
+    let stage: FlowStage = "greeting";
 
     const getStage = () => stage;
 
@@ -18,32 +20,41 @@ export function openAIFlowController() {
             session,
             `You are Carrie, an AI interviewer. Greet ${candidateName} warmly and ask if they are ready to begin.`
         );
-        stage = "awaiting_ready";
+        stage = "background"; // proceed to background after greeting prompt is sent
     };
 
-    const onUserFinal = (session: any, backgroundQuestion?: string) => {
-        if (stage === "awaiting_ready")
-            return askBackground(session, backgroundQuestion);
-        if (stage === "background_asked") return acknowledgeBackground(session);
-        return false;
-    };
-
-    const askBackground = (session: any, backgroundQuestion?: string) => {
-        const text = backgroundQuestion?.trim()
-            ? `Ask exactly this background question: "${backgroundQuestion}". Keep it ≤2 sentences. After asking, wait silently for their answer.`
-            : "Ask one background question about the candidate’s experience. Keep it ≤2 sentences. After asking, wait silently for their answer.";
-        send(session, text);
-        stage = "background_asked";
-        return true;
-    };
-
-    const acknowledgeBackground = (session: any) => {
+    const askBackgroundProject = (session: any) => {
         send(
             session,
-            "Acknowledge briefly in one sentence. Do not ask further background questions."
+            "Ask one question about a concrete project the candidate built (≤2 sentences). After asking, wait silently for the answer."
         );
-        stage = "background_done";
-        return true;
+        stage = "background";
+    };
+
+    const acknowledgeAndMoveToCoding = (session: any) => {
+        send(
+            session,
+            "Acknowledge briefly. If you have sufficient background evidence, say you are ready to proceed and move to the coding task."
+        );
+        stage = "coding";
+    };
+
+    const presentCodingTask = (session: any, taskText: string) => {
+        send(
+            session,
+            `Present the coding task concisely: ${taskText}. Ask if any clarification is needed, then wait.`
+        );
+        stage = "coding";
+    };
+
+    const acknowledgeSubmissionAndWrap = (session: any) => {
+        send(session, "Thanks for submitting. I will wrap up now.");
+        stage = "wrapup";
+    };
+
+    const closeInterview = (session: any) => {
+        send(session, "Thank you for your time. We will be in touch. Goodbye.");
+        stage = "wrapup";
     };
 
     const send = (session: any, text: string) => {
@@ -63,8 +74,10 @@ export function openAIFlowController() {
     return {
         getStage,
         greet,
-        onUserFinal,
-        askBackground,
-        acknowledgeBackground,
+        askBackgroundProject,
+        acknowledgeAndMoveToCoding,
+        presentCodingTask,
+        acknowledgeSubmissionAndWrap,
+        closeInterview,
     };
 }

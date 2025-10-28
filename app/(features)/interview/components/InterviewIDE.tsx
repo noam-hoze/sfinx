@@ -32,6 +32,7 @@ import { createInterviewSession } from "./services/interviewSessionService";
 import { fetchJobById } from "./services/jobService";
 import { useDispatch } from "react-redux";
 import { setCompanyContext } from "@/shared/state/slices/interviewMachineSlice";
+import BackgroundDebugBadge from "./debug/BackgroundDebugBadge";
 
 const logger = log;
 const INTERVIEW_DURATION_SECONDS = 30 * 60;
@@ -569,6 +570,7 @@ const InterviewIDE = () => {
     return (
         <InterviewProvider>
             <InterviewerContent />
+            <BackgroundDebugBadge />
         </InterviewProvider>
     );
 };

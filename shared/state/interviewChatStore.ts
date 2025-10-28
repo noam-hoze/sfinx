@@ -11,15 +11,34 @@ export type ChatMessage = {
     timestamp: number;
 };
 
+export type InterviewStage =
+    | "greeting"
+    | "background"
+    | "coding"
+    | "submission"
+    | "wrapup";
+
 export type InterviewChatState = {
     messages: ChatMessage[];
     isRecording: boolean;
+    stage: InterviewStage;
+    // Background stage fields
+    background: {
+        confidence: number; // 0–100
+        questionsAsked: number;
+        transitioned: boolean;
+        transitionedAt?: number;
+    };
 };
 
 type Action =
     | { type: "ADD_MESSAGE"; payload: { text: string; speaker: ChatSpeaker } }
     | { type: "CLEAR" }
-    | { type: "SET_RECORDING"; payload: boolean };
+    | { type: "SET_RECORDING"; payload: boolean }
+    | { type: "SET_STAGE"; payload: InterviewStage }
+    | { type: "BG_SET_CONFIDENCE"; payload: number }
+    | { type: "BG_INC_QUESTIONS" }
+    | { type: "BG_MARK_TRANSITION" };
 
 function reducer(
     state: InterviewChatState,
@@ -42,6 +61,30 @@ function reducer(
             return { ...state, messages: [] };
         case "SET_RECORDING":
             return { ...state, isRecording: action.payload };
+        case "SET_STAGE":
+            return { ...state, stage: action.payload };
+        case "BG_SET_CONFIDENCE":
+            return {
+                ...state,
+                background: { ...state.background, confidence: action.payload },
+            };
+        case "BG_INC_QUESTIONS":
+            return {
+                ...state,
+                background: {
+                    ...state.background,
+                    questionsAsked: state.background.questionsAsked + 1,
+                },
+            };
+        case "BG_MARK_TRANSITION":
+            return {
+                ...state,
+                background: {
+                    ...state.background,
+                    transitioned: true,
+                    transitionedAt: Date.now(),
+                },
+            };
         default:
             return state;
     }
@@ -71,4 +114,10 @@ function createStore(initial: InterviewChatState) {
 export const interviewChatStore = createStore({
     messages: [],
     isRecording: false,
+    stage: "greeting",
+    background: {
+        confidence: 0,
+        questionsAsked: 0,
+        transitioned: false,
+    },
 });
