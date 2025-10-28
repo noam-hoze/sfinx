@@ -289,10 +289,10 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
          */
         useEffect(() => {
             if (isRecording) {
-                logRef.info("🔄 isRecording is true, connecting to ElevenLabs...");
+                logRef.info("isRecording is true, connecting to ElevenLabs...");
                 connectToElevenLabs();
             } else {
-                logRef.info("⏸️ isRecording is false, not connecting");
+                logRef.info("isRecording is false, not connecting");
             }
         }, [isRecording]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -506,14 +506,14 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                     if (!concludedRef.current) {
                         concludedRef.current = true;
                         logRef.info(
-                            "🎉 AUTOMATIC INTERVIEW END: Interview ended automatically after closing message"
+                            "AUTOMATIC INTERVIEW END: Interview ended automatically after closing message"
                         );
                         // Notify parent that interview has concluded automatically (once)
                         onInterviewConcluded?.();
                         stopConversation();
                     } else {
                         logRef.info(
-                            "⏭️ Closing already processed; skipping duplicate end"
+                            "Closing already processed; skipping duplicate end"
                         );
                     }
                 }, 250);
@@ -550,7 +550,7 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             return () => {
                 // Stop microphone stream tracks on unmount
                 if (micStreamRef.current) {
-                    logRef.info("🔄 Unmounting: Stopping microphone tracks...");
+                    logRef.info("Unmounting: Stopping microphone tracks...");
                     micStreamRef.current.getTracks().forEach((track) => {
                         logRef.info(
                             `🛑 Stopping microphone track on unmount: ${track.kind} - ${track.label}`

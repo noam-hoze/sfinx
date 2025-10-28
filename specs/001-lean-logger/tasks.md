@@ -41,6 +41,9 @@
 - [ ] T025 Add quickstart at /Users/noonejoze/Projects/sfinx/specs/001-lean-logger/quickstart.md
 - [ ] T026 [P] Replace all console.debug/log/warn/error in /Users/noonejoze/Projects/sfinx/app, /Users/noonejoze/Projects/sfinx/server, /Users/noonejoze/Projects/sfinx/shared with log.*
 - [ ] T027 [P] Add ESLint no-console rule in /Users/noonejoze/Projects/sfinx/eslint.config.mjs (allow warn/error if desired)
+- [ ] T028 Implement strict label format: `[pageOrFile/functionName]` (no fallbacks/heuristics)
+- [ ] T029 For `page|layout|route` files, use parent folder as `pageOrFile`; otherwise use basename
+- [ ] T030 Use exact stack function name; if absent, omit function segment
 
 ## Dependencies & Parallelization
 

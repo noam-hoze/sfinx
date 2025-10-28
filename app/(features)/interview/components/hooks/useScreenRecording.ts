@@ -42,7 +42,7 @@ export const useScreenRecording = () => {
 
             if (!interviewSessionIdRef.current || recordingUploaded) {
                 logger.info(
-                    "⏭️ Cannot upload: sessionId=",
+                    "Cannot upload: sessionId=",
                     interviewSessionIdRef.current,
                     "uploaded=",
                     recordingUploaded
@@ -124,7 +124,7 @@ export const useScreenRecording = () => {
     const requestRecordingPermission = useCallback(async () => {
         if (skipScreenShare) {
             logger.info(
-                "⏭️ Skipping screen share due to NEXT_PUBLIC_SKIP_SCREEN_SHARE"
+                "Skipping screen share due to NEXT_PUBLIC_SKIP_SCREEN_SHARE"
             );
             setMicPermissionGranted(true);
             setRecordingPermissionGranted(true);
@@ -247,7 +247,7 @@ export const useScreenRecording = () => {
                     await uploadRecordingToServer(blob);
                 } else {
                     logger.info(
-                        "⏭️ Cannot auto-upload: sessionId=",
+                        "Cannot auto-upload: sessionId=",
                         interviewSessionIdRef.current,
                         "uploaded=",
                         recordingUploaded
@@ -288,7 +288,7 @@ export const useScreenRecording = () => {
 
     const startRecording = useCallback(async () => {
         if (skipScreenShare) {
-            logger.info("⏭️ startRecording: bypassing media capture (dev mode)");
+            logger.info("startRecording: bypassing media capture (dev mode)");
             setRecordingPermissionGranted(true);
             setMicPermissionGranted(true);
             return true;
@@ -297,7 +297,7 @@ export const useScreenRecording = () => {
             const permissionGranted = await requestRecordingPermission();
             if (!permissionGranted) {
                 logger.info(
-                    "⏭️ Screen recording permission denied - not starting interview"
+                    "Screen recording permission denied - not starting interview"
                 );
                 return false;
             }
@@ -343,28 +343,28 @@ export const useScreenRecording = () => {
         });
 
         if (!interviewSessionId) {
-            logger.info("⏭️ No interview session ID available yet");
+            logger.info("No interview session ID available yet");
             return;
         }
 
         if (!recordingUrl) {
-            logger.info("⏭️ No recording available to upload");
+            logger.info("No recording available to upload");
             return;
         }
 
         if (recordingUploaded) {
-            logger.info("⏭️ Recording already uploaded");
+            logger.info("Recording already uploaded");
             return;
         }
 
         if (recordedChunksRef.current.length === 0) {
-            logger.warn("⏭️ No recording blob available");
+            logger.warn("No recording blob available");
             return;
         }
 
         const blob = recordedChunksRef.current[0];
         if (!(blob instanceof Blob)) {
-            logger.warn("⏭️ Invalid recording blob");
+            logger.warn("Invalid recording blob");
             return;
         }
 

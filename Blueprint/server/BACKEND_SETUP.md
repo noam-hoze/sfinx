@@ -159,4 +159,4 @@ npx prisma db push --preview-feature
 
 ---
 
-🎉 Your backend is now ready! The authentication system is fully functional with secure password hashing, session management, and a beautiful UI.
+Your backend is now ready! The authentication system is fully functional with secure password hashing, session management, and a beautiful UI.

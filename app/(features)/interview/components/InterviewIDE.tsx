@@ -139,7 +139,7 @@ const InterviewerContent = () => {
      * Logs whenever the interview session ID changes (useful for tracing recording sessions).
      */
     useEffect(() => {
-        logger.info("🔄 interviewSessionId changed to:", interviewSessionId);
+        logger.info("interviewSessionId changed to:", interviewSessionId);
     }, [interviewSessionId]);
 
     /**
@@ -253,7 +253,7 @@ const InterviewerContent = () => {
             window.postMessage({ type: "clear-chat" }, "*");
             await realTimeConversationRef.current?.startConversation();
             setIsInterviewActive(true);
-            logger.info("🎉 Interview started successfully!");
+            logger.info("Interview started successfully!");
         } catch (error) {
             logger.error("Failed to start interview:", error);
             setIsInterviewLoading(false);

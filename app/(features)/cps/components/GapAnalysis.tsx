@@ -64,7 +64,6 @@ const GapAnalysis: React.FC<GapAnalysisProps> = ({
                     Gaps
                 </h3>
                 <div className="text-center py-6 text-gray-500">
-                    <span className="text-3xl mb-2 block">🎉</span>
                     <p>No significant gaps identified</p>
                 </div>
             </div>

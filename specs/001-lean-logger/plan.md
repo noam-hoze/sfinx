@@ -99,6 +99,9 @@ ios/ or android/
   - `export const LOG_LEVEL = 'info' | 'debug' | 'warn' | 'error' | 'silent'`
   - `export const ALLOWLIST: (string|RegExp)[] = []` // empty → all components log
 - Optional local override: `app/shared/services/logger.config.local.ts` (gitignored) merged by wrapper if present.
+- Labels: The logger prefixes every line with `[pageOrFile/functionName]` with no fallbacks/heuristics.
+  - pageOrFile: if the file is `page|layout|route`, use the parent folder name (e.g., `job-search`). Otherwise use the basename without extension.
+  - functionName: strictly the function from the stack frame; if not present, omit it (label becomes `[pageOrFile]`).
 
 ## Complexity Tracking
 
