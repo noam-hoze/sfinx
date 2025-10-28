@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FinalMessage } from "../types/openAIRealtime";
+import { log } from "app/shared/services";
 
 // Local lightweight TurnBuffer implementation (ordered, emits per-arrival)
 type TurnRecord = {
@@ -217,8 +218,7 @@ export function useOpenAIRealtimeSession(
             };
             (session.on as any)?.("transport_event", handler);
             transportHandlerRef.current = handler;
-            // eslint-disable-next-line no-console
-            console.log("[openai][hook] connected; handler attached");
+            log.info("[openai][hook] connected; handler attached");
             setConnected(true);
         } catch (e) {
             setConnected(false);
@@ -236,8 +236,7 @@ export function useOpenAIRealtimeSession(
                         off("transport_event", transportHandlerRef.current);
                     }
                 } catch {}
-                // eslint-disable-next-line no-console
-                console.log("[openai][hook] unmount cleanup: disconnect");
+                log.info("[openai][hook] unmount cleanup: disconnect");
                 sessionRef.current?.disconnect?.();
                 sessionRef.current = null;
             } catch {}
@@ -271,8 +270,7 @@ export function useOpenAIRealtimeSession(
             handsFreeRef.current = false;
         },
         destroy: () => {
-            // eslint-disable-next-line no-console
-            console.log("[openai][hook] destroy() called");
+            log.info("[openai][hook] destroy() called");
             try {
                 reset();
             } catch {}
@@ -289,8 +287,7 @@ export function useOpenAIRealtimeSession(
             allowNextRef.current = false;
             handsFreeRef.current = false;
             setConnected(false);
-            // eslint-disable-next-line no-console
-            console.log("[openai][hook] destroy() completed");
+            log.info("[openai][hook] destroy() completed");
         },
     };
 }

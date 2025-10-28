@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "app/shared/services/auth";
 import { prisma } from "app/shared/services";
-import { logger } from "app/shared/services";
+import { log } from "app/shared/services";
 
 export async function GET(request: NextRequest) {
     try {
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
             appliedJobIds,
         });
     } catch (error) {
-        logger.error("Error fetching companies:", error);
+        log.error("Error fetching companies:", error);
         return NextResponse.json(
             {
                 error: `Failed to fetch companies: ${

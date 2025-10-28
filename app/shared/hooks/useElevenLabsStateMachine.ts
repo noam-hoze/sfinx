@@ -22,8 +22,8 @@
  */
 
 import { useState, useCallback, useEffect } from "react";
-import { logger } from "../services/logger";
-const log = logger.for("@useElevenLabsStateMachine.ts");
+import { log } from "../services/logger";
+const logger = log;
 let hasSubmittedOnce = false;
 
 /**
@@ -140,9 +140,9 @@ export const useElevenLabsStateMachine = (
                     };
                     const text = `KB_UPDATE: ${JSON.stringify(kbForUpdate)}`;
                     await onElevenLabsUpdate(text);
-                    log.info("✅ KB variables updated:", kbForUpdate);
+                    logger.info("✅ KB variables updated:", kbForUpdate);
                 } catch (error) {
-                    log.error("❌ Failed to update KB variables:", error);
+                    logger.error("❌ Failed to update KB variables:", error);
                 }
             }
 
@@ -153,7 +153,7 @@ export const useElevenLabsStateMachine = (
                     await onSendUserMessage(
                         instructAgentInCaseOfAIUsage(addedCode)
                     );
-                    log.info(
+                    logger.info(
                         "✅ SENT - Dynamic AI usage message with added code"
                     );
 
@@ -168,19 +168,19 @@ export const useElevenLabsStateMachine = (
                             await onElevenLabsUpdate(
                                 `KB_UPDATE: ${JSON.stringify(resetKB)}`
                             );
-                            log.info(
+                            logger.info(
                                 "✅ KB variables reset to default reactive mode:",
                                 resetKB
                             );
                         } catch (error) {
-                            log.error(
+                            logger.error(
                                 "❌ Failed to send reset KB_UPDATE:",
                                 error
                             );
                         }
                     }
                 } catch (err) {
-                    log.error(
+                    logger.error(
                         "❌ WAS NOT SENT - Dynamic AI usage message with added code"
                     );
                 }
@@ -199,11 +199,11 @@ export const useElevenLabsStateMachine = (
      */
     const handleUserTranscript = useCallback(
         async (transcript: string) => {
-            log.info("🎤 User transcript received:", transcript);
+            logger.info("🎤 User transcript received:", transcript);
 
             // Always forward meaningful questions during coding
             if (kbVariables.is_coding) {
-                log.info("✅ Forwarding meaningful question during coding");
+                logger.info("✅ Forwarding meaningful question during coding");
                 await onSendUserMessage?.(transcript);
             }
         },

@@ -1,4 +1,4 @@
 // Main Library Barrel Export
 export { authOptions } from "./auth";
-export { logger, useLogger } from "./logger";
+export { log, setLevel, setAllowedFiles } from "./logger";
 export { prisma } from "./prisma";

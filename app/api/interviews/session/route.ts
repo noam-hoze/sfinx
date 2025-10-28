@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "app/shared/services/auth";
-import { logger } from "app/shared/services";
+import { log } from "app/shared/services";
 
 const globalForPrisma = globalThis as unknown as {
     prisma: PrismaClient | undefined;
@@ -14,13 +14,13 @@ if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 export async function POST(request: NextRequest) {
     try {
-        logger.info("🔍 Interview session creation API called");
+        log.info("🔍 Interview session creation API called");
 
         const session = await getServerSession(authOptions);
-        logger.info("🔍 Session:", session ? "Found" : "Not found");
+        log.info("🔍 Session:", session ? "Found" : "Not found");
 
         if (!(session?.user as any)?.id) {
-            logger.warn("❌ No user ID in session");
+            log.warn("❌ No user ID in session");
             return NextResponse.json(
                 { error: "Unauthorized" },
                 { status: 401 }
@@ -28,13 +28,13 @@ export async function POST(request: NextRequest) {
         }
 
         const userId = (session!.user as any).id;
-        logger.info("✅ User ID:", userId);
+        log.info("✅ User ID:", userId);
 
         const { applicationId, companyId } = await request.json();
-        logger.info("📋 Request data:", { applicationId, companyId });
+        log.info("📋 Request data:", { applicationId, companyId });
 
         if (!applicationId) {
-            logger.warn("❌ Missing applicationId");
+            log.warn("❌ Missing applicationId");
             return NextResponse.json(
                 { error: "Application ID is required" },
                 { status: 400 }
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify the application exists and belongs to the user
-        logger.info("🔎 Verifying application exists & belongs to user", {
+        log.info("🔎 Verifying application exists & belongs to user", {
             applicationId,
             userId,
         });
@@ -54,22 +54,22 @@ export async function POST(request: NextRequest) {
         });
 
         if (!application) {
-            logger.warn("❌ Application not found or doesn't belong to user");
+            log.warn("❌ Application not found or doesn't belong to user");
             return NextResponse.json(
                 { error: "Application not found" },
                 { status: 404 }
             );
         }
-        logger.info("✅ Application verified");
+        log.info("✅ Application verified");
 
         // Create interview session AND zeroed telemetry in a single transaction
-        logger.info(
+        log.info(
             "🚀 Creating interview session and zeroed telemetry (transaction)..."
         );
         let interviewSession; // for logging after transaction
         try {
             const txResult = await prisma.$transaction(async (tx) => {
-                logger.info("🧾 [TX] Creating InterviewSession...");
+                log.info("🧾 [TX] Creating InterviewSession...");
                 const interviewSession = await tx.interviewSession.create({
                     data: {
                         candidateId: userId,
@@ -77,11 +77,11 @@ export async function POST(request: NextRequest) {
                         status: "IN_PROGRESS",
                     },
                 });
-                logger.info("✅ [TX] InterviewSession created", {
+                log.info("✅ [TX] InterviewSession created", {
                     interviewSessionId: interviewSession.id,
                 });
 
-                logger.info("🧾 [TX] Creating TelemetryData (zeroed)...");
+                log.info("🧾 [TX] Creating TelemetryData (zeroed)...");
                 const telemetry = await tx.telemetryData.create({
                     data: {
                         interviewSessionId: interviewSession.id,
@@ -91,11 +91,11 @@ export async function POST(request: NextRequest) {
                         hasFairnessFlag: false,
                     } as any,
                 });
-                logger.info("✅ [TX] TelemetryData created", {
+                log.info("✅ [TX] TelemetryData created", {
                     telemetryId: telemetry.id,
                 });
 
-                logger.info(
+                log.info(
                     "🧾 [TX] Creating WorkstyleMetrics (nullable baseline)..."
                 );
                 await tx.workstyleMetrics.create({
@@ -103,15 +103,15 @@ export async function POST(request: NextRequest) {
                         telemetryDataId: telemetry.id,
                     } as any,
                 });
-                logger.info("✅ [TX] WorkstyleMetrics created for telemetry", {
+                log.info("✅ [TX] WorkstyleMetrics created for telemetry", {
                     telemetryId: telemetry.id,
                 });
 
-                logger.info("🧾 [TX] Creating GapAnalysis (empty)...");
+                log.info("🧾 [TX] Creating GapAnalysis (empty)...");
                 await tx.gapAnalysis.create({
                     data: { telemetryDataId: telemetry.id },
                 });
-                logger.info("✅ [TX] GapAnalysis created for telemetry", {
+                log.info("✅ [TX] GapAnalysis created for telemetry", {
                     telemetryId: telemetry.id,
                 });
 
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
             });
             interviewSession = txResult.interviewSession;
         } catch (txError: any) {
-            logger.error(
+            log.error(
                 "💥 Transaction failed while creating session/telemetry",
                 {
                     name: txError?.name,
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
             throw txError; // handled by outer catch to return 500
         }
 
-        logger.info(
+        log.info(
             "✅ Interview session and telemetry created:",
             interviewSession.id
         );
@@ -142,8 +142,8 @@ export async function POST(request: NextRequest) {
             interviewSession,
         });
     } catch (error: any) {
-        logger.error("❌ Error creating interview session:", error);
-        logger.error("❌ Error details:", {
+        log.error("❌ Error creating interview session:", error);
+        log.error("❌ Error details:", {
             name: error?.name,
             message: error?.message,
             stack: error?.stack,

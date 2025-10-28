@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { logger } from "../../../../shared/services";
+import { log } from "../../../../shared/services";
 
-const log = logger.for("@InterviewIDE/useCamera");
+const logger = log;
 
 export const useCamera = () => {
     const [isCameraOn, setIsCameraOn] = useState(false);
@@ -18,7 +18,7 @@ export const useCamera = () => {
             cameraStreamRef.current = stream;
             setIsCameraOn(true);
         } catch (error) {
-            log.error("❌ Failed to start camera:", error);
+            logger.error("❌ Failed to start camera:", error);
             setIsCameraOn(false);
         }
     }, []);

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import AuthGuard from "app/shared/components/AuthGuard";
 import Header from "app/shared/components/Header";
+import { log } from "app/shared/services";
 
 export default function CompanySettingsPage() {
     const { data: session, update } = useSession();
@@ -45,18 +46,16 @@ export default function CompanySettingsPage() {
 
             if (response.ok) {
                 const data = await response.json();
-                console.log("Upload successful, new image URL:", data.imageUrl);
-                console.log("Updating session with new image...");
+                log.info("Upload successful, new image URL:", data.imageUrl);
+                log.info("Updating session with new image...");
 
                 // Update session with new image
-                console.log("Updating session with new image URL...");
+                log.info("Updating session with new image URL...");
                 await update({ image: data.imageUrl });
-                console.log("Session updated with image:", data.imageUrl);
+                log.info("Session updated with image:", data.imageUrl);
 
                 setMessage("Profile image updated successfully!");
-                console.log(
-                    "Session updated! Avatar should refresh automatically"
-                );
+                log.info("Session updated! Avatar should refresh automatically");
             } else {
                 setMessage("Failed to upload image. Please try again.");
             }
@@ -90,24 +89,17 @@ export default function CompanySettingsPage() {
                                         <div className="w-20 h-20 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden relative">
                                             {(session?.user as any)?.image ? (
                                                 <Image
-                                                    src={
-                                                        (session?.user as any)
-                                                            .image
-                                                    }
+                                                    src={(session?.user as any).image}
                                                     alt="Profile"
                                                     fill
                                                     className="object-cover rounded-full"
                                                 />
                                             ) : (
                                                 <span className="text-2xl font-medium text-gray-700">
-                                                    {(
-                                                        session?.user as any
-                                                    )?.name
+                                                    {(session?.user as any)?.name
                                                         ?.charAt(0)
                                                         ?.toUpperCase() ||
-                                                        (
-                                                            session?.user as any
-                                                        )?.email
+                                                        (session?.user as any)?.email
                                                             ?.charAt(0)
                                                             ?.toUpperCase()}
                                                 </span>

@@ -35,6 +35,9 @@ app/api/debug/seed/ok
 # Speckit (Specify) local state
 .specify/memory/**
 
+# Optional local logger config
+app/shared/services/logger.config.local.ts
+
 *.mp4
 *.jsonl
 server/keys/service-account.json

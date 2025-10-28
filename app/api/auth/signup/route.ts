@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "app/shared/services";
+import { log } from "app/shared/services";
 
 export async function POST(request: NextRequest) {
     try {
@@ -103,7 +104,7 @@ export async function POST(request: NextRequest) {
             { status: 201 }
         );
     } catch (error) {
-        console.error("Signup error:", error);
+        log.error("Signup error:", error);
         return NextResponse.json(
             { error: "Internal server error" },
             { status: 500 }

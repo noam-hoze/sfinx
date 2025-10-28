@@ -22,7 +22,7 @@ import {
     useJobApplication,
 } from "../../../shared/contexts";
 import { useElevenLabsStateMachine } from "../../../shared/hooks/useElevenLabsStateMachine";
-import { logger } from "../../../shared/services";
+import { log } from "../../../shared/services";
 import { useCamera } from "./hooks/useCamera";
 import { useScreenRecording } from "./hooks/useScreenRecording";
 import { useInterviewTimer } from "./hooks/useInterviewTimer";
@@ -33,7 +33,7 @@ import { fetchJobById } from "./services/jobService";
 import { useDispatch } from "react-redux";
 import { setCompanyContext } from "@/shared/state/slices/interviewMachineSlice";
 
-const log = logger.for("@InterviewIDE.tsx");
+const logger = log;
 const INTERVIEW_DURATION_SECONDS = 30 * 60;
 const DEFAULT_CODE = ``;
 
@@ -73,9 +73,9 @@ const InterviewerContent = () => {
         async (text: string) => {
             try {
                 queueContextUpdate(text);
-                log.info("✅ Queued ElevenLabs KB update:", text);
+                logger.info("✅ Queued ElevenLabs KB update:", text);
             } catch (error) {
-                log.error("❌ Failed to queue ElevenLabs update:", error);
+                logger.error("❌ Failed to queue ElevenLabs update:", error);
                 throw error;
             }
         },
@@ -89,10 +89,10 @@ const InterviewerContent = () => {
         async (message: string) => {
             try {
                 queueUserMessage(message);
-                log.info("✅ Queued user message:", message);
+                logger.info("✅ Queued user message:", message);
                 return true;
             } catch (error) {
-                log.error("❌ Failed to queue user message:", error);
+                logger.error("❌ Failed to queue user message:", error);
                 return false;
             }
         },
@@ -139,7 +139,7 @@ const InterviewerContent = () => {
      * Logs whenever the interview session ID changes (useful for tracing recording sessions).
      */
     useEffect(() => {
-        log.info("🔄 interviewSessionId changed to:", interviewSessionId);
+        logger.info("🔄 interviewSessionId changed to:", interviewSessionId);
     }, [interviewSessionId]);
 
     /**
@@ -152,10 +152,10 @@ const InterviewerContent = () => {
             queueUserMessage(
                 "I'm done. Please say your closing line and then end the connection."
             );
-            log.info("✅ Special 'I'm done' message queued successfully");
+            logger.info("✅ Special 'I'm done' message queued successfully");
             return true;
         } catch (error) {
-            log.error("❌ Error sending 'I'm done' message:", error);
+            logger.error("❌ Error sending 'I'm done' message:", error);
             return false;
         }
     }, [queueUserMessage]);
@@ -164,7 +164,7 @@ const InterviewerContent = () => {
         useInterviewTimer({
             durationSeconds: INTERVIEW_DURATION_SECONDS,
             onExpire: async () => {
-                log.info("⏰ Timer expired - ending interview...");
+                logger.info("⏰ Timer expired - ending interview...");
                 updateSubmission(state.currentCode);
                 await stopRecording();
                 await stateMachineHandleSubmission(state.currentCode);
@@ -210,7 +210,7 @@ const InterviewerContent = () => {
             setIsCodingStarted(false);
             stopTimer();
         } catch (error) {
-            log.error("❌ Failed to submit solution:", error);
+            logger.error("❌ Failed to submit solution:", error);
         }
     }, [candidateName, setCodingStarted, setCodingState, state.currentCode, stateMachineHandleSubmission, stopRecording, stopTimer, updateSubmission]);
 
@@ -242,7 +242,7 @@ const InterviewerContent = () => {
                         setInterviewSessionId(session.interviewSession.id);
                     }
                 } catch (error) {
-                    log.error(
+                    logger.error(
                         "❌ Error creating application/interview session:",
                         error
                     );
@@ -253,9 +253,9 @@ const InterviewerContent = () => {
             window.postMessage({ type: "clear-chat" }, "*");
             await realTimeConversationRef.current?.startConversation();
             setIsInterviewActive(true);
-            log.info("🎉 Interview started successfully!");
+            logger.info("🎉 Interview started successfully!");
         } catch (error) {
-            log.error("Failed to start interview:", error);
+            logger.error("Failed to start interview:", error);
             setIsInterviewLoading(false);
         }
     }, [
@@ -364,9 +364,9 @@ const InterviewerContent = () => {
         if (interviewConcluded && companyId) {
             try {
                 markCompanyApplied(companyId);
-                log.info("✅ Interview completed successfully");
+                logger.info("✅ Interview completed successfully");
             } catch (error) {
-                log.error("❌ Error handling interview conclusion:", error);
+                logger.error("❌ Error handling interview conclusion:", error);
             }
 
             const onPracticePage =
@@ -534,11 +534,11 @@ const InterviewerContent = () => {
                                 }
                             }}
                             onStartConversation={() => {
-                                log.info("Conversation started");
+                                logger.info("Conversation started");
                                 setIsInterviewLoading(false);
                             }}
                             onEndConversation={() => {
-                                log.info("Conversation ended");
+                                logger.info("Conversation ended");
                                 stopTimer();
                                 setIsCodingStarted(false);
                                 setCodingStarted(false);

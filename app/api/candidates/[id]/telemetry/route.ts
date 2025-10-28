@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import { log } from "app/shared/services";
 
 const globalForPrisma = globalThis as unknown as {
     prisma: PrismaClient | undefined;
@@ -168,19 +169,15 @@ export async function GET(
                           iterationSpeed: {
                               value: telemetry.workstyleMetrics.iterationSpeed,
                               level:
-                                  telemetry.workstyleMetrics.iterationSpeed >=
-                                  80
+                                  telemetry.workstyleMetrics.iterationSpeed >= 80
                                       ? "High"
-                                      : telemetry.workstyleMetrics
-                                            .iterationSpeed >= 60
+                                      : telemetry.workstyleMetrics.iterationSpeed >= 60
                                       ? "Moderate"
                                       : "Low",
                               color:
-                                  telemetry.workstyleMetrics.iterationSpeed >=
-                                  80
+                                  telemetry.workstyleMetrics.iterationSpeed >= 80
                                       ? "blue"
-                                      : telemetry.workstyleMetrics
-                                            .iterationSpeed >= 60
+                                      : telemetry.workstyleMetrics.iterationSpeed >= 60
                                       ? "yellow"
                                       : "red",
                               evidenceLinks: iterationSpeedLinks,
@@ -192,15 +189,13 @@ export async function GET(
                               level:
                                   telemetry.workstyleMetrics.debugLoops <= 30
                                       ? "Fast"
-                                      : telemetry.workstyleMetrics.debugLoops <=
-                                        60
+                                      : telemetry.workstyleMetrics.debugLoops <= 60
                                       ? "Moderate"
                                       : "Slow",
                               color:
                                   telemetry.workstyleMetrics.debugLoops <= 30
                                       ? "blue"
-                                      : telemetry.workstyleMetrics.debugLoops <=
-                                        60
+                                      : telemetry.workstyleMetrics.debugLoops <= 60
                                       ? "yellow"
                                       : "red",
                               evidenceLinks: debugLoopsLinks,
@@ -208,22 +203,17 @@ export async function GET(
                               tpe: 1,
                           },
                           refactorCleanups: {
-                              value: telemetry.workstyleMetrics
-                                  .refactorCleanups,
+                              value: telemetry.workstyleMetrics.refactorCleanups,
                               level:
-                                  telemetry.workstyleMetrics.refactorCleanups >=
-                                  80
+                                  telemetry.workstyleMetrics.refactorCleanups >= 80
                                       ? "Strong"
-                                      : telemetry.workstyleMetrics
-                                            .refactorCleanups >= 60
+                                      : telemetry.workstyleMetrics.refactorCleanups >= 60
                                       ? "Moderate"
                                       : "Weak",
                               color:
-                                  telemetry.workstyleMetrics.refactorCleanups >=
-                                  80
+                                  telemetry.workstyleMetrics.refactorCleanups >= 80
                                       ? "blue"
-                                      : telemetry.workstyleMetrics
-                                            .refactorCleanups >= 60
+                                      : telemetry.workstyleMetrics.refactorCleanups >= 60
                                       ? "yellow"
                                       : "red",
                               evidenceLinks: refactorCleanupsLinks,
@@ -235,15 +225,13 @@ export async function GET(
                               level:
                                   telemetry.workstyleMetrics.aiAssistUsage <= 20
                                       ? "Minimal"
-                                      : telemetry.workstyleMetrics
-                                            .aiAssistUsage <= 50
+                                      : telemetry.workstyleMetrics.aiAssistUsage <= 50
                                       ? "Moderate"
                                       : "High",
                               color:
                                   telemetry.workstyleMetrics.aiAssistUsage <= 20
                                       ? "white"
-                                      : telemetry.workstyleMetrics
-                                            .aiAssistUsage <= 50
+                                      : telemetry.workstyleMetrics.aiAssistUsage <= 50
                                       ? "yellow"
                                       : "red",
                               isFairnessFlag:
@@ -275,7 +263,7 @@ export async function GET(
             sessions,
         });
     } catch (error) {
-        console.error("Error fetching candidate telemetry:", error);
+        log.error("Error fetching candidate telemetry:", error);
         return NextResponse.json(
             { error: "Failed to fetch telemetry data" },
             { status: 500 }
@@ -348,8 +336,7 @@ export async function PUT(
             const workstyleData: any = {};
 
             if (body.workstyle.iterationSpeed?.value !== undefined) {
-                workstyleData.iterationSpeed =
-                    body.workstyle.iterationSpeed.value;
+                workstyleData.iterationSpeed = body.workstyle.iterationSpeed.value;
             }
             if (body.workstyle.debugLoops?.value !== undefined) {
                 workstyleData.debugLoops = body.workstyle.debugLoops.value;
@@ -359,8 +346,7 @@ export async function PUT(
                     body.workstyle.refactorCleanups.value;
             }
             if (body.workstyle.aiAssistUsage?.value !== undefined) {
-                workstyleData.aiAssistUsage =
-                    body.workstyle.aiAssistUsage.value;
+                workstyleData.aiAssistUsage = body.workstyle.aiAssistUsage.value;
             }
 
             if (Object.keys(workstyleData).length > 0) {
@@ -415,9 +401,7 @@ export async function PUT(
                                 startTime: timestamp,
                                 description: `Evidence for ${metric.title}`, // Placeholder
                                 duration: 5, // Placeholder
-                                ...(category
-                                    ? { category: category as any }
-                                    : {}),
+                                ...(category ? { category: category as any } : {}),
                             },
                         });
                     }
@@ -434,8 +418,7 @@ export async function PUT(
             // Delete existing gaps
             await prisma.gap.deleteMany({
                 where: {
-                    gapAnalysisId:
-                        interviewSession.telemetryData.gapAnalysis.id,
+                    gapAnalysisId: interviewSession.telemetryData.gapAnalysis.id,
                 },
             });
 
@@ -443,8 +426,7 @@ export async function PUT(
             for (const gap of body.gaps.gaps) {
                 await prisma.gap.create({
                     data: {
-                        gapAnalysisId:
-                            interviewSession.telemetryData.gapAnalysis.id,
+                        gapAnalysisId: interviewSession.telemetryData.gapAnalysis.id,
                         severity: gap.severity,
                         description: gap.description,
                         color: gap.color,
@@ -456,7 +438,7 @@ export async function PUT(
 
         return NextResponse.json({ success: true });
     } catch (error) {
-        console.error("Error updating candidate telemetry:", error);
+        log.error("Error updating candidate telemetry:", error);
         return NextResponse.json(
             { error: "Failed to update telemetry data" },
             { status: 500 }

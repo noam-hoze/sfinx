@@ -8,6 +8,7 @@ import React, {
     useEffect,
 } from "react";
 import { useSession } from "next-auth/react";
+import { log } from "app/shared/services";
 
 interface JobApplicationState {
     appliedCompanies: string[]; // Array of company IDs
@@ -90,11 +91,11 @@ export function JobApplicationProvider({ children }: { children: ReactNode }) {
                             payload: data.appliedCompanyIds,
                         });
                     } else {
-                        console.error("Failed to fetch applied companies");
+                        log.error("Failed to fetch applied companies");
                         dispatch({ type: "LOAD_FROM_DATABASE", payload: [] });
                     }
                 } catch (error) {
-                    console.error("Error fetching applied companies:", error);
+                    log.error("Error fetching applied companies:", error);
                     dispatch({ type: "LOAD_FROM_DATABASE", payload: [] });
                 }
             } else if (status === "unauthenticated") {

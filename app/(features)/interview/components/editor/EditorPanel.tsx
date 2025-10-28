@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
 import { Play, RotateCcw, MessageSquare } from "lucide-react";
 import CodePreview from "./CodePreview";
-import { logger } from "../../../../shared/services";
+import { log } from "../../../../shared/services";
 import { diffWords } from "diff";
 
 function computeInsertedSegment(oldText: string, newText: string): string {
@@ -190,12 +190,12 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                             previousCode,
                             value
                         );
-                        logger.debug(
+                        log.debug(
                             "🧩 Inserted segment (demo):",
                             insertedSegment
                         );
 
-                        logger.info(
+                        log.info(
                             "🚨 Burst insert detected - setting using_ai: true (demo, one-time)",
                             { insertedLength: charactersAdded }
                         );
@@ -259,13 +259,11 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                 removedChars,
             };
 
-            // eslint-disable-next-line no-console
-            console.log("[Editor] Follow-up payload:", payload);
+            log.info("[Editor] Follow-up payload:", payload);
             onAskFollowup?.(payload);
             followupBaselineRef.current = current;
         } catch (e) {
-            // eslint-disable-next-line no-console
-            console.error(e);
+            log.error(e);
             throw e;
         }
     }, [currentCode, onAskFollowup]);

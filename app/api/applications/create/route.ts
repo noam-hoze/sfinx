@@ -2,17 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "app/shared/services/auth";
 import { prisma } from "app/shared/services";
-import { logger } from "app/shared/services";
+import { log } from "app/shared/services";
 
 export async function POST(request: NextRequest) {
     try {
-        logger.info("🔍 Application creation API called");
+        log.info("🔍 Application creation API called");
 
         const session = await getServerSession(authOptions);
-        logger.info("🔍 Session:", session ? "Found" : "Not found");
+        log.info("🔍 Session:", session ? "Found" : "Not found");
 
         if (!(session?.user as any)?.id) {
-            logger.warn("❌ No user ID in session");
+            log.warn("❌ No user ID in session");
             return NextResponse.json(
                 { error: "Unauthorized" },
                 { status: 401 }
@@ -20,12 +20,12 @@ export async function POST(request: NextRequest) {
         }
 
         const userId = (session!.user as any).id;
-        logger.info("✅ User ID:", userId);
+        log.info("✅ User ID:", userId);
         const { companyId, jobId } = await request.json();
-        logger.info("📋 Request data:", { companyId, jobId });
+        log.info("📋 Request data:", { companyId, jobId });
 
         if (!companyId || !jobId) {
-            logger.warn("❌ Missing required fields");
+            log.warn("❌ Missing required fields");
             return NextResponse.json(
                 {
                     error: "companyId and jobId are required",
@@ -35,24 +35,24 @@ export async function POST(request: NextRequest) {
         }
 
         // Find the company by ID
-        logger.info("🏢 Looking for company:", companyId);
+        log.info("🏢 Looking for company:", companyId);
         const company = await prisma.company.findUnique({
             where: { id: companyId },
         });
 
         if (!company) {
-            logger.warn("❌ Company not found:", companyId);
+            log.warn("❌ Company not found:", companyId);
             return NextResponse.json(
                 { error: "Company not found" },
                 { status: 404 }
             );
         }
-        logger.info("✅ Company found:", company.name);
+        log.info("✅ Company found:", company.name);
 
         // Resolve job STRICTLY by jobId (deterministic)
         const job = await prisma.job.findUnique({ where: { id: jobId } });
         if (!job || job.companyId !== company.id) {
-            logger.warn("❌ Job not found or does not belong to company", {
+            log.warn("❌ Job not found or does not belong to company", {
                 jobId,
                 companyId: company.id,
             });
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
         });
 
         if (existingByJobId) {
-            logger.info(
+            log.info(
                 "✅ Reusing existing application by jobId:",
                 existingByJobId.id
             );
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Create the application
-        logger.info("🚀 Creating application...");
+        log.info("🚀 Creating application...");
         const application = await prisma.application.create({
             data: {
                 candidateId: userId,
@@ -88,14 +88,14 @@ export async function POST(request: NextRequest) {
             },
         });
 
-        logger.info("✅ Application created:", application.id);
+        log.info("✅ Application created:", application.id);
         return NextResponse.json({
             message: "Application created successfully",
             application,
         });
     } catch (error) {
-        logger.error("❌ Error creating application:", error);
-        logger.error("❌ Error details:", {
+        log.error("❌ Error creating application:", error);
+        log.error("❌ Error details:", {
             name: error instanceof Error ? error.name : "Unknown",
             message: error instanceof Error ? error.message : String(error),
             stack: error instanceof Error ? error.stack : undefined,

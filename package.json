@@ -52,6 +52,7 @@
         "react-resizable-panels": "^3.0.5",
         "react-type-animation": "^3.2.0",
         "recharts": "^3.1.2",
+        "stacktrace-js": "^2.0.2",
         "three": "0.158.0",
         "vidstack": "^1.12.13",
         "zod": "^3.23.8"

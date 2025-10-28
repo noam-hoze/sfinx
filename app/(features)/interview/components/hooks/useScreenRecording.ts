@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
-import { logger } from "../../../../shared/services";
+import { log } from "../../../../shared/services";
 
-const log = logger.for("@InterviewIDE/useScreenRecording");
+const logger = log;
 
 export const useScreenRecording = () => {
     const [isRecording, setIsRecording] = useState(false);
@@ -33,7 +33,7 @@ export const useScreenRecording = () => {
 
     const uploadRecordingToServer = useCallback(
         async (blob: Blob) => {
-            log.info(
+            logger.info(
                 "🔍 uploadRecordingToServer called with sessionId:",
                 interviewSessionIdRef.current,
                 "uploaded:",
@@ -41,7 +41,7 @@ export const useScreenRecording = () => {
             );
 
             if (!interviewSessionIdRef.current || recordingUploaded) {
-                log.info(
+                logger.info(
                     "⏭️ Cannot upload: sessionId=",
                     interviewSessionIdRef.current,
                     "uploaded=",
@@ -51,7 +51,7 @@ export const useScreenRecording = () => {
             }
 
             try {
-                log.info("📤 Starting server upload process...");
+                logger.info("📤 Starting server upload process...");
 
                 const formData = new FormData();
                 formData.append(
@@ -60,7 +60,7 @@ export const useScreenRecording = () => {
                     `interview-${interviewSessionIdRef.current}.mp4`
                 );
 
-                log.info(
+                logger.info(
                     "📤 Sending upload request to /api/interviews/session/screen-recording"
                 );
                 const uploadResponse = await fetch(
@@ -71,20 +71,20 @@ export const useScreenRecording = () => {
                     }
                 );
 
-                log.info("📤 Upload response status:", uploadResponse.status);
+                logger.info("📤 Upload response status:", uploadResponse.status);
 
                 if (!uploadResponse.ok) {
                     const errorText = await uploadResponse.text();
-                    log.error("❌ Upload failed:", errorText);
+                    logger.error("❌ Upload failed:", errorText);
                     throw new Error(
                         `Failed to upload recording: ${uploadResponse.status}`
                     );
                 }
 
                 const uploadData = await uploadResponse.json();
-                log.info("✅ Recording uploaded:", uploadData.recordingUrl);
+                logger.info("✅ Recording uploaded:", uploadData.recordingUrl);
 
-                log.info(
+                logger.info(
                     "📤 Sending update request to:",
                     `/api/interviews/session/${interviewSessionIdRef.current}`
                 );
@@ -101,21 +101,21 @@ export const useScreenRecording = () => {
                     }
                 );
 
-                log.info("📤 Update response status:", updateResponse.status);
+                logger.info("📤 Update response status:", updateResponse.status);
 
                 if (!updateResponse.ok) {
                     const errorText = await updateResponse.text();
-                    log.error("❌ Update failed:", errorText);
+                    logger.error("❌ Update failed:", errorText);
                     throw new Error(
                         `Failed to update interview session: ${updateResponse.status}`
                     );
                 }
 
                 await updateResponse.json();
-                log.info("✅ Interview session updated successfully");
+                logger.info("✅ Interview session updated successfully");
                 setRecordingUploaded(true);
             } catch (error) {
-                log.error("❌ Error in uploadRecordingToServer:", error);
+                logger.error("❌ Error in uploadRecordingToServer:", error);
             }
         },
         [recordingUploaded]
@@ -123,7 +123,7 @@ export const useScreenRecording = () => {
 
     const requestRecordingPermission = useCallback(async () => {
         if (skipScreenShare) {
-            log.info(
+            logger.info(
                 "⏭️ Skipping screen share due to NEXT_PUBLIC_SKIP_SCREEN_SHARE"
             );
             setMicPermissionGranted(true);
@@ -148,21 +148,21 @@ export const useScreenRecording = () => {
             const combinedStream = new MediaStream();
 
             displayStream.getVideoTracks().forEach((track) => {
-                log.info("🎥 Added video track:", track.label);
+                logger.info("🎥 Added video track:", track.label);
                 combinedStream.addTrack(track);
             });
 
             displayStream.getAudioTracks().forEach((track) => {
-                log.info("🔊 Added system audio track:", track.label);
+                logger.info("🔊 Added system audio track:", track.label);
                 combinedStream.addTrack(track);
             });
 
             micStream.getAudioTracks().forEach((track) => {
-                log.info("🎤 Added microphone audio track:", track.label);
+                logger.info("🎤 Added microphone audio track:", track.label);
                 combinedStream.addTrack(track);
             });
 
-            log.info(
+            logger.info(
                 "🎵 Combined stream tracks:",
                 combinedStream
                     .getTracks()
@@ -174,15 +174,15 @@ export const useScreenRecording = () => {
 
             let mimeType = "video/mp4;codecs=avc1";
             if (!MediaRecorder.isTypeSupported(mimeType)) {
-                log.info("⚠️ H.264 not supported, trying basic mp4...");
+                logger.info("⚠️ H.264 not supported, trying basic mp4...");
                 mimeType = "video/mp4";
                 if (!MediaRecorder.isTypeSupported(mimeType)) {
-                    log.info("⚠️ MP4 not supported, using default");
+                    logger.info("⚠️ MP4 not supported, using default");
                     mimeType = "";
                 }
             }
 
-            log.info("🎥 Using mime type:", mimeType);
+            logger.info("🎥 Using mime type:", mimeType);
 
             const mediaRecorder = new MediaRecorder(
                 combinedStream,
@@ -194,13 +194,13 @@ export const useScreenRecording = () => {
             selectedMimeTypeRef.current = mimeType;
 
             mediaRecorder.ondataavailable = (event) => {
-                log.info(
+                logger.info(
                     "📡 ondataavailable fired, data size:",
                     event.data.size
                 );
                 if (event.data.size > 0) {
                     recordedChunksRef.current.push(event.data);
-                    log.info(
+                    logger.info(
                         "📊 Chunks array length:",
                         recordedChunksRef.current.length
                     );
@@ -208,16 +208,16 @@ export const useScreenRecording = () => {
             };
 
             mediaRecorder.onstop = async () => {
-                log.info(
+                logger.info(
                     "🛑 MediaRecorder stopped, processing recorded chunks..."
                 );
-                log.info(
+                logger.info(
                     "📊 Recorded chunks count:",
                     recordedChunksRef.current.length
                 );
 
                 if (recordedChunksRef.current.length === 0) {
-                    log.warn("❌ No recorded chunks available");
+                    logger.warn("❌ No recorded chunks available");
                     return;
                 }
 
@@ -225,28 +225,28 @@ export const useScreenRecording = () => {
                     type: selectedMimeTypeRef.current || "video/mp4",
                 });
 
-                log.info("📁 Created blob of size:", blob.size, "bytes");
+                logger.info("📁 Created blob of size:", blob.size, "bytes");
 
                 const url = URL.createObjectURL(blob);
                 setRecordingUrl(url);
 
                 recordedChunksRef.current = [blob];
-                log.info("✅ Recording captured, ready for upload");
+                logger.info("✅ Recording captured, ready for upload");
 
-                log.info(
+                logger.info(
                     "🔍 onstop: interviewSessionId =",
                     interviewSessionIdRef.current,
                     "recordingUploaded =",
                     recordingUploaded
                 );
                 if (interviewSessionIdRef.current && !recordingUploaded) {
-                    log.info(
+                    logger.info(
                         "🚀 Auto-uploading recording for session:",
                         interviewSessionIdRef.current
                     );
                     await uploadRecordingToServer(blob);
                 } else {
-                    log.info(
+                    logger.info(
                         "⏭️ Cannot auto-upload: sessionId=",
                         interviewSessionIdRef.current,
                         "uploaded=",
@@ -260,23 +260,23 @@ export const useScreenRecording = () => {
 
             combinedStream.getTracks().forEach((track) => {
                 track.onended = () => {
-                    log.info("🎵 Track ended:", track.kind, track.label);
+                    logger.info("🎵 Track ended:", track.kind, track.label);
                 };
             });
 
             return true;
         } catch (error) {
-            log.error("❌ Error requesting recording permission:", error);
+            logger.error("❌ Error requesting recording permission:", error);
 
             if (error instanceof Error) {
                 if (error.name === "NotAllowedError") {
-                    log.error(
+                    logger.error(
                         "❌ Permission denied for screen recording or microphone"
                     );
                 } else if (error.name === "NotFoundError") {
-                    log.error("❌ No screen or microphone found");
+                    logger.error("❌ No screen or microphone found");
                 } else if (error.name === "NotReadableError") {
-                    log.error("❌ Screen or microphone is already in use");
+                    logger.error("❌ Screen or microphone is already in use");
                 }
             }
 
@@ -288,7 +288,7 @@ export const useScreenRecording = () => {
 
     const startRecording = useCallback(async () => {
         if (skipScreenShare) {
-            log.info("⏭️ startRecording: bypassing media capture (dev mode)");
+            logger.info("⏭️ startRecording: bypassing media capture (dev mode)");
             setRecordingPermissionGranted(true);
             setMicPermissionGranted(true);
             return true;
@@ -296,7 +296,7 @@ export const useScreenRecording = () => {
         if (!recordingPermissionGranted || !mediaRecorderRef.current) {
             const permissionGranted = await requestRecordingPermission();
             if (!permissionGranted) {
-                log.info(
+                logger.info(
                     "⏭️ Screen recording permission denied - not starting interview"
                 );
                 return false;
@@ -307,7 +307,7 @@ export const useScreenRecording = () => {
             recordedChunksRef.current = [];
             mediaRecorderRef.current.start();
             setIsRecording(true);
-            log.info("✅ Screen recording started");
+            logger.info("✅ Screen recording started");
             return true;
         }
 
@@ -329,13 +329,13 @@ export const useScreenRecording = () => {
                     .forEach((track) => track.stop());
             }
 
-            log.info("✅ Screen recording stopped");
+            logger.info("✅ Screen recording stopped");
         }
     }, [isRecording]);
 
     const insertRecordingUrl = useCallback(async () => {
-        log.info("🚀 insertRecordingUrl called");
-        log.info("📋 Current state:", {
+        logger.info("🚀 insertRecordingUrl called");
+        logger.info("📋 Current state:", {
             interviewSessionId,
             recordingUrl,
             recordingUploaded,
@@ -343,43 +343,43 @@ export const useScreenRecording = () => {
         });
 
         if (!interviewSessionId) {
-            log.info("⏭️ No interview session ID available yet");
+            logger.info("⏭️ No interview session ID available yet");
             return;
         }
 
         if (!recordingUrl) {
-            log.info("⏭️ No recording available to upload");
+            logger.info("⏭️ No recording available to upload");
             return;
         }
 
         if (recordingUploaded) {
-            log.info("⏭️ Recording already uploaded");
+            logger.info("⏭️ Recording already uploaded");
             return;
         }
 
         if (recordedChunksRef.current.length === 0) {
-            log.warn("⏭️ No recording blob available");
+            logger.warn("⏭️ No recording blob available");
             return;
         }
 
         const blob = recordedChunksRef.current[0];
         if (!(blob instanceof Blob)) {
-            log.warn("⏭️ Invalid recording blob");
+            logger.warn("⏭️ Invalid recording blob");
             return;
         }
 
-        log.info("📁 Blob details:", {
+        logger.info("📁 Blob details:", {
             size: blob.size,
             type: blob.type,
         });
 
-        log.info(
+        logger.info(
             "🚀 Event handler: Inserting recording URL for session:",
             interviewSessionId
         );
 
         try {
-            log.info("📤 Starting upload process...");
+            logger.info("📤 Starting upload process...");
 
             const formData = new FormData();
             formData.append(
@@ -388,7 +388,7 @@ export const useScreenRecording = () => {
                 `interview-${interviewSessionId}.mp4`
             );
 
-            log.info(
+            logger.info(
                 "📤 Sending upload request to /api/interviews/session/screen-recording"
             );
             const uploadResponse = await fetch(
@@ -399,20 +399,20 @@ export const useScreenRecording = () => {
                 }
             );
 
-            log.info("📤 Upload response status:", uploadResponse.status);
+            logger.info("📤 Upload response status:", uploadResponse.status);
 
             if (!uploadResponse.ok) {
                 const errorText = await uploadResponse.text();
-                log.error("❌ Upload failed:", errorText);
+                logger.error("❌ Upload failed:", errorText);
                 throw new Error(
                     `Failed to upload recording: ${uploadResponse.status}`
                 );
             }
 
             const uploadData = await uploadResponse.json();
-            log.info("✅ Recording uploaded:", uploadData.recordingUrl);
+            logger.info("✅ Recording uploaded:", uploadData.recordingUrl);
 
-            log.info(
+            logger.info(
                 "📤 Sending update request to:",
                 `/api/interviews/session/${interviewSessionId}`
             );
@@ -429,21 +429,21 @@ export const useScreenRecording = () => {
                 }
             );
 
-            log.info("📤 Update response status:", updateResponse.status);
+            logger.info("📤 Update response status:", updateResponse.status);
 
             if (!updateResponse.ok) {
                 const errorText = await updateResponse.text();
-                log.error("❌ Update failed:", errorText);
+                logger.error("❌ Update failed:", errorText);
                 throw new Error(
                     `Failed to update interview session: ${updateResponse.status}`
                 );
             }
 
             await updateResponse.json();
-            log.info("✅ Interview session updated successfully");
+            logger.info("✅ Interview session updated successfully");
             setRecordingUploaded(true);
         } catch (error) {
-            log.error("❌ Error in insertRecordingUrl event handler:", error);
+            logger.error("❌ Error in insertRecordingUrl event handler:", error);
         }
     }, [interviewSessionId, recordingUploaded, recordingUrl]);
 

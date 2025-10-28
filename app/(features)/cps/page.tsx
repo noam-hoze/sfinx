@@ -11,6 +11,7 @@ import LearningToActionTimeline from "./components/LearningToActionTimeline";
 import ConfidenceBuildingCurve from "./components/ConfidenceBuildingCurve";
 import ImprovementChart from "./components/ImprovementChart";
 import { AuthGuard } from "app/shared/components";
+import { log } from "app/shared/services";
 
 function TelemetryContent() {
     const searchParams = useSearchParams();
@@ -91,7 +92,7 @@ function TelemetryContent() {
                     setTelemetryData(null);
                 }
             } catch (error) {
-                console.error("Error fetching telemetry:", error);
+                log.error("Error fetching telemetry:", error);
                 setError("Failed to load telemetry data");
                 setTelemetryData(null);
             } finally {
@@ -282,7 +283,7 @@ function TelemetryContent() {
                 throw new Error("Failed to save changes");
             }
         } catch (error) {
-            console.error("Error saving telemetry data:", error);
+            log.error("Error saving telemetry data:", error);
             setError("Failed to save changes");
         } finally {
             setSaving(false);
@@ -372,8 +373,7 @@ function TelemetryContent() {
                                                         ...telemetryData,
                                                         candidate: {
                                                             ...candidate,
-                                                            name: e.target
-                                                                .value,
+                                                            name: e.target.value,
                                                         },
                                                     });
                                                 }}
@@ -405,8 +405,7 @@ function TelemetryContent() {
                                                             ...candidate,
                                                             matchScore:
                                                                 parseInt(
-                                                                    e.target
-                                                                        .value
+                                                                    e.target.value
                                                                 ) || 0,
                                                         },
                                                     });
@@ -442,9 +441,7 @@ function TelemetryContent() {
                                         Candidate Profile Story
                                     </h3>
                                     <button
-                                        onClick={() =>
-                                            setStoryExpanded((v) => !v)
-                                        }
+                                        onClick={() => setStoryExpanded((v) => !v)}
                                         className="text-xs text-blue-600 hover:text-blue-700 font-medium"
                                     ></button>
                                 </div>
@@ -459,9 +456,7 @@ function TelemetryContent() {
                                 <button
                                     className="px-3 py-1 rounded-lg bg-white/60 border border-white/40 text-gray-700 disabled:opacity-40"
                                     onClick={() =>
-                                        setActiveSessionIndex((i) =>
-                                            Math.max(0, i - 1)
-                                        )
+                                        setActiveSessionIndex((i) => Math.max(0, i - 1))
                                     }
                                     disabled={activeSessionIndex === 0}
                                     aria-label="Previous session"
@@ -469,8 +464,7 @@ function TelemetryContent() {
                                     ◀
                                 </button>
                                 <div className="text-sm text-gray-700">
-                                    Session {activeSessionIndex + 1} /{" "}
-                                    {sessions.length}
+                                    Session {activeSessionIndex + 1} / {sessions.length}
                                 </div>
                                 <button
                                     className="px-3 py-1 rounded-lg bg-white/60 border border-white/40 text-gray-700 disabled:opacity-40"
@@ -479,10 +473,7 @@ function TelemetryContent() {
                                             Math.min(sessions.length - 1, i + 1)
                                         )
                                     }
-                                    disabled={
-                                        activeSessionIndex ===
-                                        sessions.length - 1
-                                    }
+                                    disabled={activeSessionIndex === sessions.length - 1}
                                     aria-label="Next session"
                                 >
                                     ▶
@@ -508,9 +499,7 @@ function TelemetryContent() {
                                         d="M5 13l4 4L19 7"
                                     />
                                 </svg>
-                                <span className="font-medium">
-                                    Changes saved successfully!
-                                </span>
+                                <span className="font-medium">Changes saved successfully!</span>
                             </div>
                         </div>
                     )}
@@ -570,9 +559,7 @@ function TelemetryContent() {
                         {/* Tab Content */}
                         <div
                             className={`space-y-3 ${
-                                activeTab === "insights"
-                                    ? ""
-                                    : "max-h-[calc(100vh-18rem)] overflow-y-auto"
+                                activeTab === "insights" ? "" : "max-h-[calc(100vh-18rem)] overflow-y-auto"
                             } border-t border-l border-r border-white/40 border-b-2 border-b-white/60 rounded-2xl bg-white/20 backdrop-blur-sm p-3 shadow-sm`}
                         >
                             {activeTab === "benchmarks" && (
@@ -582,35 +569,23 @@ function TelemetryContent() {
                                             workstyle={workstyle}
                                             onVideoJump={onVideoJump}
                                             editMode={editMode}
-                                            onUpdateWorkstyle={(
-                                                updatedWorkstyle
-                                            ) => {
+                                            onUpdateWorkstyle={(updatedWorkstyle) => {
                                                 // Update UI source of truth (sessions)
                                                 setSessions((prev) => {
                                                     const next = [...prev];
-                                                    if (
-                                                        next[activeSessionIndex]
-                                                    ) {
-                                                        next[
-                                                            activeSessionIndex
-                                                        ] = {
-                                                            ...next[
-                                                                activeSessionIndex
-                                                            ],
-                                                            workstyle:
-                                                                updatedWorkstyle,
+                                                    if (next[activeSessionIndex]) {
+                                                        next[activeSessionIndex] = {
+                                                            ...next[activeSessionIndex],
+                                                            workstyle: updatedWorkstyle,
                                                         };
                                                     }
                                                     return next;
                                                 });
                                                 // Keep payload for saving in telemetryData
-                                                setTelemetryData(
-                                                    (prev: any) => ({
-                                                        ...prev,
-                                                        workstyle:
-                                                            updatedWorkstyle,
-                                                    })
-                                                );
+                                                setTelemetryData((prev: any) => ({
+                                                    ...prev,
+                                                    workstyle: updatedWorkstyle,
+                                                }));
                                             }}
                                         />
                                     )}
@@ -650,27 +625,19 @@ function TelemetryContent() {
                                                 // Update UI source of truth (sessions)
                                                 setSessions((prev) => {
                                                     const next = [...prev];
-                                                    if (
-                                                        next[activeSessionIndex]
-                                                    ) {
-                                                        next[
-                                                            activeSessionIndex
-                                                        ] = {
-                                                            ...next[
-                                                                activeSessionIndex
-                                                            ],
+                                                    if (next[activeSessionIndex]) {
+                                                        next[activeSessionIndex] = {
+                                                            ...next[activeSessionIndex],
                                                             gaps: updatedGaps,
                                                         };
                                                     }
                                                     return next;
                                                 });
                                                 // Keep payload for saving in telemetryData
-                                                setTelemetryData(
-                                                    (prev: any) => ({
-                                                        ...prev,
-                                                        gaps: updatedGaps,
-                                                    })
-                                                );
+                                                setTelemetryData((prev: any) => ({
+                                                    ...prev,
+                                                    gaps: updatedGaps,
+                                                }));
                                             }}
                                         />
                                     )}
@@ -685,54 +652,27 @@ function TelemetryContent() {
                             {showImprovement ? (
                                 <div className="flex gap-2 text-xs">
                                     {[
-                                        {
-                                            key: "match",
-                                            label: "Match",
-                                            color: "#3b82f6",
-                                        },
-                                        {
-                                            key: "iter",
-                                            label: "Iteration",
-                                            color: "#a78bfa",
-                                        },
-                                        {
-                                            key: "refactor",
-                                            label: "Refactor",
-                                            color: "#10b981",
-                                        },
-                                        {
-                                            key: "debug",
-                                            label: "Debug",
-                                            color: "#f97316",
-                                        },
-                                        {
-                                            key: "ai",
-                                            label: "AI",
-                                            color: "#64748b",
-                                        },
+                                        { key: "match", label: "Match", color: "#3b82f6" },
+                                        { key: "iter", label: "Iteration", color: "#a78bfa" },
+                                        { key: "refactor", label: "Refactor", color: "#10b981" },
+                                        { key: "debug", label: "Debug", color: "#f97316" },
+                                        { key: "ai", label: "AI", color: "#64748b" },
                                     ].map((s: any) => (
                                         <button
                                             key={s.key}
                                             onClick={() =>
                                                 setSeriesVisible((prev) => ({
                                                     ...prev,
-                                                    [s.key]:
-                                                        !prev[
-                                                            s.key as keyof typeof prev
-                                                        ],
+                                                    [s.key]: !prev[s.key as keyof typeof prev],
                                                 }))
                                             }
                                             className="px-2 py-1 rounded-md border"
                                             style={{
                                                 borderColor: s.color,
-                                                color: seriesVisible[
-                                                    s.key as keyof typeof seriesVisible
-                                                ]
+                                                color: seriesVisible[s.key as keyof typeof seriesVisible]
                                                     ? "#111827"
                                                     : "#9ca3af",
-                                                backgroundColor: seriesVisible[
-                                                    s.key as keyof typeof seriesVisible
-                                                ]
+                                                backgroundColor: seriesVisible[s.key as keyof typeof seriesVisible]
                                                     ? `${s.color}20`
                                                     : "transparent",
                                             }}
@@ -748,9 +688,7 @@ function TelemetryContent() {
                                 <button
                                     onClick={() => setShowImprovement(false)}
                                     className={`${
-                                        !showImprovement
-                                            ? "bg-blue-500 text-white"
-                                            : "text-gray-700"
+                                        !showImprovement ? "bg-blue-500 text-white" : "text-gray-700"
                                     } px-2 py-1 rounded`}
                                 >
                                     Evidence
@@ -758,9 +696,7 @@ function TelemetryContent() {
                                 <button
                                     onClick={() => setShowImprovement(true)}
                                     className={`${
-                                        showImprovement
-                                            ? "bg-blue-500 text-white"
-                                            : "text-gray-700"
+                                        showImprovement ? "bg-blue-500 text-white" : "text-gray-700"
                                     } px-2 py-1 rounded ml-1`}
                                 >
                                     Improvement
@@ -774,101 +710,44 @@ function TelemetryContent() {
                                         data={[...sessions]
                                             .map((s, i) => ({ s, i }))
                                             .sort((a, b) => {
-                                                const at = new Date(
-                                                    a.s.createdAt || 0
-                                                ).getTime();
-                                                const bt = new Date(
-                                                    b.s.createdAt || 0
-                                                ).getTime();
+                                                const at = new Date(a.s.createdAt || 0).getTime();
+                                                const bt = new Date(b.s.createdAt || 0).getTime();
                                                 return at - bt;
                                             })
                                             .map(({ s, i }, pos) => ({
-                                                label: formatMonthYear(
-                                                    s.createdAt
-                                                ),
+                                                label: formatMonthYear(s.createdAt),
                                                 index: pos,
                                                 sessionIndex: i,
-                                                match:
-                                                    typeof s.matchScore ===
-                                                    "number"
-                                                        ? s.matchScore
-                                                        : null,
-                                                iter:
-                                                    s.workstyle?.iterationSpeed
-                                                        ?.value ?? null,
-                                                refactor:
-                                                    s.workstyle
-                                                        ?.refactorCleanups
-                                                        ?.value ?? null,
+                                                match: typeof s.matchScore === "number" ? s.matchScore : null,
+                                                iter: s.workstyle?.iterationSpeed?.value ?? null,
+                                                refactor: s.workstyle?.refactorCleanups?.value ?? null,
                                                 debug:
-                                                    s.workstyle?.debugLoops
-                                                        ?.value != null
-                                                        ? 100 -
-                                                          s.workstyle.debugLoops
-                                                              .value
+                                                    s.workstyle?.debugLoops?.value != null
+                                                        ? 100 - s.workstyle.debugLoops.value
                                                         : null,
                                                 ai:
-                                                    s.workstyle?.aiAssistUsage
-                                                        ?.value != null
-                                                        ? 100 -
-                                                          s.workstyle
-                                                              .aiAssistUsage
-                                                              .value
+                                                    s.workstyle?.aiAssistUsage?.value != null
+                                                        ? 100 - s.workstyle.aiAssistUsage.value
                                                         : null,
-                                                matchTs: (
-                                                    s.evidence || []
-                                                ).find(
-                                                    (e: any) =>
-                                                        e.startTime !== null &&
-                                                        e.startTime !==
-                                                            undefined
+                                                matchTs: (s.evidence || []).find(
+                                                    (e: any) => e.startTime !== null && e.startTime !== undefined
                                                 )?.startTime,
                                                 iterTs: (s.evidence || []).find(
                                                     (e: any) =>
-                                                        (
-                                                            e.title || ""
-                                                        ).includes(
-                                                            "Iteration"
-                                                        ) &&
+                                                        (e.title || "").includes("Iteration") &&
                                                         e.startTime !== null &&
-                                                        e.startTime !==
-                                                            undefined
+                                                        e.startTime !== undefined
                                                 )?.startTime,
-                                                refactorTs: (
-                                                    s.evidence || []
-                                                ).find(
-                                                    (e: any) =>
-                                                        (
-                                                            e.title || ""
-                                                        ).includes(
-                                                            "Refactor"
-                                                        ) &&
-                                                        e.startTime !== null &&
-                                                        e.startTime !==
-                                                            undefined
+                                                refactorTs: (s.evidence || []).find(
+                                                    (e: any) => (e.title || "").includes("Refactor") && e.startTime !== null && e.startTime !== undefined
                                                 )?.startTime,
-                                                debugTs: (
-                                                    s.evidence || []
-                                                ).find(
-                                                    (e: any) =>
-                                                        (
-                                                            e.title || ""
-                                                        ).includes("Debug") &&
-                                                        e.startTime !== null &&
-                                                        e.startTime !==
-                                                            undefined
+                                                debugTs: (s.evidence || []).find(
+                                                    (e: any) => (e.title || "").includes("Debug") && e.startTime !== null && e.startTime !== undefined
                                                 )?.startTime,
                                                 aiTs: (s.evidence || []).find(
-                                                    (e: any) =>
-                                                        (
-                                                            e.title || ""
-                                                        ).includes("AI") &&
-                                                        e.startTime !== null &&
-                                                        e.startTime !==
-                                                            undefined
+                                                    (e: any) => (e.title || "").includes("AI") && e.startTime !== null && e.startTime !== undefined
                                                 )?.startTime,
-                                            }))}
-                                        activeIndex={activeSessionIndex}
+                                            }))
                                         onSelect={(index, ts) => {
                                             setActiveSessionIndex(index);
                                             if (typeof ts === "number") {

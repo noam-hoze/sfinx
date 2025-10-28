@@ -33,6 +33,12 @@
 
 [Gates determined based on constitution file]
 
+### Library Scan (MANDATORY)
+- List candidate libraries for each non-trivial utility/infrastructure (with links)
+- Decision and rationale (why chosen; maintenance signals; license)
+- Alternatives considered and why rejected
+- If choosing custom implementation, justify constraints preventing library use
+
 ## Project Structure
 
 ### Documentation (this feature)

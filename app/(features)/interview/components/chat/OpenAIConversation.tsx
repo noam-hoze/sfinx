@@ -7,14 +7,15 @@
 "use client";
 
 import React, {
-    useCallback,
-    useEffect,
-    useImperativeHandle,
-    useRef,
     useState,
+    useEffect,
+    useRef,
+    useCallback,
+    useMemo,
     forwardRef,
+    useImperativeHandle,
 } from "react";
-import { logger } from "../../../../shared/services";
+import { log } from "../../../../shared/services";
 import { useOpenAIRealtimeSession } from "@/shared/hooks/useOpenAIRealtimeSession";
 import { store } from "@/shared/state/store";
 import { buildOpenAIInterviewerPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
@@ -30,7 +31,7 @@ import {
     end as machineEnd,
     setExpectedBackgroundQuestion,
 } from "@/shared/state/slices/interviewMachineSlice";
-const log = logger.for("@OpenAIConversation.tsx");
+const logger = log;
 
 interface OpenAIConversationProps {
     onStartConversation?: () => void;
@@ -99,7 +100,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 setIsRecording(true);
                 notifyRecording(true);
             } catch (err) {
-                log.error("❌ OpenAIConversation: mic permission error", err);
+                logger.error("❌ OpenAIConversation: mic permission error", err);
             }
         }, [notifyRecording]);
 
@@ -118,8 +119,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 const ms = store.getState().interviewMachine;
                 const state = ms.state;
                 const context = { candidateName: ms.candidateName };
-                // eslint-disable-next-line no-console
-                console.log("[interview-machine]", state, context);
+                logger.info("[interview-machine]", state, context);
                 window.parent.postMessage(
                     { type: "interview-machine", state, context },
                     "*"
@@ -346,7 +346,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 setIsConnected(true);
                 onStartConversation?.();
             } catch (e) {
-                log.error("❌ OpenAIConversation: connect failed", e);
+                logger.error("❌ OpenAIConversation: connect failed", e);
             }
         }, [
             candidateName,
@@ -389,7 +389,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
         }, []);
 
         const sendUserMessage = useCallback(async (_message: string) => {
-            log.warn("OpenAIConversation.sendUserMessage not yet implemented");
+            logger.warn("OpenAIConversation.sendUserMessage not yet implemented");
             return false;
         }, []);
 
@@ -399,7 +399,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 disconnect();
             },
             sendContextualUpdate: async (_text: string) => {
-                log.warn(
+                logger.warn(
                     "OpenAIConversation.sendContextualUpdate not yet implemented"
                 );
             },
@@ -435,7 +435,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                         respond();
                     } catch {}
                 } catch (e) {
-                    log.error("askFollowupOnDelta failed", e);
+                    logger.error("askFollowupOnDelta failed", e);
                 }
             },
             sayClosingLine: async (name?: string) => {
@@ -446,26 +446,21 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                     awaitingClosingRef.current = true;
                     // Interrupt any ongoing AI response and clear input buffer
                     try {
-                        // eslint-disable-next-line no-console
-                        console.log("[closing][submit] sending response.cancel");
+                        logger.info("[closing][submit] sending response.cancel");
                         session.current?.transport?.sendEvent?.({
                             type: "response.cancel",
                         });
-                        // eslint-disable-next-line no-console
-                        console.log("[closing][submit] response.cancel sent");
+                        logger.info("[closing][submit] response.cancel sent");
                     } catch {}
                     try {
-                        // eslint-disable-next-line no-console
-                        console.log("[closing][submit] clearing input_audio_buffer");
+                        logger.info("[closing][submit] clearing input_audio_buffer");
                         session.current?.transport?.sendEvent?.({
                             type: "input_audio_buffer.clear",
                         });
-                        // eslint-disable-next-line no-console
-                        console.log("[closing][submit] input_audio_buffer cleared");
+                        logger.info("[closing][submit] input_audio_buffer cleared");
                     } catch {}
                     const text = `Say exactly: "${expected}"`;
-                    // eslint-disable-next-line no-console
-                    console.log("[closing][submit] enqueue closing item.create", { text });
+                    logger.info("[closing][submit] enqueue closing item.create", { text });
                     session.current?.transport?.sendEvent?.({
                         type: "conversation.item.create",
                         item: {
@@ -476,14 +471,12 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                     });
                     // Removed local Web Speech fallback to preserve voice consistency
                     try {
-                        // eslint-disable-next-line no-console
-                        console.log("[closing][submit] triggering respond()");
+                        logger.info("[closing][submit] triggering respond()");
                         respond();
-                        // eslint-disable-next-line no-console
-                        console.log("[closing][submit] respond() called");
+                        logger.info("[closing][submit] respond() called");
                     } catch {}
                 } catch (e) {
-                    log.error("sayClosingLine failed", e);
+                    logger.error("sayClosingLine failed", e);
                 }
             },
         }));

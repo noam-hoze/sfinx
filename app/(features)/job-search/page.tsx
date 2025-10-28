@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { AuthGuard } from "app/shared/components";
+import { log } from "app/shared/services";
 
 interface Job {
     id: string;
@@ -61,7 +62,7 @@ function JobSearchContent() {
     useEffect(() => {
         if (!hydrated) return;
         const fetchCompanies = async () => {
-            console.log("🔄 Starting to fetch companies...");
+            log.info("🔄 Starting to fetch companies...");
             try {
                 setLoading(true);
                 const params = new URLSearchParams();
@@ -70,36 +71,32 @@ function JobSearchContent() {
                 if (searchCompany) params.append("company", searchCompany);
 
                 const url = `/api/companies?${params.toString()}`;
-                console.log("📡 Fetching from:", url);
+                log.info("📡 Fetching from:", url);
 
                 const response = await fetch(url);
-                console.log("📥 Response status:", response.status);
+                log.info("📥 Response status:", response.status);
 
                 if (response.ok) {
                     const data = await response.json();
-                    console.log("✅ Data received:", data);
+                    log.info("✅ Data received:", data);
                     setCompanies(data.companies);
                     setAppliedJobIds(data.appliedJobIds || []);
                     setError(null);
                 } else {
-                    console.error(
-                        "❌ Response not ok:",
-                        response.status,
-                        response.statusText
-                    );
+                    log.error("❌ Response not ok:", response.status, response.statusText);
                     const errorText = await response.text();
-                    console.error("❌ Error response:", errorText);
+                    log.error("❌ Error response:", errorText);
                     setError(
                         `Failed to load companies: ${response.status} ${response.statusText}`
                     );
                 }
             } catch (error) {
-                console.error("💥 Error fetching companies:", error);
+                log.error("💥 Error fetching companies:", error);
                 setError(
                     "Failed to load companies. Please check your connection and try again."
                 );
             } finally {
-                console.log("🏁 Setting loading to false");
+                log.info("🏁 Setting loading to false");
                 setLoading(false);
             }
         };
@@ -153,9 +150,7 @@ function JobSearchContent() {
                                 type="text"
                                 placeholder="e.g. Google, Tech, Finance..."
                                 value={searchCompany}
-                                onChange={(e) =>
-                                    setSearchCompany(e.target.value)
-                                }
+                                onChange={(e) => setSearchCompany(e.target.value)}
                                 className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all duration-300 bg-white/50 backdrop-blur-sm"
                             />
                         </div>
@@ -169,9 +164,7 @@ function JobSearchContent() {
                                 type="text"
                                 placeholder="e.g. San Francisco, New York, Remote..."
                                 value={searchLocation}
-                                onChange={(e) =>
-                                    setSearchLocation(e.target.value)
-                                }
+                                onChange={(e) => setSearchLocation(e.target.value)}
                                 className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all duration-300 bg-white/50 backdrop-blur-sm"
                             />
                         </div>
@@ -189,9 +182,7 @@ function JobSearchContent() {
                 {loading ? (
                     <div className="text-center py-12">
                         <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                        <p className="mt-4 text-gray-600">
-                            Loading companies...
-                        </p>
+                        <p className="mt-4 text-gray-600">Loading companies...</p>
                     </div>
                 ) : error ? (
                     <div className="text-center py-12">
@@ -331,9 +322,7 @@ function JobSearchContent() {
                         <h3 className="text-lg font-medium text-gray-900 mb-2">
                             No jobs found
                         </h3>
-                        <p className="text-gray-600">
-                            Try adjusting your search criteria
-                        </p>
+                        <p className="text-gray-600">Try adjusting your search criteria</p>
                     </div>
                 )}
             </div>

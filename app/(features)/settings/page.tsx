@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import AuthGuard from "app/shared/components/AuthGuard";
+import { log } from "app/shared/services";
 
 export default function SettingsPage() {
     const { data: session, update } = useSession();
@@ -15,12 +16,12 @@ export default function SettingsPage() {
         event: React.ChangeEvent<HTMLInputElement>
     ) => {
         const file = event.target.files?.[0];
-        console.log("Selected file:", file);
-        console.log("File name:", file?.name);
-        console.log("File size:", file?.size);
-        console.log("File type:", file?.type);
+        log.info("Selected file:", file);
+        log.info("File name:", file?.name);
+        log.info("File size:", file?.size);
+        log.info("File type:", file?.type);
         if (!file) {
-            console.log("No file selected");
+            log.warn("No file selected");
             return;
         }
 
@@ -43,34 +44,32 @@ export default function SettingsPage() {
             const formData = new FormData();
             formData.append("image", file);
 
-            console.log("Sending request to /api/upload/profile-image");
+            log.info("Sending request to /api/upload/profile-image");
             const response = await fetch("/api/upload/profile-image", {
                 method: "POST",
                 body: formData,
             });
-            console.log("Response status:", response.status);
-            console.log("Response ok:", response.ok);
+            log.info("Response status:", response.status);
+            log.info("Response ok:", response.ok);
 
             if (response.ok) {
                 const data = await response.json();
-                console.log("Upload successful, new image URL:", data.imageUrl);
-                console.log("Updating session with new image...");
+                log.info("Upload successful, new image URL:", data.imageUrl);
+                log.info("Updating session with new image...");
 
                 // Update session with new image
-                console.log("Updating session with new image URL...");
-                console.log("Current session before update:", session);
+                log.info("Updating session with new image URL...");
+                log.info("Current session before update:", session);
                 await update({ image: data.imageUrl });
-                console.log("Session updated with image:", data.imageUrl);
-                console.log("Session after update:", session);
+                log.info("Session updated with image:", data.imageUrl);
+                log.info("Session after update:", session);
 
                 setMessage("Profile image updated successfully!");
-                console.log(
-                    "Session updated! Avatar should refresh automatically"
-                );
+                log.info("Session updated! Avatar should refresh automatically");
 
                 // Check session after update
                 setTimeout(() => {
-                    console.log("Checking session after update...");
+                    log.info("Checking session after update...");
                     // The session should now include the new image
                 }, 1000);
             } else {
@@ -106,29 +105,15 @@ export default function SettingsPage() {
                                         <div className="w-20 h-20 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden relative">
                                             {(session?.user as any)?.image ? (
                                                 <img
-                                                    key={
-                                                        (session?.user as any)
-                                                            ?.image
-                                                    } // Force re-render when image changes
-                                                    src={
-                                                        (session?.user as any)
-                                                            ?.image
-                                                    }
+                                                    key={(session?.user as any)?.image} // Force re-render when image changes
+                                                    src={(session?.user as any)?.image}
                                                     alt="Profile"
                                                     className="w-full h-full object-cover rounded-full"
                                                 />
                                             ) : (
                                                 <span className="text-2xl font-medium text-gray-700">
-                                                    {(
-                                                        session?.user as any
-                                                    )?.name
-                                                        ?.charAt(0)
-                                                        ?.toUpperCase() ||
-                                                        (
-                                                            session?.user as any
-                                                        )?.email
-                                                            ?.charAt(0)
-                                                            ?.toUpperCase()}
+                                                    {(session?.user as any)?.name?.charAt(0)?.toUpperCase() ||
+                                                        (session?.user as any)?.email?.charAt(0)?.toUpperCase()}
                                                 </span>
                                             )}
                                         </div>
@@ -137,9 +122,7 @@ export default function SettingsPage() {
                                         <div>
                                             <label className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer">
                                                 <span>
-                                                    {uploading
-                                                        ? "Uploading..."
-                                                        : "Change Image"}
+                                                    {uploading ? "Uploading..." : "Change Image"}
                                                 </span>
                                                 <input
                                                     type="file"

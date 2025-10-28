@@ -7,8 +7,10 @@ import Image from "next/image";
 import { useRouter, usePathname } from "next/navigation";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Menu } from "@headlessui/react";
-import { logger } from "../services";
+import { log } from "../services";
 import SfinxLogo from "./SfinxLogo";
+
+const logger = log;
 
 export default function Header() {
     const { data: session } = useSession();
@@ -63,15 +65,6 @@ export default function Header() {
         return null;
     }
 
-    // Debug session data (optional logging)
-    logger.info("Header - Session user:", session?.user);
-    logger.info("Header - Session user image:", session?.user?.image);
-    logger.info(
-        "Header - Image source:",
-        session?.user?.image
-            ? `${window.location.origin}${session.user.image}`
-            : "No image"
-    );
 
     const handleSignOut = async () => {
         await signOut({ callbackUrl: "/login" });
