@@ -171,6 +171,7 @@ export function useOpenAIRealtimeSession(
             const session: any = new RealtimeSession(agent, {
                 model: "gpt-4o-realtime-preview-2024-12-17",
                 outputModalities: ["audio", "text"],
+                voice: process.env.OPENAI_VOICE || "alloy",
             } as any);
             await session.connect({ apiKey });
             sessionRef.current = session;

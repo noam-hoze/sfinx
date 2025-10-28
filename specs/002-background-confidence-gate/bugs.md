@@ -25,33 +25,19 @@
 - Status: Addressed by decoupling; conversation now continues.
 - Follow‑up: Keep this invariant in future edits.
 
-## 5) CONTROL request spam (earlier build)
-- Repro: Multiple “CONTROL backchannel requested” per turn.
-- Status: Addressed; single request per user background answer with 5s timeout.
 
-## 6) Timing of CONTROL trigger
+## 5) Timing of CONTROL trigger
 - Repro: CONTROL was requested during greeting/first AI Q.
 - Expected: Start CONTROL only after the first user answer to the initial background question.
 - Status: Corrected; keep guard.
 
-## 7) Script mapping bug
+## 6) Script mapping bug
 - Repro: Coding prompt fetched from `codingPrompt`/`codingAnswer`.
 - Actual: Script uses `codingChallenge.prompt/answer`.
 - Status: Fixed; validate across all company/role scripts.
 
-## 8) Debug badge confidence stuck at 0 when CONTROL missing
-- Repro: No CONTROL → badge shows 0%.
-- Expected: Reflect last known value; absence should log error, not block flow.
-- Suggested fix: Keep last value; log on each timeout; optionally show “—” when unknown.
-
-## 9) HMR resets and repeated machine logs
-- Repro: Fast Refresh prints repeated `in_coding_session` and disconnect logs.
-- Impact: No functional change, but noisy and can confuse flow during development.
-- Suggested fix: Gate machine startup on stable connection; suppress duplicate logs in dev.
-
 ---
 
 ## Immediate priorities
-1) Enforce client‑side gate: do not enter coding UI/state unless gate satisfied (even if agent suggests it).
-2) Make CONTROL backchannel robust (turn‑tagged request/parse; single shot; clear error on timeout; no speech dependency).
-3) Tighten prompts for follow‑ups: “do not mention confidence; ask one short follow‑up.”
+(2)
+(1)
