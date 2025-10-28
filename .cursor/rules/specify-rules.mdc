@@ -1,0 +1,29 @@
+# sfinx Development Guidelines
+
+Auto-generated from all feature plans. Last updated: 2025-10-27
+
+## Active Technologies
+
+- OpenAI conversational integration (reuse), existing interview state store (reuse) (002-background-confidence-gate)
+
+## Project Structure
+
+```text
+src/
+tests/
+```
+
+## Commands
+
+# Add commands for 
+
+## Code Style
+
+: Follow standard conventions
+
+## Recent Changes
+
+- 002-background-confidence-gate: Added OpenAI conversational integration (reuse), existing interview state store (reuse)
+
+<!-- MANUAL ADDITIONS START -->
+<!-- MANUAL ADDITIONS END -->
