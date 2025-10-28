@@ -16,13 +16,13 @@ export async function POST(request: NextRequest) {
     log.info("🚀 TELEMETRY API STARTED");
 
     try {
-        log.info("🔍 Interview telemetry creation API called");
+        log.info("Interview telemetry creation API called");
 
-        log.info("🔍 ATTEMPTING getServerSession()");
+        log.info("Attempting getServerSession()");
         const session = await getServerSession(authOptions);
-        log.info("🔍 Session result:", session);
-        log.info("🔍 Session user:", session?.user);
-        log.info("🔍 Session user ID:", (session?.user as any)?.id);
+        log.info("Session result:", session);
+        log.info("Session user:", session?.user);
+        log.info("Session user ID:", (session?.user as any)?.id);
 
         if (!(session?.user as any)?.id) {
             log.warn("❌ No user ID in session");
@@ -34,14 +34,14 @@ export async function POST(request: NextRequest) {
         }
 
         const userId = (session!.user as any).id;
-        log.info("✅ User ID:", userId);
-        log.info("✅ Session validation PASSED");
+        log.info("User ID:", userId);
+        log.info("Session validation passed");
 
-        log.info("📋 PARSING REQUEST BODY");
+        log.info("Parsing request body");
         const { interviewSessionId } = await request.json();
-        log.info("📋 Request data:", { interviewSessionId });
-        log.info("📋 Interview session ID type:", typeof interviewSessionId);
-        log.info("📋 Interview session ID length:", interviewSessionId?.length);
+        log.info("Request data:", { interviewSessionId });
+        log.info("Interview session ID type:", typeof interviewSessionId);
+        log.info("Interview session ID length:", interviewSessionId?.length);
 
         if (!interviewSessionId) {
             log.warn("❌ Missing interviewSessionId");
@@ -50,16 +50,16 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             );
         }
-        log.info("✅ Request parsing PASSED");
+        log.info("Request parsing passed");
 
         // Verify the interview session exists and belongs to the user
-        log.info("🔍 Verifying interview session...");
+        log.info("Verifying interview session...");
         log.info("Interview session ID:", interviewSessionId);
         log.info("User ID:", userId);
 
         // Check if telemetry data already exists for this session
-        log.info("🔍 Checking for existing telemetry data...");
-        log.info("🔍 Looking for interviewSessionId:", interviewSessionId);
+        log.info("Checking for existing telemetry data...");
+        log.info("Looking for interviewSessionId:", interviewSessionId);
 
         let existingTelemetry;
         try {
@@ -68,10 +68,10 @@ export async function POST(request: NextRequest) {
                     interviewSessionId: interviewSessionId,
                 },
             });
-            log.info("🔍 findUnique result:", existingTelemetry);
+            log.info("findUnique result:", existingTelemetry);
         } catch (findError: any) {
-            log.error("🔍 ERROR in findUnique:", findError);
-            log.error("🔍 Find error details:", {
+            log.error("Error in findUnique:", findError);
+            log.error("Find error details:", {
                 name: findError?.name,
                 message: findError?.message,
                 code: findError?.code,
@@ -80,8 +80,8 @@ export async function POST(request: NextRequest) {
         }
 
         if (existingTelemetry) {
-            log.info("✅ Telemetry data already exists:", existingTelemetry.id);
-            log.info("✅ Returning existing telemetry data");
+        log.info("Telemetry data already exists:", existingTelemetry.id);
+        log.info("Returning existing telemetry data");
             return NextResponse.json({
                 message: "Telemetry data already exists",
                 telemetryData: {
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        log.info("✅ No existing telemetry found; creating zeroed telemetry");
+        log.info("No existing telemetry found; creating zeroed telemetry");
 
         let interviewSession;
         try {
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
                 },
             });
             log.info(
-                "🔍 Interview session query completed, result:",
+                "Interview session query completed, result:",
                 interviewSession ? "Found" : "Not found"
             );
         } catch (sessionError: any) {
@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
             },
         });
     } catch (error: any) {
-        log.info("💥 CATCH BLOCK ENTERED");
+        log.info("Catch block entered");
         log.error("❌ Error creating telemetry data:", error);
         log.error("❌ Error details:", {
             name: error?.name,
@@ -183,5 +183,5 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    log.info("🏁 FUNCTION COMPLETELY FINISHED");
+    log.info("Function completed");
 }

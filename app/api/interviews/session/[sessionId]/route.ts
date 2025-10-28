@@ -17,19 +17,16 @@ export async function PATCH(
     { params }: { params: { sessionId: string } }
 ) {
     try {
-        log.info("🔍 Interview session update API called");
+        log.info("Interview session update API called");
 
         const session = await getServerSession(authOptions);
-        log.info(
-            "🔍 Session check:",
-            session ? "Session found" : "No session"
-        );
-        log.info("🔍 User ID:", (session?.user as any)?.id);
+        log.info("Session check:", session ? "Session found" : "No session");
+        log.info("User ID:", (session?.user as any)?.id);
 
         const userId = (session!.user as any).id;
         const { sessionId } = params;
 
-        log.info("📋 Session ID:", sessionId);
+        log.info("Session ID:", sessionId);
 
         // Verify the interview session exists and belongs to the user
         const interviewSession = await prisma.interviewSession.findFirst({
@@ -69,10 +66,7 @@ export async function PATCH(
             },
         });
 
-        log.info(
-            "✅ Interview session updated with recording URL:",
-            updatedSession.id
-        );
+        log.info("Interview session updated with recording URL:", updatedSession.id);
 
         return NextResponse.json({
             message: "Interview session updated successfully",

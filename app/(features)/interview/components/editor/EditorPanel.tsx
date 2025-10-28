@@ -191,7 +191,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                             value
                         );
                         log.debug(
-                            "🧩 Inserted segment (demo):",
+                            "Inserted segment (demo):",
                             insertedSegment
                         );
 

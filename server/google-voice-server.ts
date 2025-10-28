@@ -8,6 +8,7 @@ import { SpeechClient } from "@google-cloud/speech";
 import textToSpeech from "@google-cloud/text-to-speech";
 import { SessionsClient } from "@google-cloud/dialogflow-cx";
 import dotenv from "dotenv";
+import { log } from "app/shared/services";
 
 // Load env (supports Next-style .env.local during standalone server run)
 dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
@@ -244,12 +245,6 @@ wss.on("connection", async (ws: WebSocket) => {
 
 const PORT = Number(process.env.GOOGLE_VOICE_PORT || 3050);
 server.listen(PORT, () => {
-    // eslint-disable-next-line no-console
-    console.log(
-        `Google Voice PoC server listening on http://localhost:${PORT}`
-    );
-    // eslint-disable-next-line no-console
-    console.log(
-        `Open PoC UI at http://localhost:${PORT}/poc/google-voice.html`
-    );
+    log.info(`Google Voice PoC server listening on http://localhost:${PORT}`);
+    log.info(`Open PoC UI at http://localhost:${PORT}/poc/google-voice.html`);
 });

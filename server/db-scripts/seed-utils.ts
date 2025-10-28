@@ -1,5 +1,6 @@
 import { PrismaClient, UserRole } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { log } from "app/shared/services";
 
 export interface BasicCandidateInput {
     name: string;
@@ -21,7 +22,7 @@ export async function seedBasicCandidate(
     });
 
     if (existingUser) {
-        console.log(`✅ ${input.name} already exists. Skipping creation.`);
+        log.info(`${input.name} already exists. Skipping creation.`);
         const existingProfile = await prisma.candidateProfile.findUnique({
             where: { userId: existingUser.id },
         });
@@ -63,7 +64,7 @@ export async function seedBasicCandidate(
         },
     });
 
-    console.log(`✅ Created candidate: ${user.email}`);
+    log.info(`Created candidate: ${user.email}`);
     return user;
 }
 

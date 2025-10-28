@@ -5,6 +5,7 @@ import path from "path";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { seedBasicCandidate, ensureApplicationForCompany } from "../seed-utils";
+import { log } from "app/shared/services";
 
 const prisma = new PrismaClient();
 
@@ -289,10 +290,8 @@ export async function seedCandidateFromFile(
             }
         }
 
-        console.log(
-            `✅ Seeded candidate from ${path.basename(filePath)} → ${
-                user.email
-            }`
+        log.info(
+            `Seeded candidate from ${path.basename(filePath)} → ${user.email}`
         );
     } finally {
         await prisma.$disconnect();
@@ -303,13 +302,13 @@ if (require.main === module) {
     const fileArg = process.argv.find((a) => a.startsWith("--file="));
     const file = fileArg ? fileArg.split("=")[1] : undefined;
     if (!file) {
-        console.error(
+        log.error(
             "Usage: tsx server/db-scripts/seed-candidate/seed-candidate-from-json.ts --file=path/to/file.json"
         );
         process.exit(1);
     }
     seedCandidateFromFile(file, { reset: true }).catch((e) => {
-        console.error("❌ Error seeding from JSON:", e);
+        log.error("❌ Error seeding from JSON:", e);
         process.exit(1);
     });
 }

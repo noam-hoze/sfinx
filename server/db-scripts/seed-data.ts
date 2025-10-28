@@ -4,6 +4,7 @@ import { PrismaClient, CompanySize, JobType, UserRole } from "@prisma/client";
 import fs from "fs";
 import path from "path";
 import bcrypt from "bcryptjs";
+import { log } from "app/shared/services";
 
 // Import seed functions
 import { seedGal } from "./seed-candidate/seed-gal";
@@ -56,7 +57,7 @@ async function resetDatabase() {
         const companiesData = JSON.parse(
             fs.readFileSync(companiesPath, "utf-8")
         );
-        console.log("🗑️  Clearing existing data...");
+        log.info("Clearing existing data...");
 
         // Delete in reverse order of dependencies
         await prisma.job.deleteMany();
@@ -65,7 +66,7 @@ async function resetDatabase() {
         await prisma.candidateProfile.deleteMany();
         await prisma.user.deleteMany();
 
-        console.log("📝 Seeding companies, users, and jobs...");
+        log.info("Seeding companies, users, and jobs...");
 
         // Hash the password once for all users
         const hashedPassword = await bcrypt.hash("sfinx", 12);
@@ -83,7 +84,7 @@ async function resetDatabase() {
                 },
             });
 
-            console.log(`✅ Created company: ${company.name}`);
+            log.info(`Created company: ${company.name}`);
 
             // Create user account for company manager
             const managerEmail = `manager@${companyData.name
@@ -126,7 +127,7 @@ async function resetDatabase() {
                 },
             });
 
-            console.log(`   └─ Created manager account: ${managerEmail}`);
+            log.info(`   └─ Created manager account: ${managerEmail}`);
 
             // Create jobs for this company
             for (const jobData of companyData.openRoles) {
@@ -144,12 +145,10 @@ async function resetDatabase() {
                 });
             }
 
-            console.log(
-                `   └─ Created ${companyData.openRoles.length} jobs for ${company.name}`
-            );
+            log.info(`   └─ Created ${companyData.openRoles.length} jobs for ${company.name}`);
         }
 
-        console.log("🎉 Database reset and seeded successfully!");
+        log.info("Database reset and seeded successfully!");
 
         // Create additional candidates using existing seed scripts
         await seedGal();
@@ -163,11 +162,9 @@ async function resetDatabase() {
         const companyCount = await prisma.company.count();
         const jobCount = await prisma.job.count();
         const userCount = await prisma.user.count();
-        console.log(
-            `📊 Summary: ${companyCount} companies, ${userCount} users, ${jobCount} jobs`
-        );
+        log.info(`Summary: ${companyCount} companies, ${userCount} users, ${jobCount} jobs`);
     } catch (error) {
-        console.error("❌ Error resetting database:", error);
+        log.error("❌ Error resetting database:", error);
         process.exit(1);
     } finally {
         await prisma.$disconnect();
