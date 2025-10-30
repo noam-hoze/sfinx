@@ -15,7 +15,9 @@ import React, {
     forwardRef,
     useImperativeHandle,
 } from "react";
+import OpenAI from "openai";
 import { log } from "../../../../shared/services";
+import { buildControlContextMessages, parseControlResult, CONTROL_CONTEXT_TURNS } from "../../../../shared/services";
 import { useOpenAIRealtimeSession } from "@/shared/hooks/useOpenAIRealtimeSession";
 import { store } from "@/shared/state/store";
 import { buildOpenAIInterviewerPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
@@ -67,6 +69,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
         ref
     ) => {
         const [isConnected, setIsConnected] = useState(false);
+        const [jsonTestResult, setJsonTestResult] = useState<string>("");
         const [isRecording, setIsRecording] = useState(false);
         const micStreamRef = useRef<MediaStream | null>(null);
         const sessionRef = useRef<any>(null);
@@ -81,51 +84,131 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
         const awaitingClosingRef = useRef<boolean>(false);
         const closingExpectedRef = useRef<string>("");
         const didPresentCodingRef = useRef<boolean>(false);
-        // After the user’s first answer to the initial background question,
-        // CONTROL becomes required on every subsequent AI background turn
-        const controlRequiredRef = useRef<boolean>(false);
-        const controlTimerRef = useRef<number | null>(null);
 
-        const clearControlTimer = useCallback(() => {
-            if (controlTimerRef.current) {
-                clearTimeout(controlTimerRef.current as unknown as number);
-                controlTimerRef.current = null;
+        
+
+        // --- Simple JSON test (Chat Completions) --------------------------------
+        const openaiClient = useMemo(
+            () =>
+                new OpenAI({
+                    apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY || "",
+                    dangerouslyAllowBrowser: true,
+                }),
+            []
+        );
+
+        const requestJsonTest = useCallback(async () => {
+            try {
+                setJsonTestResult("Loading...");
+                const completion = await openaiClient.chat.completions.create({
+                    model: "gpt-4o-mini",
+                    messages: [
+                        {
+                            role: "user",
+                            content: `Return ONLY JSON: {"ok":true,"time":${Date.now()}}`,
+                        },
+                    ],
+                    response_format: { type: "json_object" },
+                });
+                const txt = completion.choices?.[0]?.message?.content ?? "";
+                setJsonTestResult(txt);
+            } catch (e: any) {
+                setJsonTestResult(`ERROR: ${String(e?.message || e)}`);
+            }
+        }, [openaiClient]);
+
+        // Context builder is provided by shared/services/buildControlContext
+
+        const requestControlViaChat = useCallback(async () => {
+            try {
+                setJsonTestResult("Loading CONTROL...");
+                // Pull interview context (company/role/stage) for a more grounded evaluation
+                const im = store.getState().interviewMachine;
+                const company = String(im.companyName || im.companySlug || "Unknown Company");
+                const role = String(im.roleSlug || "role").replace(/[-_]/g, " ");
+                const s = interviewChatStore.getState();
+                const history = buildControlContextMessages(CONTROL_CONTEXT_TURNS);
+                const kTurns = history.length;
+                const asked = s.background?.questionsAsked ?? 0;
+                const system = `You are the evaluation module for a technical interview at ${company} for the ${role} position.\nStage: Background.\nHistory length: ${kTurns} turns (assistant/user), provided below.\nRules: Derive your assessment solely from this history—never infer or assume beyond it. If history contains no concrete evidence for a pillar, keep that pillar at the minimum of the scale. If history is empty, there is no evidence: all pillars remain at their minimum and readyToProceed is false.\nEvidence examples include: project details, constraints, challenges handled, trade-offs, and outcomes.\nOutput: STRICT JSON only (no preface) with fields: overallConfidence (0-100), pillars {adaptability, creativity, reasoning} (0-100), readyToProceed (boolean), rationale (string explaining your decision), pillarRationales {adaptability: string, creativity: string, reasoning: string}.`;
+                try {
+                    logger.info("[control][chat] request context", {
+                        system,
+                        turns: history.length,
+                        history,
+                    });
+                } catch {}
+                const completion = await openaiClient.chat.completions.create({
+                    model: "gpt-4o-mini",
+                    temperature: 0,
+                    messages: [{ role: "system", content: system }, ...history],
+                    response_format: {
+                        type: "json_schema",
+                        json_schema: {
+                            name: "control_schema",
+                            schema: {
+                                type: "object",
+                                additionalProperties: false,
+                                properties: {
+                                    overallConfidence: { type: "number" },
+                                    pillars: {
+                                        type: "object",
+                                        additionalProperties: false,
+                                        properties: {
+                                            adaptability: { type: "number" },
+                                            creativity: { type: "number" },
+                                            reasoning: { type: "number" },
+                                        },
+                                        required: ["adaptability", "creativity", "reasoning"],
+                                    },
+                                    readyToProceed: { type: "boolean" },
+                                    rationale: { type: "string" },
+                                    pillarRationales: {
+                                        type: "object",
+                                        additionalProperties: false,
+                                        properties: {
+                                            adaptability: { type: "string" },
+                                            creativity: { type: "string" },
+                                            reasoning: { type: "string" },
+                                        },
+                                        required: ["adaptability", "creativity", "reasoning"],
+                                    },
+                                },
+                                required: [
+                                    "overallConfidence",
+                                    "pillars",
+                                    "readyToProceed",
+                                    "rationale",
+                                    "pillarRationales",
+                                ],
+                            },
+                            strict: true,
+                        },
+                    } as any,
+                });
+                try {
+                    logger.info("[control][chat] raw completion", {
+                        model: (completion as any)?.model,
+                        usage: (completion as any)?.usage,
+                        choices: (completion as any)?.choices,
+                    });
+                } catch {}
+                const txt = completion.choices?.[0]?.message?.content ?? "";
+                setJsonTestResult(txt);
+                // Update store from parsed result if valid
+                try {
+                    const parsed = parseControlResult(txt);
+                    interviewChatStore.dispatch({
+                        type: "BG_SET_CONFIDENCE",
+                        payload: Number(parsed.overallConfidence) || 0,
+                    });
+                } catch {}
+            } catch (e: any) {
+                setJsonTestResult(`CONTROL ERROR: ${String(e?.message || e)}`);
             }
         }, []);
 
-        function requestControlBackchannel() {
-            if (!controlRequiredRef.current) return;
-            try {
-                const sys =
-                    "CONTROL_REQUEST: Do not speak to the candidate. Return ONLY JSON {\"overallConfidence\":number,\"pillars\":{\"adaptability\":number,\"creativity\":number,\"reasoning\":number},\"readyToProceed\":boolean}.";
-                session.current?.transport?.sendEvent?.({
-                    type: "conversation.item.create",
-                    item: {
-                        type: "message",
-                        role: "system",
-                        content: [{ type: "input_text", text: sys }],
-                    },
-                });
-                session.current?.transport?.sendEvent?.({
-                    type: "response.create",
-                    response: {
-                        modalities: ["text"],
-                        instructions:
-                            "Return ONLY JSON: {\\\"overallConfidence\\\":number,\\\"pillars\\\":{\\\"adaptability\\\":number,\\\"creativity\\\":number,\\\"reasoning\\\":number},\\\"readyToProceed\\\":boolean}. No preface.",
-                    },
-                });
-                clearControlTimer();
-                controlTimerRef.current = window.setTimeout(() => {
-                    logger.error("[control] timeout: no CONTROL received within 5s");
-                    clearControlTimer();
-                }, 5000) as unknown as number;
-                logger.info("[openai] CONTROL backchannel requested");
-            } catch (e) {
-                logger.error("[openai] Failed to request CONTROL backchannel", {
-                    error: (e as any)?.message || String(e),
-                });
-            }
-        }
+        
 
         const notifyRecording = useCallback(
             (val: boolean) => {
@@ -157,6 +240,13 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
             (text: string, speaker: "user" | "ai") => {
                 if (!text) return;
                 dispatch(addMessage({ text, speaker }));
+                try {
+                    // Keep lightweight store in sync for CONTROL context building
+                    interviewChatStore.dispatch({
+                        type: "ADD_MESSAGE",
+                        payload: { text, speaker },
+                    } as any);
+                } catch {}
             },
             [dispatch]
         );
@@ -221,113 +311,18 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                             }
                             // After any user background answer, allow the model to ask the next follow-up
                             if (ms.state === "background_answered_by_user") {
-                                // From now on, require CONTROL on every AI turn in background
-                                controlRequiredRef.current = true;
                                 try {
                                     respond();
                                 } catch {}
-                                // Fire-and-forget CONTROL backchannel once per user background answer
-                                requestControlBackchannel();
                             }
                             // Do not present coding yet; will be triggered by CONTROL gate
                         } catch {}
                     } else if (m.role === "ai") {
                         try {
                             const textRaw = String(m.text || "").trim();
-                            // Try to interpret pure JSON as CONTROL backchannel (no visible posting)
-                            let handledAsControl = false;
-                            if (controlRequiredRef.current) {
-                                try {
-                                    // Fast-check brackets to avoid noisy parse attempts
-                                    const looksJson =
-                                        textRaw.startsWith("{") && textRaw.endsWith("}");
-                                    const maybe = looksJson ? JSON.parse(textRaw) : null;
-                                    if (
-                                        maybe &&
-                                        typeof maybe.overallConfidence === "number" &&
-                                        typeof maybe.readyToProceed === "boolean" &&
-                                        maybe.pillars
-                                    ) {
-                                        handledAsControl = true;
-                                        logger.info("[openai] CONTROL parsed:", maybe);
-                                        clearControlTimer();
-                                        const s = interviewChatStore.getState();
-                                        interviewChatStore.dispatch({
-                                            type: "BG_SET_CONFIDENCE",
-                                            payload: Number(maybe.overallConfidence) || 0,
-                                        });
-                                        interviewChatStore.dispatch({ type: "BG_INC_QUESTIONS" });
-                                        const gate = shouldAdvanceBackgroundStage({
-                                            currentConfidence: Number(maybe.overallConfidence) || 0,
-                                            questionsAsked: s.background.questionsAsked + 1,
-                                            transitioned: s.background.transitioned,
-                                        });
-                                        if (gate.shouldAdvance && maybe.readyToProceed === true) {
-                                            interviewChatStore.dispatch({ type: "BG_MARK_TRANSITION" });
-                                            interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" });
-                                            logger.info("[openai] Gate passed by CONTROL: advancing to coding");
-                                            // Present coding challenge now (once), using codingChallenge.prompt
-                                            try {
-                                                if (!didPresentCodingRef.current) {
-                                                    const prompt = (scriptRef.current as any)?.codingChallenge?.prompt;
-                                                    if (typeof prompt === "string" && prompt.trim().length > 0) {
-                                                        const sys = `Present the coding challenge exactly as follows, then wait for questions: "${String(
-                                                            prompt
-                                                        )}"`;
-                                                        session.current?.transport?.sendEvent?.({
-                                                            type: "conversation.item.create",
-                                                            item: {
-                                                                type: "message",
-                                                                role: "system",
-                                                                content: [{ type: "input_text", text: sys }],
-                                                            },
-                                                        });
-                                                        try {
-                                                            respond();
-                                                        } catch {}
-                                                        didPresentCodingRef.current = true;
-                                                    }
-                                                }
-                                            } catch {}
-                                        } else {
-                                            // Not ready yet: ask one concise follow-up question
-                                            try {
-                                                const sysF =
-                                                    "Ask ONE short follow-up question about the candidate's last background answer. Do not mention confidence or readiness.";
-                                                session.current?.transport?.sendEvent?.({
-                                                    type: "conversation.item.create",
-                                                    item: {
-                                                        type: "message",
-                                                        role: "system",
-                                                        content: [{ type: "input_text", text: sysF }],
-                                                    },
-                                                });
-                                                respond();
-                                            } catch {}
-                                        }
-                                    }
-                                } catch (e) {
-                                    logger.error("[openai] CONTROL raw (non-JSON)", {
-                                        text: textRaw.slice(0, 200),
-                                    });
-                                }
-                            }
-                            // If not CONTROL-only, treat as visible spoken turn
-                            if (!handledAsControl) {
-                                // Detect CONTROL leakage into spoken output (policy violation)
-                                if (
-                                    controlRequiredRef.current &&
-                                    /overallConfidence|\"pillars\"|readyToProceed/i.test(textRaw)
-                                ) {
-                                    logger.error("[policy] CONTROL leaked into spoken output", {
-                                        text: textRaw.slice(0, 200),
-                                    });
-                                }
-                                dispatch(machineAiFinal({ text: textRaw }));
-                                emitMachineState();
-                                if (textRaw) postToChat(textRaw, m.role);
-                                // No control request here; it is sent after user's background answer
-                            }
+                            dispatch(machineAiFinal({ text: textRaw }));
+                            emitMachineState();
+                            if (textRaw) postToChat(textRaw, m.role);
                         } catch {}
                     }
                 },
@@ -567,6 +562,21 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                                 : "Connected"
                             : "Disconnected"}
                     </p>
+                </div>
+                <div className="mt-4 p-3 border rounded">
+                    <button
+                        className="px-3 py-1.5 rounded bg-blue-600 text-white"
+                        onClick={requestJsonTest}
+                    >
+                        Request JSON (Chat)
+                    </button>
+                    <button
+                        className="ml-2 px-3 py-1.5 rounded bg-emerald-600 text-white"
+                        onClick={requestControlViaChat}
+                    >
+                        Request CONTROL (Chat)
+                    </button>
+                    <pre className="text-xs mt-2 whitespace-pre-wrap break-words">{jsonTestResult}</pre>
                 </div>
             </div>
         );

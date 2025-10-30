@@ -81,8 +81,8 @@ If DEBUG_MODE is true, the system displays current stage and current confidence 
 - **FR-008**: System MUST record the moment of stage transition and the final confidence value.
 - **FR-009 (Prompt Alignment)**: The interviewer prompt MUST: (a) target adaptability, creativity, reasoning; (b) use curveballs tailored to experience; (c) ask follow‑ups until sufficient evidence; (d) avoid revealing rubric or confidence; (e) use a neutral readiness phrase when sufficient.
 - **FR-010 (Stage Controller)**: The flow controller MUST encode the 5 stages (Greeting → Background → Coding → Submission → Wrap‑up) and expose deterministic transitions.
-- **FR-011 (Control Line - OpenAI)**: After each candidate answer, the interviewer MUST emit a hidden control line of the form `CONTROL: {"overallConfidence":number,"pillars":{"adaptability":number,"creativity":number,"reasoning":number},"readyToProceed":boolean}`; this line MUST not be spoken.
-- **FR-012 (Parser - App)**: The app MUST parse the control line, update confidence in state, enforce ≥3 background questions, and advance to Coding only when `overallConfidence ≥ 95` and `readyToProceed=true`.
+- **FR-011 (Evaluation via Chat Completions - OpenAI)**: After each candidate answer, the system MAY request an evaluation via the OpenAI Chat Completions API (out-of-band from Realtime speech). The request MUST include the last K alternating turns (const `CONTROL_CONTEXT_TURNS`, default 10) and a system instruction to assess sufficiency to score the background stage across the three pillars. The model MUST return STRICT JSON using a schema: `{overallConfidence:number (0–100), pillars:{adaptability:number, creativity:number, reasoning:number}, readyToProceed:boolean}`.
+- **FR-012 (Updater - App)**: The app MUST parse the JSON result, update confidence in state, enforce ≥3 background questions, and advance to Coding only when `overallConfidence ≥ 95` and `readyToProceed=true`. Requests are serialized (max 1 in-flight per user answer). Results are never hidden or discarded; anomalies MUST be logged.
 
 ### Key Entities (data-level, conceptual)
 
@@ -93,7 +93,7 @@ If DEBUG_MODE is true, the system displays current stage and current confidence 
 
 ### Measurable Outcomes
 
-- **SC-001**: 100% of transitions occur only at confidence ≥95%.
+- **SC-001**: 100% of transitions occur only at confidence ≥95% and `readyToProceed=true` from Chat Completions evaluation.
 - **SC-002**: With DEBUG_MODE=true, stage and confidence appear on 100% of turns.
 - **SC-003**: Average of ≤8 background questions before reaching decision in pilot runs.
 - **SC-004**: ≥80% reviewer rating that follow-ups/curveballs are relevant and evidence-backed.
@@ -103,3 +103,12 @@ If DEBUG_MODE is true, the system displays current stage and current confidence 
 - The three pillars are fixed (adaptability, creativity, reasoning) for this stage.
 - No hard maximum number of background questions; product may tune later.
 - DEBUG_MODE is a runtime configuration accessible during the session.
+ - CONTROL evaluation is non-spoken (Chat Completions), so prompt does not need leakage guards.
+ - Realtime remains responsible for speech; evaluation is out-of-band and does not consume the audio turn.
+
+## Implementation Notes (plan)
+
+- Client builds the evaluation context from the last `min(userTurns, aiTurns, CONTROL_CONTEXT_TURNS)` alternating messages and adds a concise system instruction focused on “sufficiency to score background,” not “best candidate”.
+- Use `response_format: json_schema` (strict), temperature 0, 10–20s timeout.
+- Add a per-request `turnId` for logs; do not auto-suppress late results—log and surface for debugging.
+- Initially exposed via a manual “Request CONTROL (Chat)” button; later, trigger once automatically after each user-final in Background.
