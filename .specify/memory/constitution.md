@@ -34,6 +34,13 @@
 - No guesswork or speculative mitigations; fixes proceed only after causality is demonstrated.
 - Rationale: Ensures durable solutions, avoids masking symptoms, and prevents regressions.
 
+### VII. Observability & Logging for AI‑Assisted Coding
+- Code MUST emit concise, structured logs at key state transitions, decisions, external I/O, retries, and errors.
+- Logs MUST include correlation context (request/session IDs) and minimal input/output summaries; secrets and PII MUST be redacted.
+- Log levels MUST be consistent (debug/info/warn/error); logs MUST be actionable and avoid noise or duplication.
+- Do NOT add hidden fallbacks that mask failures; failures MUST be logged explicitly with impact.
+- Rationale: AI‑assisted workflows depend on clear state visibility so humans and agents can understand current and next states.
+
 ## Additional Constraints
 - Conversation and session data defaults to in-memory for POC; persistence requires explicit approval.
 - Secrets MUST never be committed; use environment variables/CI secrets.
@@ -56,4 +63,4 @@
 - Amendments: Use `/speckit.constitution` to propose changes; maintainers may update directly in POC. Post‑POC, changes require approval per governance policy.
 - Versioning: MAJOR for incompatible principle changes; MINOR for new principles/sections; PATCH for clarifications.
 
-**Version**: 1.2.0
+**Version**: 1.3.0
