@@ -97,26 +97,6 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
             []
         );
 
-        const requestJsonTest = useCallback(async () => {
-            try {
-                setJsonTestResult("Loading...");
-                const completion = await openaiClient.chat.completions.create({
-                    model: "gpt-4o-mini",
-                    messages: [
-                        {
-                            role: "user",
-                            content: `Return ONLY JSON: {"ok":true,"time":${Date.now()}}`,
-                        },
-                    ],
-                    response_format: { type: "json_object" },
-                });
-                const txt = completion.choices?.[0]?.message?.content ?? "";
-                setJsonTestResult(txt);
-            } catch (e: any) {
-                setJsonTestResult(`ERROR: ${String(e?.message || e)}`);
-            }
-        }, [openaiClient]);
-
         // Context builder is provided by shared/services/buildControlContext
 
         const requestControlViaChat = useCallback(async () => {
@@ -564,12 +544,6 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                     </p>
                 </div>
                 <div className="mt-4 p-3 border rounded">
-                    <button
-                        className="px-3 py-1.5 rounded bg-blue-600 text-white"
-                        onClick={requestJsonTest}
-                    >
-                        Request JSON (Chat)
-                    </button>
                     <button
                         className="ml-2 px-3 py-1.5 rounded bg-emerald-600 text-white"
                         onClick={requestControlViaChat}
