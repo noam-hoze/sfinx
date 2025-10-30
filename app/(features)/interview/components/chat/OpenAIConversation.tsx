@@ -85,6 +85,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
         const awaitingClosingRef = useRef<boolean>(false);
         const closingExpectedRef = useRef<string>("");
         const didPresentCodingRef = useRef<boolean>(false);
+        const controlInFlightRef = useRef<boolean>(false);
 
         
 
@@ -101,6 +102,8 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
         // Context builder is provided by shared/services/buildControlContext
 
         const requestControlViaChat = useCallback(async () => {
+            if (controlInFlightRef.current) return;
+            controlInFlightRef.current = true;
             try {
                 setJsonTestResult("Loading CONTROL...");
                 // Pull interview context (company/role/stage) for a more grounded evaluation
@@ -195,6 +198,8 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 } catch {}
             } catch (e: any) {
                 setJsonTestResult(`CONTROL ERROR: ${String(e?.message || e)}`);
+            } finally {
+                controlInFlightRef.current = false;
             }
         }, []);
 
@@ -303,6 +308,14 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                             if (ms.state === "background_answered_by_user") {
                                 try {
                                     respond();
+                                } catch {}
+                                // Also trigger CONTROL evaluation via Chat Completions (out-of-band)
+                                try {
+                                    const st = interviewChatStore.getState();
+                                    if (st.stage === "background") {
+                                        setJsonTestResult("Loading CONTROL...");
+                                        void requestControlViaChat();
+                                    }
                                 } catch {}
                             }
                             // Do not present coding yet; will be triggered by CONTROL gate
@@ -553,7 +566,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                             : "Disconnected"}
                     </p>
                 </div>
-                <div className="mt-4 p-3 border rounded">
+                {/* <div className="mt-4 p-3 border rounded">
                     <button
                         className="ml-2 px-3 py-1.5 rounded bg-emerald-600 text-white"
                         onClick={requestControlViaChat}
@@ -563,7 +576,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                     {jsonTestResult.startsWith("Loading") && (
                         <div className="text-xs text-gray-500 mt-2">{jsonTestResult}</div>
                     )}
-                </div>
+                </div> */}
                 {process.env.NEXT_PUBLIC_DEBUG_MODE === "true" && <BackgroundDebugPanel />}
             </div>
         );

@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { interviewChatStore } from "@/shared/state/interviewChatStore";
 
 export type InterviewState =
     | "idle"
@@ -62,8 +63,15 @@ const interviewMachineSlice = createSlice({
                     state.state = "background_asked_by_ai";
                 }
             } else if (state.state === "background_answered_by_user") {
-                // Upon AI response completion, enter coding session directly
-                state.state = "in_coding_session";
+                // After AI finishes, move to coding only if gate satisfied; otherwise continue background
+                try {
+                    const s = interviewChatStore.getState();
+                    const conf = Number(s?.background?.confidence || 0);
+                    if (conf >= 95) state.state = "in_coding_session";
+                    else state.state = "background_asked_by_ai";
+                } catch {
+                    state.state = "background_asked_by_ai";
+                }
             }
         },
         userFinal: (state) => {
@@ -72,7 +80,8 @@ const interviewMachineSlice = createSlice({
             } else if (state.state === "background_asked_by_ai") {
                 state.state = "background_answered_by_user";
             } else if (state.state === "followup_question") {
-                state.state = "in_coding_session";
+                // User finished after follow-up; remain in background until gate passes
+                state.state = "background_answered_by_user";
             }
         },
         startFollowup: (state) => {
