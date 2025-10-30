@@ -17,6 +17,7 @@ import React, {
 } from "react";
 import OpenAI from "openai";
 import { log } from "../../../../shared/services";
+import BackgroundDebugPanel from "../../../../shared/components/BackgroundDebugPanel";
 import { buildControlContextMessages, parseControlResult, CONTROL_CONTEXT_TURNS } from "../../../../shared/services";
 import { useOpenAIRealtimeSession } from "@/shared/hooks/useOpenAIRealtimeSession";
 import { store } from "@/shared/state/store";
@@ -179,9 +180,18 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 try {
                     const parsed = parseControlResult(txt);
                     interviewChatStore.dispatch({
-                        type: "BG_SET_CONFIDENCE",
-                        payload: Number(parsed.overallConfidence) || 0,
-                    });
+                        type: "BG_SET_CONTROL_RESULT",
+                        payload: {
+                            confidence: Number(parsed.overallConfidence) || 0,
+                            pillars: parsed.pillars,
+                            rationales: {
+                                overall: parsed.rationale,
+                                adaptability: parsed.pillarRationales?.adaptability,
+                                creativity: parsed.pillarRationales?.creativity,
+                                reasoning: parsed.pillarRationales?.reasoning,
+                            },
+                        },
+                    } as any);
                 } catch {}
             } catch (e: any) {
                 setJsonTestResult(`CONTROL ERROR: ${String(e?.message || e)}`);
@@ -300,9 +310,9 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                     } else if (m.role === "ai") {
                         try {
                             const textRaw = String(m.text || "").trim();
-                            dispatch(machineAiFinal({ text: textRaw }));
-                            emitMachineState();
-                            if (textRaw) postToChat(textRaw, m.role);
+                                dispatch(machineAiFinal({ text: textRaw }));
+                                emitMachineState();
+                                if (textRaw) postToChat(textRaw, m.role);
                         } catch {}
                     }
                 },
@@ -550,8 +560,11 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                     >
                         Request CONTROL (Chat)
                     </button>
-                    <pre className="text-xs mt-2 whitespace-pre-wrap break-words">{jsonTestResult}</pre>
+                    {jsonTestResult.startsWith("Loading") && (
+                        <div className="text-xs text-gray-500 mt-2">{jsonTestResult}</div>
+                    )}
                 </div>
+                {process.env.NEXT_PUBLIC_DEBUG_MODE === "true" && <BackgroundDebugPanel />}
             </div>
         );
     }

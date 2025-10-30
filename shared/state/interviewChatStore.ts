@@ -25,6 +25,13 @@ export type InterviewChatState = {
     // Background stage fields
     background: {
         confidence: number; // 0–100
+        pillars?: { adaptability: number; creativity: number; reasoning: number };
+        rationales?: {
+            overall?: string;
+            adaptability?: string;
+            creativity?: string;
+            reasoning?: string;
+        };
         questionsAsked: number;
         transitioned: boolean;
         transitionedAt?: number;
@@ -37,6 +44,19 @@ type Action =
     | { type: "SET_RECORDING"; payload: boolean }
     | { type: "SET_STAGE"; payload: InterviewStage }
     | { type: "BG_SET_CONFIDENCE"; payload: number }
+    | {
+          type: "BG_SET_CONTROL_RESULT";
+          payload: {
+              confidence: number;
+              pillars?: { adaptability: number; creativity: number; reasoning: number };
+              rationales?: {
+                  overall?: string;
+                  adaptability?: string;
+                  creativity?: string;
+                  reasoning?: string;
+              };
+          };
+      }
     | { type: "BG_INC_QUESTIONS" }
     | { type: "BG_MARK_TRANSITION" };
 
@@ -67,6 +87,16 @@ function reducer(
             return {
                 ...state,
                 background: { ...state.background, confidence: action.payload },
+            };
+        case "BG_SET_CONTROL_RESULT":
+            return {
+                ...state,
+                background: {
+                    ...state.background,
+                    confidence: action.payload.confidence,
+                    pillars: action.payload.pillars,
+                    rationales: action.payload.rationales,
+                },
             };
         case "BG_INC_QUESTIONS":
             return {

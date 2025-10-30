@@ -12,12 +12,18 @@ export type ControlResult = {
     overallConfidence: number; // 0–100
     pillars: ControlPillars;
     readyToProceed: boolean;
+    rationale?: string;
+    pillarRationales?: {
+        adaptability?: string;
+        creativity?: string;
+        reasoning?: string;
+    };
 };
 
 /**
  * Number of alternating turns (user/assistant) to include in Chat Completions
  * evaluation context. Can be overridden by callers.
  */
-export const CONTROL_CONTEXT_TURNS = 10;
+export const CONTROL_CONTEXT_TURNS = 30;
 
 
