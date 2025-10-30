@@ -9,9 +9,7 @@ export type ControlPillars = {
 };
 
 export type ControlResult = {
-    overallConfidence: number; // 0–100
     pillars: ControlPillars;
-    readyToProceed: boolean;
     rationale?: string;
     pillarRationales?: {
         adaptability?: string;

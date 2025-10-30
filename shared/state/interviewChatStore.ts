@@ -32,6 +32,9 @@ export type InterviewChatState = {
             creativity?: string;
             reasoning?: string;
         };
+        aggPillars?: { adaptability: number; creativity: number; reasoning: number };
+        aggConfidence?: number;
+        samples?: number;
         questionsAsked: number;
         transitioned: boolean;
         transitionedAt?: number;
@@ -56,6 +59,10 @@ type Action =
                   reasoning?: string;
               };
           };
+      }
+    | {
+          type: "BG_ACCUMULATE_CONTROL_RESULT";
+          payload: { pillars: { adaptability: number; creativity: number; reasoning: number } };
       }
     | { type: "BG_INC_QUESTIONS" }
     | { type: "BG_MARK_TRANSITION" };
@@ -98,6 +105,29 @@ function reducer(
                     rationales: action.payload.rationales,
                 },
             };
+        case "BG_ACCUMULATE_CONTROL_RESULT": {
+            const prev = state.background.aggPillars || {
+                adaptability: 0,
+                creativity: 0,
+                reasoning: 0,
+            };
+            const n = state.background.samples || 0;
+            const next = {
+                adaptability: (prev.adaptability * n + action.payload.pillars.adaptability) / (n + 1),
+                creativity: (prev.creativity * n + action.payload.pillars.creativity) / (n + 1),
+                reasoning: (prev.reasoning * n + action.payload.pillars.reasoning) / (n + 1),
+            };
+            const aggConfidence = (next.adaptability + next.creativity + next.reasoning) / 3;
+            return {
+                ...state,
+                background: {
+                    ...state.background,
+                    aggPillars: next,
+                    aggConfidence,
+                    samples: n + 1,
+                },
+            };
+        }
         case "BG_INC_QUESTIONS":
             return {
                 ...state,

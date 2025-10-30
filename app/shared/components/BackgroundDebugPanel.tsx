@@ -15,7 +15,7 @@ export default function BackgroundDebugPanel() {
     if (process.env.NEXT_PUBLIC_DEBUG_MODE !== "true") return null;
 
     const bg = state.background as any;
-    const pillars = bg?.pillars || {};
+    const pillars = bg?.aggPillars || bg?.pillars || {};
     const r = bg?.rationales || {};
 
     return (
@@ -23,8 +23,8 @@ export default function BackgroundDebugPanel() {
             <div className="font-semibold mb-2">Background Evaluation (Debug)</div>
             <div className="grid grid-cols-2 gap-2">
                 <div>
-                    <div className="text-xs text-gray-600">Overall Confidence</div>
-                    <div className="font-mono">{bg?.confidence ?? 0}%</div>
+                    <div className="text-xs text-gray-600">Overall Confidence (Avg)</div>
+                    <div className="font-mono">{Math.round((bg?.aggConfidence ?? 0) * 10) / 10}%</div>
                     {r?.overall && (
                         <div className="text-xs text-gray-700 mt-1 whitespace-pre-wrap">
                             {r.overall}

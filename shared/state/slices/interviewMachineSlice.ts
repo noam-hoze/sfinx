@@ -66,7 +66,7 @@ const interviewMachineSlice = createSlice({
                 // After AI finishes, move to coding only if gate satisfied; otherwise continue background
                 try {
                     const s = interviewChatStore.getState();
-                    const conf = Number(s?.background?.confidence || 0);
+                    const conf = Number(s?.background?.aggConfidence || 0);
                     if (conf >= 95) state.state = "in_coding_session";
                     else state.state = "background_asked_by_ai";
                 } catch {

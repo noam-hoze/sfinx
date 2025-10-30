@@ -114,7 +114,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 const history = buildControlContextMessages(CONTROL_CONTEXT_TURNS);
                 const kTurns = history.length;
                 const asked = s.background?.questionsAsked ?? 0;
-                const system = `You are the evaluation module for a technical interview at ${company} for the ${role} position.\nStage: Background.\nHistory length: ${kTurns} turns (assistant/user), provided below.\nRules: Derive your assessment solely from this history—never infer or assume beyond it. If history contains no concrete evidence for a pillar, keep that pillar at the minimum of the scale. If history is empty, there is no evidence: all pillars remain at their minimum and readyToProceed is false.\nEvidence examples include: project details, constraints, challenges handled, trade-offs, and outcomes.\nOutput: STRICT JSON only (no preface) with fields: overallConfidence (0-100), pillars {adaptability, creativity, reasoning} (0-100), readyToProceed (boolean), rationale (string explaining your decision), pillarRationales {adaptability: string, creativity: string, reasoning: string}.`;
+                const system = `You are the evaluation module for a technical interview at ${company} for the ${role} position.\nStage: Background.\nHistory length: ${kTurns} turns (assistant/user), provided below.\nRules: Derive your assessment solely from this history—never infer or assume beyond it. If history contains no concrete evidence for a pillar, keep that pillar at the minimum of the scale. If history is empty, there is no evidence and all pillars remain at their minimum.\nEvidence examples include: project details, constraints, challenges handled, trade-offs, and outcomes.\nOutput: STRICT JSON only (no preface) with fields: pillars {adaptability, creativity, reasoning} (0-100), rationale (string explaining your decision), pillarRationales {adaptability: string, creativity: string, reasoning: string}.`;
                 try {
                     logger.info("[control][chat] request context", {
                         system,
@@ -134,7 +134,6 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                                 type: "object",
                                 additionalProperties: false,
                                 properties: {
-                                    overallConfidence: { type: "number" },
                                     pillars: {
                                         type: "object",
                                         additionalProperties: false,
@@ -145,7 +144,6 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                                         },
                                         required: ["adaptability", "creativity", "reasoning"],
                                     },
-                                    readyToProceed: { type: "boolean" },
                                     rationale: { type: "string" },
                                     pillarRationales: {
                                         type: "object",
@@ -159,9 +157,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                                     },
                                 },
                                 required: [
-                                    "overallConfidence",
                                     "pillars",
-                                    "readyToProceed",
                                     "rationale",
                                     "pillarRationales",
                                 ],
@@ -182,10 +178,12 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 // Update store from parsed result if valid
                 try {
                     const parsed = parseControlResult(txt);
+                    const currentConfidence =
+                        (parsed.pillars.adaptability + parsed.pillars.creativity + parsed.pillars.reasoning) / 3;
                     interviewChatStore.dispatch({
                         type: "BG_SET_CONTROL_RESULT",
                         payload: {
-                            confidence: Number(parsed.overallConfidence) || 0,
+                            confidence: currentConfidence,
                             pillars: parsed.pillars,
                             rationales: {
                                 overall: parsed.rationale,
@@ -194,6 +192,10 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                                 reasoning: parsed.pillarRationales?.reasoning,
                             },
                         },
+                    } as any);
+                    interviewChatStore.dispatch({
+                        type: "BG_ACCUMULATE_CONTROL_RESULT",
+                        payload: { pillars: parsed.pillars },
                     } as any);
                 } catch {}
             } catch (e: any) {

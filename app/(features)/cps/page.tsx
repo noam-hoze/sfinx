@@ -747,8 +747,9 @@ function TelemetryContent() {
                                                 aiTs: (s.evidence || []).find(
                                                     (e: any) => (e.title || "").includes("AI") && e.startTime !== null && e.startTime !== undefined
                                                 )?.startTime,
-                                            }))
-                                        onSelect={(index, ts) => {
+                                            }))}
+                                        activeIndex={activeSessionIndex}
+                                        onSelect={(index: number, ts?: number) => {
                                             setActiveSessionIndex(index);
                                             if (typeof ts === "number") {
                                                 onVideoJump(ts);
