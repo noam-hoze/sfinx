@@ -18,6 +18,9 @@ export type InterviewStage =
     | "submission"
     | "wrapup";
 
+import { initState as initScorerState, update as scorerUpdate } from "@/shared/services/weightedMean/scorer";
+import type { AllTraitState } from "@/shared/services/weightedMean/types";
+
 export type InterviewChatState = {
     messages: ChatMessage[];
     isRecording: boolean;
@@ -38,6 +41,8 @@ export type InterviewChatState = {
         questionsAsked: number;
         transitioned: boolean;
         transitionedAt?: number;
+            scorer?: AllTraitState;
+            coverage?: { A: boolean; C: boolean; R: boolean };
     };
 };
 
@@ -118,6 +123,22 @@ function reducer(
                 reasoning: (prev.reasoning * n + action.payload.pillars.reasoning) / (n + 1),
             };
             const aggConfidence = (next.adaptability + next.creativity + next.reasoning) / 3;
+
+            // Update scorer state once per CONTROL result using normalized ratings and unit weight
+            let scorer = state.background.scorer || initScorerState();
+            const a = Math.max(0, Math.min(1, action.payload.pillars.adaptability / 100));
+            const c = Math.max(0, Math.min(1, action.payload.pillars.creativity / 100));
+            const r = Math.max(0, Math.min(1, action.payload.pillars.reasoning / 100));
+            scorer = scorerUpdate(scorer, { trait: "A", r: a, w: 1 }).state;
+            scorer = scorerUpdate(scorer, { trait: "C", r: c, w: 1 }).state;
+            scorer = scorerUpdate(scorer, { trait: "R", r: r, w: 1 }).state;
+
+            const coveragePrev = state.background.coverage || { A: false, C: false, R: false };
+            const coverage = {
+                A: coveragePrev.A || a > 0,
+                C: coveragePrev.C || c > 0,
+                R: coveragePrev.R || r > 0,
+            };
             return {
                 ...state,
                 background: {
@@ -125,6 +146,8 @@ function reducer(
                     aggPillars: next,
                     aggConfidence,
                     samples: n + 1,
+                    scorer,
+                    coverage,
                 },
             };
         }

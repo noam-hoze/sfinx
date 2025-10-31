@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
+import { stopCheck } from "@/shared/services/weightedMean/scorer";
 
 export type InterviewState =
     | "idle"
@@ -63,12 +64,16 @@ const interviewMachineSlice = createSlice({
                     state.state = "background_asked_by_ai";
                 }
             } else if (state.state === "background_answered_by_user") {
-                // After AI finishes, move to coding only if gate satisfied; otherwise continue background
+                // Gate entirely by stopCheck (per-trait τ, coverage, n≥2)
                 try {
                     const s = interviewChatStore.getState();
-                    const conf = Number(s?.background?.aggConfidence || 0);
-                    if (conf >= 95) state.state = "in_coding_session";
-                    else state.state = "background_asked_by_ai";
+                    const scorer = s?.background?.scorer;
+                    const coverage = s?.background?.coverage;
+                    if (scorer && coverage && stopCheck(scorer, coverage)) {
+                        state.state = "in_coding_session";
+                    } else {
+                        state.state = "background_asked_by_ai";
+                    }
                 } catch {
                     state.state = "background_asked_by_ai";
                 }
