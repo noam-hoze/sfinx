@@ -33,6 +33,7 @@ import {
     userFinal as machineUserFinal,
     end as machineEnd,
     setExpectedBackgroundQuestion,
+    forceCoding,
 } from "@/shared/state/slices/interviewMachineSlice";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import { shouldAdvanceBackgroundStage } from "../../../../shared/services";
@@ -112,7 +113,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 const role = String(im.roleSlug || "role").replace(/[-_]/g, " ");
                 const s = interviewChatStore.getState();
                 const { system: roHistory, assistant: lastQ, user: lastA } = buildDeltaControlMessages(CONTROL_CONTEXT_TURNS);
-                const system = `You are the evaluation module for a technical interview at ${company} for the ${role} position.\nStage: Background.\n\nCRITICAL RULES:\n- Score ONLY the last user answer that follows.\n- Use the read-only history for understanding terms only; DO NOT award credit for past turns.\n- If the last user answer contains no concrete, attributable evidence for a pillar, output 0 for that pillar.\n- Every non-zero pillar MUST be justified with a short rationale referencing exact phrases from the last answer.\n\n${roHistory}\n\nOutput: STRICT JSON only (no preface) with fields: pillars {adaptability, creativity, reasoning} (0-100), rationale (string explaining your decision), pillarRationales {adaptability: string, creativity: string, reasoning: string}.`;
+                const system = `You are the evaluation module for a technical interview at ${company} for the ${role} position.\nStage: Background.\n\nCRITICAL RULES:\n- Score ONLY the last user answer that follows.\n- Use the read-only history for understanding terms only; DO NOT award credit for past turns.\n- If the last user answer contains no concrete, attributable evidence for a pillar, output 0 for that pillar.\n- Every non-zero pillar MUST be justified with a short rationale referencing exact phrases from the last answer.\n- DO NOT initiate or suggest moving to coding; that decision is external and controlled by the system.\n\n${roHistory}\n\nOutput: STRICT JSON only (no preface) with fields: pillars {adaptability, creativity, reasoning} (0-100), rationale (string explaining your decision), pillarRationales {adaptability: string, creativity: string, reasoning: string}.`;
                 try {
                     logger.info("[control][chat] request context", {
                         system,
@@ -199,6 +200,41 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                         type: "BG_ACCUMULATE_CONTROL_RESULT",
                         payload: { pillars: parsed.pillars },
                     } as any);
+
+                    // Guard: only after we've seen a meaningful (non-zero) answer in this project
+                    try {
+                        const bg = interviewChatStore.getState().background as any;
+                        const zeroRuns = Number(bg?.zeroRuns || 0);
+                        const seenNonZero = Boolean(bg?.seenNonZero);
+                        // Simplified rule: two consecutive zeros within the current project → cap reached
+                        if (seenNonZero && zeroRuns >= 2) {
+                            interviewChatStore.dispatch({
+                                type: "BG_GUARD_SET_REASON",
+                                payload: { reason: "projects_cap" },
+                            } as any);
+                            // Cancel any ongoing reply and immediately switch to coding
+                            try {
+                                sessionRef.current?.transport?.sendEvent?.({ type: "response.cancel" });
+                            } catch {}
+                            try {
+                                store.dispatch(forceCoding());
+                                interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" } as any);
+                            } catch {}
+                            // Present our coding question to the candidate
+                            try {
+                                const codingPrompt =
+                                    (scriptRef.current as any)?.codingQuestion ||
+                                    (scriptRef.current as any)?.coding?.prompt ||
+                                    "Let's move to the coding exercise now. Please open the editor; I'll present the problem.";
+                                postToChat(codingPrompt, "ai");
+                                allowNextResponse();
+                                sessionRef.current?.transport?.sendEvent?.({
+                                    type: "response.create",
+                                    response: { instructions: codingPrompt, modalities: ["audio", "text"] },
+                                } as any);
+                            } catch {}
+                        }
+                    } catch {}
                 } catch {}
             } catch (e: any) {
                 setJsonTestResult(`CONTROL ERROR: ${String(e?.message || e)}`);

@@ -1,6 +1,7 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import { stopCheck } from "@/shared/services/weightedMean/scorer";
+import { shouldTransition } from "@/shared/services/backgroundSessionGuard";
 
 export type InterviewState =
     | "idle"
@@ -62,17 +63,40 @@ const interviewMachineSlice = createSlice({
                     (action.payload.text || "").trim() === expectedQ
                 ) {
                     state.state = "background_asked_by_ai";
+                    try {
+                        const s = interviewChatStore.getState();
+                        if (!s.background.startedAtMs) {
+                            interviewChatStore.dispatch({ type: "BG_GUARD_START_TIMER" });
+                        }
+                    } catch {}
                 }
             } else if (state.state === "background_answered_by_user") {
-                // Gate entirely by stopCheck (per-trait τ, coverage, n≥2)
+                // Evaluate guard: timebox/projects cap/stopCheck
                 try {
                     const s = interviewChatStore.getState();
                     const scorer = s?.background?.scorer;
                     const coverage = s?.background?.coverage;
-                    if (scorer && coverage && stopCheck(scorer, coverage)) {
+                    const gateReady = !!(scorer && coverage && stopCheck(scorer, coverage));
+                    const reason = shouldTransition(
+                        {
+                            startedAtMs: s.background.startedAtMs,
+                            zeroRuns: s.background.zeroRuns || 0,
+                            projectsUsed: s.background.projectsUsed || 0,
+                        },
+                        { gateReady }
+                    );
+                    if (reason) {
+                        interviewChatStore.dispatch({ type: "BG_GUARD_SET_REASON", payload: { reason } });
                         state.state = "in_coding_session";
                     } else {
                         state.state = "background_asked_by_ai";
+                        // Ensure timer started on any entry to background mode
+                        try {
+                            const st = interviewChatStore.getState();
+                            if (!st.background.startedAtMs) {
+                                interviewChatStore.dispatch({ type: "BG_GUARD_START_TIMER" });
+                            }
+                        } catch {}
                     }
                 } catch {
                     state.state = "background_asked_by_ai";
@@ -109,6 +133,9 @@ const interviewMachineSlice = createSlice({
             state.companySlug = undefined;
             state.roleSlug = undefined;
         },
+        forceCoding: (state) => {
+            state.state = "in_coding_session";
+        },
     },
 });
 
@@ -121,5 +148,6 @@ export const {
     setCompanyContext,
     end,
     reset,
+    forceCoding,
 } = interviewMachineSlice.actions;
 export default interviewMachineSlice.reducer;

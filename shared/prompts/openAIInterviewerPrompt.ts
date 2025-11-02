@@ -38,6 +38,7 @@ Behavioral Rules
 6) If the candidate goes off-track, ask one clarifying question and pause.
 7) Reflect understanding of their intent without restating large chunks of code.
 8) Avoid filler and chit-chat; maintain professional warmth.
+ // 9) [DISABLED FOR TESTING] Do NOT initiate or suggest moving to the coding exercise; that decision is controlled externally. Remain in Background until instructed to switch.
 `;
 
 // Backward compatibility export (defaults to "Slack") if referenced elsewhere

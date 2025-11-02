@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import { confidences, DefaultConfig, stopCheck } from "@/shared/services/weightedMean/scorer";
+import { TIMEBOX_MS, formatCountdown } from "@/shared/services/backgroundSessionGuard";
 
 export default function BackgroundDebugPanel() {
     const [state, setState] = useState(() => interviewChatStore.getState());
@@ -15,11 +16,16 @@ export default function BackgroundDebugPanel() {
 
     if (process.env.NEXT_PUBLIC_DEBUG_MODE !== "true") return null;
 
+    const stage = state.stage as any;
     const bg = state.background as any;
     const pillars = bg?.pillars || {};
     const r = bg?.rationales || {};
     const scorer = bg?.scorer;
     const coverage = bg?.coverage;
+    const startedAtMs = bg?.startedAtMs;
+    const zeroRuns = bg?.zeroRuns ?? 0;
+    const projectsUsed = bg?.projectsUsed ?? 0;
+    const reason = bg?.reason;
 
     const conf = useMemo(() => (scorer ? confidences(scorer) : null), [scorer]);
     const tau = DefaultConfig.tau;
@@ -29,6 +35,23 @@ export default function BackgroundDebugPanel() {
     const rA = typeof pillars.adaptability === "number" ? Math.max(0, Math.min(1, pillars.adaptability / 100)) : 0;
     const rC = typeof pillars.creativity === "number" ? Math.max(0, Math.min(1, pillars.creativity / 100)) : 0;
     const rR = typeof pillars.reasoning === "number" ? Math.max(0, Math.min(1, pillars.reasoning / 100)) : 0;
+
+    // Force a repaint every second so countdown updates live
+    const [tick, setTick] = useState(0);
+    useEffect(() => {
+        const id = setInterval(() => setTick((t) => (t + 1) % 1_000_000), 1000);
+        return () => clearInterval(id);
+    }, []);
+
+    // Coding panel (blank for now)
+    if (stage === "coding") {
+        return (
+            <div className="mt-3 p-3 rounded border text-sm bg-white/60">
+                <div className="font-semibold mb-2">Coding (Debug)</div>
+                <div className="text-xs text-gray-600">No data yet.</div>
+            </div>
+        );
+    }
 
     return (
         <div className="mt-3 p-3 rounded border text-sm bg-white/60">
@@ -46,6 +69,8 @@ export default function BackgroundDebugPanel() {
                         )}
                     </div>
                     <div className="text-xs text-gray-600 mt-1">Gate ready: <span className="font-mono">{ready ? "true" : "false"}</span></div>
+                    <div className="text-xs text-gray-600 mt-1">Time left: <span className="font-mono">{formatCountdown(Math.max(0, (startedAtMs ? (startedAtMs + TIMEBOX_MS - Date.now()) : TIMEBOX_MS)))}</span></div>
+                    <div className="text-xs text-gray-600 mt-1">zeroRuns:{zeroRuns} projectsUsed:{projectsUsed} {reason ? `(reason: ${reason})` : ""}</div>
                 </div>
                 <div>
                     <div className="text-xs text-gray-600">Pillars (raw)</div>
