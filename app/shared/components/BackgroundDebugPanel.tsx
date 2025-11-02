@@ -16,7 +16,7 @@ export default function BackgroundDebugPanel() {
     if (process.env.NEXT_PUBLIC_DEBUG_MODE !== "true") return null;
 
     const bg = state.background as any;
-    const pillars = bg?.aggPillars || bg?.pillars || {};
+    const pillars = bg?.pillars || {};
     const r = bg?.rationales || {};
     const scorer = bg?.scorer;
     const coverage = bg?.coverage;
@@ -24,6 +24,11 @@ export default function BackgroundDebugPanel() {
     const conf = useMemo(() => (scorer ? confidences(scorer) : null), [scorer]);
     const tau = DefaultConfig.tau;
     const ready = useMemo(() => (scorer && coverage ? stopCheck(scorer, coverage) : false), [scorer, coverage]);
+
+    // Latest normalized values (from last CONTROL), not cumulative averages
+    const rA = typeof pillars.adaptability === "number" ? Math.max(0, Math.min(1, pillars.adaptability / 100)) : 0;
+    const rC = typeof pillars.creativity === "number" ? Math.max(0, Math.min(1, pillars.creativity / 100)) : 0;
+    const rR = typeof pillars.reasoning === "number" ? Math.max(0, Math.min(1, pillars.reasoning / 100)) : 0;
 
     return (
         <div className="mt-3 p-3 rounded border text-sm bg-white/60">
@@ -51,21 +56,21 @@ export default function BackgroundDebugPanel() {
                 <div>
                     <div className="text-xs font-medium">Adaptability</div>
                     {scorer && (
-                        <div className="text-xs text-gray-600 font-mono">n:{scorer.A.n} W:{scorer.A.W.toFixed(2)} S:{scorer.A.S.toFixed(2)}</div>
+                        <div className="text-xs text-gray-600 font-mono">n:{scorer.A.n} W:{scorer.A.W.toFixed(2)} r:{rA.toFixed(2)}</div>
                     )}
                     <div className="text-xs whitespace-pre-wrap">{r?.adaptability || ""}</div>
                 </div>
                 <div>
                     <div className="text-xs font-medium">Creativity</div>
                     {scorer && (
-                        <div className="text-xs text-gray-600 font-mono">n:{scorer.C.n} W:{scorer.C.W.toFixed(2)} S:{scorer.C.S.toFixed(2)}</div>
+                        <div className="text-xs text-gray-600 font-mono">n:{scorer.C.n} W:{scorer.C.W.toFixed(2)} r:{rC.toFixed(2)}</div>
                     )}
                     <div className="text-xs whitespace-pre-wrap">{r?.creativity || ""}</div>
                 </div>
                 <div>
                     <div className="text-xs font-medium">Reasoning</div>
                     {scorer && (
-                        <div className="text-xs text-gray-600 font-mono">n:{scorer.R.n} W:{scorer.R.W.toFixed(2)} S:{scorer.R.S.toFixed(2)}</div>
+                        <div className="text-xs text-gray-600 font-mono">n:{scorer.R.n} W:{scorer.R.W.toFixed(2)} r:{rR.toFixed(2)}</div>
                     )}
                     <div className="text-xs whitespace-pre-wrap">{r?.reasoning || ""}</div>
                 </div>

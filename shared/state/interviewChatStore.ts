@@ -18,7 +18,7 @@ export type InterviewStage =
     | "submission"
     | "wrapup";
 
-import { initState as initScorerState, update as scorerUpdate } from "@/shared/services/weightedMean/scorer";
+import { initState as initScorerState, update as scorerUpdate, computeWeight } from "@/shared/services/weightedMean/scorer";
 import type { AllTraitState } from "@/shared/services/weightedMean/types";
 
 export type InterviewChatState = {
@@ -111,27 +111,21 @@ function reducer(
                 },
             };
         case "BG_ACCUMULATE_CONTROL_RESULT": {
-            const prev = state.background.aggPillars || {
-                adaptability: 0,
-                creativity: 0,
-                reasoning: 0,
-            };
-            const n = state.background.samples || 0;
-            const next = {
-                adaptability: (prev.adaptability * n + action.payload.pillars.adaptability) / (n + 1),
-                creativity: (prev.creativity * n + action.payload.pillars.creativity) / (n + 1),
-                reasoning: (prev.reasoning * n + action.payload.pillars.reasoning) / (n + 1),
-            };
-            const aggConfidence = (next.adaptability + next.creativity + next.reasoning) / 3;
+            // Use latest pillars directly (no averaging)
+            const latest = action.payload.pillars;
 
-            // Update scorer state once per CONTROL result using normalized ratings and unit weight
+            // Update scorer state once per CONTROL result using normalized ratings and unit weight,
+            // but SKIP updates when value==0 (no evidence)
             let scorer = state.background.scorer || initScorerState();
-            const a = Math.max(0, Math.min(1, action.payload.pillars.adaptability / 100));
-            const c = Math.max(0, Math.min(1, action.payload.pillars.creativity / 100));
-            const r = Math.max(0, Math.min(1, action.payload.pillars.reasoning / 100));
-            scorer = scorerUpdate(scorer, { trait: "A", r: a, w: 1 }).state;
-            scorer = scorerUpdate(scorer, { trait: "C", r: c, w: 1 }).state;
-            scorer = scorerUpdate(scorer, { trait: "R", r: r, w: 1 }).state;
+            const a = Math.max(0, Math.min(1, latest.adaptability / 100));
+            const c = Math.max(0, Math.min(1, latest.creativity / 100));
+            const r = Math.max(0, Math.min(1, latest.reasoning / 100));
+            const wA = computeWeight(1, a, 1, 1, 1);
+            const wC = computeWeight(1, c, 1, 1, 1);
+            const wR = computeWeight(1, r, 1, 1, 1);
+            if (wA > 0) scorer = scorerUpdate(scorer, { trait: "A", r: a, w: wA }).state;
+            if (wC > 0) scorer = scorerUpdate(scorer, { trait: "C", r: c, w: wC }).state;
+            if (wR > 0) scorer = scorerUpdate(scorer, { trait: "R", r: r, w: wR }).state;
 
             const coveragePrev = state.background.coverage || { A: false, C: false, R: false };
             const coverage = {
@@ -143,9 +137,7 @@ function reducer(
                 ...state,
                 background: {
                     ...state.background,
-                    aggPillars: next,
-                    aggConfidence,
-                    samples: n + 1,
+                    pillars: latest,
                     scorer,
                     coverage,
                 },

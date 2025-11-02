@@ -18,7 +18,7 @@ import React, {
 import OpenAI from "openai";
 import { log } from "../../../../shared/services";
 import BackgroundDebugPanel from "../../../../shared/components/BackgroundDebugPanel";
-import { buildControlContextMessages, parseControlResult, CONTROL_CONTEXT_TURNS } from "../../../../shared/services";
+import { buildControlContextMessages, buildDeltaControlMessages, parseControlResult, CONTROL_CONTEXT_TURNS } from "../../../../shared/services";
 import { useOpenAIRealtimeSession } from "@/shared/hooks/useOpenAIRealtimeSession";
 import { store } from "@/shared/state/store";
 import { buildOpenAIInterviewerPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
@@ -111,10 +111,8 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 const company = String(im.companyName || im.companySlug || "Unknown Company");
                 const role = String(im.roleSlug || "role").replace(/[-_]/g, " ");
                 const s = interviewChatStore.getState();
-                const history = buildControlContextMessages(CONTROL_CONTEXT_TURNS);
-                const kTurns = history.length;
-                const asked = s.background?.questionsAsked ?? 0;
-                const system = `You are the evaluation module for a technical interview at ${company} for the ${role} position.\nStage: Background.\nHistory length: ${kTurns} turns (assistant/user), provided below.\nRules: Derive your assessment solely from this history—never infer or assume beyond it. If history contains no concrete evidence for a pillar, keep that pillar at the minimum of the scale. If history is empty, there is no evidence and all pillars remain at their minimum.\nEvidence examples include: project details, constraints, challenges handled, trade-offs, and outcomes.\nOutput: STRICT JSON only (no preface) with fields: pillars {adaptability, creativity, reasoning} (0-100), rationale (string explaining your decision), pillarRationales {adaptability: string, creativity: string, reasoning: string}.`;
+                const { system: roHistory, assistant: lastQ, user: lastA } = buildDeltaControlMessages(CONTROL_CONTEXT_TURNS);
+                const system = `You are the evaluation module for a technical interview at ${company} for the ${role} position.\nStage: Background.\n\nCRITICAL RULES:\n- Score ONLY the last user answer that follows.\n- Use the read-only history for understanding terms only; DO NOT award credit for past turns.\n- If the last user answer contains no concrete, attributable evidence for a pillar, output 0 for that pillar.\n- Every non-zero pillar MUST be justified with a short rationale referencing exact phrases from the last answer.\n\n${roHistory}\n\nOutput: STRICT JSON only (no preface) with fields: pillars {adaptability, creativity, reasoning} (0-100), rationale (string explaining your decision), pillarRationales {adaptability: string, creativity: string, reasoning: string}.`;
                 try {
                     logger.info("[control][chat] request context", {
                         system,
@@ -125,7 +123,11 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 const completion = await openaiClient.chat.completions.create({
                     model: "gpt-4o-mini",
                     temperature: 0,
-                    messages: [{ role: "system", content: system }, ...history],
+                    messages: [
+                        { role: "system", content: system },
+                        lastQ ? { role: "assistant", content: lastQ } : undefined,
+                        lastA ? { role: "user", content: lastA } : undefined,
+                    ].filter(Boolean) as any,
                     response_format: {
                         type: "json_schema",
                         json_schema: {
