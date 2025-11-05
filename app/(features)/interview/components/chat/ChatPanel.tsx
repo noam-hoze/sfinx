@@ -15,9 +15,10 @@ interface TranscriptionMessage {
 interface ChatPanelProps {
     micMuted?: boolean;
     onToggleMicMute?: () => void;
+    onSendText?: (text: string) => Promise<void>;
 }
 
-const ChatPanel = ({ micMuted = false, onToggleMicMute }: ChatPanelProps) => {
+const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText }: ChatPanelProps) => {
     const chat = useSelector((s: RootState) => s.interviewChat);
     const transcriptions: TranscriptionMessage[] = chat.messages.map((m) => ({
         id: m.id,
@@ -52,33 +53,34 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute }: ChatPanelProps) => {
                         </h3>
                     </div>
                     <div className="flex items-center space-x-2">
-                        <button
-                            onClick={onToggleMicMute}
-                            className={`relative p-1 rounded-full transition-all duration-200 ${
-                                micMuted
-                                    ? "bg-red-100 hover:bg-red-200 dark:bg-red-900/20 dark:hover:bg-red-900/30"
-                                    : "hover:bg-gray-200 dark:hover:bg-gray-700"
-                            }`}
-                            title={
-                                micMuted
-                                    ? "Unmute microphone"
-                                    : "Mute microphone"
-                            }
-                        >
-                            {micMuted ? (
-                                <>
-                                    <MicOff className="w-4 h-4 text-red-600 dark:text-red-400" />
-                                    {/* Red slash indicator */}
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <div className="w-5 h-0.5 bg-red-600 dark:bg-red-400 rotate-45 transform origin-center"></div>
-                                    </div>
-                                </>
-                            ) : isRecording ? (
-                                <Mic className="w-4 h-4 text-red-500 animate-pulse" />
-                            ) : (
-                                <Mic className="w-4 h-4 text-gray-400" />
-                            )}
-                        </button>
+                        {typeof onSendText !== "function" && (
+                            <button
+                                onClick={onToggleMicMute}
+                                className={`relative p-1 rounded-full transition-all duration-200 ${
+                                    micMuted
+                                        ? "bg-red-100 hover:bg-red-200 dark:bg-red-900/20 dark:hover:bg-red-900/30"
+                                        : "hover:bg-gray-200 dark:hover:bg-gray-700"
+                                }`}
+                                title={
+                                    micMuted
+                                        ? "Unmute microphone"
+                                        : "Mute microphone"
+                                }
+                            >
+                                {micMuted ? (
+                                    <>
+                                        <MicOff className="w-4 h-4 text-red-600 dark:text-red-400" />
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <div className="w-5 h-0.5 bg-red-600 dark:bg-red-400 rotate-45 transform origin-center"></div>
+                                        </div>
+                                    </>
+                                ) : isRecording ? (
+                                    <Mic className="w-4 h-4 text-red-500 animate-pulse" />
+                                ) : (
+                                    <Mic className="w-4 h-4 text-gray-400" />
+                                )}
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -131,12 +133,35 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute }: ChatPanelProps) => {
                 </div>
             </div>
 
-            {/* Footer */}
+            {/* Footer / Text input when text-mode */}
             <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
-                    <span>Live Voice Transcription</span>
-                    <span>{transcriptions.length} messages</span>
-                </div>
+                {typeof onSendText === "function" ? (
+                    <form
+                        onSubmit={async (e) => {
+                            e.preventDefault();
+                            const fd = new FormData(e.currentTarget as HTMLFormElement);
+                            const text = String(fd.get("chat_input") || "").trim();
+                            if (!text) return;
+                            (e.currentTarget as HTMLFormElement).reset();
+                            await onSendText(text);
+                        }}
+                        className="flex items-center gap-2"
+                    >
+                        <input
+                            name="chat_input"
+                            placeholder="Type your message…"
+                            className="flex-1 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm"
+                        />
+                        <button type="submit" className="px-3 py-2 text-sm rounded-md bg-blue-600 text-white">
+                            Send
+                        </button>
+                    </form>
+                ) : (
+                    <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+                        <span>Live Voice Transcription</span>
+                        <span>{transcriptions.length} messages</span>
+                    </div>
+                )}
             </div>
         </div>
     );

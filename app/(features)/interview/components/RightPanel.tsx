@@ -3,6 +3,8 @@
 import React from "react";
 import RealTimeConversation from "./chat/RealTimeConversation";
 import OpenAIConversation from "./chat/OpenAIConversation";
+import TextChatController from "./chat/TextChatController";
+import BackgroundDebugPanel from "../../../shared/components/BackgroundDebugPanel";
 import ChatPanel from "./chat/ChatPanel";
 
 interface RightPanelProps {
@@ -46,6 +48,8 @@ const RightPanel: React.FC<RightPanelProps> = ({
     setIsInterviewActive,
     onStopTimer,
 }) => {
+    const isTextMode = (process.env.NEXT_PUBLIC_INTERVIEW_COMM_METHOD || "speech").toLowerCase() === "text";
+
     return (
         <div className="h-full flex flex-col border-t">
             <div className="flex-[1] flex flex-col bg-white dark:bg-gray-800">
@@ -79,9 +83,17 @@ const RightPanel: React.FC<RightPanelProps> = ({
                     </div>
                 </div>
 
-                <div className="flex-1 p-4">
-                    {(process.env.NEXT_PUBLIC_VOICE_ENGINE || "elevenlabs") ===
-                    "openai" ? (
+            <div className="flex-1 p-4">
+                    {isTextMode ? (
+                        <TextChatController
+                            ref={realTimeConversationRef}
+                            candidateName={candidateName}
+                            onStartConversation={() => {
+                                setIsAgentConnected(true);
+                                onStartConversation();
+                            }}
+                        />
+                    ) : ( (process.env.NEXT_PUBLIC_VOICE_ENGINE || "elevenlabs") === "openai" ? (
                         <OpenAIConversation
                             ref={realTimeConversationRef}
                             isInterviewActive={isInterviewActive}
@@ -108,8 +120,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
                                 onEndConversation();
                             }}
                             onInterviewConcluded={onInterviewConcluded}
-                        />
-                    ) : (
+                        />) : (
                         <RealTimeConversation
                             ref={realTimeConversationRef}
                             isInterviewActive={isInterviewActive}
@@ -130,8 +141,12 @@ const RightPanel: React.FC<RightPanelProps> = ({
                                 onEndConversation();
                             }}
                             onInterviewConcluded={onInterviewConcluded}
-                        />
-                    )}
+                        />))}
+                {process.env.NEXT_PUBLIC_DEBUG_MODE === "true" && (
+                    <div className="mt-3">
+                        <BackgroundDebugPanel />
+                    </div>
+                )}
                 </div>
             </div>
 
@@ -139,6 +154,12 @@ const RightPanel: React.FC<RightPanelProps> = ({
                 <ChatPanel
                     micMuted={micMuted}
                     onToggleMicMute={onToggleMicMute}
+                    onSendText={isTextMode ? async (t: string) => {
+                        try {
+                            const ref = realTimeConversationRef.current as any;
+                            if (ref?.sendUserMessage) await ref.sendUserMessage(t);
+                        } catch {}
+                    } : undefined}
                 />
             </div>
         </div>

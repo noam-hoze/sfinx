@@ -17,7 +17,6 @@ import React, {
 } from "react";
 import OpenAI from "openai";
 import { log } from "../../../../shared/services";
-import BackgroundDebugPanel from "../../../../shared/components/BackgroundDebugPanel";
 import { buildControlContextMessages, buildDeltaControlMessages, parseControlResult, CONTROL_CONTEXT_TURNS } from "../../../../shared/services";
 import { useOpenAIRealtimeSession } from "@/shared/hooks/useOpenAIRealtimeSession";
 import { store } from "@/shared/state/store";
@@ -667,7 +666,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                         <div className="text-xs text-gray-500 mt-2">{jsonTestResult}</div>
                     )}
                 </div> */}
-                {process.env.NEXT_PUBLIC_DEBUG_MODE === "true" && <BackgroundDebugPanel />}
+                
             </div>
         );
     }
