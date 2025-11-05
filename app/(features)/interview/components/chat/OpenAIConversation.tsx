@@ -21,7 +21,7 @@ import BackgroundDebugPanel from "../../../../shared/components/BackgroundDebugP
 import { buildControlContextMessages, buildDeltaControlMessages, parseControlResult, CONTROL_CONTEXT_TURNS } from "../../../../shared/services";
 import { useOpenAIRealtimeSession } from "@/shared/hooks/useOpenAIRealtimeSession";
 import { store } from "@/shared/state/store";
-import { buildOpenAIBackgroundPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
+import { buildOpenAIBackgroundPrompt, buildOpenAICodingPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
 import { useDispatch } from "react-redux";
 import {
     addMessage,
@@ -220,22 +220,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                                 store.dispatch(forceCoding());
                                 interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" } as any);
                             } catch {}
-                            // Present our coding question to the candidate
-                            try {
-                                const codingPrompt =
-                                    (scriptRef.current as any)?.codingQuestion ||
-                                    (scriptRef.current as any)?.coding?.prompt ||
-                                    "Let's move to the coding exercise now. Please open the editor; I'll present the problem.";
-                                postToChat(codingPrompt, "ai");
-                                allowNextResponse();
-                                try {
-                                    logger.info("[openai][prompt][coding_instructions]\n" + codingPrompt);
-                                } catch {}
-                                sessionRef.current?.transport?.sendEvent?.({
-                                    type: "response.create",
-                                    response: { instructions: codingPrompt, modalities: ["audio", "text"] },
-                                } as any);
-                            } catch {}
+                            // No additional instructions or chat echo; coding persona handles the task
                         }
                     } catch {}
                 } catch {}
@@ -304,6 +289,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
         }, []);
         const scriptRef = useRef<null>(null);
         const expectingUserRef = useRef<boolean>(false);
+        const codingPromptInjectedRef = useRef<boolean>(false);
         const { connected, session, connect, respond, enableHandsFree, allowNextResponse } =
             useOpenAIRealtimeSession(
                 (m) => {
@@ -386,6 +372,9 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 // Use new hook
                 await connect();
                 sessionRef.current = session.current;
+                try {
+                    (window as any).__sfinxOpenAITransport = sessionRef.current?.transport;
+                } catch {}
                 // Inject Background-only persona as a system prompt (no respond here)
                 try {
                     const ms = store.getState().interviewMachine;
@@ -472,6 +461,46 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 void connectLegacy();
             }
         }, [isRecording, isConnected]);
+
+        // Inject coding-stage persona when state transitions to in_coding_session
+        useEffect(() => {
+            const unsubscribe = store.subscribe(() => {
+                try {
+                    const ms = store.getState().interviewMachine;
+                    if (ms.state === "in_coding_session" && !codingPromptInjectedRef.current) {
+                        const companyName = ms.companyName || "Company";
+                        const taskText = (scriptRef.current as any)?.codingPrompt;
+                        if (typeof taskText !== "string" || taskText.trim() === "") {
+                            logger.error("[openai][coding][missing_prompt] codingPrompt not found in script");
+                            return;
+                        }
+                        const persona = buildOpenAICodingPrompt(companyName, taskText);
+                        try {
+                            logger.info("[openai][prompt][coding_persona]\n" + persona);
+                        } catch {}
+                        try {
+                            sessionRef.current?.transport?.sendEvent?.({
+                                type: "conversation.item.create",
+                                item: {
+                                    type: "message",
+                                    role: "system",
+                                    content: [{ type: "input_text", text: persona }],
+                                },
+                            });
+                        } catch {}
+                        try {
+                            respond();
+                        } catch {}
+                        codingPromptInjectedRef.current = true;
+                    }
+                } catch {}
+            });
+            return () => {
+                try {
+                    unsubscribe();
+                } catch {}
+            };
+        }, []);
 
         const disconnect = useCallback(() => {
             try {
@@ -610,6 +639,9 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 if (sessionRef.current?.disconnect) {
                     sessionRef.current.disconnect();
                 }
+                try {
+                    (window as any).__sfinxOpenAITransport = null;
+                } catch {}
             };
         }, []);
 
