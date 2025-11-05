@@ -21,7 +21,7 @@ import BackgroundDebugPanel from "../../../../shared/components/BackgroundDebugP
 import { buildControlContextMessages, buildDeltaControlMessages, parseControlResult, CONTROL_CONTEXT_TURNS } from "../../../../shared/services";
 import { useOpenAIRealtimeSession } from "@/shared/hooks/useOpenAIRealtimeSession";
 import { store } from "@/shared/state/store";
-import { buildOpenAIInterviewerPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
+import { buildOpenAIBackgroundPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
 import { useDispatch } from "react-redux";
 import {
     addMessage,
@@ -228,6 +228,9 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                                     "Let's move to the coding exercise now. Please open the editor; I'll present the problem.";
                                 postToChat(codingPrompt, "ai");
                                 allowNextResponse();
+                                try {
+                                    logger.info("[openai][prompt][coding_instructions]\n" + codingPrompt);
+                                } catch {}
                                 sessionRef.current?.transport?.sendEvent?.({
                                     type: "response.create",
                                     response: { instructions: codingPrompt, modalities: ["audio", "text"] },
@@ -330,6 +333,9 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                                 const text = `Ask exactly: "${String(
                                     expectedQ
                                 )}"`;
+                                try {
+                                    logger.info("[openai][prompt][background_question]\n" + text);
+                                } catch {}
                                 session.current?.transport?.sendEvent?.({
                                     type: "conversation.item.create",
                                     item: {
@@ -380,11 +386,14 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 // Use new hook
                 await connect();
                 sessionRef.current = session.current;
-                // Inject interviewer persona as a system prompt (no respond here)
+                // Inject Background-only persona as a system prompt (no respond here)
                 try {
                     const ms = store.getState().interviewMachine;
                     const companyName = ms.companyName || "Company";
-                    const persona = buildOpenAIInterviewerPrompt(companyName);
+                    const persona = buildOpenAIBackgroundPrompt(companyName);
+                    try {
+                        logger.info("[openai][prompt][persona]\n" + persona);
+                    } catch {}
                     sessionRef.current?.transport?.sendEvent?.({
                         type: "conversation.item.create",
                         item: {
@@ -427,6 +436,9 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                     dispatch(machineStart({ candidateName }));
                     const name = candidateName || "Candidate";
                     const text = `Say exactly: "Hi ${name}, I'm Carrie. I'll be the one interviewing today!"`;
+                    try {
+                        logger.info("[openai][prompt][greeting]\n" + text);
+                    } catch {}
                     sessionRef.current?.transport?.sendEvent?.({
                         type: "conversation.item.create",
                         item: {
@@ -521,6 +533,9 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                     } catch {}
 
                     const text = `Context: Code changes since last snapshot.\nAdded (${payload.addedChars} chars):\n"""\n${payload.added}\n"""\nRemoved (${payload.removedChars} chars):\n"""\n${payload.removed}\n"""\nInstruction: Ask exactly one short follow-up question about these changes, then wait silently for the user's answer.`;
+                    try {
+                        logger.info("[openai][prompt][followup_delta]\n" + text);
+                    } catch {}
                     session.current?.transport?.sendEvent?.({
                         type: "conversation.item.create",
                         item: {
@@ -558,6 +573,9 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                         logger.info("[closing][submit] input_audio_buffer cleared");
                     } catch {}
                     const text = `Say exactly: "${expected}"`;
+                    try {
+                        logger.info("[openai][prompt][closing]\n" + text);
+                    } catch {}
                     logger.info("[closing][submit] enqueue closing item.create", { text });
                     session.current?.transport?.sendEvent?.({
                         type: "conversation.item.create",

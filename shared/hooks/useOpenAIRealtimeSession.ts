@@ -134,7 +134,7 @@ function updateTranscriptionConfig(session: any) {
     try {
         session?.transport?.updateSessionConfig?.({
             turn_detection: null,
-            input_audio_transcription: { model: "whisper-1" },
+            input_audio_transcription: { model: "whisper-1", language: "en" },
         });
     } catch {}
 }
