@@ -45,6 +45,7 @@
 - Conversation and session data defaults to in-memory for POC; persistence requires explicit approval.
 - Secrets MUST never be committed; use environment variables/CI secrets.
 - Accessibility and performance are non-negotiable: fast first interaction and readable UI components.
+- Default-value fallbacks are forbidden; expressions like `const companyName = ms.companyName || "Company"` MUST NOT be used.
 
 ## Development Workflow & Quality Gates
 - Specifications: Each feature under `app/(features)/<feature>/` MUST have a local spec at `docs/specs/<feature>.md` and be referenced in commits.
@@ -112,6 +113,7 @@
 - Conversation and session data defaults to in-memory for POC; persistence requires explicit approval.
 - Secrets MUST never be committed; use environment variables/CI secrets.
 - Accessibility and performance are non-negotiable: fast first interaction and readable UI components.
+- Default-value fallbacks are forbidden; expressions like `const companyName = ms.companyName || "Company"` MUST NOT be used.
 
 ## Development Workflow & Quality Gates
 - Specifications: Each feature under `app/(features)/<feature>/` MUST have a local spec at `docs/specs/<feature>.md` and be referenced in commits.
