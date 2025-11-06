@@ -61,7 +61,7 @@ export default function BackgroundDebugPanel() {
             weight: scorer?.A.W ?? 0,
             latestRaw: pillars.adaptability ?? 0,
             latestNorm: rA,
-            rationale: r?.adaptability || "",
+            rationale: r?.adaptability,
         },
         {
             key: "C" as const,
@@ -72,7 +72,7 @@ export default function BackgroundDebugPanel() {
             weight: scorer?.C.W ?? 0,
             latestRaw: pillars.creativity ?? 0,
             latestNorm: rC,
-            rationale: r?.creativity || "",
+            rationale: r?.creativity,
         },
         {
             key: "R" as const,
@@ -83,7 +83,7 @@ export default function BackgroundDebugPanel() {
             weight: scorer?.R.W ?? 0,
             latestRaw: pillars.reasoning ?? 0,
             latestNorm: rR,
-            rationale: r?.reasoning || "",
+            rationale: r?.reasoning,
         },
     ];
 

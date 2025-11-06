@@ -72,9 +72,6 @@ wss.on("connection", async (ws: WebSocket) => {
     // Initialize Google clients once per connection
     const speechClient = new SpeechClient();
     const ttsClient = new textToSpeech.TextToSpeechClient();
-    const sessionsClient = new SessionsClient({
-        apiEndpoint: `${process.env.GOOGLE_AGENT_LOCATION}-dialogflow.googleapis.com`,
-    });
     // Default service account path if not provided
     if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
         const defaultKey = path.resolve(
@@ -86,10 +83,35 @@ wss.on("connection", async (ws: WebSocket) => {
         }
     }
 
+    const agentLocation = process.env.GOOGLE_AGENT_LOCATION;
+    if (!agentLocation) {
+        send({
+            type: "status",
+            message: "Missing GOOGLE_AGENT_LOCATION. Check your environment configuration.",
+        });
+        try {
+            ws.close(1011, "missing env");
+        } catch {}
+        return;
+    }
+    const languageCode = process.env.GOOGLE_LANGUAGE;
+    if (!languageCode) {
+        send({
+            type: "status",
+            message: "Missing GOOGLE_LANGUAGE. Check your environment configuration.",
+        });
+        try {
+            ws.close(1011, "missing env");
+        } catch {}
+        return;
+    }
+    const sessionsClient = new SessionsClient({
+        apiEndpoint: `${agentLocation}-dialogflow.googleapis.com`,
+    });
+
     const projectId = process.env.GOOGLE_PROJECT_ID as string;
     const agentId = process.env.DIALOGFLOW_AGENT_ID as string;
-    const location = process.env.GOOGLE_AGENT_LOCATION || "us-central1";
-    const languageCode = process.env.GOOGLE_LANGUAGE || "en-US";
+    const location = agentLocation;
 
     if (!projectId || !agentId) {
         send({
@@ -126,9 +148,13 @@ wss.on("connection", async (ws: WebSocket) => {
                 interimResults: true,
             })
             .on("error", (err: any) => {
+                const errMessage = err?.message;
+                if (!errMessage) {
+                    throw new Error("Speech recognition error without message");
+                }
                 send({
                     type: "status",
-                    message: `stt-error: ${String(err?.message || err)}`,
+                    message: `stt-error: ${errMessage}`,
                 });
                 isStreamActive = false;
             })
@@ -156,12 +182,16 @@ wss.on("connection", async (ws: WebSocket) => {
                                 text: { text: userText },
                             },
                         });
-                        const fulfillmentText =
-                            (dfcxResp.queryResult?.responseMessages || [])
-                                .map((m: any) => m.text?.text?.[0])
-                                .filter(Boolean)
-                                .join(" ") || "";
-                        const aiText = fulfillmentText || "Okay.";
+                        const fulfillmentMessages =
+                            dfcxResp.queryResult?.responseMessages ?? [];
+                        const fulfillmentText = fulfillmentMessages
+                            .map((m: any) => m.text?.text?.[0])
+                            .filter(Boolean)
+                            .join(" ");
+                        if (!fulfillmentText) {
+                            throw new Error("Dialogflow response missing fulfillment text");
+                        }
+                        const aiText = fulfillmentText;
                         send({ type: "ai_text", text: aiText });
 
                         const sampleRate = 16000;
@@ -193,11 +223,13 @@ wss.on("connection", async (ws: WebSocket) => {
                         );
                         send({ type: "ai_audio", wavBase64: base64 });
                     } catch (err: any) {
+                        const errMessage = err?.message;
+                        if (!errMessage) {
+                            throw new Error("Dialogflow or TTS error without message");
+                        }
                         send({
                             type: "status",
-                            message: `dfcx/tts-error: ${String(
-                                err?.message || err
-                            )}`,
+                            message: `dfcx/tts-error: ${errMessage}`,
                         });
                     }
                 }
@@ -227,9 +259,13 @@ wss.on("connection", async (ws: WebSocket) => {
                 send({ type: "status", message: "pong" });
             }
         } catch (err: any) {
+            const errMessage = err?.message;
+            if (!errMessage) {
+                throw new Error("WebSocket message error without message");
+            }
             send({
                 type: "status",
-                message: `error: ${String(err?.message || err)}`,
+                message: `error: ${errMessage}`,
             });
         }
     });
@@ -243,7 +279,11 @@ wss.on("connection", async (ws: WebSocket) => {
     });
 });
 
-const PORT = Number(process.env.GOOGLE_VOICE_PORT || 3050);
+const googleVoicePort = process.env.GOOGLE_VOICE_PORT;
+if (!googleVoicePort) {
+    throw new Error("GOOGLE_VOICE_PORT is required");
+}
+const PORT = Number(googleVoicePort);
 server.listen(PORT, () => {
     log.info(`Google Voice PoC server listening on http://localhost:${PORT}`);
     log.info(`Open PoC UI at http://localhost:${PORT}/poc/google-voice.html`);

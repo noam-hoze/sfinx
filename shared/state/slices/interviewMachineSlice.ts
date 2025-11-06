@@ -61,21 +61,27 @@ const interviewMachineSlice = createSlice({
         },
         aiFinal: (state, action: PayloadAction<{ text: string }>) => {
             if (state.state === "idle") {
+                if (!state.candidateName) {
+                    throw new Error("Interview machine missing candidateName");
+                }
                 const expected = `Hi ${
-                    state.candidateName || "Candidate"
+                    state.candidateName
                 }, I'm Carrie. I'll be the one interviewing today!`;
-                if ((action.payload.text || "").trim() === expected) {
+                const incomingText = action.payload.text;
+                if (!incomingText) {
+                    return;
+                }
+                if (incomingText.trim() === expected) {
                     const prev = state.state;
                     state.state = "greeting_said_by_ai";
                     logStageTransition(prev, state.state, "ai greeting matched");
                 }
             } else if (state.state === "greeting_responded_by_user") {
-                const expectedQ = (
-                    state.expectedBackgroundQuestion || ""
-                ).trim();
+                const expectedQ = state.expectedBackgroundQuestion?.trim();
                 if (
                     expectedQ &&
-                    (action.payload.text || "").trim() === expectedQ
+                    action.payload.text &&
+                    action.payload.text.trim() === expectedQ
                 ) {
                     const prev = state.state;
                     state.state = "background_asked_by_ai";
@@ -94,11 +100,19 @@ const interviewMachineSlice = createSlice({
                     const scorer = s?.background?.scorer;
                     const coverage = s?.background?.coverage;
                     const gateReady = !!(scorer && coverage && stopCheck(scorer, coverage));
+                    const zeroRuns = s.background.zeroRuns;
+                    if (zeroRuns === undefined) {
+                        throw new Error("Background guard missing zeroRuns");
+                    }
+                    const projectsUsed = s.background.projectsUsed;
+                    if (projectsUsed === undefined) {
+                        throw new Error("Background guard missing projectsUsed");
+                    }
                     const reason = shouldTransition(
                         {
                             startedAtMs: s.background.startedAtMs,
-                            zeroRuns: s.background.zeroRuns || 0,
-                            projectsUsed: s.background.projectsUsed || 0,
+                            zeroRuns,
+                            projectsUsed,
                         },
                         { gateReady }
                     );

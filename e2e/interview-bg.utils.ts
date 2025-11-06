@@ -20,13 +20,23 @@ export async function subscribeToStore(page: any) {
     s.subscribe(() => {
       const st = s.getState();
       const stage = st.stage;
-      const p = (st.background || {}).pillars || {};
       // eslint-disable-next-line no-console
       if (stage !== lastStage) console.log(`[store] stage=${stage}`);
+      const pillars = st.background?.pillars;
+      if (!pillars) {
+        lastStage = stage;
+        return;
+      }
+      const { adaptability, creativity, reasoning } = pillars;
+      if (
+        adaptability === undefined ||
+        creativity === undefined ||
+        reasoning === undefined
+      ) {
+        throw new Error("Missing pillar score in background store");
+      }
       console.log(
-        `[store] pillars A:${p.adaptability ?? 0} C:${p.creativity ?? 0} R:${
-          p.reasoning ?? 0
-        }`
+        `[store] pillars A:${adaptability} C:${creativity} R:${reasoning}`
       );
       lastStage = stage;
     });
@@ -74,9 +84,12 @@ export async function logDomValue(page: any, selector: string, label = "dom") {
     (sel: string, logLabel: string) => {
       const el = document.querySelector(sel) as HTMLInputElement | null;
       // eslint-disable-next-line no-console
+      if (!el?.value) {
+        throw new Error(`Element ${sel} has no value to log`);
+      }
       console.log(
         `[${logLabel}] input value after fill`,
-        el?.value || "(empty)"
+        el.value
       );
     },
     selector,
@@ -97,9 +110,20 @@ export async function waitForNonZeroPillars(page: any, timeout = 10000) {
       const s = (window as any).__sfinxStore?.getState?.();
       const p = s?.background?.pillars;
       if (!p) return null;
-      const a = Number(p.adaptability || 0),
-        c = Number(p.creativity || 0),
-        r = Number(p.reasoning || 0);
+      const { adaptability, creativity, reasoning } = p;
+      if (
+        adaptability === undefined ||
+        creativity === undefined ||
+        reasoning === undefined
+      ) {
+        throw new Error("Pillar score missing");
+      }
+      const a = Number(adaptability);
+      const c = Number(creativity);
+      const r = Number(reasoning);
+      if (Number.isNaN(a) || Number.isNaN(c) || Number.isNaN(r)) {
+        throw new Error("Pillar score is not numeric");
+      }
       return a > 0 || c > 0 || r > 0 ? { a, c, r } : null;
     },
     { timeout }

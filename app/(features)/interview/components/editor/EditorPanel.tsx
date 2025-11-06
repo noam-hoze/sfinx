@@ -73,7 +73,10 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     updateKBVariables,
     onAskFollowup,
 }) => {
-    const [currentCode, setCurrentCode] = useState(propCurrentCode || "");
+    if (propCurrentCode === undefined) {
+        throw new Error("EditorPanel requires currentCode");
+    }
+    const [currentCode, setCurrentCode] = useState(propCurrentCode);
 
     // State for theme to avoid SSR issues
     const [editorTheme, setEditorTheme] = useState("sfinx-light");
@@ -81,7 +84,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     // Simple AI detection - no complex hooks needed
 
     // Refs for paste detection
-    const previousCodeRef = useRef<string>(propCurrentCode || "");
+    const previousCodeRef = useRef<string>(propCurrentCode);
     const lastChangeTimeRef = useRef<number>(0); // Start at 0 so first paste has large timeSinceLastChange
     const pasteStartTimeRef = useRef<number>(0);
     const lastPasteDetectionTimeRef = useRef<number>(0);
@@ -110,7 +113,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     }, []);
 
     const editorRef = useRef<any>(null);
-    const followupBaselineRef = useRef<string>(propCurrentCode || "");
+    const followupBaselineRef = useRef<string>(propCurrentCode);
 
     // Watch for dark mode changes and update Monaco theme
     useEffect(() => {
@@ -228,12 +231,15 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     };
 
     const askFollowup = useCallback(() => {
-        const baseline = followupBaselineRef.current || "";
+        const baseline = followupBaselineRef.current;
+        if (!baseline) {
+            throw new Error("Follow-up baseline is undefined; coding template not initialized.");
+        }
         if (baseline.trim().length === 0) {
             throw new Error("Follow-up baseline is empty; coding template not initialized.");
         }
         try {
-            const current = currentCode || "";
+            const current = currentCode;
             // Build precise delta (added and removed) using jsdiff
             const parts = diffWords(baseline, current);
             const added = parts

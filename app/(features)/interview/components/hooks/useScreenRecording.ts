@@ -221,8 +221,12 @@ export const useScreenRecording = () => {
                     return;
                 }
 
+                const mimeType = selectedMimeTypeRef.current;
+                if (!mimeType) {
+                    throw new Error("selectedMimeTypeRef missing value");
+                }
                 const blob = new Blob(recordedChunksRef.current, {
-                    type: selectedMimeTypeRef.current || "video/mp4",
+                    type: mimeType,
                 });
 
                 logger.info("📁 Created blob of size:", blob.size, "bytes");

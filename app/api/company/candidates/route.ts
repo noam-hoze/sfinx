@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
         log.info("✅ Company profile found:", companyProfile.companyName);
 
         const { searchParams } = new URL(request.url);
-        const jobRole = searchParams.get("jobRole") || "";
+        const jobRole = searchParams.get("jobRole");
 
         // Find the company by name
         log.info("🏢 Looking for company:", companyProfile.companyName);
@@ -116,20 +116,25 @@ export async function GET(request: NextRequest) {
         // Transform data for frontend from the latest application per candidate
         const candidates = Array.from(
             latestApplicationByCandidate.values()
-        ).map((app: any) => ({
-            id: app.candidate.id,
-            name: app.candidate.name || "Anonymous",
-            email: app.candidate.email,
-            image: app.candidate.image,
-            jobTitle: app.candidate.candidateProfile?.jobTitle || "",
-            location: app.candidate.candidateProfile?.location || "",
-            appliedJob: app.job.title,
-            appliedAt: app.appliedAt,
-            status: app.status,
-            applicationId: app.id,
-            jobId: app.job.id,
-            companyId: app.job.company.id,
-        }));
+        ).map((app: any) => {
+            if (!app.candidate.name) {
+                throw new Error(`Candidate ${app.candidate.id} missing name`);
+            }
+            return {
+                id: app.candidate.id,
+                name: app.candidate.name,
+                email: app.candidate.email,
+                image: app.candidate.image,
+                jobTitle: app.candidate.candidateProfile?.jobTitle,
+                location: app.candidate.candidateProfile?.location,
+                appliedJob: app.job.title,
+                appliedAt: app.appliedAt,
+                status: app.status,
+                applicationId: app.id,
+                jobId: app.job.id,
+                companyId: app.job.company.id,
+            };
+        });
 
         return NextResponse.json({
             candidates,

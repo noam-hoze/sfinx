@@ -431,8 +431,14 @@ const OpenAIVoiceConversation = forwardRef<any, OpenAIVoiceConversationProps>(
                 // Load interview script dynamically (company/role from store when available)
                 try {
                     const ms = store.getState().interviewMachine;
-                    const companySlug = ms.companySlug || "meta";
-                    const roleSlug = ms.roleSlug || "frontend-engineer";
+                    if (!ms.companySlug) {
+                        throw new Error("Interview machine missing companySlug");
+                    }
+                    if (!ms.roleSlug) {
+                        throw new Error("Interview machine missing roleSlug");
+                    }
+                    const companySlug = ms.companySlug;
+                    const roleSlug = ms.roleSlug;
                     const resp = await fetch(
                         `/api/interviews/script?company=${companySlug}&role=${roleSlug}`
                     );
@@ -459,8 +465,7 @@ const OpenAIVoiceConversation = forwardRef<any, OpenAIVoiceConversationProps>(
                 // Start: enqueue deterministic greeting (once)
                 if (!didStartRef.current) {
                     dispatch(machineStart({ candidateName }));
-                    const name = candidateName || "Candidate";
-                    const text = `Say exactly: "Hi ${name}, I'm Carrie. I'll be the one interviewing today!"`;
+                    const text = `Say exactly: "Hi ${candidateName}, I'm Carrie. I'll be the one interviewing today!"`;
                     try {
                         logger.info("[openai][prompt][greeting]\n" + text);
                     } catch {}
@@ -504,10 +509,15 @@ const OpenAIVoiceConversation = forwardRef<any, OpenAIVoiceConversationProps>(
                 try {
                     const ms = store.getState().interviewMachine;
                     if (ms.state === "in_coding_session" && !codingPromptInjectedRef.current) {
-                        const companyName = ms.companyName || "Company";
+                        if (!ms.companyName) {
+                            throw new Error("Interview machine missing companyName for coding prompt");
+                        }
+                        const companyName = ms.companyName;
                         const taskTextRaw = (scriptRef.current as any)?.codingPrompt;
-                        const taskText =
-                            typeof taskTextRaw === "string" ? taskTextRaw.trim() : "";
+                        if (typeof taskTextRaw !== "string") {
+                            throw new Error("codingPrompt missing from script payload");
+                        }
+                        const taskText = taskTextRaw.trim();
                         if (!taskText) {
                             logger.error(
                                 "[openai][coding][missing_prompt] codingPrompt not found in script"

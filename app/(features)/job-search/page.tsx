@@ -80,7 +80,10 @@ function JobSearchContent() {
                     const data = await response.json();
                     log.info("Data received:", data);
                     setCompanies(data.companies);
-                    setAppliedJobIds(data.appliedJobIds || []);
+                    if (!Array.isArray(data.appliedJobIds)) {
+                        throw new Error("appliedJobIds missing from response");
+                    }
+                    setAppliedJobIds(data.appliedJobIds);
                     setError(null);
                 } else {
                     log.error("❌ Response not ok:", response.status, response.statusText);
@@ -106,13 +109,16 @@ function JobSearchContent() {
 
     // Since we're already filtering on the server side, we can just use the companies directly
     const filteredCompanies = companies;
-    const jobItems = filteredCompanies.flatMap((company: any) =>
-        (company.jobs || []).map((job: any) => ({
+    const jobItems = filteredCompanies.flatMap((company: any) => {
+        if (!Array.isArray(company.jobs)) {
+            throw new Error(`Company ${company.id} missing jobs array`);
+        }
+        return company.jobs.map((job: any) => ({
             company,
             job,
             hasApplied: appliedJobIds.includes(job.id as string),
-        }))
-    );
+        }));
+    });
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -233,13 +239,20 @@ function JobSearchContent() {
                                 >
                                     {/* Company Logo */}
                                     <div className="relative w-24 h-24 mx-auto mb-4 bg-white rounded-xl flex items-center justify-center p-3">
-                                        <Image
-                                            src={company.logo || ""}
-                                            alt={`${company.name} logo`}
-                                            width={72}
-                                            height={72}
-                                            className="object-contain"
-                                        />
+                                        {(() => {
+                                            if (!company.logo) {
+                                                throw new Error(`Company ${company.id} missing logo`);
+                                            }
+                                            return (
+                                                <Image
+                                                    src={company.logo}
+                                                    alt={`${company.name} logo`}
+                                                    width={72}
+                                                    height={72}
+                                                    className="object-contain"
+                                                />
+                                            );
+                                        })()}
                                         {hasApplied && (
                                             <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
                                                 <svg

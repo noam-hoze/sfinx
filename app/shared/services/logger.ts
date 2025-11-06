@@ -26,7 +26,10 @@ function computePageOrFile(filePath: string, base: string): string {
         const startIdx = appIdx >= 0 ? appIdx + 1 : Math.max(0, parts.length - 3);
         const dirParts = parts.slice(startIdx, parts.length - 1); // exclude filename
         const cleaned = dirParts.filter((p) => !/^\(.+\)$/.test(p));
-        const last = cleaned[cleaned.length - 1] || baseName;
+        const last = cleaned[cleaned.length - 1];
+        if (!last) {
+            throw new Error(`Unable to compute page label for ${filePath}`);
+        }
         return last.replace(/\[(.+?)\]/g, ":$1");
     }
     // Otherwise use the file basename without extension
@@ -44,13 +47,21 @@ function extractCallerLabel(stack: string): string | null {
         const fnMatch = l.match(/at\s+([\w$.<>]+)\s*\(/);
         let labelFromFn: string | null = null;
         if (fnMatch && fnMatch[1]) {
-            const fn = fnMatch[1].split(".").pop() || fnMatch[1];
-            if (fn && fn !== "Object" && fn !== "Module") labelFromFn = fn;
+            const fnParts = fnMatch[1].split(".");
+            const fn = fnParts[fnParts.length - 1];
+            if (!fn) {
+                throw new Error("Unable to extract function name from stack frame");
+            }
+            if (fn !== "Object" && fn !== "Module") labelFromFn = fn;
         }
         let m = l.match(/\(?((?:[a-zA-Z]:)?[^:()]+\.(?:tsx?|jsx?)):(\d+):(\d+)\)?/);
         if (m && m[1]) {
             const filePath = m[1];
-            const base = filePath.replace(/\\/g, "/").split("/").pop() || filePath;
+            const segments = filePath.replace(/\\/g, "/").split("/");
+            const base = segments[segments.length - 1];
+            if (!base) {
+                throw new Error(`Unable to determine base filename for ${filePath}`);
+            }
             const pageOrFile = computePageOrFile(filePath, base);
             const overridden = applyLabelOverrides(filePath, pageOrFile);
             return labelFromFn ? `${overridden}/${labelFromFn}` : overridden;
@@ -58,7 +69,11 @@ function extractCallerLabel(stack: string): string | null {
         m = l.match(/((?:[a-zA-Z]:)?[^:()]+\.(?:tsx?|jsx?)):(\d+):(\d+)/);
         if (m && m[1]) {
             const filePath = m[1];
-            const base = filePath.replace(/\\/g, "/").split("/").pop() || filePath;
+            const segments = filePath.replace(/\\/g, "/").split("/");
+            const base = segments[segments.length - 1];
+            if (!base) {
+                throw new Error(`Unable to determine base filename for ${filePath}`);
+            }
             const pageOrFile = computePageOrFile(filePath, base);
             const overridden = applyLabelOverrides(filePath, pageOrFile);
             return overridden;
@@ -72,9 +87,9 @@ const originalFactory = loglevel.methodFactory;
 loglevel.methodFactory = function (methodName, logLevel, loggerName) {
     const raw = originalFactory(methodName, logLevel, loggerName);
     return function (...args: any[]) {
-        let stackStr = "";
+        let stackStr: string | undefined;
         try {
-            stackStr = new Error().stack || "";
+            stackStr = new Error().stack;
         } catch {}
 
         if (allowedMatchers.length > 0 && stackStr) {

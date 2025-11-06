@@ -5,10 +5,22 @@ import path from "path";
 export async function GET(req: NextRequest) {
     try {
         const { searchParams } = new URL(req.url);
-        const company = (searchParams.get("company") || "meta").toLowerCase();
-        const role = (
-            searchParams.get("role") || "frontend-engineer"
-        ).toLowerCase();
+        const companyParam = searchParams.get("company");
+        if (!companyParam) {
+            return NextResponse.json(
+                { error: "Missing company query parameter" },
+                { status: 400 }
+            );
+        }
+        const roleParam = searchParams.get("role");
+        if (!roleParam) {
+            return NextResponse.json(
+                { error: "Missing role query parameter" },
+                { status: 400 }
+            );
+        }
+        const company = companyParam.toLowerCase();
+        const role = roleParam.toLowerCase();
         const filePath = path.join(
             process.cwd(),
             "server",
@@ -18,17 +30,18 @@ export async function GET(req: NextRequest) {
             "interviewScript.json"
         );
         const raw = await fs.readFile(filePath, "utf8");
-        const json = JSON.parse(raw || "{}");
-        const backgroundQuestion = json?.backgroundQuestion || "";
-        const codingPrompt = json?.codingChallenge?.prompt || "";
-        const codingTemplate = json?.codingChallenge?.template || "";
-        const codingAnswer = json?.codingChallenge?.answer || "";
+        const json = JSON.parse(raw);
+        const backgroundQuestion = json?.backgroundQuestion;
+        const codingPrompt = json?.codingChallenge?.prompt;
+        const codingTemplate = json?.codingChallenge?.template;
+        const codingAnswer = json?.codingChallenge?.answer;
         return NextResponse.json({ backgroundQuestion, codingPrompt, codingTemplate, codingAnswer });
     } catch (error: any) {
+        const details = error?.message ? String(error.message) : undefined;
         return NextResponse.json(
             {
                 error: "Script not found",
-                details: String(error?.message || error),
+                details,
             },
             { status: 404 }
         );

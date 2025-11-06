@@ -2,8 +2,8 @@
 
 import React from "react";
 import RealTimeConversation from "./chat/RealTimeConversation";
-import OpenAIConversation from "./chat/OpenAIConversation";
-import TextChatController from "./chat/TextChatController";
+import OpenAIVoiceConversation from "./chat/OpenAIVoiceConversation";
+import OpenAITextConversation from "./chat/OpenAITextConversation";
 import ChatPanel from "./chat/ChatPanel";
 
 interface RightPanelProps {
@@ -84,7 +84,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
 
             <div className="flex-1 p-4">
                     {isTextMode ? (
-                        <TextChatController
+                        <OpenAITextConversation
                             ref={realTimeConversationRef}
                             candidateName={candidateName}
                             onStartConversation={() => {
@@ -93,7 +93,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
                             }}
                         />
                     ) : ( (process.env.NEXT_PUBLIC_VOICE_ENGINE || "elevenlabs") === "openai" ? (
-                        <OpenAIConversation
+                        <OpenAIVoiceConversation
                             ref={realTimeConversationRef}
                             isInterviewActive={isInterviewActive}
                             candidateName={candidateName}

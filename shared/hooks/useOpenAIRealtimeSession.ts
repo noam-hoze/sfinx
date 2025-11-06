@@ -164,14 +164,21 @@ export function useOpenAIRealtimeSession(
             const { RealtimeAgent, RealtimeSession } = await import(
                 "@openai/agents/realtime"
             );
+            if (!opts?.agentName) {
+                throw new Error("Realtime agent requires an agentName");
+            }
             const agent = new RealtimeAgent({
-                name: opts?.agentName || "Carrie",
+                name: opts.agentName,
                 // Do not pass instructions; we will inject system text only when replying
             });
+            const openAIVoice = process.env.OPENAI_VOICE;
+            if (!openAIVoice) {
+                throw new Error("OPENAI_VOICE is required");
+            }
             const session: any = new RealtimeSession(agent, {
                 model: "gpt-4o-realtime-preview-2024-12-17",
                 outputModalities: ["audio", "text"],
-                voice: process.env.OPENAI_VOICE || "alloy",
+                voice: openAIVoice,
             } as any);
             await session.connect({ apiKey });
             sessionRef.current = session;

@@ -6,7 +6,10 @@ import type { ControlResult } from "./backgroundConfidenceTypes";
 export function parseControlResult(jsonText: string): ControlResult {
     let obj: any;
     try {
-        obj = JSON.parse(String(jsonText || ""));
+        if (!jsonText) {
+            throw new Error("CONTROL parse error: empty payload");
+        }
+        obj = JSON.parse(jsonText);
     } catch (e) {
         throw new Error("CONTROL parse error: invalid JSON");
     }
@@ -20,9 +23,9 @@ export function parseControlResult(jsonText: string): ControlResult {
     }
     return {
         pillars: {
-            adaptability: Number(obj.pillars.adaptability) || 0,
-            creativity: Number(obj.pillars.creativity) || 0,
-            reasoning: Number(obj.pillars.reasoning) || 0,
+            adaptability: obj.pillars.adaptability,
+            creativity: obj.pillars.creativity,
+            reasoning: obj.pillars.reasoning,
         },
         rationale: typeof obj.rationale === "string" ? obj.rationale : undefined,
         pillarRationales: typeof obj.pillarRationales === "object" ? {

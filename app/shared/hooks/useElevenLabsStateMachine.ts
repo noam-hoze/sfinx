@@ -149,7 +149,10 @@ export const useElevenLabsStateMachine = (
             // After successfully updating KB, send special user message (not shown in chat)
             if (isUsingAIRisingEdge && onSendUserMessage) {
                 try {
-                    const addedCode = (updates as any).ai_added_code || "";
+                    const addedCode = (updates as any).ai_added_code;
+                    if (!addedCode) {
+                        throw new Error("Missing ai_added_code in ElevenLabs update");
+                    }
                     await onSendUserMessage(
                         instructAgentInCaseOfAIUsage(addedCode)
                     );

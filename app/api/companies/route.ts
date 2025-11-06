@@ -10,9 +10,9 @@ export async function GET(request: NextRequest) {
         const userId = (session?.user as any)?.id;
 
         const { searchParams } = new URL(request.url);
-        const searchRole = searchParams.get("role") || "";
-        const searchLocation = searchParams.get("location") || "";
-        const searchCompany = searchParams.get("company") || "";
+        const searchRole = searchParams.get("role");
+        const searchLocation = searchParams.get("location");
+        const searchCompany = searchParams.get("company");
 
         // Fetch companies with their jobs
         const companies = await (prisma as any).company.findMany({
@@ -48,19 +48,26 @@ export async function GET(request: NextRequest) {
         }
 
         // Normalize filters
-        const roleFilter = (searchRole || "").toLowerCase();
-        const locationFilter = (searchLocation || "").toLowerCase();
-        const companyFilter = (searchCompany || "").toLowerCase();
+        const roleFilter = searchRole ? searchRole.toLowerCase() : undefined;
+        const locationFilter = searchLocation
+            ? searchLocation.toLowerCase()
+            : undefined;
+        const companyFilter = searchCompany
+            ? searchCompany.toLowerCase()
+            : undefined;
 
         // First, filter each company's jobs by role and job.location
         const companiesWithFilteredJobs = companies.map((company: any) => {
             const filteredJobs = company.jobs.filter((job: any) => {
                 const roleOk =
                     !roleFilter || job.title.toLowerCase().includes(roleFilter);
-                const locationOk =
-                    !locationFilter ||
-                    (job.location || "").toLowerCase().includes(locationFilter);
-                return roleOk && locationOk;
+                if (!locationFilter) {
+                    return roleOk;
+                }
+                if (typeof job.location !== "string") {
+                    return false;
+                }
+                return job.location.toLowerCase().includes(locationFilter);
             });
             return { ...company, jobs: filteredJobs };
         });
@@ -71,7 +78,8 @@ export async function GET(request: NextRequest) {
                 const companyMatch =
                     !companyFilter ||
                     company.name.toLowerCase().includes(companyFilter) ||
-                    company.industry.toLowerCase().includes(companyFilter);
+                    (typeof company.industry === "string" &&
+                        company.industry.toLowerCase().includes(companyFilter));
 
                 const hasMatchingJobs =
                     company.jobs.length > 0 || (!roleFilter && !locationFilter);
