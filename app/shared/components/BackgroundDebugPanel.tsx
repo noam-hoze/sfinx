@@ -6,15 +6,18 @@ import { confidences, DefaultConfig, stopCheck } from "@/shared/services/weighte
 import { TIMEBOX_MS, formatCountdown } from "@/shared/services/backgroundSessionGuard";
 
 export default function BackgroundDebugPanel() {
+    const debugEnabled = process.env.NEXT_PUBLIC_DEBUG_MODE === "true";
+
     const [state, setState] = useState(() => interviewChatStore.getState());
     useEffect(() => {
+        if (!debugEnabled) return;
         const unsub = interviewChatStore.subscribe(() => {
             setState(interviewChatStore.getState());
         });
-        return () => unsub();
-    }, []);
-
-    if (process.env.NEXT_PUBLIC_DEBUG_MODE !== "true") return null;
+        return () => {
+            if (unsub) unsub();
+        };
+    }, [debugEnabled]);
 
     const stage = state.stage as any;
     const bg = state.background as any;
@@ -88,6 +91,10 @@ export default function BackgroundDebugPanel() {
     ];
 
     const stageName = typeof stage === "string" ? stage : "";
+
+    if (!debugEnabled) {
+        return null;
+    }
     const prettyStage = stageName
         ? stageName
               .split("_")
