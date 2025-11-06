@@ -141,6 +141,8 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText }: ChatPanelP
                             e.preventDefault();
                             const fd = new FormData(e.currentTarget as HTMLFormElement);
                             const text = String(fd.get("chat_input") || "").trim();
+                            // eslint-disable-next-line no-console
+                            console.log("[chat][submit]", text);
                             if (!text) return;
                             (e.currentTarget as HTMLFormElement).reset();
                             await onSendText(text);

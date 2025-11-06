@@ -64,6 +64,10 @@ const interviewMachineSlice = createSlice({
                 ) {
                     state.state = "background_asked_by_ai";
                     try {
+                        // eslint-disable-next-line no-console
+                        console.log("[machine] transition -> background_asked_by_ai (expected question matched)");
+                    } catch {}
+                    try {
                         const s = interviewChatStore.getState();
                         if (!s.background.startedAtMs) {
                             interviewChatStore.dispatch({ type: "BG_GUARD_START_TIMER" });
@@ -90,6 +94,10 @@ const interviewMachineSlice = createSlice({
                         state.state = "in_coding_session";
                     } else {
                         state.state = "background_asked_by_ai";
+                        try {
+                            // eslint-disable-next-line no-console
+                            console.log("[machine] transition -> background_asked_by_ai (guard not satisfied)");
+                        } catch {}
                         // Ensure timer started on any entry to background mode
                         try {
                             const st = interviewChatStore.getState();
@@ -100,12 +108,20 @@ const interviewMachineSlice = createSlice({
                     }
                 } catch {
                     state.state = "background_asked_by_ai";
+                    try {
+                        // eslint-disable-next-line no-console
+                        console.log("[machine] transition -> background_asked_by_ai (guard error path)");
+                    } catch {}
                 }
             }
         },
         userFinal: (state) => {
             if (state.state === "greeting_said_by_ai") {
                 state.state = "greeting_responded_by_user";
+                try {
+                    // eslint-disable-next-line no-console
+                    console.log("[machine] transition -> greeting_responded_by_user (user replied)");
+                } catch {}
             } else if (state.state === "background_asked_by_ai") {
                 state.state = "background_answered_by_user";
             } else if (state.state === "followup_question") {

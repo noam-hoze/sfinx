@@ -48,8 +48,10 @@ const TextChatController = forwardRef<any, Props>(({ candidateName = "Candidate"
   }, [openaiClient]);
 
   const sendUserMessage = useCallback(async (text: string) => {
+    try { /* eslint-disable no-console */ console.log('[text][send]', text); } catch {}
     post(text, "user");
     dispatch(machineUserFinal());
+    try { /* eslint-disable no-console */ console.log('[text][after userFinal]', { state: store.getState().interviewMachine.state }); } catch {}
 
     const ms = store.getState().interviewMachine;
     if (ms.state === "greeting_responded_by_user") {
@@ -103,6 +105,13 @@ const TextChatController = forwardRef<any, Props>(({ candidateName = "Candidate"
     startConversation,
     sendUserMessage,
   }));
+
+  useEffect(() => {
+    try {
+      // Expose redux store for tests/debug parity with speech mode
+      (window as any).__sfinxStore = store;
+    } catch {}
+  }, []);
 
   return null;
 });

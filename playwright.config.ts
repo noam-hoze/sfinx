@@ -20,6 +20,7 @@ export default defineConfig({
         ...devices['Desktop Chrome'],
         launchOptions: {
           args: [
+            '--start-maximized',
             '--use-fake-device-for-media-stream',
             '--use-fake-ui-for-media-stream',
             `--use-file-for-fake-audio-capture=${wavPath}`,
