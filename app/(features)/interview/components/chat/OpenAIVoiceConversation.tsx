@@ -18,9 +18,14 @@ import React, {
 import OpenAI from "openai";
 import { log } from "../../../../shared/services";
 import { buildControlContextMessages, buildDeltaControlMessages, parseControlResult, CONTROL_CONTEXT_TURNS } from "../../../../shared/services";
+import { buildClosingInstruction } from "./openAITextConversationHelpers";
 import { useOpenAIRealtimeSession } from "@/shared/hooks/useOpenAIRealtimeSession";
 import { store } from "@/shared/state/store";
-import { buildOpenAIBackgroundPrompt, buildOpenAICodingPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
+import {
+    buildOpenAIBackgroundPrompt,
+    buildOpenAICodingPrompt,
+    buildOpenAIInterviewerPrompt,
+} from "@/shared/prompts/openAIInterviewerPrompt";
 import { useDispatch } from "react-redux";
 import {
     addMessage,
@@ -658,8 +663,8 @@ const OpenAIVoiceConversation = forwardRef<any, OpenAIVoiceConversationProps>(
                         throw new Error("sayClosingLine requires a candidate name");
                     }
                     const candidate = name.trim();
-                    const expected = `Thank you so much ${candidate}, the next steps will be shared with you shortly.`;
-                    closingExpectedRef.current = expected;
+                    const instruction = buildClosingInstruction(candidate);
+                    closingExpectedRef.current = instruction.replace('Say exactly: "', "").replace(/"$/, "");
                     awaitingClosingRef.current = true;
                     // Interrupt any ongoing AI response and clear input buffer
                     try {
@@ -676,17 +681,16 @@ const OpenAIVoiceConversation = forwardRef<any, OpenAIVoiceConversationProps>(
                         });
                         logger.info("[closing][submit] input_audio_buffer cleared");
                     } catch {}
-                    const text = `Say exactly: "${expected}"`;
                     try {
-                        logger.info("[openai][prompt][closing]\n" + text);
+                        logger.info("[openai][prompt][closing]\n" + instruction);
                     } catch {}
-                    logger.info("[closing][submit] enqueue closing item.create", { text });
+                    logger.info("[closing][submit] enqueue closing item.create", { instruction });
                     session.current?.transport?.sendEvent?.({
                         type: "conversation.item.create",
                         item: {
                             type: "message",
                             role: "system",
-                            content: [{ type: "input_text", text }],
+                            content: [{ type: "input_text", text: instruction }],
                         },
                     });
                     // Removed local Web Speech fallback to preserve voice consistency

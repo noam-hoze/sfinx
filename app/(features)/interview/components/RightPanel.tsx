@@ -17,7 +17,7 @@ interface RightPanelProps {
     onAutoStartCoding: () => void;
     onStartConversation: () => void;
     onEndConversation: () => void;
-    onInterviewConcluded: () => void;
+    onInterviewConcluded: (delayMs?: number) => void;
     micMuted: boolean;
     onToggleMicMute: () => void;
     realTimeConversationRef: React.RefObject<any>;
@@ -105,6 +105,11 @@ const RightPanel: React.FC<RightPanelProps> = ({
                                 }
                             }}
                             onGreetingDelivered={onGreetingDelivered}
+                            onInterviewConcluded={(delayMs?: number) => {
+                                try {
+                                    onInterviewConcluded(delayMs);
+                                } catch {}
+                            }}
                         />
                     ) : ( (process.env.NEXT_PUBLIC_VOICE_ENGINE || "elevenlabs") === "openai" ? (
                         <OpenAIVoiceConversation

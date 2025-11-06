@@ -26,6 +26,7 @@ import {
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import {
   askViaChatCompletion,
+  buildClosingInstruction,
   generateAssistantReply,
   runBackgroundControl,
 } from "./openAITextConversationHelpers";
@@ -36,10 +37,18 @@ type Props = {
   automaticMode?: boolean;
   onCodingPromptReady?: () => void;
   onGreetingDelivered?: () => void;
+  onInterviewConcluded?: (delayMs?: number) => void;
 };
 
 const OpenAITextConversation = forwardRef<any, Props>(
-  ({ candidateName, onStartConversation, automaticMode = false, onCodingPromptReady, onGreetingDelivered }, ref) => {
+  ({
+    candidateName,
+    onStartConversation,
+    automaticMode = false,
+    onCodingPromptReady,
+    onGreetingDelivered,
+    onInterviewConcluded,
+  }, ref) => {
     if (!candidateName) {
       throw new Error("OpenAITextConversation requires a candidateName");
     }
@@ -224,9 +233,27 @@ const OpenAITextConversation = forwardRef<any, Props>(
       } catch {}
     }, [candidateName, deliverAssistantPrompt, dispatch, onGreetingDelivered, onStartConversation, post]);
 
+    const sayClosingLine = useCallback(
+      async (name?: string) => {
+        const candidate = typeof name === "string" && name.trim().length > 0 ? name.trim() : candidateName;
+        const persona = buildOpenAIInterviewerPrompt(
+          String(store.getState().interviewMachine.companyName || "Company")
+        );
+        const instruction = buildClosingInstruction(candidate);
+        const answer = await deliverAssistantPrompt({ persona, instruction });
+        if (answer) {
+          try {
+            onInterviewConcluded?.(2700);
+          } catch {}
+        }
+      },
+      [candidateName, deliverAssistantPrompt, onInterviewConcluded]
+    );
+
     useImperativeHandle(ref, () => ({
       startConversation,
       sendUserMessage,
+      sayClosingLine,
     }));
 
     return null;

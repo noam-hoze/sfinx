@@ -127,6 +127,7 @@ const InterviewerContent = () => {
     const [applicationCreated, setApplicationCreated] = useState(false);
     const [interviewConcluded, setInterviewConcluded] = useState(false);
     const [isChatInputLocked, setIsChatInputLocked] = useState(true);
+    const [redirectDelayMs, setRedirectDelayMs] = useState<number>(4000);
     const realTimeConversationRef = useRef<any>(null);
     const automaticMode = process.env.NEXT_PUBLIC_AUTOMATIC_MODE === "true";
     const isTextMode =
@@ -272,6 +273,18 @@ const InterviewerContent = () => {
     const handleCodingPromptReady = useCallback(() => {
         setIsChatInputLocked(false);
     }, []);
+
+    const handleInterviewConcluded = useCallback(
+        (delayMs?: number) => {
+            if (typeof delayMs === "number" && delayMs > 0) {
+                setRedirectDelayMs(delayMs);
+            } else {
+                setRedirectDelayMs(4000);
+            }
+            setInterviewConcluded(true);
+        },
+        []
+    );
 
     /**
      * Submits the current solution, stops recording, exits coding mode, and stops the timer.
@@ -462,16 +475,17 @@ const InterviewerContent = () => {
                 typeof window !== "undefined" &&
                 window.location.pathname === "/practice";
             if (!onPracticePage) {
+                const delay = typeof redirectDelayMs === "number" ? redirectDelayMs : 4000;
                 setTimeout(() => {
                     try {
                         window.location.href = "/job-search";
                     } catch {
                         router.push("/job-search");
                     }
-                }, 4000);
+                }, delay);
             }
         }
-    }, [interviewConcluded, companyId, router, markCompanyApplied]);
+    }, [interviewConcluded, companyId, router, markCompanyApplied, redirectDelayMs]);
 
     /**
      * Listens for mic mute/unmute messages from child frames and syncs local state.
@@ -658,9 +672,7 @@ const InterviewerContent = () => {
                                 setIsInterviewLoading(false);
                                 setIsChatInputLocked(false);
                             }}
-                            onInterviewConcluded={() =>
-                                setInterviewConcluded(true)
-                            }
+                            onInterviewConcluded={handleInterviewConcluded}
                             micMuted={micMuted}
                             onToggleMicMute={toggleMicMute}
                             realTimeConversationRef={realTimeConversationRef}

@@ -97,3 +97,10 @@ export async function generateAssistantReply(
   return completion.choices?.[0]?.message?.content?.trim() || null;
 }
 
+/** Builds the closing-line system instruction for the interviewer. */
+export function buildClosingInstruction(candidateName: string): string {
+  const trimmed = candidateName.trim();
+  const name = trimmed.length > 0 ? trimmed : "there";
+  return `Say exactly: "Thank you so much ${name}, the next steps will be shared with you shortly."`;
+}
+
