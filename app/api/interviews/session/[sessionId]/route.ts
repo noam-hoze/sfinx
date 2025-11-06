@@ -12,10 +12,18 @@ const prisma = globalForPrisma.prisma ?? new PrismaClient();
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
-export async function PATCH(
-    request: NextRequest,
-    { params }: { params: { sessionId: string } }
-) {
+type RouteContext = {
+    params: Promise<{ sessionId?: string | string[] }>;
+};
+
+function normalizeSessionId(sessionId: string | string[] | undefined) {
+    if (Array.isArray(sessionId)) {
+        return sessionId[0] ?? "";
+    }
+    return sessionId ?? "";
+}
+
+export async function PATCH(request: NextRequest, context: RouteContext) {
     try {
         log.info("Interview session update API called");
 
@@ -24,7 +32,16 @@ export async function PATCH(
         log.info("User ID:", (session?.user as any)?.id);
 
         const userId = (session!.user as any).id;
-        const { sessionId } = params;
+        const { sessionId: rawSessionId } = await context.params;
+        const sessionId = normalizeSessionId(rawSessionId);
+
+        if (!sessionId) {
+            log.warn("❌ Interview session id was not provided");
+            return NextResponse.json(
+                { error: "Interview session id is required" },
+                { status: 400 }
+            );
+        }
 
         log.info("Session ID:", sessionId);
 

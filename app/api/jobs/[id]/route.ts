@@ -1,12 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "app/shared/services";
 
-export async function GET(
-    request: NextRequest,
-    { params }: { params: { id: string } }
-) {
+type RouteContext = {
+    params: Promise<{ id?: string | string[] }>;
+};
+
+function normalizeJobId(id: string | string[] | undefined) {
+    if (Array.isArray(id)) {
+        return id[0] ?? "";
+    }
+    return id ?? "";
+}
+
+export async function GET(request: NextRequest, context: RouteContext) {
     try {
-        const jobId = params.id;
+        const { id } = await context.params;
+        const jobId = normalizeJobId(id);
+
+        if (!jobId) {
+            return NextResponse.json(
+                { error: "Job id is required" },
+                { status: 400 }
+            );
+        }
         const job = await (prisma as any).job.findUnique({
             where: { id: jobId },
             include: { company: true },

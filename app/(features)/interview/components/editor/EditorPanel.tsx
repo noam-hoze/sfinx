@@ -5,9 +5,10 @@ import Editor, { DiffEditor } from "@monaco-editor/react";
 import { Play, RotateCcw, MessageSquare } from "lucide-react";
 import CodePreview from "./CodePreview";
 import { log } from "../../../../shared/services";
-import { diffWords } from "diff";
-
-function computeInsertedSegment(oldText: string, newText: string): string {
+function computeDiffSegments(
+    oldText: string,
+    newText: string
+): { added: string; removed: string } {
     let start = 0;
     while (
         start < oldText.length &&
@@ -28,7 +29,16 @@ function computeInsertedSegment(oldText: string, newText: string): string {
         newEnd--;
     }
 
-    return newText.slice(start, newEnd + 1);
+    const added =
+        newEnd >= start ? newText.slice(start, newEnd + 1) : "";
+    const removed =
+        oldEnd >= start ? oldText.slice(start, oldEnd + 1) : "";
+
+    return { added, removed };
+}
+
+function computeInsertedSegment(oldText: string, newText: string): string {
+    return computeDiffSegments(oldText, newText).added;
 }
 
 interface EditorPanelProps {
@@ -241,15 +251,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
         try {
             const current = currentCode;
             // Build precise delta (added and removed) using jsdiff
-            const parts = diffWords(baseline, current);
-            const added = parts
-                .filter((p: any) => p.added && p.value)
-                .map((p: any) => p.value)
-                .join("");
-            const removed = parts
-                .filter((p: any) => p.removed && p.value)
-                .map((p: any) => p.value)
-                .join("");
+            const { added, removed } = computeDiffSegments(baseline, current);
 
             const addedChars = added.length;
             const removedChars = removed.length;

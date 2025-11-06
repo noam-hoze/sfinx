@@ -10,12 +10,28 @@ const prisma = globalForPrisma.prisma ?? new PrismaClient();
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
-export async function GET(
-    request: NextRequest,
-    { params }: { params: { id: string } }
-) {
+type RouteContext = {
+    params: Promise<{ id?: string | string[] }>;
+};
+
+function normalizeId(id: string | string[] | undefined) {
+    if (Array.isArray(id)) {
+        return id[0] ?? "";
+    }
+    return id ?? "";
+}
+
+export async function GET(request: NextRequest, context: RouteContext) {
     try {
-        const candidateId = params.id;
+        const { id } = await context.params;
+        const candidateId = normalizeId(id);
+
+        if (!candidateId) {
+            return NextResponse.json(
+                { error: "Candidate id is required" },
+                { status: 400 }
+            );
+        }
         const applicationId = request.nextUrl.searchParams.get("applicationId");
 
         // Get all interview sessions for this candidate (newest first)
@@ -271,12 +287,17 @@ export async function GET(
     }
 }
 
-export async function PUT(
-    request: NextRequest,
-    { params }: { params: { id: string } }
-) {
+export async function PUT(request: NextRequest, context: RouteContext) {
     try {
-        const candidateId = params.id;
+        const { id } = await context.params;
+        const candidateId = normalizeId(id);
+
+        if (!candidateId) {
+            return NextResponse.json(
+                { error: "Candidate id is required" },
+                { status: 400 }
+            );
+        }
         const body = await request.json();
 
         // Get the most recent interview session for this candidate
