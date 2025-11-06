@@ -32,9 +32,6 @@ app/api/debug/seed/ok
 !.cursor/rules/**
 !.cursor/commands/**
 
-# Speckit (Specify) local state
-.specify/memory/**
-
 # Optional local logger config
 app/shared/services/logger.config.local.ts
 

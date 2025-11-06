@@ -26,5 +26,5 @@ tests/
 - 002-background-confidence-gate: Added OpenAI conversational integration (reuse), existing interview state store (reuse)
 
 <!-- MANUAL ADDITIONS START -->
-- Always include `@constitution.md` when triggering Cursor AI assistance.
+- Every prompt sent via Cursor AI MUST include `@constitution.md`; no exceptions.
 <!-- MANUAL ADDITIONS END -->

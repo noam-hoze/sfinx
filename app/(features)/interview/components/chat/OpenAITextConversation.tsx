@@ -25,10 +25,10 @@ import {
 } from "@/shared/prompts/openAIInterviewerPrompt";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import {
-  buildDeltaControlMessages,
-  CONTROL_CONTEXT_TURNS,
-  parseControlResult,
-} from "../../../../shared/services";
+  askViaChatCompletion,
+  generateAssistantReply,
+  runBackgroundControl,
+} from "./openAITextConversationHelpers";
 
 type Props = { candidateName: string; onStartConversation?: () => void };
 
@@ -68,121 +68,51 @@ const OpenAITextConversation = forwardRef<any, Props>(
       [dispatch]
     );
 
-    const askViaChat = useCallback(
-      async (
-        system: string,
-        history: Array<{ role: "user" | "assistant"; content: string }>
-      ) => {
-        const completion = await openaiClient.chat.completions.create({
-          model: "gpt-4o-mini",
-          temperature: 0.2,
-          messages: [{ role: "system", content: system }, ...history] as any,
-        });
-        const txt = completion.choices?.[0]?.message?.content?.trim();
-        if (!txt) {
-          throw new Error("OpenAI chat completion is missing content");
-        }
-        return txt;
-      },
-      [openaiClient]
-    );
-
-    const requestControl = useCallback(async () => {
-      const im = store.getState().interviewMachine;
-      const companySource = im.companyName ?? im.companySlug;
-      if (!companySource) {
-        throw new Error("Interview machine missing company identifier");
-      }
-      const company = String(companySource);
-      const roleSource = im.roleSlug;
-      if (!roleSource) {
-        throw new Error("Interview machine missing role slug");
-      }
-      const role = String(roleSource).replace(/[-_]/g, " ");
-      const {
-        system: roHistory,
-        assistant: lastQ,
-        user: lastA,
-      } = buildDeltaControlMessages(CONTROL_CONTEXT_TURNS);
-      const system = `You are the evaluation module for a technical interview at ${company} for the ${role} position.\nStage: Background.\n\nCRITICAL RULES:\n- Score ONLY the last user answer that follows.\n- Use the read-only history for understanding terms only; DO NOT award credit for past turns.\n- If the last user answer contains no concrete, attributable evidence for a pillar, output 0 for that pillar.\n- Every non-zero pillar MUST be justified with a short rationale referencing exact phrases from the last answer.\n- DO NOT initiate or suggest moving to coding; that decision is external and controlled by the system.\n\n${roHistory}\n\nOutput: STRICT JSON only (no preface) with fields: pillars {adaptability, creativity, reasoning} (0-100), rationale (string explaining your decision), pillarRationales {adaptability: string, creativity: string, reasoning: string}.`;
-      const completion = await openaiClient.chat.completions.create({
-        model: "gpt-4o-mini",
-        temperature: 0,
-        messages: [
-          { role: "system", content: system },
-          lastQ ? ({ role: "assistant", content: lastQ } as any) : undefined,
-          lastA ? ({ role: "user", content: lastA } as any) : undefined,
-        ].filter(Boolean) as any,
-      });
-      const txt = completion.choices?.[0]?.message?.content ?? "";
-      try {
-        const parsed = parseControlResult(txt);
-        // Mirror updates similar to OpenAIVoiceConversation
-        interviewChatStore.dispatch({
-          type: "BG_SET_CONTROL_RESULT",
-          payload: {
-            confidence:
-              (parsed.pillars.adaptability +
-                parsed.pillars.creativity +
-                parsed.pillars.reasoning) /
-              3,
-            pillars: parsed.pillars,
-            rationales: {
-              overall: parsed.rationale,
-              adaptability: parsed.pillarRationales?.adaptability,
-              creativity: parsed.pillarRationales?.creativity,
-              reasoning: parsed.pillarRationales?.reasoning,
-            },
-          },
-        } as any);
-        interviewChatStore.dispatch({
-          type: "BG_ACCUMULATE_CONTROL_RESULT",
-          payload: { pillars: parsed.pillars },
-        } as any);
-      } catch {}
-    }, [openaiClient]);
-
-    const persistAssistantMessage = useCallback(
-      (message: string) => {
-        if (!message) return;
-        post(message, "ai");
-        dispatch(machineAiFinal({ text: message }));
-      },
-      [dispatch, post]
-    );
-
-    const requestCompletion = useCallback(
-      async ({
-        persona,
-        instruction,
-        temperature = 0,
-      }: {
-        persona: string;
-        instruction: string;
-        temperature?: number;
-      }) => {
-        const completion = await openaiClient.chat.completions.create({
-          model: "gpt-4o-mini",
-          temperature,
-          messages: [
-            { role: "system", content: persona },
-            { role: "user", content: instruction },
-          ],
-        });
-        return completion.choices?.[0]?.message?.content?.trim() || "";
-      },
-      [openaiClient]
-    );
-
     const deliverAssistantPrompt = useCallback(
       async ({ persona, instruction }: { persona: string; instruction: string }) => {
-        const answer = await requestCompletion({ persona, instruction });
+        const answer = await generateAssistantReply(openaiClient, persona, instruction);
         if (!answer) return null;
-        persistAssistantMessage(answer);
+        post(answer, "ai");
+        dispatch(machineAiFinal({ text: answer }));
         return answer;
       },
-      [persistAssistantMessage, requestCompletion]
+      [dispatch, openaiClient, post]
     );
+
+    /** Injects the coding prompt once the guard advances into the coding session. */
+    useEffect(() => {
+      const unsubscribe = store.subscribe(() => {
+        const ms = store.getState().interviewMachine;
+        if (ms.state !== "in_coding_session" || codingPromptSentRef.current) return;
+        codingPromptSentRef.current = true;
+        try {
+          if (!ms.companyName) {
+            throw new Error("Interview machine missing companyName for coding prompt");
+          }
+          const raw = scriptRef.current?.codingPrompt;
+          if (typeof raw !== "string") {
+            throw new Error("codingPrompt missing from script payload");
+          }
+          const taskText = raw.trim();
+          if (!taskText) {
+            throw new Error("codingPrompt is empty");
+          }
+          const persona = buildOpenAICodingPrompt(ms.companyName, taskText);
+          try {
+            /* eslint-disable no-console */ console.log("[coding][persona]", persona);
+            /* eslint-disable no-console */ console.log("[coding][instruction]", taskText);
+          } catch {}
+          const instruction = `Ask exactly:\n"""\n${taskText}\n"""`;
+          void deliverAssistantPrompt({ persona, instruction }).catch(() => {
+            codingPromptSentRef.current = false;
+          });
+        } catch (error) {
+          codingPromptSentRef.current = false;
+          throw error;
+        }
+      });
+      return () => unsubscribe();
+    }, [deliverAssistantPrompt]);
 
     const sendUserMessage = useCallback(
       async (text: string) => {
@@ -219,13 +149,13 @@ const OpenAITextConversation = forwardRef<any, Props>(
 
         if (ms.state === "background_answered_by_user") {
           // Run CONTROL and then ask a short follow-up
-          await requestControl();
+          await runBackgroundControl(openaiClient);
           const im = store.getState().interviewMachine;
           if (!im.companyName) {
             throw new Error("Interview machine missing companyName");
           }
           const persona = buildOpenAIBackgroundPrompt(String(im.companyName));
-          const follow = await askViaChat(persona, [
+          const follow = await askViaChatCompletion(openaiClient, persona, [
             {
               role: "assistant",
               content: "Ask one short follow-up about their project.",
@@ -239,7 +169,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
           return;
         }
       },
-      [askViaChat, deliverAssistantPrompt, dispatch, post, requestControl]
+      [deliverAssistantPrompt, dispatch, openaiClient, post]
     );
 
     const startConversation = useCallback(async () => {
@@ -281,33 +211,14 @@ const OpenAITextConversation = forwardRef<any, Props>(
     }, [candidateName, deliverAssistantPrompt, dispatch, onStartConversation, post]);
 
     useImperativeHandle(ref, () => ({
+      startConversation,
       sendUserMessage,
     }));
 
-    useEffect(() => {
-      startConversation();
-    }, [startConversation]);
-
-    return (
-      <div className="chat-container">
-        <div className="chat-messages">
-          {/* Messages will be rendered here */}
-        </div>
-        <div className="chat-input-container">
-          <input
-            type="text"
-            placeholder="Type your message..."
-            onKeyPress={(e) => {
-              if (e.key === "Enter") {
-                sendUserMessage(e.currentTarget.value);
-                e.currentTarget.value = "";
-              }
-            }}
-          />
-        </div>
-      </div>
-    );
+    return null;
   }
 );
+
+OpenAITextConversation.displayName = "OpenAITextConversation";
 
 export default OpenAITextConversation;
