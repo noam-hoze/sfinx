@@ -15,3 +15,27 @@ Why
 Future Fix
 - When the upstream OpenAI Realtime SDK exposes robust unsubscribe hooks and deterministic teardown across navigation, we can revert to client-side routing without a hard refresh.
 
+## Development Workflow
+
+### Everyday Test-First Delivery
+- Begin every Cursor session or feature branch by reproducing the failing scenario with an automated test.
+- Write or adjust a failing unit or end-to-end test before changing production code, then iterate until it passes.
+- Treat a task as "done" only after both the unit (`pnpm test:unit`) and end-to-end (`pnpm test:e2e`) suites succeed locally.
+
+### Running the Test Suites
+- `pnpm test:unit` executes the Vitest unit suite.
+- `pnpm test:e2e` renders the login experience with mocked Next.js providers via the smoke spec in `tests/e2e/`.
+- `pnpm verify` orchestrates both commands and should be the default before committing or submitting for review.
+
+### FAST_LANE Procedure
+Use the fast-lane only when the team deliberately accepts temporary coverage debt:
+
+1. Export the required flags before running `pnpm verify` or pushing to CI:
+   - `FAST_LANE=true`
+   - `FAST_LANE_REASON="<why the tests cannot run>"`
+   - `FAST_LANE_FOLLOW_UP="<link to the follow-up issue or ticket>"`
+   - `FAST_LANE_DUE_DATE="<YYYY-MM-DD committed fix date>"`
+2. Record the follow-up issue link in the PR/commit description.
+3. Reviewers must confirm the follow-up ticket exists, is assigned, and the due date is realistic prior to approval.
+4. Clear the FAST_LANE variables once the outstanding work is completed and rerun `pnpm verify`.
+
