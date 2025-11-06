@@ -654,7 +654,10 @@ const OpenAIVoiceConversation = forwardRef<any, OpenAIVoiceConversationProps>(
             },
             sayClosingLine: async (name?: string) => {
                 try {
-                    const candidate = (name || candidateName || "Candidate").trim();
+                    if (!name) {
+                        throw new Error("sayClosingLine requires a candidate name");
+                    }
+                    const candidate = name.trim();
                     const expected = `Thank you so much ${candidate}, the next steps will be shared with you shortly.`;
                     closingExpectedRef.current = expected;
                     awaitingClosingRef.current = true;
