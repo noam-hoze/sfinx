@@ -32,7 +32,7 @@ import { createInterviewSession } from "./services/interviewSessionService";
 import { fetchJobById } from "./services/jobService";
 import { useDispatch } from "react-redux";
 import { setCompanyContext } from "@/shared/state/slices/interviewMachineSlice";
-import BackgroundDebugBadge from "./debug/BackgroundDebugBadge";
+import BackgroundDebugPanel from "../../../shared/components/BackgroundDebugPanel";
 
 const logger = log;
 const INTERVIEW_DURATION_SECONDS = 30 * 60;
@@ -125,6 +125,13 @@ const InterviewerContent = () => {
     const [interviewConcluded, setInterviewConcluded] = useState(false);
     const realTimeConversationRef = useRef<any>(null);
     const automaticMode = process.env.NEXT_PUBLIC_AUTOMATIC_MODE === "true";
+    const isDebugModeEnabled = process.env.NEXT_PUBLIC_DEBUG_MODE === "true";
+    const [isDebugVisible, setIsDebugVisible] = useState(isDebugModeEnabled);
+
+    const toggleDebugPanel = useCallback(() => {
+        if (!isDebugModeEnabled) return;
+        setIsDebugVisible((prev) => !prev);
+    }, [isDebugModeEnabled]);
 
     useThemePreference();
 
@@ -468,6 +475,9 @@ const InterviewerContent = () => {
                             isInterviewActive={Boolean(isInterviewActive)}
                             onStartCoding={handleStartCoding}
                             onSubmit={handleSubmit}
+                            isDebugModeEnabled={isDebugModeEnabled}
+                            isDebugVisible={isDebugVisible}
+                            onToggleDebug={toggleDebugPanel}
                         />
                     </div>
                 </div>
@@ -477,6 +487,21 @@ const InterviewerContent = () => {
                 <PanelGroup direction="horizontal">
                     <Panel defaultSize={70} minSize={50}>
                         <div className="h-full border-r bg-white border-light-gray dark:bg-gray-800 dark:border-gray-700 relative">
+                            {isDebugModeEnabled && (
+                                <div
+                                    className={`absolute top-4 left-1/2 z-30 w-full px-4 sm:px-6 md:px-8 lg:px-12 transform -translate-x-1/2 transition-all duration-300 ease-out ${
+                                        isDebugVisible
+                                            ? "opacity-100 translate-y-0 pointer-events-auto"
+                                            : "opacity-0 -translate-y-2 pointer-events-none"
+                                    }`}
+                                >
+                                    <div className="mx-auto max-w-3xl">
+                                        <div className="debug-panel-scroll scroll-smooth max-h-[calc(100vh-160px)] overflow-y-auto pr-2 pb-2">
+                                            <BackgroundDebugPanel />
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                             <EditorPanel
                                 currentCode={state.currentCode}
                                 onCodeChange={handleCodeChange}
@@ -570,7 +595,6 @@ const InterviewIDE = () => {
     return (
         <InterviewProvider>
             <InterviewerContent />
-            <BackgroundDebugBadge />
         </InterviewProvider>
     );
 };

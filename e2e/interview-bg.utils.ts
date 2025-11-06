@@ -124,8 +124,8 @@ export async function waitForProjectsUsed(
 ) {
   await page.waitForFunction(
     (count: number) => {
-      const projectsUsed = (window as any).__sfinxStore?.getState?.()
-        ?.interviewChat?.background?.projectsUsed;
+      const projectsUsed = (window as any).__sfinxChatStore?.getState?.()
+        ?.background?.projectsUsed;
       console.log("The projects that are used is:", projectsUsed);
       return Number(projectsUsed) === count;
     },

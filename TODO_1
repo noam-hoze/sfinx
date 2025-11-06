@@ -1,0 +1,6 @@
+1. In openAIConversation.tsx, we are using hardcoded for company slug and role slug. We should use the company slug and role slug from the store.
+2. Refactor the mechanism the builds confidence to a reusable unit (for in_coding_session as well)
+3. It assumes every CONTROL sample is fully independent and fresh (no penalty): w_ind=1, w_rec=1.
+With d=1 and q=r, computeWeight collapses to w=r; zeros skip; partial evidence adds proportionally.
+Reason: we haven’t implemented independence/recency signals yet (similarity/age); this keeps behavior deterministic.
+Implication: repeated or older evidence isn’t downweighted; confidence grows with r and count until those signals are added.f

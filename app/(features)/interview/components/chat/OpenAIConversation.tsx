@@ -373,6 +373,8 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 sessionRef.current = session.current;
                 try {
                     (window as any).__sfinxOpenAITransport = sessionRef.current?.transport;
+                    (window as any).__sfinxStore = store;
+                    (window as any).__sfinxChatStore = interviewChatStore;
                 } catch {}
                 // Inject Background-only persona as a system prompt (no respond here)
                 try {
@@ -640,6 +642,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 }
                 try {
                     (window as any).__sfinxOpenAITransport = null;
+                    (window as any).__sfinxChatStore = interviewChatStore;
                 } catch {}
             };
         }, []);

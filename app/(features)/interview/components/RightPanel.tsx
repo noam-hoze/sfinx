@@ -4,7 +4,6 @@ import React from "react";
 import RealTimeConversation from "./chat/RealTimeConversation";
 import OpenAIConversation from "./chat/OpenAIConversation";
 import TextChatController from "./chat/TextChatController";
-import BackgroundDebugPanel from "../../../shared/components/BackgroundDebugPanel";
 import ChatPanel from "./chat/ChatPanel";
 
 interface RightPanelProps {
@@ -142,11 +141,6 @@ const RightPanel: React.FC<RightPanelProps> = ({
                             }}
                             onInterviewConcluded={onInterviewConcluded}
                         />))}
-                {process.env.NEXT_PUBLIC_DEBUG_MODE === "true" && (
-                    <div className="mt-3">
-                        <BackgroundDebugPanel />
-                    </div>
-                )}
                 </div>
             </div>
 

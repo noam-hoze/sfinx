@@ -1,6 +1,6 @@
 /** Background session guard helpers and constants. */
 
-export const TIMEBOX_MS = 4 * 60 * 1000; // 4:00
+export const TIMEBOX_MS = 7 * 1000; // 4:00
 export const ZERO_RUN_LIMIT = 2;
 export const PROJECT_CAP = 2;
 

@@ -110,6 +110,7 @@ const TextChatController = forwardRef<any, Props>(({ candidateName = "Candidate"
     try {
       // Expose redux store for tests/debug parity with speech mode
       (window as any).__sfinxStore = store;
+      (window as any).__sfinxChatStore = interviewChatStore;
     } catch {}
   }, []);
 

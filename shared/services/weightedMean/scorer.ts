@@ -11,7 +11,7 @@ import type {
 export const DefaultConfig: Config = {
   wMax: 1.0,
   c: 2,
-  tau: 0.7,
+  tau: 0.2,
   initialScore: 0.5,
   numericTolerance: 1e-12,
 };
@@ -145,8 +145,8 @@ export function stopCheck(
   cfg: Partial<Config> = {}
 ): boolean {
   const c = { ...DefaultConfig, ...cfg };
-  const per = confidences(state, c);
-  const ok = (k: TraitKey) => coverage[k] && state[k].n >= 2 && per[k] >= c.tau;
+  const conf = confidences(state, c);
+  const ok = (k: TraitKey) => coverage[k] && state[k].n >= 1 && conf[k] >= c.tau;
   return ok("A") && ok("C") && ok("R");
 }
 
