@@ -477,11 +477,17 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                             logger.error(
                                 "[openai][coding][missing_prompt] codingPrompt not found in script"
                             );
+                            try {
+                                // eslint-disable-next-line no-console
+                                console.log("[coding][missing_prompt] script payload", scriptRef.current);
+                            } catch {}
                             return;
                         }
                         const persona = buildOpenAICodingPrompt(companyName, taskText);
                         try {
                             logger.info("[openai][prompt][coding_persona]\n" + persona);
+                            // eslint-disable-next-line no-console
+                            console.log("[coding][persona]", persona);
                         } catch {}
                         try {
                             sessionRef.current?.transport?.sendEvent?.({
@@ -496,6 +502,10 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                         try {
                             const instruction = `Ask exactly:\n"""\n${taskText}\n"""`;
                             logger.info("[openai][prompt][coding_question]\n" + instruction);
+                            try {
+                                // eslint-disable-next-line no-console
+                                console.log("[coding][instruction]", instruction);
+                            } catch {}
                             sessionRef.current?.transport?.sendEvent?.({
                                 type: "conversation.item.create",
                                 item: {

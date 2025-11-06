@@ -6,7 +6,7 @@ import { useDispatch } from "react-redux";
 import { addMessage } from "@/shared/state/slices/interviewChatSlice";
 import { store } from "@/shared/state/store";
 import { setExpectedBackgroundQuestion, start as machineStart, aiFinal as machineAiFinal, userFinal as machineUserFinal } from "@/shared/state/slices/interviewMachineSlice";
-import { buildOpenAIBackgroundPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
+import { buildOpenAIBackgroundPrompt, buildOpenAICodingPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import { buildDeltaControlMessages, CONTROL_CONTEXT_TURNS, parseControlResult } from "../../../../shared/services";
 
@@ -16,6 +16,7 @@ const TextChatController = forwardRef<any, Props>(({ candidateName = "Candidate"
   const dispatch = useDispatch();
   const openaiClient = useMemo(() => new OpenAI({ apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY || "", dangerouslyAllowBrowser: true }), []);
   const readyRef = useRef(false);
+  const codingPromptSentRef = useRef(false);
 
   const post = useCallback((text: string, speaker: "user" | "ai") => {
     if (!text) return;
@@ -99,7 +100,7 @@ const TextChatController = forwardRef<any, Props>(({ candidateName = "Candidate"
     post(greeting, "ai");
     dispatch(machineAiFinal({ text: greeting }));
     try { onStartConversation?.(); } catch {}
-  }, [candidateName, dispatch, post]);
+  }, [candidateName, dispatch, onStartConversation, post]);
 
   useImperativeHandle(ref, () => ({
     startConversation,
@@ -113,6 +114,43 @@ const TextChatController = forwardRef<any, Props>(({ candidateName = "Candidate"
       (window as any).__sfinxChatStore = interviewChatStore;
     } catch {}
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = store.subscribe(() => {
+      try {
+        const ms = store.getState().interviewMachine;
+        if (ms.state === "in_coding_session") {
+          if (codingPromptSentRef.current) {
+            return;
+          }
+          const script: any = (window as any).__sfinxScript;
+          const rawPrompt = script?.codingPrompt;
+          const taskText = typeof rawPrompt === "string" ? rawPrompt.trim() : "";
+          if (!taskText) {
+            try { /* eslint-disable no-console */ console.error("[coding][missing_prompt] script payload", script); } catch {}
+            return;
+          }
+          codingPromptSentRef.current = true;
+          const companyName = ms.companyName || "Company";
+          try {
+            const persona = buildOpenAICodingPrompt(companyName, taskText);
+            /* eslint-disable no-console */ console.log("[coding][persona]", persona);
+          } catch {}
+          const instruction = `Ask exactly:\n"""\n${taskText}\n"""`;
+          try { /* eslint-disable no-console */ console.log("[coding][instruction]", instruction); } catch {}
+          post(taskText, "ai");
+          dispatch(machineAiFinal({ text: taskText }));
+        } else if (ms.state === "background_asked_by_ai" || ms.state === "background_answered_by_user" || ms.state === "greeting_said_by_ai" || ms.state === "greeting_responded_by_user" || ms.state === "idle") {
+          codingPromptSentRef.current = false;
+        }
+      } catch {}
+    });
+    return () => {
+      try {
+        unsubscribe();
+      } catch {}
+    };
+  }, [dispatch, post]);
 
   return null;
 });
