@@ -1,3 +1,5 @@
+//TODO: Why do I need RealTimeConversation and OpenAIVoiceConversation?
+
 "use client";
 
 import React, {
@@ -131,7 +133,10 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                     if (isAiMessage) {
                         // Parse CONTROL JSON lines (hidden control output)
                         try {
-                            const trimmed = (messageText || "").trim();
+                            if (typeof messageText !== "string") {
+                                throw new Error("Received non-string AI message text");
+                            }
+                            const trimmed = messageText.trim();
                             if (trimmed.startsWith("CONTROL:")) {
                                 const jsonStr = trimmed.slice("CONTROL:".length).trim();
                                 const control = JSON.parse(jsonStr) as {
@@ -139,15 +144,18 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                                     pillars?: any;
                                     readyToProceed?: boolean;
                                 };
+                                if (typeof control.overallConfidence !== "number") {
+                                    throw new Error("CONTROL payload missing overallConfidence");
+                                }
                                 const s = interviewChatStore.getState();
                                 // Update confidence and increment question count (one per candidate answer cycle)
                                 interviewChatStore.dispatch({
                                     type: "BG_SET_CONFIDENCE",
-                                    payload: Number(control.overallConfidence) || 0,
+                                    payload: control.overallConfidence,
                                 });
                                 interviewChatStore.dispatch({ type: "BG_INC_QUESTIONS" });
                                 const gate = shouldAdvanceBackgroundStage({
-                                    currentConfidence: Number(control.overallConfidence) || 0,
+                                    currentConfidence: control.overallConfidence,
                                     questionsAsked: s.background.questionsAsked + 1,
                                     transitioned: s.background.transitioned,
                                 });
@@ -400,7 +408,10 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             if (conversation.status !== "connected") return;
 
             // Flush contextual updates
-            const updates = state.contextUpdatesQueue || [];
+            if (!Array.isArray(state.contextUpdatesQueue)) {
+                throw new Error("contextUpdatesQueue must be an array");
+            }
+            const updates = state.contextUpdatesQueue;
             if (updates.length > 0 && conversation.sendContextualUpdate) {
                 (async () => {
                     for (const text of updates) {
@@ -416,7 +427,10 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
             }
 
             // Flush user messages
-            const messages = state.userMessagesQueue || [];
+            if (!Array.isArray(state.userMessagesQueue)) {
+                throw new Error("userMessagesQueue must be an array");
+            }
+            const messages = state.userMessagesQueue;
             if (messages.length > 0) {
                 (async () => {
                     for (const msg of messages) {

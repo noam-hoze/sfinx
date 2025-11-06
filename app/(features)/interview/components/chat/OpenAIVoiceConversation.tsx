@@ -1,5 +1,5 @@
 /**
- * OpenAIConversation: UI-free adapter wiring WebRTC Realtime into the interview flow.
+ * OpenAIVoiceConversation: UI-free adapter wiring WebRTC Realtime into the interview flow.
  * - Requests mic, opens session via useOpenAIRealtimeSession, posts final texts to parent.
  * - Delegates deterministic flow to openAIFlowController (greeting → background → ack).
  * - Exposes imperative API for parent: start/stop, mic toggle, contextual updates.
@@ -38,7 +38,7 @@ import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import { shouldAdvanceBackgroundStage } from "../../../../shared/services";
 const logger = log;
 
-interface OpenAIConversationProps {
+interface OpenAIVoiceConversationProps {
     onStartConversation?: () => void;
     onEndConversation?: () => void;
     onInterviewConcluded?: () => void;
@@ -46,6 +46,7 @@ interface OpenAIConversationProps {
     candidateName?: string;
     handleUserTranscript?: (transcript: string) => Promise<void>;
     kbVariables?: any;
+    updateKBVariables?: (updates: any) => Promise<void>;
     automaticMode?: boolean;
     onAutoStartCoding?: () => void;
 }
@@ -56,19 +57,27 @@ interface OpenAIConversationProps {
  * - Posts basic recording status to parent for ChatPanel indicator
  * - Stubs sendUserMessage/sendContextualUpdate (to be extended)
  */
-const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
+const OpenAIVoiceConversation = forwardRef<any, OpenAIVoiceConversationProps>(
     (
         {
             onStartConversation,
             onEndConversation,
             onInterviewConcluded,
-            isInterviewActive = false,
-            candidateName = "Candidate",
-            automaticMode = false,
+            isInterviewActive,
+            candidateName,
+            automaticMode,
             onAutoStartCoding,
+            updateKBVariables, // currently unused but preserved for API parity
         },
         ref
     ) => {
+        if (!candidateName) {
+            throw new Error("OpenAIVoiceConversation requires candidateName");
+        }
+        const openAIApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+        if (!openAIApiKey) {
+            throw new Error("NEXT_PUBLIC_OPENAI_API_KEY is required");
+        }
         const [isConnected, setIsConnected] = useState(false);
         const [jsonTestResult, setJsonTestResult] = useState<string>("");
         const [isRecording, setIsRecording] = useState(false);
@@ -93,10 +102,10 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
         const openaiClient = useMemo(
             () =>
                 new OpenAI({
-                    apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY || "",
+                    apiKey: openAIApiKey,
                     dangerouslyAllowBrowser: true,
                 }),
-            []
+            [openAIApiKey]
         );
 
         // Context builder is provided by shared/services/buildControlContext
@@ -108,8 +117,16 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 setJsonTestResult("Loading CONTROL...");
                 // Pull interview context (company/role/stage) for a more grounded evaluation
                 const im = store.getState().interviewMachine;
-                const company = String(im.companyName || im.companySlug || "Unknown Company");
-                const role = String(im.roleSlug || "role").replace(/[-_]/g, " ");
+                const companySource = im.companyName ?? im.companySlug;
+                if (!companySource) {
+                    throw new Error("Interview machine missing company identifier");
+                }
+                const company = String(companySource);
+                const roleSource = im.roleSlug;
+                if (!roleSource) {
+                    throw new Error("Interview machine missing role slug");
+                }
+                const role = String(roleSource).replace(/[-_]/g, " ");
                 const s = interviewChatStore.getState();
                 const { system: roHistory, assistant: lastQ, user: lastA } = buildDeltaControlMessages(CONTROL_CONTEXT_TURNS);
                 const system = `You are the evaluation module for a technical interview at ${company} for the ${role} position.\nStage: Background.\n\nCRITICAL RULES:\n- Score ONLY the last user answer that follows.\n- Use the read-only history for understanding terms only; DO NOT award credit for past turns.\n- If the last user answer contains no concrete, attributable evidence for a pillar, output 0 for that pillar.\n- Every non-zero pillar MUST be justified with a short rationale referencing exact phrases from the last answer.\n- DO NOT initiate or suggest moving to coding; that decision is external and controlled by the system.\n\n${roHistory}\n\nOutput: STRICT JSON only (no preface) with fields: pillars {adaptability, creativity, reasoning} (0-100), rationale (string explaining your decision), pillarRationales {adaptability: string, creativity: string, reasoning: string}.`;
@@ -175,7 +192,10 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                         choices: (completion as any)?.choices,
                     });
                 } catch {}
-                const txt = completion.choices?.[0]?.message?.content ?? "";
+                const txt = completion.choices?.[0]?.message?.content?.trim();
+                if (!txt) {
+                    throw new Error("OpenAI CONTROL completion missing content");
+                }
                 setJsonTestResult(txt);
                 // Update store from parsed result if valid
                 try {
@@ -203,7 +223,14 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                     // Guard: only after we've seen a meaningful (non-zero) answer in this project
                     try {
                         const bg = interviewChatStore.getState().background as any;
-                        const zeroRuns = Number(bg?.zeroRuns || 0);
+                        const zeroRunsRaw = bg?.zeroRuns;
+                        if (zeroRunsRaw === undefined) {
+                            throw new Error("Background zeroRuns missing");
+                        }
+                        const zeroRuns = Number(zeroRunsRaw);
+                        if (Number.isNaN(zeroRuns)) {
+                            throw new Error("Background zeroRuns is not numeric");
+                        }
                         const seenNonZero = Boolean(bg?.seenNonZero);
                         // Simplified rule: two consecutive zeros within the current project → cap reached
                         if (seenNonZero && zeroRuns >= 2) {
@@ -224,7 +251,10 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                     } catch {}
                 } catch {}
             } catch (e: any) {
-                setJsonTestResult(`CONTROL ERROR: ${String(e?.message || e)}`);
+                if (!e?.message) {
+                    throw e;
+                }
+                setJsonTestResult(`CONTROL ERROR: ${String(e.message)}`);
             } finally {
                 controlInFlightRef.current = false;
             }
@@ -253,7 +283,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 setIsRecording(true);
                 notifyRecording(true);
             } catch (err) {
-                logger.error("❌ OpenAIConversation: mic permission error", err);
+                logger.error("❌ OpenAIVoiceConversation: mic permission error", err);
             }
         }, [notifyRecording]);
 
@@ -353,10 +383,13 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                         } catch {}
                     } else if (m.role === "ai") {
                         try {
-                            const textRaw = String(m.text || "").trim();
-                                dispatch(machineAiFinal({ text: textRaw }));
-                                emitMachineState();
-                                if (textRaw) postToChat(textRaw, m.role);
+                            if (typeof m.text !== "string") {
+                                throw new Error("AI response missing text");
+                            }
+                            const textRaw = m.text.trim();
+                            dispatch(machineAiFinal({ text: textRaw }));
+                            emitMachineState();
+                            if (textRaw) postToChat(textRaw, m.role);
                         } catch {}
                     }
                 },
@@ -379,8 +412,10 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 // Inject Background-only persona as a system prompt (no respond here)
                 try {
                     const ms = store.getState().interviewMachine;
-                    const companyName = ms.companyName || "Company";
-                    const persona = buildOpenAIBackgroundPrompt(companyName);
+                    if (!ms.companyName) {
+                        throw new Error("Interview machine missing companyName");
+                    }
+                    const persona = buildOpenAIBackgroundPrompt(ms.companyName);
                     try {
                         logger.info("[openai][prompt][persona]\n" + persona);
                     } catch {}
@@ -446,7 +481,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                 setIsConnected(true);
                 onStartConversation?.();
             } catch (e) {
-                logger.error("❌ OpenAIConversation: connect failed", e);
+                logger.error("❌ OpenAIVoiceConversation: connect failed", e);
             }
         }, [
             candidateName,
@@ -555,7 +590,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
         }, []);
 
         const sendUserMessage = useCallback(async (_message: string) => {
-            logger.warn("OpenAIConversation.sendUserMessage not yet implemented");
+            logger.warn("OpenAIVoiceConversation.sendUserMessage not yet implemented");
             return false;
         }, []);
 
@@ -566,7 +601,7 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
             },
             sendContextualUpdate: async (_text: string) => {
                 logger.warn(
-                    "OpenAIConversation.sendContextualUpdate not yet implemented"
+                    "OpenAIVoiceConversation.sendContextualUpdate not yet implemented"
                 );
             },
             sendUserMessage,
@@ -701,6 +736,6 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
     }
 );
 
-OpenAIConversation.displayName = "OpenAIConversation";
+OpenAIVoiceConversation.displayName = "OpenAIVoiceConversation";
 
-export default OpenAIConversation;
+export default OpenAIVoiceConversation;
