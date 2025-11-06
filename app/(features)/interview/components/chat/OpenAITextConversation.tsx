@@ -53,9 +53,9 @@ const OpenAITextConversation = forwardRef<any, Props>(
       throw new Error("OpenAITextConversation requires a candidateName");
     }
     const dispatch = useDispatch();
-    const openAIApiKey = process.env.NEXT_PUBLIC_NEXT_PUBLIC_OPENAI_API_KEY;
+    const openAIApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
     if (!openAIApiKey) {
-      throw new Error("NEXT_PUBLIC_NEXT_PUBLIC_OPENAI_API_KEY is required");
+      throw new Error("NEXT_PUBLIC_OPENAI_API_KEY is required");
     }
     const openaiClient = useMemo(
       () =>

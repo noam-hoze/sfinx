@@ -3,7 +3,7 @@
 ## Phase 1 – Setup
 
 - [ ] T001 Verify DEBUG_MODE wiring in runtime config (read path) in app/.env usage
-- [ ] T002 Ensure `NEXT_PUBLIC_NEXT_PUBLIC_OPENAI_API_KEY` is read only in client code; add note in README
+- [ ] T002 Ensure `NEXT_PUBLIC_OPENAI_API_KEY` is read only in client code; add note in README
 
 ## Phase 2 – Foundational
 
