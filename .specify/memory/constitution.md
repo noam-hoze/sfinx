@@ -127,9 +127,18 @@
   - Plans and tasks MUST include "Select library", "Integrate library", and (if applicable) "Remove custom util".
   - Failure to include this scan is a GATE FAILURE for /speckit.plan and /speckit.tasks.
 
+### Test-First Delivery
+- Every Cursor session MUST begin by reproducing the failure that motivates the work. Start with a failing test (unit or e2e) before writing production code.
+- Feature completion REQUIRES running both `pnpm test:unit` and `pnpm test:e2e`; tasks are not done until both suites pass locally.
+- FAST_LANE override:
+  - Enable by exporting `FAST_LANE=true` (or `1`).
+  - Provide `FAST_LANE_REASON`, `FAST_LANE_FOLLOW_UP` (issue URL/ID), and `FAST_LANE_DUE_DATE` env vars before invoking `pnpm verify` or CI.
+  - Reviewers MUST confirm the follow-up ticket exists, has a concrete owner, and the due date is tracked before approving.
+  - Teams MUST open the follow-up ticket before merging and link it in commit/PR metadata.
+
 ## Governance
 - This Constitution supersedes other practices when conflict arises.
 - Amendments: Use `/speckit.constitution` to propose changes; maintainers may update directly in POC. Post‑POC, changes require approval per governance policy.
 - Versioning: MAJOR for incompatible principle changes; MINOR for new principles/sections; PATCH for clarifications.
 
-**Version**: 1.3.0
+**Version**: 1.4.0
