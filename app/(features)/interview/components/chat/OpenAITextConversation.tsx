@@ -30,10 +30,15 @@ import {
   runBackgroundControl,
 } from "./openAITextConversationHelpers";
 
-type Props = { candidateName: string; onStartConversation?: () => void };
+type Props = {
+  candidateName: string;
+  onStartConversation?: () => void;
+  automaticMode?: boolean;
+  onCodingPromptReady?: () => void;
+};
 
 const OpenAITextConversation = forwardRef<any, Props>(
-  ({ candidateName, onStartConversation }, ref) => {
+  ({ candidateName, onStartConversation, automaticMode = false, onCodingPromptReady }, ref) => {
     if (!candidateName) {
       throw new Error("OpenAITextConversation requires a candidateName");
     }
@@ -85,34 +90,34 @@ const OpenAITextConversation = forwardRef<any, Props>(
         const ms = store.getState().interviewMachine;
         if (ms.state !== "in_coding_session" || codingPromptSentRef.current) return;
         codingPromptSentRef.current = true;
-        try {
-          if (!ms.companyName) {
-            throw new Error("Interview machine missing companyName for coding prompt");
-          }
-          const raw = scriptRef.current?.codingPrompt;
-          if (typeof raw !== "string") {
-            throw new Error("codingPrompt missing from script payload");
-          }
-          const taskText = raw.trim();
-          if (!taskText) {
-            throw new Error("codingPrompt is empty");
-          }
-          const persona = buildOpenAICodingPrompt(ms.companyName, taskText);
-          try {
-            /* eslint-disable no-console */ console.log("[coding][persona]", persona);
-            /* eslint-disable no-console */ console.log("[coding][instruction]", taskText);
-          } catch {}
-          const instruction = `Ask exactly:\n"""\n${taskText}\n"""`;
-          void deliverAssistantPrompt({ persona, instruction }).catch(() => {
-            codingPromptSentRef.current = false;
-          });
-        } catch (error) {
-          codingPromptSentRef.current = false;
-          throw error;
+        if (!ms.companyName) {
+          throw new Error("Interview machine missing companyName for coding prompt");
         }
+        const raw = scriptRef.current?.codingPrompt;
+        if (typeof raw !== "string") {
+          throw new Error("codingPrompt missing from script payload");
+        }
+        const taskText = raw.trim();
+        if (!taskText) {
+          throw new Error("codingPrompt is empty");
+        }
+        const persona = buildOpenAICodingPrompt(ms.companyName, taskText);
+        try {
+          /* eslint-disable no-console */ console.log("[coding][persona]", persona);
+          /* eslint-disable no-console */ console.log("[coding][instruction]", taskText);
+        } catch {}
+        const instruction = `Ask exactly:\n"""\n${taskText}\n"""`;
+        void (async () => {
+          const answer = await deliverAssistantPrompt({ persona, instruction });
+          if (answer && automaticMode && onCodingPromptReady) {
+            try {
+              onCodingPromptReady();
+            } catch {}
+          }
+        })();
       });
       return () => unsubscribe();
-    }, [deliverAssistantPrompt]);
+    }, [automaticMode, deliverAssistantPrompt, onCodingPromptReady]);
 
     const sendUserMessage = useCallback(
       async (text: string) => {

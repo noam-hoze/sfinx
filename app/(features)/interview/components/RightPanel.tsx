@@ -20,11 +20,13 @@ interface RightPanelProps {
     onInterviewConcluded: () => void;
     micMuted: boolean;
     onToggleMicMute: () => void;
-    realTimeConversationRef: React.Ref<any>;
+    realTimeConversationRef: React.RefObject<any>;
     isAgentConnected: boolean;
     setIsAgentConnected: (v: boolean) => void;
     setIsInterviewActive: (v: boolean) => void;
     onStopTimer: () => void;
+    isTextInputLocked: boolean;
+    onCodingPromptReady?: () => void;
 }
 
 const RightPanel: React.FC<RightPanelProps> = ({
@@ -46,6 +48,8 @@ const RightPanel: React.FC<RightPanelProps> = ({
     setIsAgentConnected,
     setIsInterviewActive,
     onStopTimer,
+    isTextInputLocked,
+    onCodingPromptReady,
 }) => {
     const isTextMode = (process.env.NEXT_PUBLIC_INTERVIEW_COMM_METHOD || "speech").toLowerCase() === "text";
 
@@ -90,6 +94,13 @@ const RightPanel: React.FC<RightPanelProps> = ({
                             onStartConversation={() => {
                                 setIsAgentConnected(true);
                                 onStartConversation();
+                            }}
+                            automaticMode={automaticMode}
+                            onCodingPromptReady={() => {
+                                onCodingPromptReady?.();
+                                if (automaticMode) {
+                                    onAutoStartCoding();
+                                }
                             }}
                         />
                     ) : ( (process.env.NEXT_PUBLIC_VOICE_ENGINE || "elevenlabs") === "openai" ? (
@@ -150,10 +161,13 @@ const RightPanel: React.FC<RightPanelProps> = ({
                     onToggleMicMute={onToggleMicMute}
                     onSendText={isTextMode ? async (t: string) => {
                         try {
-                            const ref = realTimeConversationRef.current as any;
-                            if (ref?.sendUserMessage) await ref.sendUserMessage(t);
+                            const ref = realTimeConversationRef?.current as any;
+                            if (ref?.sendUserMessage) {
+                                await ref.sendUserMessage(t);
+                            }
                         } catch {}
                     } : undefined}
+                    isInputDisabled={isTextMode && isTextInputLocked}
                 />
             </div>
         </div>

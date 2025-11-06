@@ -126,8 +126,11 @@ const InterviewerContent = () => {
     const [micMuted, setMicMuted] = useState(false);
     const [applicationCreated, setApplicationCreated] = useState(false);
     const [interviewConcluded, setInterviewConcluded] = useState(false);
+    const [isChatInputLocked, setIsChatInputLocked] = useState(false);
     const realTimeConversationRef = useRef<any>(null);
     const automaticMode = process.env.NEXT_PUBLIC_AUTOMATIC_MODE === "true";
+    const isTextMode =
+        (process.env.NEXT_PUBLIC_INTERVIEW_COMM_METHOD || "speech").toLowerCase() === "text";
     const isDebugModeEnabled = process.env.NEXT_PUBLIC_DEBUG_MODE === "true";
     const debugPanelVisibleEnv = process.env.NEXT_PUBLIC_DEBUG_PANEL_VISIBLE;
     const [isDebugVisible, setIsDebugVisible] = useState(() => {
@@ -234,6 +237,41 @@ const InterviewerContent = () => {
         await setCodingState(true);
         startTimer();
     }, [setCodingStarted, setCodingState, startTimer]);
+
+    useEffect(() => {
+        if (!automaticMode || isTextMode) {
+            return;
+        }
+        const unsubscribe = store.subscribe(() => {
+            const machineState = store.getState().interviewMachine?.state;
+            if (machineState === "in_coding_session" && !isCodingStarted) {
+                void handleStartCoding();
+            }
+        });
+        return () => unsubscribe();
+    }, [automaticMode, handleStartCoding, isCodingStarted, isTextMode]);
+
+    useEffect(() => {
+        if (!isTextMode) {
+            return;
+        }
+        const prevStateRef = { current: store.getState().interviewMachine?.state };
+        const unsubscribe = store.subscribe(() => {
+            const machineState = store.getState().interviewMachine?.state;
+            if (
+                machineState === "in_coding_session" &&
+                prevStateRef.current !== "in_coding_session"
+            ) {
+                setIsChatInputLocked(true);
+            }
+            prevStateRef.current = machineState;
+        });
+        return () => unsubscribe();
+    }, [isTextMode]);
+
+    const handleCodingPromptReady = useCallback(() => {
+        setIsChatInputLocked(false);
+    }, []);
 
     /**
      * Submits the current solution, stops recording, exits coding mode, and stops the timer.
@@ -376,10 +414,11 @@ const InterviewerContent = () => {
         (async () => {
             if (state.currentCode) return;
             if (!job) return; // wait until job is loaded and store context set
-            const ms = (window as any).__sfinxStore?.getState?.()?.interviewMachine;
-            const companySlug = ms?.companySlug;
-            const roleSlug = ms?.roleSlug;
-            if (!companySlug || !roleSlug) return;
+            const companyNameRaw = job?.company?.name;
+            const roleTitleRaw = job?.title;
+            if (!companyNameRaw || !roleTitleRaw) return;
+            const companySlug = companyNameRaw.toLowerCase();
+            const roleSlug = roleTitleRaw.toLowerCase().replace(/\s+/g, "-");
             try {
                 const resp = await fetch(`/api/interviews/script?company=${companySlug}&role=${roleSlug}`);
                 if (!resp.ok) return;
@@ -599,6 +638,7 @@ const InterviewerContent = () => {
                             onStartConversation={() => {
                                 logger.info("Conversation started");
                                 setIsInterviewLoading(false);
+                                setIsChatInputLocked(false);
                                     try {
                                         interviewChatStore.dispatch({
                                             type: "SET_STAGE",
@@ -612,6 +652,7 @@ const InterviewerContent = () => {
                                 setIsCodingStarted(false);
                                 setCodingStarted(false);
                                 setIsInterviewLoading(false);
+                                setIsChatInputLocked(false);
                             }}
                             onInterviewConcluded={() =>
                                 setInterviewConcluded(true)
@@ -623,6 +664,8 @@ const InterviewerContent = () => {
                             setIsAgentConnected={setIsAgentConnected}
                             setIsInterviewActive={setIsInterviewActive}
                             onStopTimer={stopTimer}
+                            isTextInputLocked={isChatInputLocked}
+                            onCodingPromptReady={handleCodingPromptReady}
                         />
                     </Panel>
                 </PanelGroup>

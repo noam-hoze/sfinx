@@ -16,9 +16,10 @@ interface ChatPanelProps {
     micMuted?: boolean;
     onToggleMicMute?: () => void;
     onSendText?: (text: string) => Promise<void>;
+    isInputDisabled?: boolean;
 }
 
-const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText }: ChatPanelProps) => {
+const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisabled = false }: ChatPanelProps) => {
     const chat = useSelector((s: RootState) => s.interviewChat);
     const transcriptions: TranscriptionMessage[] = chat.messages.map((m) => ({
         id: m.id,
@@ -153,8 +154,13 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText }: ChatPanelP
                             name="chat_input"
                             placeholder="Type your message…"
                             className="flex-1 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm"
+                            disabled={isInputDisabled}
                         />
-                        <button type="submit" className="px-3 py-2 text-sm rounded-md bg-blue-600 text-white">
+                        <button
+                            type="submit"
+                            className="px-3 py-2 text-sm rounded-md bg-blue-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled={isInputDisabled}
+                        >
                             Send
                         </button>
                     </form>
