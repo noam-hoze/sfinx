@@ -79,9 +79,9 @@ const OpenAIVoiceConversation = forwardRef<any, OpenAIVoiceConversationProps>(
         if (!candidateName) {
             throw new Error("OpenAIVoiceConversation requires candidateName");
         }
-        const openAIApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+        const openAIApiKey = process.env.NEXT_PUBLIC_NEXT_PUBLIC_OPENAI_API_KEY;
         if (!openAIApiKey) {
-            throw new Error("NEXT_PUBLIC_OPENAI_API_KEY is required");
+            throw new Error("NEXT_PUBLIC_NEXT_PUBLIC_OPENAI_API_KEY is required");
         }
         const [isConnected, setIsConnected] = useState(false);
         const [jsonTestResult, setJsonTestResult] = useState<string>("");

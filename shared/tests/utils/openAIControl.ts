@@ -7,7 +7,7 @@ export type ControlResult = {
   pillarRationales: { adaptability: string; creativity: string; reasoning: string };
 };
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY });
+const client = new OpenAI({ apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY || process.env.NEXT_PUBLIC_NEXT_PUBLIC_OPENAI_API_KEY });
 
 export async function requestControlDeltaOnly(opts: {
   company: string;

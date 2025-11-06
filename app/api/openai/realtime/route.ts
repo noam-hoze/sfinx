@@ -3,10 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 // POST /api/openai/realtime
 // Returns an ephemeral client secret for OpenAI Realtime API
 export async function POST(_req: NextRequest) {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
     if (!apiKey) {
         return NextResponse.json(
-            { error: "Missing OPENAI_API_KEY" },
+            { error: "Missing NEXT_PUBLIC_OPENAI_API_KEY" },
             { status: 500 }
         );
     }
