@@ -126,7 +126,7 @@ const InterviewerContent = () => {
     const [micMuted, setMicMuted] = useState(false);
     const [applicationCreated, setApplicationCreated] = useState(false);
     const [interviewConcluded, setInterviewConcluded] = useState(false);
-    const [isChatInputLocked, setIsChatInputLocked] = useState(false);
+    const [isChatInputLocked, setIsChatInputLocked] = useState(true);
     const realTimeConversationRef = useRef<any>(null);
     const automaticMode = process.env.NEXT_PUBLIC_AUTOMATIC_MODE === "true";
     const isTextMode =
@@ -332,6 +332,9 @@ const InterviewerContent = () => {
                 }
             }
 
+            if (isTextMode) {
+                setIsChatInputLocked(true);
+            }
             updateCurrentCode(getInitialCode());
             window.postMessage({ type: "clear-chat" }, "*");
             await realTimeConversationRef.current?.startConversation();
@@ -348,6 +351,8 @@ const InterviewerContent = () => {
         jobId,
         updateCurrentCode,
         setInterviewSessionId,
+        isTextMode,
+        setIsChatInputLocked,
     ]);
 
     /**
@@ -638,7 +643,6 @@ const InterviewerContent = () => {
                             onStartConversation={() => {
                                 logger.info("Conversation started");
                                 setIsInterviewLoading(false);
-                                setIsChatInputLocked(false);
                                     try {
                                         interviewChatStore.dispatch({
                                             type: "SET_STAGE",
@@ -666,6 +670,7 @@ const InterviewerContent = () => {
                             onStopTimer={stopTimer}
                             isTextInputLocked={isChatInputLocked}
                             onCodingPromptReady={handleCodingPromptReady}
+                            onGreetingDelivered={() => setIsChatInputLocked(false)}
                         />
                     </Panel>
                 </PanelGroup>

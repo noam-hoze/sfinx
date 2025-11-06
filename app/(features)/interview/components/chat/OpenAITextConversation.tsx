@@ -35,10 +35,11 @@ type Props = {
   onStartConversation?: () => void;
   automaticMode?: boolean;
   onCodingPromptReady?: () => void;
+  onGreetingDelivered?: () => void;
 };
 
 const OpenAITextConversation = forwardRef<any, Props>(
-  ({ candidateName, onStartConversation, automaticMode = false, onCodingPromptReady }, ref) => {
+  ({ candidateName, onStartConversation, automaticMode = false, onCodingPromptReady, onGreetingDelivered }, ref) => {
     if (!candidateName) {
       throw new Error("OpenAITextConversation requires a candidateName");
     }
@@ -79,9 +80,14 @@ const OpenAITextConversation = forwardRef<any, Props>(
         if (!answer) return null;
         post(answer, "ai");
         dispatch(machineAiFinal({ text: answer }));
+        if (onGreetingDelivered && instruction.includes("I'll be the one interviewing today!")) {
+          try {
+            onGreetingDelivered();
+          } catch {}
+        }
         return answer;
       },
-      [dispatch, openaiClient, post]
+      [dispatch, onGreetingDelivered, openaiClient, post]
     );
 
     /** Injects the coding prompt once the guard advances into the coding session. */
@@ -209,11 +215,14 @@ const OpenAITextConversation = forwardRef<any, Props>(
         const fallback = `Hi ${name}, I'm Carrie. I'll be the one interviewing today!`;
         post(fallback, "ai");
         dispatch(machineAiFinal({ text: fallback }));
+        try {
+          onGreetingDelivered?.();
+        } catch {}
       }
       try {
         onStartConversation?.();
       } catch {}
-    }, [candidateName, deliverAssistantPrompt, dispatch, onStartConversation, post]);
+    }, [candidateName, deliverAssistantPrompt, dispatch, onGreetingDelivered, onStartConversation, post]);
 
     useImperativeHandle(ref, () => ({
       startConversation,

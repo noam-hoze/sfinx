@@ -27,6 +27,7 @@ interface RightPanelProps {
     onStopTimer: () => void;
     isTextInputLocked: boolean;
     onCodingPromptReady?: () => void;
+    onGreetingDelivered?: () => void;
 }
 
 const RightPanel: React.FC<RightPanelProps> = ({
@@ -50,6 +51,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
     onStopTimer,
     isTextInputLocked,
     onCodingPromptReady,
+    onGreetingDelivered,
 }) => {
     const isTextMode = (process.env.NEXT_PUBLIC_INTERVIEW_COMM_METHOD || "speech").toLowerCase() === "text";
 
@@ -102,6 +104,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
                                     onAutoStartCoding();
                                 }
                             }}
+                            onGreetingDelivered={onGreetingDelivered}
                         />
                     ) : ( (process.env.NEXT_PUBLIC_VOICE_ENGINE || "elevenlabs") === "openai" ? (
                         <OpenAIVoiceConversation
