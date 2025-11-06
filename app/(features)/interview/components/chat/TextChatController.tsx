@@ -16,6 +16,7 @@ const TextChatController = forwardRef<any, Props>(({ candidateName = "Candidate"
   const dispatch = useDispatch();
   const openaiClient = useMemo(() => new OpenAI({ apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY || "", dangerouslyAllowBrowser: true }), []);
   const readyRef = useRef(false);
+  const scriptRef = useRef<any | null>(null);
   const codingPromptSentRef = useRef(false);
 
   const post = useCallback((text: string, speaker: "user" | "ai") => {
@@ -57,7 +58,7 @@ const TextChatController = forwardRef<any, Props>(({ candidateName = "Candidate"
     const ms = store.getState().interviewMachine;
     if (ms.state === "greeting_responded_by_user") {
       // Ask the scripted background question
-      const expectedQ = (window as any).__sfinxScript?.backgroundQuestion;
+      const expectedQ = scriptRef.current?.backgroundQuestion;
       if (expectedQ) {
         post(String(expectedQ), "ai");
         dispatch(machineAiFinal({ text: String(expectedQ) }));
@@ -90,7 +91,7 @@ const TextChatController = forwardRef<any, Props>(({ candidateName = "Candidate"
       const resp = await fetch(`/api/interviews/script?company=${companySlug}&role=${roleSlug}`);
       if (resp.ok) {
         const data = await resp.json();
-        (window as any).__sfinxScript = data;
+        scriptRef.current = data;
         if (data?.backgroundQuestion) dispatch(setExpectedBackgroundQuestion({ question: String(data.backgroundQuestion) }));
       }
     } catch {}
@@ -107,6 +108,16 @@ const TextChatController = forwardRef<any, Props>(({ candidateName = "Candidate"
     sendUserMessage,
   }));
 
+  // Watches the interview machine for the first transition into `in_coding_session`.
+  // Intended responsibilities:
+  // 1. Retrieve the script’s coding prompt and build the coding-stage persona.
+  // 2. Deliver that persona + “ask exactly …” instruction to OpenAI (text mode parity
+  //    with the speech path) so Carrie actually announces the coding task.
+  // 3. Emit a single chat message mirror for local UI and call `machineAiFinal`
+  //    after the external send succeeds, guarding against duplicate sends when
+  //    Redux subscribers re-run.
+  // NOTE: The current body is a placeholder; the actual OpenAI call should be
+  //       implemented to satisfy the responsibilities above.
   useEffect(() => {
     try {
       // Expose redux store for tests/debug parity with speech mode
@@ -115,42 +126,11 @@ const TextChatController = forwardRef<any, Props>(({ candidateName = "Candidate"
     } catch {}
   }, []);
 
+  // Placeholder effect: actual coding prompt subscription will be wired in once the
+  // text-mode persona delivery is implemented.
   useEffect(() => {
-    const unsubscribe = store.subscribe(() => {
-      try {
-        const ms = store.getState().interviewMachine;
-        if (ms.state === "in_coding_session") {
-          if (codingPromptSentRef.current) {
-            return;
-          }
-          const script: any = (window as any).__sfinxScript;
-          const rawPrompt = script?.codingPrompt;
-          const taskText = typeof rawPrompt === "string" ? rawPrompt.trim() : "";
-          if (!taskText) {
-            try { /* eslint-disable no-console */ console.error("[coding][missing_prompt] script payload", script); } catch {}
-            return;
-          }
-          codingPromptSentRef.current = true;
-          const companyName = ms.companyName || "Company";
-          try {
-            const persona = buildOpenAICodingPrompt(companyName, taskText);
-            /* eslint-disable no-console */ console.log("[coding][persona]", persona);
-          } catch {}
-          const instruction = `Ask exactly:\n"""\n${taskText}\n"""`;
-          try { /* eslint-disable no-console */ console.log("[coding][instruction]", instruction); } catch {}
-          post(taskText, "ai");
-          dispatch(machineAiFinal({ text: taskText }));
-        } else if (ms.state === "background_asked_by_ai" || ms.state === "background_answered_by_user" || ms.state === "greeting_said_by_ai" || ms.state === "greeting_responded_by_user" || ms.state === "idle") {
-          codingPromptSentRef.current = false;
-        }
-      } catch {}
-    });
-    return () => {
-      try {
-        unsubscribe();
-      } catch {}
-    };
-  }, [dispatch, post]);
+    return () => {};
+  }, []);
 
   return null;
 });
