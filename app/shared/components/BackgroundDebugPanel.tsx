@@ -87,10 +87,6 @@ export default function BackgroundDebugPanel() {
         },
     ];
 
-    if (stage === "coding") {
-        return null;
-    }
-
     const stageName = typeof stage === "string" ? stage : "";
     const prettyStage = stageName
         ? stageName
@@ -98,7 +94,35 @@ export default function BackgroundDebugPanel() {
               .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
               .join(" ")
         : "";
-    const panelTitle = stageName === "background" ? "Background Gate" : prettyStage ? `${prettyStage} Stage` : "Debug Panel";
+    const panelTitle = stageName === "greeting"
+        ? "Greeting Gate"
+        : stageName === "background"
+        ? "Background Gate"
+        : stageName === "coding"
+        ? "Coding Stage"
+        : prettyStage
+        ? `${prettyStage} Stage`
+        : "Debug Panel";
+
+    if (!stageName) {
+        return (
+            <div className="rounded-[28px] border border-slate-200/70 bg-white/80 px-6 py-5 text-sm shadow-lg shadow-slate-900/5 backdrop-blur-xl dark:border-slate-700/60 dark:bg-slate-900/80 dark:text-slate-100">
+                <div className="text-[11px] uppercase tracking-[0.32em] text-slate-500 dark:text-slate-400">
+                    Interview idle — start to see guard data
+                </div>
+            </div>
+        );
+    }
+
+    if (stageName === "greeting") {
+        return (
+            <div className="rounded-[28px] border border-slate-200/70 bg-white/80 px-6 py-5 text-sm shadow-lg shadow-slate-900/5 backdrop-blur-xl dark:border-slate-700/60 dark:bg-slate-900/80 dark:text-slate-100">
+                <div className="text-[11px] uppercase tracking-[0.32em] text-slate-500 dark:text-slate-400">
+                    {panelTitle}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="rounded-[28px] border border-slate-200/70 bg-white/80 px-6 py-5 text-sm shadow-lg shadow-slate-900/5 backdrop-blur-xl dark:border-slate-700/60 dark:bg-slate-900/80 dark:text-slate-100">

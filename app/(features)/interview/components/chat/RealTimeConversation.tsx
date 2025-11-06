@@ -154,7 +154,6 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                                 if (gate.shouldAdvance && control.readyToProceed === true) {
                                     interviewChatStore.dispatch({ type: "BG_MARK_TRANSITION" });
                                     interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" });
-                                    logRef.info("✅ Gate passed by CONTROL: advancing to coding");
                                 }
                                 // Do not forward CONTROL to UI
                                 return;
@@ -211,7 +210,6 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                                     type: "SET_STAGE",
                                     payload: "background",
                                 });
-                                logRef.info("➡️ Stage changed: greeting → background");
                             }
                         } catch {}
                     }

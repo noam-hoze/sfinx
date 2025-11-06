@@ -27,6 +27,19 @@ const initialState: InterviewMachineState = {
     state: "idle",
 };
 
+const logStageTransition = (
+    from: InterviewState,
+    to: InterviewState,
+    context?: string
+) => {
+    if (from === to) return;
+    try {
+        const suffix = context ? ` (${context})` : "";
+        // eslint-disable-next-line no-console
+        console.log(`[machine] ${from} -> ${to}${suffix}`);
+    } catch {}
+};
+
 const interviewMachineSlice = createSlice({
     name: "interviewMachine",
     initialState,
@@ -52,7 +65,9 @@ const interviewMachineSlice = createSlice({
                     state.candidateName || "Candidate"
                 }, I'm Carrie. I'll be the one interviewing today!`;
                 if ((action.payload.text || "").trim() === expected) {
+                    const prev = state.state;
                     state.state = "greeting_said_by_ai";
+                    logStageTransition(prev, state.state, "ai greeting matched");
                 }
             } else if (state.state === "greeting_responded_by_user") {
                 const expectedQ = (
@@ -62,11 +77,9 @@ const interviewMachineSlice = createSlice({
                     expectedQ &&
                     (action.payload.text || "").trim() === expectedQ
                 ) {
+                    const prev = state.state;
                     state.state = "background_asked_by_ai";
-                    try {
-                        // eslint-disable-next-line no-console
-                        console.log("[machine] transition -> background_asked_by_ai (expected question matched)");
-                    } catch {}
+                    logStageTransition(prev, state.state, "expected background question matched");
                     try {
                         const s = interviewChatStore.getState();
                         if (!s.background.startedAtMs) {
@@ -91,13 +104,13 @@ const interviewMachineSlice = createSlice({
                     );
                     if (reason) {
                         interviewChatStore.dispatch({ type: "BG_GUARD_SET_REASON", payload: { reason } });
+                        const prev = state.state;
                         state.state = "in_coding_session";
+                        logStageTransition(prev, state.state, `guard reason: ${reason}`);
                     } else {
+                        const prev = state.state;
                         state.state = "background_asked_by_ai";
-                        try {
-                            // eslint-disable-next-line no-console
-                            console.log("[machine] transition -> background_asked_by_ai (guard not satisfied)");
-                        } catch {}
+                        logStageTransition(prev, state.state, "guard not satisfied");
                         // Ensure timer started on any entry to background mode
                         try {
                             const st = interviewChatStore.getState();
@@ -107,30 +120,32 @@ const interviewMachineSlice = createSlice({
                         } catch {}
                     }
                 } catch {
+                    const prev = state.state;
                     state.state = "background_asked_by_ai";
-                    try {
-                        // eslint-disable-next-line no-console
-                        console.log("[machine] transition -> background_asked_by_ai (guard error path)");
-                    } catch {}
+                    logStageTransition(prev, state.state, "guard error path");
                 }
             }
         },
         userFinal: (state) => {
             if (state.state === "greeting_said_by_ai") {
+                const prev = state.state;
                 state.state = "greeting_responded_by_user";
-                try {
-                    // eslint-disable-next-line no-console
-                    console.log("[machine] transition -> greeting_responded_by_user (user replied)");
-                } catch {}
+                logStageTransition(prev, state.state, "user replied");
             } else if (state.state === "background_asked_by_ai") {
+                const prev = state.state;
                 state.state = "background_answered_by_user";
+                logStageTransition(prev, state.state, "user answered background question");
             } else if (state.state === "followup_question") {
                 // User finished after follow-up; remain in background until gate passes
+                const prev = state.state;
                 state.state = "background_answered_by_user";
+                logStageTransition(prev, state.state, "follow-up answered");
             }
         },
         startFollowup: (state) => {
+            const prev = state.state;
             state.state = "followup_question";
+            logStageTransition(prev, state.state, "follow-up initiated");
         },
         setExpectedBackgroundQuestion: (
             state,
@@ -139,18 +154,24 @@ const interviewMachineSlice = createSlice({
             state.expectedBackgroundQuestion = action.payload.question;
         },
         end: (state) => {
+            const prev = state.state;
             state.state = "ended";
+            logStageTransition(prev, state.state, "interview ended");
         },
         reset: (state) => {
+            const prev = state.state;
             state.state = "idle";
             state.candidateName = undefined;
             state.expectedBackgroundQuestion = undefined;
             state.companyName = undefined;
             state.companySlug = undefined;
             state.roleSlug = undefined;
+            logStageTransition(prev, state.state, "reset");
         },
         forceCoding: (state) => {
+            const prev = state.state;
             state.state = "in_coding_session";
+            logStageTransition(prev, state.state, "forced");
         },
     },
 });

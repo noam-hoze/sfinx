@@ -31,8 +31,11 @@ import { createApplication } from "./services/applicationService";
 import { createInterviewSession } from "./services/interviewSessionService";
 import { fetchJobById } from "./services/jobService";
 import { useDispatch } from "react-redux";
-import { setCompanyContext } from "@/shared/state/slices/interviewMachineSlice";
+import { forceCoding, setCompanyContext } from "@/shared/state/slices/interviewMachineSlice";
 import BackgroundDebugPanel from "../../../shared/components/BackgroundDebugPanel";
+import { interviewChatStore } from "@/shared/state/interviewChatStore";
+import { TIMEBOX_MS } from "@/shared/services/backgroundSessionGuard";
+import { store } from "@/shared/state/store";
 
 const logger = log;
 const INTERVIEW_DURATION_SECONDS = 30 * 60;
@@ -126,7 +129,14 @@ const InterviewerContent = () => {
     const realTimeConversationRef = useRef<any>(null);
     const automaticMode = process.env.NEXT_PUBLIC_AUTOMATIC_MODE === "true";
     const isDebugModeEnabled = process.env.NEXT_PUBLIC_DEBUG_MODE === "true";
-    const [isDebugVisible, setIsDebugVisible] = useState(isDebugModeEnabled);
+    const debugPanelVisibleEnv = process.env.NEXT_PUBLIC_DEBUG_PANEL_VISIBLE;
+    const [isDebugVisible, setIsDebugVisible] = useState(() => {
+        if (!isDebugModeEnabled) return false;
+        if (debugPanelVisibleEnv === "true") return true;
+        if (debugPanelVisibleEnv === "false") return false;
+        return true;
+    });
+    const timeboxFiredRef = useRef(false);
 
     const toggleDebugPanel = useCallback(() => {
         if (!isDebugModeEnabled) return;
@@ -149,6 +159,33 @@ const InterviewerContent = () => {
     useEffect(() => {
         logger.info("interviewSessionId changed to:", interviewSessionId);
     }, [interviewSessionId]);
+
+    useEffect(() => {
+        const id = setInterval(() => {
+            if (timeboxFiredRef.current) return;
+            try {
+                const chatState = interviewChatStore.getState();
+                const machineState = store.getState().interviewMachine?.state;
+                const bg = chatState.background || {};
+                const startedAtMs = bg.startedAtMs;
+                if (!startedAtMs) return;
+                if (machineState === "in_coding_session" || chatState.stage === "coding") {
+                    timeboxFiredRef.current = true;
+                    clearInterval(id);
+                    return;
+                }
+                const elapsed = Date.now() - startedAtMs;
+                if (elapsed >= TIMEBOX_MS) {
+                    timeboxFiredRef.current = true;
+                    interviewChatStore.dispatch({ type: "BG_GUARD_SET_REASON", payload: { reason: "timebox" } });
+                    store.dispatch(forceCoding());
+                    interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" } as any);
+                    clearInterval(id);
+                }
+            } catch {}
+        }, 500);
+        return () => clearInterval(id);
+    }, []);
 
     /**
      * Sends a hidden signal instructing the agent to deliver its closing line and end.
@@ -329,7 +366,7 @@ const InterviewerContent = () => {
         return () => {
             mounted = false;
         };
-    }, [jobId]);
+    }, [jobId, dispatch]);
 
     /**
      * Initializes editor content with the default snippet if empty.
@@ -562,6 +599,12 @@ const InterviewerContent = () => {
                             onStartConversation={() => {
                                 logger.info("Conversation started");
                                 setIsInterviewLoading(false);
+                                    try {
+                                        interviewChatStore.dispatch({
+                                            type: "SET_STAGE",
+                                            payload: "greeting",
+                                        } as any);
+                                    } catch {}
                             }}
                             onEndConversation={() => {
                                 logger.info("Conversation ended");

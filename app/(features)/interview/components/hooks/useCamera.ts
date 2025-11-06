@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { log } from "../../../../shared/services";
 
 const logger = log;
+const CAMERA_AUTO_START = process.env.NEXT_PUBLIC_CAMERA_AUTO_START !== "false";
 
 export const useCamera = () => {
     const [isCameraOn, setIsCameraOn] = useState(false);
@@ -68,7 +69,9 @@ export const useCamera = () => {
     }, [isCameraOn]);
 
     useEffect(() => {
-        startCamera();
+        if (CAMERA_AUTO_START) {
+            startCamera();
+        }
         return () => {
             stopCamera();
             if (cameraHideTimeoutRef.current) {

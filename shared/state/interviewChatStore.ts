@@ -256,7 +256,7 @@ function createStore(initial: InterviewChatState) {
 export const interviewChatStore = createStore({
     messages: [],
     isRecording: false,
-    stage: "greeting",
+    stage: null as unknown as InterviewStage,
     background: {
         confidence: 0,
         questionsAsked: 0,

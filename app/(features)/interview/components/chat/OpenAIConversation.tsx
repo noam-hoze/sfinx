@@ -470,9 +470,13 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                     const ms = store.getState().interviewMachine;
                     if (ms.state === "in_coding_session" && !codingPromptInjectedRef.current) {
                         const companyName = ms.companyName || "Company";
-                        const taskText = (scriptRef.current as any)?.codingPrompt;
-                        if (typeof taskText !== "string" || taskText.trim() === "") {
-                            logger.error("[openai][coding][missing_prompt] codingPrompt not found in script");
+                        const taskTextRaw = (scriptRef.current as any)?.codingPrompt;
+                        const taskText =
+                            typeof taskTextRaw === "string" ? taskTextRaw.trim() : "";
+                        if (!taskText) {
+                            logger.error(
+                                "[openai][coding][missing_prompt] codingPrompt not found in script"
+                            );
                             return;
                         }
                         const persona = buildOpenAICodingPrompt(companyName, taskText);
@@ -486,6 +490,18 @@ const OpenAIConversation = forwardRef<any, OpenAIConversationProps>(
                                     type: "message",
                                     role: "system",
                                     content: [{ type: "input_text", text: persona }],
+                                },
+                            });
+                        } catch {}
+                        try {
+                            const instruction = `Ask exactly:\n"""\n${taskText}\n"""`;
+                            logger.info("[openai][prompt][coding_question]\n" + instruction);
+                            sessionRef.current?.transport?.sendEvent?.({
+                                type: "conversation.item.create",
+                                item: {
+                                    type: "message",
+                                    role: "system",
+                                    content: [{ type: "input_text", text: instruction }],
                                 },
                             });
                         } catch {}
