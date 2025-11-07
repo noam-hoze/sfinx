@@ -2,31 +2,33 @@
 
 ## Core Principles
 
-### I. Reuse-First and Modularity
+### I. Hard Ban on Fallbacks
+- Hidden fallbacks or implicit behavior are PROHIBITED unless a maintainer spells out the exact fallback in writing for that change.
+- Any approved fallback MUST ship behind a documented feature flag or configuration toggle with monitoring.
+- Every violation must block merges and be logged in the changelog with remediation steps.
+- Rationale: Predictable behavior reduces surprise and debugging cost.
+
+### II. Reuse-First and Modularity
 - Teams MUST prioritize reusing existing code and composing modular units over duplicating logic.
 - Modules MUST have a single clear purpose and minimal coupling; prefer helpers/services/components over large files.
 - Rationale: Reuse and modularity reduce defects, speed delivery, and improve maintainability.
 
-### II. File Size Discipline (<300 lines)
+### III. File Size Discipline (<300 lines)
 - Source files MUST remain under 300 lines (excluding generated code).
 - Applies to `.ts`, `.tsx` under `app/`, `shared/`, `server/` (and related packages); generated files excluded.
 - CI SHOULD enforce this limit; split into helpers/services/components as needed.
 - Rationale: Smaller files are easier to test, review, and evolve.
 
-### III. Documentation Discipline (Files and Functions)
+### IV. Documentation Discipline (Files and Functions)
 - Every file and public function MUST be documented succinctly where defined (TypeScript doc comments).
 - Function documentation MUST be concise (≤ 4 lines) while explaining purpose and key behavior.
 - For every new file and every new function added, documentation MUST be included in the same change (commit/PR).
 - Rationale: Lightweight documentation preserves clarity without burdening iteration speed.
 
-### IV. Library-First Integration
+### V. Library-First Integration
 - Prefer integrating mature, well-maintained libraries before building custom implementations.
 - Evaluate maintenance signals (recent releases, issue activity) and license compatibility before adoption.
 - Rationale: Leveraging proven libraries accelerates delivery and improves reliability.
-
-### V. No Fallbacks Unless Explicitly Requested
-- Do not add hidden fallbacks or implicit behavior; use explicit feature flags or instructions.
-- Rationale: Predictable behavior reduces surprise and debugging cost.
 
 ### VI. Evidence‑First Debugging & Causality
 - Before implementing fixes, teams MUST establish a clear, code‑level causal chain for any defect.
@@ -70,31 +72,33 @@
 
 ## Core Principles
 
-### I. Reuse-First and Modularity
+### I. Hard Ban on Fallbacks
+- Hidden fallbacks or implicit behavior are PROHIBITED unless a maintainer spells out the exact fallback in writing for that change.
+- Any approved fallback MUST ship behind a documented feature flag or configuration toggle with monitoring.
+- Every violation must block merges and be logged in the changelog with remediation steps.
+- Rationale: Predictable behavior reduces surprise and debugging cost.
+
+### II. Reuse-First and Modularity
 - Teams MUST prioritize reusing existing code and composing modular units over duplicating logic.
 - Modules MUST have a single clear purpose and minimal coupling; prefer helpers/services/components over large files.
 - Rationale: Reuse and modularity reduce defects, speed delivery, and improve maintainability.
 
-### II. File Size Discipline (<300 lines)
+### III. File Size Discipline (<300 lines)
 - Source files MUST remain under 300 lines (excluding generated code).
 - Applies to `.ts`, `.tsx` under `app/`, `shared/`, `server/` (and related packages); generated files excluded.
 - CI SHOULD enforce this limit; split into helpers/services/components as needed.
 - Rationale: Smaller files are easier to test, review, and evolve.
 
-### III. Documentation Discipline (Files and Functions)
+### IV. Documentation Discipline (Files and Functions)
 - Every file and public function MUST be documented succinctly where defined (TypeScript doc comments).
 - Function documentation MUST be concise (≤ 4 lines) while explaining purpose and key behavior.
 - For every new file and every new function added, documentation MUST be included in the same change (commit/PR).
 - Rationale: Lightweight documentation preserves clarity without burdening iteration speed.
 
-### IV. Library-First Integration
+### V. Library-First Integration
 - Prefer integrating mature, well-maintained libraries before building custom implementations.
 - Evaluate maintenance signals (recent releases, issue activity) and license compatibility before adoption.
 - Rationale: Leveraging proven libraries accelerates delivery and improves reliability.
-
-### V. No Fallbacks Unless Explicitly Requested
-- Do not add hidden fallbacks or implicit behavior; use explicit feature flags or instructions.
-- Rationale: Predictable behavior reduces surprise and debugging cost.
 
 ### VI. Evidence‑First Debugging & Causality
 - Before implementing fixes, teams MUST establish a clear, code‑level causal chain for any defect.
