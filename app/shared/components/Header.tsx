@@ -106,19 +106,34 @@ export default function Header() {
                         </Link>
                     )} */}
                     {role === "COMPANY" && (
-                        <Link
-                            ref={(el) => {
-                                linkRefs.current["/company-dashboard/jobs"] = el;
-                            }}
-                            href="/company-dashboard/jobs"
-                            className={`${linkStyles} ${
-                                pathname === "/company-dashboard/jobs"
-                                    ? activeLinkStyles
-                                    : inactiveLinkStyles
-                            }`}
-                        >
-                            Jobs
-                        </Link>
+                        <>
+                            <Link
+                                ref={(el) => {
+                                    linkRefs.current["/company-dashboard"] = el;
+                                }}
+                                href="/company-dashboard"
+                                className={`${linkStyles} ${
+                                    pathname === "/company-dashboard"
+                                        ? activeLinkStyles
+                                        : inactiveLinkStyles
+                                }`}
+                            >
+                                Candidates
+                            </Link>
+                            <Link
+                                ref={(el) => {
+                                    linkRefs.current["/company-dashboard/jobs"] = el;
+                                }}
+                                href="/company-dashboard/jobs"
+                                className={`${linkStyles} ${
+                                    pathname === "/company-dashboard/jobs"
+                                        ? activeLinkStyles
+                                        : inactiveLinkStyles
+                                }`}
+                            >
+                                Jobs
+                            </Link>
+                        </>
                     )}
                     {role === "CANDIDATE" && (
                         <>

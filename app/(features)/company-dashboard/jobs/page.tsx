@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AuthGuard } from "app/shared/components";
 import { log } from "app/shared/services";
 import { JobGrid, JobGridJob } from "app/shared/components/jobs/JobGrid";
@@ -44,6 +45,7 @@ const defaultCreateState: CreateJobState = {
 };
 
 function CompanyJobsContent() {
+    const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [jobs, setJobs] = useState<JobGridJob[]>([]);
@@ -331,7 +333,7 @@ function CompanyJobsContent() {
                                 className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
                                 disabled={createSubmitting}
                             >
-                                {createSubmitting ? "Creating..." : "Create Job"}
+                                {createSubmitting ? "Saving..." : "Save"}
                             </button>
                         </div>
                     </form>
@@ -352,6 +354,7 @@ function CompanyJobsContent() {
                     <JobGrid
                         items={jobs}
                         showLogo={false}
+                        showCompanyName={false}
                         getHref={(job) =>
                             `/company-dashboard/jobs/${encodeURIComponent(
                                 job.id
@@ -359,14 +362,19 @@ function CompanyJobsContent() {
                         }
                         renderActions={(job) => (
                             <>
-                                <Link
-                                    href={`/company-dashboard/jobs/${encodeURIComponent(
-                                        job.id
-                                    )}`}
+                                <button
+                                    type="button"
                                     className="px-3 py-1 text-sm rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                                    onClick={() =>
+                                        router.push(
+                                            `/company-dashboard/jobs/${encodeURIComponent(
+                                                job.id
+                                            )}`
+                                        )
+                                    }
                                 >
                                     Edit
-                                </Link>
+                                </button>
                                 <button
                                     type="button"
                                     className="px-3 py-1 text-sm rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-60"

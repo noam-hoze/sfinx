@@ -22,6 +22,7 @@ export interface JobGridJob {
 interface JobGridProps {
     items: JobGridJob[];
     showLogo: boolean;
+    showCompanyName?: boolean;
     onCardClick?: (job: JobGridJob) => void;
     getHref?: (job: JobGridJob) => string | null;
     renderBadge?: (job: JobGridJob) => React.ReactNode;
@@ -35,6 +36,7 @@ interface JobGridProps {
 export function JobGrid({
     items,
     showLogo,
+    showCompanyName = true,
     onCardClick,
     getHref,
     renderBadge,
@@ -108,9 +110,11 @@ export function JobGrid({
                         )}
 
                         <div className="text-center">
-                            <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-                                {company.name}
-                            </h3>
+                            {showCompanyName && (
+                                <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
+                                    {company.name}
+                                </h3>
+                            )}
                             <p className="text-sm text-gray-600 mb-1">{job.title}</p>
                             <p className="text-xs text-gray-500 mb-1">
                                 {job.location} • {job.type}
