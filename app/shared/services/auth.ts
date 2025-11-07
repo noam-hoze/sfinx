@@ -8,6 +8,41 @@ import { log } from "./logger";
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+let authDebugLogPath: string | undefined;
+
+/**
+ * Appends Google auth diagnostics to a file for later inspection.
+ */
+async function appendAuthDebugLog(entry: Record<string, unknown>) {
+    if (typeof window !== "undefined" || process.env.NEXT_RUNTIME === "edge") {
+        return;
+    }
+
+    try {
+        const fsModule = await import("fs/promises");
+        const pathModule = await import("path");
+        const fs = (fsModule as any).default ?? fsModule;
+        const path = (pathModule as any).default ?? pathModule;
+
+        if (!authDebugLogPath) {
+            authDebugLogPath = path.join(
+                process.cwd(),
+                ".next",
+                "cache",
+                "auth-logs",
+                "google-auth.log"
+            );
+        }
+
+        await fs.mkdir(path.dirname(authDebugLogPath), { recursive: true });
+        await fs.appendFile(
+            authDebugLogPath,
+            `${new Date().toISOString()} ${JSON.stringify(entry)}\n`
+        );
+    } catch (error) {
+        log.error("Failed to append auth debug log", { error });
+    }
+}
 
 /**
  * Creates the Google OAuth provider using environment configuration.
@@ -88,6 +123,17 @@ export const authOptions: NextAuthOptions = {
         strategy: "jwt",
     },
     callbacks: {
+        async signIn({ user, account, profile, email }) {
+            await appendAuthDebugLog({
+                stage: "callbacks.signIn",
+                provider: account?.provider,
+                type: account?.type,
+                userId: user?.id,
+                email: email?.email,
+                hasError: Boolean((account as any)?.error),
+            });
+            return true;
+        },
         async jwt({ token, user, trigger, session }) {
             log.info("JWT callback triggered:", { user, trigger, session });
             if (user) {
@@ -128,6 +174,29 @@ export const authOptions: NextAuthOptions = {
             // If the url is external, return it
             else if (new URL(url).origin === baseUrl) return url;
             return baseUrl;
+        },
+    },
+    events: {
+        async signIn(message) {
+            await appendAuthDebugLog({
+                stage: "events.signIn",
+                provider: message.account?.provider,
+                type: message.account?.type,
+                userId: message.user?.id,
+            });
+        },
+        async signOut(message) {
+            await appendAuthDebugLog({
+                stage: "events.signOut",
+                userId: message.token?.sub,
+            });
+        },
+        async error(error) {
+            await appendAuthDebugLog({
+                stage: "events.error",
+                name: error.name,
+                message: error.message,
+            });
         },
     },
     pages: {

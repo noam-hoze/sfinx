@@ -46,20 +46,9 @@ export default function LoginPage() {
     const handleGoogleLogin = async () => {
         setError("");
         setIsGoogleLoading(true);
-
         try {
-            const result = await signIn("google", {
-                callbackUrl: "/",
-                redirect: false,
-            });
-
-            if (!result?.url || result.error) {
-                setError("Google sign-in failed. Please try again.");
-                setIsGoogleLoading(false);
-                return;
-            }
-
-            window.location.assign(result.url);
+            // 🚀 Let NextAuth handle the redirect entirely
+            await signIn("google", { callbackUrl: "/" });
         } catch {
             setError("Google sign-in failed. Please try again.");
             setIsGoogleLoading(false);
