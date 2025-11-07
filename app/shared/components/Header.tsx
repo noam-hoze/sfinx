@@ -70,10 +70,8 @@ export default function Header() {
         await signOut({ callbackUrl: "/login" });
     };
 
-    const settingsPath =
-        (session?.user as any)?.role === "COMPANY"
-            ? "/company-dashboard/settings"
-            : "/settings";
+    const role = (session?.user as any)?.role;
+    const settingsPath = role === "COMPANY" ? "/company-dashboard/settings" : "/settings";
 
     return (
         <header className="bg-white border-b border-gray-200 px-4 py-4 relative">
@@ -107,7 +105,22 @@ export default function Header() {
                             Dashboard
                         </Link>
                     )} */}
-                    {(session?.user as any)?.role === "CANDIDATE" && (
+                    {role === "COMPANY" && (
+                        <Link
+                            ref={(el) => {
+                                linkRefs.current["/company-dashboard/jobs"] = el;
+                            }}
+                            href="/company-dashboard/jobs"
+                            className={`${linkStyles} ${
+                                pathname === "/company-dashboard/jobs"
+                                    ? activeLinkStyles
+                                    : inactiveLinkStyles
+                            }`}
+                        >
+                            Jobs
+                        </Link>
+                    )}
+                    {role === "CANDIDATE" && (
                         <>
                             <Link
                                 ref={(el) => {

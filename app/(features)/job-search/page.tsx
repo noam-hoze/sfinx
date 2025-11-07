@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
-import Link from "next/link";
-import Image from "next/image";
 import { AuthGuard } from "app/shared/components";
 import { log } from "app/shared/services";
+import { JobGrid, JobGridJob } from "app/shared/components/jobs/JobGrid";
 
 interface Job {
     id: string;
@@ -119,6 +118,26 @@ function JobSearchContent() {
             hasApplied: appliedJobIds.includes(job.id as string),
         }));
     });
+    const appliedSet = new Set(appliedJobIds);
+    const gridItems: JobGridJob[] = jobItems.map((item) => {
+        const { company, job } = item;
+        const description =
+            typeof job.description === "string" ? job.description : null;
+        return {
+            id: String(job.id),
+            title: String(job.title),
+            location: String(job.location),
+            type: String(job.type),
+            description,
+            company: {
+                id: String(company.id),
+                name: String(company.name),
+                logo: company.logo,
+                industry: String(company.industry),
+                size: String(company.size),
+            },
+        };
+    });
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -224,94 +243,26 @@ function JobSearchContent() {
                         </button>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-                        {jobItems.map((item: any, index: number) => {
-                            const { company, job, hasApplied } = item;
-                            const isMeta = company.id === "meta";
-                            const JobCard = (
-                                <div
-                                    key={job.id}
-                                    className={`group bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:bg-white/80 hover:shadow-lg transition-all duration-300 ease-out hover:scale-105 ${
-                                        isMeta
-                                            ? "cursor-pointer ring-2 ring-blue-500/20 hover:ring-blue-500/40"
-                                            : "cursor-pointer"
-                                    }`}
-                                >
-                                    {/* Company Logo */}
-                                    <div className="relative w-24 h-24 mx-auto mb-4 bg-white rounded-xl flex items-center justify-center p-3">
-                                        {(() => {
-                                            if (!company.logo) {
-                                                throw new Error(`Company ${company.id} missing logo`);
-                                            }
-                                            return (
-                                                <Image
-                                                    src={company.logo}
-                                                    alt={`${company.name} logo`}
-                                                    width={72}
-                                                    height={72}
-                                                    className="object-contain"
-                                                />
-                                            );
-                                        })()}
-                                        {hasApplied && (
-                                            <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                                                <svg
-                                                    className="w-4 h-4 text-white"
-                                                    fill="currentColor"
-                                                    viewBox="0 0 20 20"
-                                                >
-                                                    <path
-                                                        fillRule="evenodd"
-                                                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                                        clipRule="evenodd"
-                                                    />
-                                                </svg>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Company + Role Info */}
-                                    <div className="text-center">
-                                        <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-                                            {company.name}
-                                        </h3>
-                                        <p className="text-sm text-gray-600 mb-1">
-                                            {job.title}
-                                        </p>
-                                        <p className="text-xs text-gray-500 mb-1">
-                                            {job.location} • {job.type}
-                                        </p>
-                                        {job.description && (
-                                            <p className="text-xs text-gray-500 line-clamp-2">
-                                                {job.description}
-                                            </p>
-                                        )}
-                                    </div>
-
-                                    {/* Tags */}
-                                    <div className="mt-3 flex flex-wrap gap-1 justify-center">
-                                        <span className="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full">
-                                            {company.industry}
-                                        </span>
-                                        <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                                            {company.size}
-                                        </span>
-                                    </div>
-                                </div>
-                            );
-
+                    <JobGrid
+                        items={gridItems}
+                        showLogo
+                        getHref={(job) => {
+                            const targetCompany = job.company.id;
+                            return `/interview?companyId=${encodeURIComponent(
+                                targetCompany
+                            )}&jobId=${encodeURIComponent(job.id)}`;
+                        }}
+                        renderBadge={(job) => {
+                            if (!appliedSet.has(job.id)) {
+                                return null;
+                            }
                             return (
-                                <Link
-                                    key={job.id}
-                                    href={`/interview?companyId=${encodeURIComponent(
-                                        company.id
-                                    )}&jobId=${encodeURIComponent(job.id)}`}
-                                >
-                                    {JobCard}
-                                </Link>
+                                <span className="px-2 py-1 bg-green-50 text-green-600 text-xs rounded-full">
+                                    Applied
+                                </span>
                             );
-                        })}
-                    </div>
+                        }}
+                    />
                 )}
 
                 {/* No Results */}
