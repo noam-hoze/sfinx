@@ -32,7 +32,12 @@ export async function GET(req: NextRequest) {
         }
         const interview = job.interviewContent;
         if (!interview) {
-            throw new Error(`Interview content missing for job ${jobId}`);
+            return NextResponse.json({
+                backgroundQuestion: null,
+                codingPrompt: null,
+                codingTemplate: null,
+                codingAnswer: null,
+            });
         }
         return NextResponse.json({
             backgroundQuestion: interview.backgroundQuestion,

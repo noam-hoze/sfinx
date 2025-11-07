@@ -526,7 +526,7 @@ const OpenAIVoiceConversation = forwardRef<any, OpenAIVoiceConversationProps>(
                         const companyName = ms.companyName;
                         const taskTextRaw = (scriptRef.current as any)?.codingPrompt;
                         if (typeof taskTextRaw !== "string") {
-                            throw new Error("codingPrompt missing from script payload");
+                            return;
                         }
                         const taskText = taskTextRaw.trim();
                         if (!taskText) {

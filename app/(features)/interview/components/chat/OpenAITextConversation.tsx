@@ -104,18 +104,18 @@ const OpenAITextConversation = forwardRef<any, Props>(
       const unsubscribe = store.subscribe(() => {
         const ms = store.getState().interviewMachine;
         if (ms.state !== "in_coding_session" || codingPromptSentRef.current) return;
-        codingPromptSentRef.current = true;
         if (!ms.companyName) {
           throw new Error("Interview machine missing companyName for coding prompt");
         }
         const raw = scriptRef.current?.codingPrompt;
         if (typeof raw !== "string") {
-          throw new Error("codingPrompt missing from script payload");
+          return;
         }
         const taskText = raw.trim();
         if (!taskText) {
-          throw new Error("codingPrompt is empty");
+          return;
         }
+        codingPromptSentRef.current = true;
         const persona = buildOpenAICodingPrompt(ms.companyName, taskText);
         try {
           /* eslint-disable no-console */ console.log("[coding][persona]", persona);
