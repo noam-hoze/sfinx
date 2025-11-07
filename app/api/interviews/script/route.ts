@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
+import { prisma } from "app/shared/services/prisma";
 
 export async function GET(req: NextRequest) {
     try {
@@ -21,21 +20,26 @@ export async function GET(req: NextRequest) {
         }
         const company = companyParam.toLowerCase();
         const role = roleParam.toLowerCase();
-        const filePath = path.join(
-            process.cwd(),
-            "server",
-            "interviews",
-            company,
-            role,
-            "interviewScript.json"
-        );
-        const raw = await fs.readFile(filePath, "utf8");
-        const json = JSON.parse(raw);
-        const backgroundQuestion = json?.backgroundQuestion;
-        const codingPrompt = json?.codingChallenge?.prompt;
-        const codingTemplate = json?.codingChallenge?.template;
-        const codingAnswer = json?.codingChallenge?.answer;
-        return NextResponse.json({ backgroundQuestion, codingPrompt, codingTemplate, codingAnswer });
+        const jobId = `${company}-${role}`;
+        const job = await prisma.job.findUnique({
+            where: { id: jobId },
+            include: {
+                interviewContent: true,
+            },
+        });
+        if (!job) {
+            throw new Error(`Job not found for ${jobId}`);
+        }
+        const interview = job.interviewContent;
+        if (!interview) {
+            throw new Error(`Interview content missing for job ${jobId}`);
+        }
+        return NextResponse.json({
+            backgroundQuestion: interview.backgroundQuestion,
+            codingPrompt: interview.codingPrompt,
+            codingTemplate: interview.codingTemplate,
+            codingAnswer: interview.codingAnswer,
+        });
     } catch (error: any) {
         const details = error?.message ? String(error.message) : undefined;
         return NextResponse.json(

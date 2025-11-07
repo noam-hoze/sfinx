@@ -50,6 +50,10 @@ const mapJobType = (type: string): JobType => {
 
 async function resetDatabase() {
     try {
+        const interviewScriptPath = path.join(
+            process.cwd(),
+            "server/interviews/meta/frontend-engineer/interviewScript.json"
+        );
         const companiesPath = path.join(
             process.cwd(),
             "server/db-scripts/data/companies.json"
@@ -57,10 +61,19 @@ async function resetDatabase() {
         const companiesData = JSON.parse(
             fs.readFileSync(companiesPath, "utf-8")
         );
+        const interviewScript = JSON.parse(
+            fs.readFileSync(interviewScriptPath, "utf-8")
+        );
+        const codingPrompt: string | undefined =
+            interviewScript?.codingChallenge?.prompt;
+        if (!codingPrompt) {
+            throw new Error("Missing coding prompt in interview script JSON");
+        }
         log.info("Clearing existing data...");
 
         // Delete in reverse order of dependencies
         await prisma.job.deleteMany();
+        await prisma.interviewContent.deleteMany();
         await prisma.company.deleteMany();
         await prisma.companyProfile.deleteMany();
         await prisma.candidateProfile.deleteMany();
@@ -147,6 +160,40 @@ async function resetDatabase() {
 
             log.info(`   └─ Created ${companyData.openRoles.length} jobs for ${company.name}`);
         }
+
+        log.info("Seeding shared interview content for frontend roles...");
+        const interviewContent = await prisma.interviewContent.upsert({
+            where: {
+                id: "shared-frontend-interview",
+            },
+            update: {
+                backgroundQuestion: interviewScript.backgroundQuestion,
+                codingPrompt,
+                codingTemplate: interviewScript?.codingChallenge?.template,
+                codingAnswer: interviewScript?.codingChallenge?.answer,
+            },
+            create: {
+                id: "shared-frontend-interview",
+                backgroundQuestion: interviewScript.backgroundQuestion,
+                codingPrompt,
+                codingTemplate: interviewScript?.codingChallenge?.template,
+                codingAnswer: interviewScript?.codingChallenge?.answer,
+            },
+        });
+        const frontendJobUpdate = await prisma.job.updateMany({
+            where: {
+                title: "Frontend Engineer",
+            },
+            data: {
+                interviewContentId: interviewContent.id,
+            },
+        });
+        if (frontendJobUpdate.count === 0) {
+            throw new Error("No Frontend Engineer jobs found to attach interview content");
+        }
+        log.info(
+            `Linked interview content to ${frontendJobUpdate.count} Frontend Engineer jobs`
+        );
 
         log.info("Database reset and seeded successfully!");
 

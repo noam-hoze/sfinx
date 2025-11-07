@@ -434,31 +434,36 @@ const OpenAIVoiceConversation = forwardRef<any, OpenAIVoiceConversationProps>(
                     });
                 } catch {}
                 // Load interview script dynamically (company/role from store when available)
-                try {
-                    const ms = store.getState().interviewMachine;
-                    if (!ms.companySlug) {
-                        throw new Error("Interview machine missing companySlug");
-                    }
-                    if (!ms.roleSlug) {
-                        throw new Error("Interview machine missing roleSlug");
-                    }
-                    const companySlug = ms.companySlug;
-                    const roleSlug = ms.roleSlug;
-                    const resp = await fetch(
-                        `/api/interviews/script?company=${companySlug}&role=${roleSlug}`
+                const ms = store.getState().interviewMachine;
+                if (!ms.companySlug) {
+                    throw new Error("Interview machine missing companySlug");
+                }
+                if (!ms.roleSlug) {
+                    throw new Error("Interview machine missing roleSlug");
+                }
+                const companySlug = ms.companySlug;
+                const roleSlug = ms.roleSlug;
+                const resp = await fetch(
+                    `/api/interviews/script?company=${companySlug}&role=${roleSlug}`
+                );
+                if (!resp.ok) {
+                    const detail =
+                        (await resp.text().catch(() => "")) ||
+                        resp.statusText ||
+                        "unknown";
+                    throw new Error(
+                        `Failed to load interview script for ${companySlug}/${roleSlug}: ${detail}`
                     );
-                    if (resp.ok) {
-                        const data = await resp.json();
-                        scriptRef.current = data;
-                        if (data?.backgroundQuestion) {
-                            dispatch(
-                                setExpectedBackgroundQuestion({
-                                    question: String(data.backgroundQuestion),
-                                })
-                            );
-                        }
-                    }
-                } catch {}
+                }
+                const data = await resp.json();
+                scriptRef.current = data;
+                if (data?.backgroundQuestion) {
+                    dispatch(
+                        setExpectedBackgroundQuestion({
+                            question: String(data.backgroundQuestion),
+                        })
+                    );
+                }
                 // If transport didn't auto-attach mic, attach our noise-suppressed track
                 try {
                     const track = micStreamRef.current?.getAudioTracks?.()[0];
@@ -492,6 +497,7 @@ const OpenAIVoiceConversation = forwardRef<any, OpenAIVoiceConversationProps>(
                 onStartConversation?.();
             } catch (e) {
                 logger.error("❌ OpenAIVoiceConversation: connect failed", e);
+                throw e;
             }
         }, [
             candidateName,

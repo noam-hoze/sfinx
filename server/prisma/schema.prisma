@@ -113,8 +113,28 @@ model Job {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   companyId    String
+  /// Foreign key linking to shared interview content.
+  interviewContentId String?
+  /// Optional interview content assigned to this job.
+  interviewContent   InterviewContent? @relation(fields: [interviewContentId], references: [id], onDelete: SetNull)
   applications Application[]
   company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+/// Interview script content shared across one or more jobs.
+model InterviewContent {
+  id                 String   @id @default(cuid())
+  /// Background question presented before the coding challenge.
+  backgroundQuestion String?
+  /// Coding challenge prompt shown to the candidate.
+  codingPrompt       String
+  /// Starter template inserted into the coding editor.
+  codingTemplate     String?
+  /// Canonical answer used for evaluation/comparison.
+  codingAnswer       String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  jobs               Job[]
 }
 
 model Application {

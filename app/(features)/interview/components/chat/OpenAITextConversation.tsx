@@ -195,29 +195,39 @@ const OpenAITextConversation = forwardRef<any, Props>(
     const startConversation = useCallback(async () => {
       if (readyRef.current) return;
       readyRef.current = true;
-      try {
-        const ms = store.getState().interviewMachine;
-        const companySlug = ms.companySlug || "meta";
-        const roleSlug = ms.roleSlug || "frontend-engineer";
-        const resp = await fetch(
-          `/api/interviews/script?company=${companySlug}&role=${roleSlug}`
-        );
-        if (resp.ok) {
-          const data = await resp.json();
-          scriptRef.current = data;
-          if (data?.backgroundQuestion)
-            dispatch(
-              setExpectedBackgroundQuestion({
-                question: String(data.backgroundQuestion),
-              })
-            );
-        }
-      } catch {}
-      const name = candidateName || "Candidate";
-      dispatch(machineStart({ candidateName: name }));
-      const persona = buildOpenAIInterviewerPrompt(
-        String(store.getState().interviewMachine.companyName || "Company")
+      const ms = store.getState().interviewMachine;
+      const { companySlug, roleSlug } = ms;
+      if (!companySlug) {
+        throw new Error("Interview machine missing companySlug");
+      }
+      if (!roleSlug) {
+        throw new Error("Interview machine missing roleSlug");
+      }
+      const resp = await fetch(
+        `/api/interviews/script?company=${companySlug}&role=${roleSlug}`
       );
+      if (!resp.ok) {
+        const detail =
+          (await resp.text().catch(() => "")) || resp.statusText || "unknown";
+        throw new Error(
+          `Failed to load interview script for ${companySlug}/${roleSlug}: ${detail}`
+        );
+      }
+      const data = await resp.json();
+      scriptRef.current = data;
+      if (data?.backgroundQuestion)
+        dispatch(
+          setExpectedBackgroundQuestion({
+            question: String(data.backgroundQuestion),
+          })
+        );
+      const name = candidateName;
+      dispatch(machineStart({ candidateName: name }));
+      const companyName = store.getState().interviewMachine.companyName;
+      if (!companyName) {
+        throw new Error("Interview machine missing companyName");
+      }
+      const persona = buildOpenAIInterviewerPrompt(companyName);
       const instruction = `Say exactly: "Hi ${name}, I'm Carrie. I'll be the one interviewing today!"`;
       const greeting = await deliverAssistantPrompt({ persona, instruction });
       if (!greeting) {
@@ -236,9 +246,11 @@ const OpenAITextConversation = forwardRef<any, Props>(
     const sayClosingLine = useCallback(
       async (name?: string) => {
         const candidate = typeof name === "string" && name.trim().length > 0 ? name.trim() : candidateName;
-        const persona = buildOpenAIInterviewerPrompt(
-          String(store.getState().interviewMachine.companyName || "Company")
-        );
+        const companyName = store.getState().interviewMachine.companyName;
+        if (!companyName) {
+          throw new Error("Interview machine missing companyName for closing line");
+        }
+        const persona = buildOpenAIInterviewerPrompt(companyName);
         const instruction = buildClosingInstruction(candidate);
         const answer = await deliverAssistantPrompt({ persona, instruction });
         if (answer) {

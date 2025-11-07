@@ -437,16 +437,25 @@ const InterviewerContent = () => {
             if (!companyNameRaw || !roleTitleRaw) return;
             const companySlug = companyNameRaw.toLowerCase();
             const roleSlug = roleTitleRaw.toLowerCase().replace(/\s+/g, "-");
-            try {
-                const resp = await fetch(`/api/interviews/script?company=${companySlug}&role=${roleSlug}`);
-                if (!resp.ok) return;
-                const data = await resp.json();
-                const tmpl = String(data?.codingTemplate || "");
-                if (tmpl.trim().length > 0) {
-                    updateCurrentCode(tmpl);
-                }
-            } catch {}
-        })();
+            const resp = await fetch(
+                `/api/interviews/script?company=${companySlug}&role=${roleSlug}`
+            );
+            if (!resp.ok) {
+                const detail =
+                    (await resp.text().catch(() => "")) || resp.statusText;
+                throw new Error(
+                    `Failed to load interview script for ${companySlug}/${roleSlug}: ${detail}`
+                );
+            }
+            const data = await resp.json();
+            const tmpl = String(data?.codingTemplate || "");
+            if (tmpl.trim().length > 0) {
+                updateCurrentCode(tmpl);
+            }
+        })().catch((error) => {
+            logger.error("❌ Failed to load interview script:", error);
+            throw error;
+        });
     }, [state.currentCode, updateCurrentCode, job]);
 
     /**
