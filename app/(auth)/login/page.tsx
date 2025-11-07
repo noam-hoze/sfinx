@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
-import Link from "next/link";
 import Image from "next/image";
+import Link from "next/link";
+import React, { useState } from "react";
 import SfinxLogo from "app/shared/components/SfinxLogo";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -11,6 +11,7 @@ export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
+    const [isGoogleLoading, setIsGoogleLoading] = useState(false);
     const [error, setError] = useState("");
     const router = useRouter();
 
@@ -36,6 +37,32 @@ export default function LoginPage() {
             setError("An error occurred. Please try again.");
         } finally {
             setIsLoading(false);
+        }
+    };
+
+    /**
+     * Initiates the federated Google OAuth flow via NextAuth.
+     */
+    const handleGoogleLogin = async () => {
+        setError("");
+        setIsGoogleLoading(true);
+
+        try {
+            const result = await signIn("google", {
+                callbackUrl: "/",
+                redirect: false,
+            });
+
+            if (!result?.url || result.error) {
+                setError("Google sign-in failed. Please try again.");
+                setIsGoogleLoading(false);
+                return;
+            }
+
+            window.location.assign(result.url);
+        } catch {
+            setError("Google sign-in failed. Please try again.");
+            setIsGoogleLoading(false);
         }
     };
 
@@ -124,8 +151,15 @@ export default function LoginPage() {
 
                     {/* Alternative Actions */}
                     <div className="space-y-3">
-                        <button className="w-full bg-white hover:bg-gray-50 text-gray-900 font-medium py-3 px-4 rounded-xl border border-gray-200 transition-all duration-300 shadow-sm hover:shadow-md">
-                            Continue with Google
+                        <button
+                            type="button"
+                            onClick={handleGoogleLogin}
+                            disabled={isGoogleLoading}
+                            className="w-full bg-white hover:bg-gray-50 text-gray-900 font-medium py-3 px-4 rounded-xl border border-gray-200 transition-all duration-300 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isGoogleLoading
+                                ? "Continuing with Google..."
+                                : "Continue with Google"}
                         </button>
                         <div className="text-center">
                             <button

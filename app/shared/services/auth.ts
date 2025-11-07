@@ -1,53 +1,89 @@
 import { NextAuthOptions } from "next-auth";
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import CredentialsProvider from "next-auth/providers/credentials";
+import GoogleProvider from "next-auth/providers/google";
+import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import { log } from "./logger";
 
+const googleClientId = process.env.GOOGLE_CLIENT_ID;
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+
+/**
+ * Creates the Google OAuth provider using environment configuration.
+ */
+function createGoogleProvider() {
+    if (!googleClientId || !googleClientSecret) {
+        log.error("Missing Google OAuth configuration", {
+            provider: "google",
+            hasClientId: Boolean(googleClientId),
+            hasClientSecret: Boolean(googleClientSecret),
+        });
+        throw new Error(
+            "Google OAuth requires GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET."
+        );
+    }
+
+    log.info("Google OAuth provider configured", { provider: "google" });
+
+    return GoogleProvider({
+        clientId: googleClientId,
+        clientSecret: googleClientSecret,
+    });
+}
+
+const providers: NextAuthOptions["providers"] = [
+    CredentialsProvider({
+        name: "credentials",
+        credentials: {
+            email: { label: "Email", type: "email" },
+            password: { label: "Password", type: "password" },
+        },
+        async authorize(credentials) {
+            if (!credentials?.email || !credentials?.password) {
+                return null;
+            }
+
+            const user = await prisma.user.findUnique({
+                where: {
+                    email: credentials.email,
+                },
+            });
+
+            if (!user || !user.password) {
+                return null;
+            }
+
+            const isPasswordValid = await bcrypt.compare(
+                credentials.password,
+                user.password
+            );
+
+            if (!isPasswordValid) {
+                return null;
+            }
+
+            return {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                image: user.image,
+            } as any;
+        },
+    }),
+];
+
+if (typeof window === "undefined" && process.env.NEXT_RUNTIME !== "edge") {
+    providers.unshift(createGoogleProvider());
+}
+
+/**
+ * Configures NextAuth authentication options and providers.
+ */
 export const authOptions: NextAuthOptions = {
     adapter: PrismaAdapter(prisma),
-    providers: [
-        CredentialsProvider({
-            name: "credentials",
-            credentials: {
-                email: { label: "Email", type: "email" },
-                password: { label: "Password", type: "password" },
-            },
-            async authorize(credentials) {
-                if (!credentials?.email || !credentials?.password) {
-                    return null;
-                }
-
-                const user = await prisma.user.findUnique({
-                    where: {
-                        email: credentials.email,
-                    },
-                });
-
-                if (!user || !user.password) {
-                    return null;
-                }
-
-                const isPasswordValid = await bcrypt.compare(
-                    credentials.password,
-                    user.password
-                );
-
-                if (!isPasswordValid) {
-                    return null;
-                }
-
-                return {
-                    id: user.id,
-                    email: user.email,
-                    name: user.name,
-                    role: user.role,
-                    image: user.image,
-                } as any;
-            },
-        }),
-    ],
+    providers,
     session: {
         strategy: "jwt",
     },

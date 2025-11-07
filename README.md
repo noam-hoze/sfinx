@@ -15,3 +15,9 @@ Why
 Future Fix
 - When the upstream OpenAI Realtime SDK exposes robust unsubscribe hooks and deterministic teardown across navigation, we can revert to client-side routing without a hard refresh.
 
+## Google OAuth Setup
+
+- Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in the environment; the server throws immediately if either is missing.
+- OAuth registration logs appear at info level when configuration succeeds and at error level when variables are absent.
+- Federated sign-in currently redirects back to `/` after Google completes authentication.
+
