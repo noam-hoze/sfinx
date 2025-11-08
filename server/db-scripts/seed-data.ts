@@ -195,6 +195,47 @@ async function resetDatabase() {
             `Linked interview content to ${frontendJobUpdate.count} Frontend Engineer jobs`
         );
 
+        log.info("Customizing Meta Frontend Engineer interview timers...");
+        const metaInterviewContent = await prisma.interviewContent.upsert({
+            where: {
+                id: "meta-frontend-interview",
+            },
+            update: {
+                backgroundQuestion: interviewScript.backgroundQuestion,
+                codingPrompt,
+                codingTemplate: interviewScript?.codingChallenge?.template,
+                codingAnswer: interviewScript?.codingChallenge?.answer,
+                backgroundQuestionTimeSeconds: 3 * 60,
+                codingQuestionTimeSeconds: 7 * 60,
+            },
+            create: {
+                id: "meta-frontend-interview",
+                backgroundQuestion: interviewScript.backgroundQuestion,
+                codingPrompt,
+                codingTemplate: interviewScript?.codingChallenge?.template,
+                codingAnswer: interviewScript?.codingChallenge?.answer,
+                backgroundQuestionTimeSeconds: 3 * 60,
+                codingQuestionTimeSeconds: 7 * 60,
+            },
+        });
+        const metaFrontendUpdate = await prisma.job.updateMany({
+            where: {
+                companyId: "meta",
+                title: "Frontend Engineer",
+            },
+            data: {
+                interviewContentId: metaInterviewContent.id,
+            },
+        });
+        if (metaFrontendUpdate.count === 0) {
+            throw new Error(
+                "Meta Frontend Engineer job not found for timer customization"
+            );
+        }
+        log.info(
+            `Applied Meta-specific timers to ${metaFrontendUpdate.count} Frontend Engineer job(s)`
+        );
+
         log.info("Database reset and seeded successfully!");
 
         // Create additional candidates using existing seed scripts
