@@ -6,6 +6,12 @@ import { useParams } from "next/navigation";
 import { AuthGuard } from "app/shared/components";
 import { log } from "app/shared/services";
 import { readResponseError } from "app/shared/utils/http";
+import InterviewContentSection, {
+    InterviewContentState,
+    InterviewDurationState,
+    defaultInterviewDurations,
+    emptyInterviewContentState,
+} from "../components/InterviewContentSection";
 
 interface JobDetailResponse {
     id: string;
@@ -39,20 +45,6 @@ interface FormState {
     requirements: string;
 }
 
-interface InterviewState {
-    backgroundQuestion: string;
-    codingPrompt: string;
-    codingTemplate: string;
-    codingAnswer: string;
-}
-
-const emptyInterviewState: InterviewState = {
-    backgroundQuestion: "",
-    codingPrompt: "",
-    codingTemplate: "",
-    codingAnswer: "",
-};
-
 function optionalString(value: string | null | undefined): string {
     if (typeof value === "string") {
         return value;
@@ -75,7 +67,9 @@ function CompanyJobDetailContent() {
         requirements: "",
     });
     const [interviewState, setInterviewState] =
-        useState<InterviewState>(emptyInterviewState);
+        useState<InterviewContentState>(emptyInterviewContentState);
+    const [interviewDurations, setInterviewDurations] =
+        useState<InterviewDurationState>(defaultInterviewDurations);
     const [saving, setSaving] = useState(false);
     const [removingInterview, setRemovingInterview] = useState(false);
 
@@ -101,21 +95,38 @@ function CompanyJobDetailContent() {
                 });
                 if (data.interviewContent) {
                     setInterviewState({
-                        backgroundQuestion:
-                            optionalString(
-                                data.interviewContent.backgroundQuestion
-                            ),
+                        backgroundQuestion: optionalString(
+                            data.interviewContent.backgroundQuestion
+                        ),
                         codingPrompt: data.interviewContent.codingPrompt,
-                        codingTemplate:
-                            optionalString(
-                                data.interviewContent.codingTemplate
-                            ),
+                        codingTemplate: optionalString(
+                            data.interviewContent.codingTemplate
+                        ),
                         codingAnswer: optionalString(
                             data.interviewContent.codingAnswer
                         ),
                     });
+                    const backgroundSecondsRaw = Number(
+                        data.interviewContent.backgroundQuestionTimeSeconds
+                    );
+                    const codingSecondsRaw = Number(
+                        data.interviewContent.codingQuestionTimeSeconds
+                    );
+                    setInterviewDurations({
+                        backgroundSeconds:
+                            Number.isFinite(backgroundSecondsRaw) &&
+                            backgroundSecondsRaw > 0
+                                ? Math.floor(backgroundSecondsRaw)
+                                : defaultInterviewDurations.backgroundSeconds,
+                        codingSeconds:
+                            Number.isFinite(codingSecondsRaw) &&
+                            codingSecondsRaw > 0
+                                ? Math.floor(codingSecondsRaw)
+                                : defaultInterviewDurations.codingSeconds,
+                    });
                 } else {
-                    setInterviewState(emptyInterviewState);
+                    setInterviewState(emptyInterviewContentState);
+                    setInterviewDurations(defaultInterviewDurations);
                 }
                 setError(null);
             } catch (err) {
@@ -167,6 +178,9 @@ function CompanyJobDetailContent() {
                         interviewState.codingAnswer.length > 0
                             ? interviewState.codingAnswer
                             : null,
+                    backgroundQuestionTimeSeconds:
+                        interviewDurations.backgroundSeconds,
+                    codingQuestionTimeSeconds: interviewDurations.codingSeconds,
                 };
             } else {
                 payload.interviewContent = null;
@@ -208,8 +222,27 @@ function CompanyJobDetailContent() {
                         updated.interviewContent.codingAnswer
                     ),
                 });
+                const backgroundSecondsRaw = Number(
+                    updated.interviewContent.backgroundQuestionTimeSeconds
+                );
+                const codingSecondsRaw = Number(
+                    updated.interviewContent.codingQuestionTimeSeconds
+                );
+                setInterviewDurations({
+                    backgroundSeconds:
+                        Number.isFinite(backgroundSecondsRaw) &&
+                        backgroundSecondsRaw > 0
+                            ? Math.floor(backgroundSecondsRaw)
+                            : defaultInterviewDurations.backgroundSeconds,
+                    codingSeconds:
+                        Number.isFinite(codingSecondsRaw) &&
+                        codingSecondsRaw > 0
+                            ? Math.floor(codingSecondsRaw)
+                            : defaultInterviewDurations.codingSeconds,
+                });
             } else {
-                setInterviewState(emptyInterviewState);
+                setInterviewState(emptyInterviewContentState);
+                setInterviewDurations(defaultInterviewDurations);
             }
             setError(null);
         } catch (err) {
@@ -240,7 +273,8 @@ function CompanyJobDetailContent() {
             }
             const updated = (await resp.json()) as JobDetailResponse;
             setJob(updated);
-            setInterviewState(emptyInterviewState);
+            setInterviewState(emptyInterviewContentState);
+            setInterviewDurations(defaultInterviewDurations);
             setError(null);
         } catch (err) {
             const message =
@@ -409,89 +443,24 @@ function CompanyJobDetailContent() {
                         </div>
                     </section>
 
-                    <section className="bg-white/80 backdrop-blur rounded-2xl border border-white/20 p-6 shadow-sm">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-semibold text-gray-800">
-                                Interview Content
-                            </h2>
-                            <button
-                                type="button"
-                                className="text-sm text-red-600 hover:text-red-700 disabled:opacity-60"
-                                onClick={handleRemoveInterviewContent}
-                                disabled={
-                                    removingInterview ||
-                                    (interviewState.backgroundQuestion.trim()
-                                        .length === 0 &&
-                                        interviewState.codingPrompt.trim()
-                                            .length === 0 &&
-                                        interviewState.codingTemplate.trim()
-                                            .length === 0 &&
-                                        interviewState.codingAnswer.trim()
-                                            .length === 0)
-                                }
-                            >
-                                {removingInterview
-                                    ? "Removing..."
-                                    : "Remove content"}
-                            </button>
-                        </div>
-                        <div className="space-y-4">
-                            <label className="flex flex-col text-sm font-medium text-gray-700">
-                                Background Question
-                                <textarea
-                                    value={interviewState.backgroundQuestion}
-                                    onChange={(event) =>
-                                        setInterviewState((prev) => ({
-                                            ...prev,
-                                            backgroundQuestion:
-                                                event.target.value,
-                                        }))
-                                    }
-                                    className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all min-h-[100px]"
-                                />
-                            </label>
-                            <label className="flex flex-col text-sm font-medium text-gray-700">
-                                Coding Prompt
-                                <textarea
-                                    value={interviewState.codingPrompt}
-                                    onChange={(event) =>
-                                        setInterviewState((prev) => ({
-                                            ...prev,
-                                            codingPrompt: event.target.value,
-                                        }))
-                                    }
-                                    className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all min-h-[140px]"
-                                    required
-                                />
-                            </label>
-                            <label className="flex flex-col text-sm font-medium text-gray-700">
-                                Coding Template
-                                <textarea
-                                    value={interviewState.codingTemplate}
-                                    onChange={(event) =>
-                                        setInterviewState((prev) => ({
-                                            ...prev,
-                                            codingTemplate: event.target.value,
-                                        }))
-                                    }
-                                    className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all min-h-[140px]"
-                                />
-                            </label>
-                            <label className="flex flex-col text-sm font-medium text-gray-700">
-                                Reference Answer
-                                <textarea
-                                    value={interviewState.codingAnswer}
-                                    onChange={(event) =>
-                                        setInterviewState((prev) => ({
-                                            ...prev,
-                                            codingAnswer: event.target.value,
-                                        }))
-                                    }
-                                    className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all min-h-[140px]"
-                                />
-                            </label>
-                        </div>
-                    </section>
+                    <InterviewContentSection
+                        state={interviewState}
+                        onChange={setInterviewState}
+                        durations={interviewDurations}
+                        onDurationChange={setInterviewDurations}
+                        disabled={saving || removingInterview}
+                        onRemove={handleRemoveInterviewContent}
+                        canRemove={
+                            !(
+                                interviewState.backgroundQuestion.trim().length === 0 &&
+                                interviewState.codingPrompt.trim().length === 0 &&
+                                interviewState.codingTemplate.trim().length === 0 &&
+                                interviewState.codingAnswer.trim().length === 0
+                            )
+                        }
+                        removing={removingInterview}
+                        subtitle="Adjust the background conversation, coding prompt, and timers associated with this job."
+                    />
 
                     <div className="flex justify-end gap-3">
                         <Link

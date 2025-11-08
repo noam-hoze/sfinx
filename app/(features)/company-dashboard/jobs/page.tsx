@@ -8,6 +8,12 @@ import { log } from "app/shared/services";
 import { JobGrid, JobGridJob } from "app/shared/components/jobs/JobGrid";
 import type { JobGridCompany } from "app/shared/components/jobs/JobGrid";
 import { readResponseError } from "app/shared/utils/http";
+import InterviewContentSection, {
+    InterviewContentState,
+    InterviewDurationState,
+    defaultInterviewDurations,
+    emptyInterviewContentState,
+} from "./components/InterviewContentSection";
 
 interface CompanyJobListItem extends JobGridJob {
     salary: string | null;
@@ -53,6 +59,10 @@ function CompanyJobsContent() {
     const [companyName, setCompanyName] = useState<string>("");
     const [createState, setCreateState] =
         useState<CreateJobState>(defaultCreateState);
+    const [interviewState, setInterviewState] =
+        useState<InterviewContentState>(emptyInterviewContentState);
+    const [interviewDurations, setInterviewDurations] =
+        useState<InterviewDurationState>(defaultInterviewDurations);
     const [createSubmitting, setCreateSubmitting] = useState(false);
     const [deleteInFlight, setDeleteInFlight] = useState<string | null>(null);
 
@@ -109,11 +119,34 @@ function CompanyJobsContent() {
         });
     }, []);
 
+    const resetCreateForm = () => {
+        setCreateState(defaultCreateState);
+        setInterviewState(emptyInterviewContentState);
+        setInterviewDurations(defaultInterviewDurations);
+    };
+
     const handleCreateJob = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         setCreateSubmitting(true);
         try {
-            const payload = {
+            const hasInterviewContent =
+                interviewState.backgroundQuestion.trim().length > 0 ||
+                interviewState.codingPrompt.trim().length > 0 ||
+                interviewState.codingTemplate.trim().length > 0 ||
+                interviewState.codingAnswer.trim().length > 0;
+
+            if (
+                hasInterviewContent &&
+                interviewState.codingPrompt.trim().length === 0
+            ) {
+                setError(
+                    "Coding prompt is required when adding interview content."
+                );
+                setCreateSubmitting(false);
+                return;
+            }
+
+            const payload: Record<string, unknown> = {
                 title: createState.title,
                 location: createState.location,
                 type: createState.type,
@@ -121,6 +154,25 @@ function CompanyJobsContent() {
                 description: createState.description,
                 requirements: createState.requirements,
             };
+
+            if (hasInterviewContent) {
+                payload.interviewContent = {
+                    backgroundQuestion: interviewState.backgroundQuestion,
+                    codingPrompt: interviewState.codingPrompt.trim(),
+                    codingTemplate:
+                        interviewState.codingTemplate.trim().length > 0
+                            ? interviewState.codingTemplate
+                            : null,
+                    codingAnswer:
+                        interviewState.codingAnswer.trim().length > 0
+                            ? interviewState.codingAnswer
+                            : null,
+                    backgroundQuestionTimeSeconds:
+                        interviewDurations.backgroundSeconds,
+                    codingQuestionTimeSeconds: interviewDurations.codingSeconds,
+                };
+            }
+
             const resp = await fetch("/api/company/jobs", {
                 method: "POST",
                 headers: {
@@ -155,8 +207,9 @@ function CompanyJobsContent() {
                 },
                 ...prev,
             ]);
-            setCreateState(defaultCreateState);
+            resetCreateForm();
             setCreateMode(false);
+            setError(null);
         } catch (err) {
             const message =
                 err instanceof Error ? err.message : "Unknown error";
@@ -225,7 +278,7 @@ function CompanyJobsContent() {
                                 className="text-sm text-gray-500 hover:text-gray-700"
                                 onClick={() => {
                                     setCreateMode(false);
-                                    setCreateState(defaultCreateState);
+                                    resetCreateForm();
                                 }}
                             >
                                 Cancel
@@ -315,6 +368,17 @@ function CompanyJobsContent() {
                                     className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all min-h-[120px]"
                                 />
                             </label>
+                        </div>
+                        <div className="mt-6">
+                            <InterviewContentSection
+                                state={interviewState}
+                                onChange={setInterviewState}
+                                durations={interviewDurations}
+                                onDurationChange={setInterviewDurations}
+                                disabled={createSubmitting}
+                                subtitle="Optional: configure the background conversation, coding prompt, and timers candidates will experience."
+                                allowEmptyCodingPrompt={false}
+                            />
                         </div>
                         <div className="mt-4 flex justify-end gap-3">
                             <button
