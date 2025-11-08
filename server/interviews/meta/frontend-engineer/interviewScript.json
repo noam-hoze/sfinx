@@ -1,9 +1,0 @@
-{
-    "title": "Meta Frontend Developer Interview",
-    "backgroundQuestion":"Tell me about a complex React integration you built. What made it challenging?",
-    "codingChallenge": {
-        "prompt": "Please build a React component called `UserList` that fetches users from the provided API and displays their name and email in a styled list. Feel free to ask me anything you want.",
-        "template": "/*\n  Task:\n  Build a React component called `UserList` that:\n  1. Fetches users from the API: https://jsonplaceholder.typicode.com/users\n  2. Displays each user's name and email in a list.\n  3. Shows a \"Loading...\" message while fetching.\n  4. Shows an error message if the request fails.\n*/\n\nimport React, { useState, useEffect } from \"react\";\n\nfunction UserList() {\n  // Your code here\n\n  return (\n    <ul>\n      {/* Render user name and email here */}\n    </ul>\n  );\n}\n\nexport default UserList;",
-        "answer": "import React, { useState, useEffect } from \"react\";\n\nfunction UserList() {\n  const [users, setUsers] = useState([]);\n  const [loading, setLoading] = useState(true);\n  const [error, setError] = useState(null);\n\n  useEffect(() => {\n    fetch(\"https://jsonplaceholder.typicode.com/users\")\n      .then(r => r.json())\n      .then(d => {\n        setUsers(d);\n        setLoading(false);\n      })\n      .catch(e => {\n        setError(e.message);\n        setLoading(false);\n      });\n  }, []);\n\n  if (loading) return <div>Loading...</div>;\n  if (error) return <div>Error: {error}</div>;\n\n  return (\n    <ul>\n      {users.map(u => (\n        <li key={u.id}>\n          <strong>{u.name}</strong> - {u.email}\n        </li>\n      ))}\n    </ul>\n  );\n}\n\nexport default UserList;"
-    }
-}
