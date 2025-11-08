@@ -84,13 +84,29 @@ const OpenAITextConversation = forwardRef<any, Props>(
       [dispatch]
     );
 
-    const clearPendingAndThrow = useCallback((message: string): never => {
+    const clearPendingState = useCallback(() => {
       interviewChatStore.dispatch({
         type: "SET_PENDING_REPLY",
         payload: { pending: false },
       } as any);
-      throw new Error(message);
     }, []);
+
+    const clearPendingAndThrow = useCallback(
+      (message: string): never => {
+        clearPendingState();
+        throw new Error(message);
+      },
+      [clearPendingState]
+    );
+
+    const cancelPendingBackgroundReply = useCallback(() => {
+      const pendingContext = interviewChatStore.getState().pendingReplyContext;
+      if (!pendingContext) return;
+      try {
+        /* eslint-disable no-console */ console.log("[coding][pending_cancelled]", pendingContext);
+      } catch {}
+      clearPendingState();
+    }, [clearPendingState]);
 
     const deliverAssistantPrompt = useCallback(
       async ({
@@ -125,6 +141,28 @@ const OpenAITextConversation = forwardRef<any, Props>(
           return null;
         }
           if (autoPost) {
+          const machineState = store.getState().interviewMachine.state;
+          if (
+            machineState === "in_coding_session" &&
+            pendingReason &&
+            pendingReason.startsWith("background")
+          ) {
+            try {
+              /* eslint-disable no-console */ console.log("[background][answer_dropped]", {
+                pendingReason,
+                stage: machineState,
+              });
+            } catch {}
+            interviewChatStore.dispatch({
+              type: "SET_PENDING_REPLY",
+              payload: {
+                pending: true,
+                reason: `${pendingReason}_discarded`,
+                stage: machineState,
+              },
+            } as any);
+            return answer;
+          }
         post(answer, "ai");
         dispatch(machineAiFinal({ text: answer }));
           }
@@ -174,19 +212,22 @@ const OpenAITextConversation = forwardRef<any, Props>(
         try {
           /* eslint-disable no-console */ console.log("[coding][persona]", persona);
         } catch {}
-        const chatSnapshot = interviewChatStore.getState();
-        const hadPending = chatSnapshot.pendingReply;
-        const preface = hadPending
-          ? "Well, actually we will have to move on to next section which is our coding challenge."
-          : "Ok, now we will move to the coding challenge.";
-        const expectedMessage = `${preface} ${taskText}`;
-        codingExpectedMessageRef.current = expectedMessage;
-        const instruction = `Say exactly:\n"""\n${expectedMessage}\n"""`;
-        try {
-          /* eslint-disable no-console */ console.log("[coding][instruction]", expectedMessage);
-        } catch {}
         void (async () => {
           try {
+            const chatSnapshot = interviewChatStore.getState();
+            const hadPending = chatSnapshot.pendingReply;
+            if (hadPending) {
+              cancelPendingBackgroundReply();
+            }
+            const preface = "Well, actually we will have to move on to next section which is our coding challenge.";
+            const expectedMessage = `${preface} ${taskText}`;
+            codingExpectedMessageRef.current = expectedMessage;
+            const instruction = hadPending
+              ? `System note (do not say to candidate): Previous background reply was skipped because we transitioned to coding.\n\nSay exactly:\n"""\n${expectedMessage}\n"""`
+              : `Say exactly:\n"""\n${expectedMessage}\n"""`;
+            try {
+              /* eslint-disable no-console */ console.log("[coding][instruction]", expectedMessage);
+            } catch {}
             const answer = await deliverAssistantPrompt({
               persona,
               instruction,
@@ -202,18 +243,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
             if (answer == null || answer === "") {
               clearPendingAndThrow("OpenAI returned empty coding prompt response");
             }
-            const expected = codingExpectedMessageRef.current;
-            if (expected === null) {
-              clearPendingAndThrow("Missing expected coding prompt guard");
-            }
             const finalAnswer = answer!;
-            const normalize = (text: string) =>
-              text.replace(/[^\w\s]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
-            const normalizedAnswer = normalize(finalAnswer);
-            const normalizedExpected = normalize(expected!);
-            if (normalizedAnswer !== normalizedExpected) {
-              clearPendingAndThrow("AI coding intro mismatch detected");
-            }
             post(finalAnswer, "ai");
             dispatch(machineAiFinal({ text: finalAnswer }));
             interviewChatStore.dispatch({
@@ -238,7 +268,15 @@ const OpenAITextConversation = forwardRef<any, Props>(
         })();
       });
       return () => unsubscribe();
-    }, [automaticMode, clearPendingAndThrow, deliverAssistantPrompt, onCodingPromptReady, dispatch, post]);
+    }, [
+      automaticMode,
+      cancelPendingBackgroundReply,
+      clearPendingAndThrow,
+      deliverAssistantPrompt,
+      onCodingPromptReady,
+      dispatch,
+      post,
+    ]);
 
     const sendUserMessage = useCallback(
       async (text: string) => {
@@ -278,6 +316,16 @@ const OpenAITextConversation = forwardRef<any, Props>(
         }
 
         if (ms.state === "background_answered_by_user") {
+          // Set pending state BEFORE control run
+          const pendingStage = interviewChatStore.getState().stage;
+          interviewChatStore.dispatch({
+            type: "SET_PENDING_REPLY",
+            payload: {
+              pending: true,
+              reason: "background_followup",
+              stage: pendingStage,
+            },
+          } as any);
           // Run CONTROL and then ask a short follow-up
           await runBackgroundControl(openaiClient);
           const im = store.getState().interviewMachine;
@@ -293,13 +341,34 @@ const OpenAITextConversation = forwardRef<any, Props>(
             { role: "user", content: text },
           ]);
           if (follow) {
+            const machineState = store.getState().interviewMachine.state;
+            if (machineState === "in_coding_session") {
+              interviewChatStore.dispatch({
+                type: "SET_PENDING_REPLY",
+                payload: {
+                  pending: true,
+                  reason: "background_followup_discarded",
+                  stage: machineState,
+                },
+              } as any);
+              try {
+                /* eslint-disable no-console */ console.log("[background][followup_dropped]", {
+                  follow,
+                  machineState,
+                });
+              } catch {}
+              return;
+            }
             post(follow, "ai");
             dispatch(machineAiFinal({ text: follow }));
+            clearPendingState();
+          } else {
+            clearPendingState();
           }
           return;
         }
       },
-      [deliverAssistantPrompt, dispatch, openaiClient, post]
+      [clearPendingState, deliverAssistantPrompt, dispatch, openaiClient, post]
     );
 
     const startConversation = useCallback(async () => {
