@@ -12,6 +12,19 @@ function ensureCompanyRole(session: any) {
     }
 }
 
+export function coerceSeconds(value: unknown, fallback: number) {
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+        return Math.floor(value);
+    }
+    if (typeof value === "string" && value.trim().length > 0) {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed) && parsed > 0) {
+            return Math.floor(parsed);
+        }
+    }
+    return fallback;
+}
+
 export function mapJobResponse(job: any, company: any) {
     const interview = job.interviewContent;
     return {
@@ -29,6 +42,9 @@ export function mapJobResponse(job: any, company: any) {
                   codingPrompt: interview.codingPrompt,
                   codingTemplate: interview.codingTemplate,
                   codingAnswer: interview.codingAnswer,
+                  backgroundQuestionTimeSeconds:
+                      interview.backgroundQuestionTimeSeconds,
+                  codingQuestionTimeSeconds: interview.codingQuestionTimeSeconds,
               }
             : null,
         company: {
@@ -151,6 +167,14 @@ export async function POST(request: NextRequest) {
                             codingAnswer && codingAnswer.trim().length > 0
                                 ? codingAnswer
                                 : null,
+                        backgroundQuestionTimeSeconds: coerceSeconds(
+                            (interview as any).backgroundQuestionTimeSeconds,
+                            900
+                        ),
+                        codingQuestionTimeSeconds: coerceSeconds(
+                            (interview as any).codingQuestionTimeSeconds,
+                            1800
+                        ),
                     },
                 });
                 interviewContentId = created.id;

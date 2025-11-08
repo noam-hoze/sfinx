@@ -34,11 +34,11 @@ import { useDispatch } from "react-redux";
 import { forceCoding, setCompanyContext } from "@/shared/state/slices/interviewMachineSlice";
 import BackgroundDebugPanel from "../../../shared/components/BackgroundDebugPanel";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
-import { TIMEBOX_MS } from "@/shared/services/backgroundSessionGuard";
 import { store } from "@/shared/state/store";
 
 const logger = log;
-const INTERVIEW_DURATION_SECONDS = 30 * 60;
+const DEFAULT_BACKGROUND_DURATION_SECONDS = 15 * 60;
+const DEFAULT_CODING_DURATION_SECONDS = 30 * 60;
 const DEFAULT_CODE = ``;
 
 /**
@@ -68,6 +68,16 @@ const InterviewerContent = () => {
     const jobId = searchParams.get("jobId");
     const dispatch = useDispatch();
     const [job, setJob] = useState<any | null>(null);
+    const [backgroundDurationSeconds, setBackgroundDurationSeconds] = useState(
+        DEFAULT_BACKGROUND_DURATION_SECONDS
+    );
+    const [codingDurationSeconds, setCodingDurationSeconds] = useState(
+        DEFAULT_CODING_DURATION_SECONDS
+    );
+    const backgroundDurationMs = useMemo(
+        () => backgroundDurationSeconds * 1000,
+        [backgroundDurationSeconds]
+    );
     const candidateName = (session?.user as any)?.name || "Candidate";
 
     /**
@@ -130,8 +140,14 @@ const InterviewerContent = () => {
     const [redirectDelayMs, setRedirectDelayMs] = useState<number>(4000);
     const realTimeConversationRef = useRef<any>(null);
     const automaticMode = process.env.NEXT_PUBLIC_AUTOMATIC_MODE === "true";
+    const commMethodRaw = (process.env.NEXT_PUBLIC_INTERVIEW_COMM_METHOD || "speech")
+        .toLowerCase()
+        .trim();
     const isTextMode =
-        (process.env.NEXT_PUBLIC_INTERVIEW_COMM_METHOD || "speech").toLowerCase() === "text";
+        commMethodRaw === "text" ||
+        commMethodRaw === "true" ||
+        commMethodRaw === "1" ||
+        commMethodRaw === "yes";
     const isDebugModeEnabled = process.env.NEXT_PUBLIC_DEBUG_MODE === "true";
     const debugPanelVisibleEnv = process.env.NEXT_PUBLIC_DEBUG_PANEL_VISIBLE;
     const [isDebugVisible, setIsDebugVisible] = useState(() => {
@@ -165,6 +181,9 @@ const InterviewerContent = () => {
     }, [interviewSessionId]);
 
     useEffect(() => {
+        if (!Number.isFinite(backgroundDurationMs) || backgroundDurationMs <= 0) {
+            return;
+        }
         const id = setInterval(() => {
             if (timeboxFiredRef.current) return;
             try {
@@ -179,7 +198,7 @@ const InterviewerContent = () => {
                     return;
                 }
                 const elapsed = Date.now() - startedAtMs;
-                if (elapsed >= TIMEBOX_MS) {
+                if (elapsed >= backgroundDurationMs) {
                     timeboxFiredRef.current = true;
                     interviewChatStore.dispatch({ type: "BG_GUARD_SET_REASON", payload: { reason: "timebox" } });
                     store.dispatch(forceCoding());
@@ -189,7 +208,7 @@ const InterviewerContent = () => {
             } catch {}
         }, 500);
         return () => clearInterval(id);
-    }, []);
+    }, [backgroundDurationMs]);
 
     /**
      * Sends a hidden signal instructing the agent to deliver its closing line and end.
@@ -211,7 +230,7 @@ const InterviewerContent = () => {
 
     const { timeLeft, isTimerRunning, startTimer, stopTimer, formatTime } =
         useInterviewTimer({
-            durationSeconds: INTERVIEW_DURATION_SECONDS,
+            durationSeconds: codingDurationSeconds,
             onExpire: async () => {
                 logger.info("⏰ Timer expired - ending interview...");
                 updateSubmission(state.currentCode);
@@ -403,6 +422,30 @@ const InterviewerContent = () => {
                 if (mounted) {
                     setJob(data.job);
                     try {
+                        const interviewContent = data?.job?.interviewContent;
+                        if (interviewContent) {
+                            const backgroundSecondsRaw = Number(
+                                interviewContent.backgroundQuestionTimeSeconds
+                            );
+                            const codingSecondsRaw = Number(
+                                interviewContent.codingQuestionTimeSeconds
+                            );
+                            const backgroundSeconds =
+                                Number.isFinite(backgroundSecondsRaw) && backgroundSecondsRaw > 0
+                                    ? Math.floor(backgroundSecondsRaw)
+                                    : DEFAULT_BACKGROUND_DURATION_SECONDS;
+                            const codingSeconds =
+                                Number.isFinite(codingSecondsRaw) && codingSecondsRaw > 0
+                                    ? Math.floor(codingSecondsRaw)
+                                    : DEFAULT_CODING_DURATION_SECONDS;
+                            setBackgroundDurationSeconds(backgroundSeconds);
+                            setCodingDurationSeconds(codingSeconds);
+                        } else {
+                            setBackgroundDurationSeconds(DEFAULT_BACKGROUND_DURATION_SECONDS);
+                            setCodingDurationSeconds(DEFAULT_CODING_DURATION_SECONDS);
+                        }
+                        timeboxFiredRef.current = false;
+
                         const companyName = data?.job?.company?.name;
                         const companySlug = (companyName || "").toLowerCase();
                         const roleSlug = (data?.job?.title || "")
@@ -582,6 +625,7 @@ const InterviewerContent = () => {
                             isDebugModeEnabled={isDebugModeEnabled}
                             isDebugVisible={isDebugVisible}
                             onToggleDebug={toggleDebugPanel}
+                            codingDurationSeconds={codingDurationSeconds}
                         />
                     </div>
                 </div>
@@ -601,7 +645,7 @@ const InterviewerContent = () => {
                                 >
                                     <div className="mx-auto max-w-3xl">
                                         <div className="debug-panel-scroll scroll-smooth max-h-[calc(100vh-160px)] overflow-y-auto pr-2 pb-2">
-                                            <BackgroundDebugPanel />
+                                            <BackgroundDebugPanel timeboxMs={backgroundDurationMs} />
                                         </div>
                                     </div>
                                 </div>
@@ -638,6 +682,8 @@ const InterviewerContent = () => {
                                 interviewConcluded={interviewConcluded}
                                 hasSubmitted={state.hasSubmitted}
                                 candidateName={candidateName}
+                            backgroundDurationSeconds={backgroundDurationSeconds}
+                            codingDurationSeconds={codingDurationSeconds}
                                 onStartInterview={handleInterviewButtonClick}
                             />
                             <CameraPreview
@@ -656,6 +702,8 @@ const InterviewerContent = () => {
                             handleUserTranscript={handleUserTranscript}
                             updateKBVariables={updateKBVariables}
                             kbVariables={kbVariables}
+                            backgroundDurationSeconds={backgroundDurationSeconds}
+                            codingDurationSeconds={codingDurationSeconds}
                             automaticMode={automaticMode}
                             isCodingStarted={isCodingStarted}
                             onAutoStartCoding={() => {

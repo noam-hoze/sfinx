@@ -25,7 +25,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         }
         const job = await (prisma as any).job.findUnique({
             where: { id: jobId },
-            include: { company: true },
+            include: { company: true, interviewContent: true },
         });
 
         if (!job) {

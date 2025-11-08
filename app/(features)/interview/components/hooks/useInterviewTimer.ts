@@ -46,6 +46,13 @@ export const useInterviewTimer = ({
         setIsTimerRunning(false);
     }, [clearTimer]);
 
+    useEffect(() => {
+        if (isTimerRunning) {
+            return;
+        }
+        setTimeLeft(durationSeconds);
+    }, [durationSeconds, isTimerRunning]);
+
     useEffect(() => () => clearTimer(), [clearTimer]);
 
     const formatTime = useCallback((seconds: number) => {

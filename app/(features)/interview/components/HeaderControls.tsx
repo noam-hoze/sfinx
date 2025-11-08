@@ -17,6 +17,7 @@ interface HeaderControlsProps {
     isDebugModeEnabled: boolean;
     isDebugVisible: boolean;
     onToggleDebug: () => void;
+    codingDurationSeconds: number;
 }
 
 const HeaderControls: React.FC<HeaderControlsProps> = ({
@@ -33,7 +34,10 @@ const HeaderControls: React.FC<HeaderControlsProps> = ({
     isDebugModeEnabled,
     isDebugVisible,
     onToggleDebug,
+    codingDurationSeconds,
 }) => {
+    const codingDurationLabel = formatTime(codingDurationSeconds);
+
     return (
         <div className="flex items-center space-x-4">
             {isDebugModeEnabled && (
@@ -112,7 +116,7 @@ const HeaderControls: React.FC<HeaderControlsProps> = ({
                         (isCodingStarted || hasSubmitted)
                             ? "Submit your solution"
                             : isInterviewActive
-                            ? "Start 30-minute coding timer"
+                            ? `Start ${codingDurationLabel} coding timer`
                             : "Start interview first"
                     }
                 >

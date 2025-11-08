@@ -39,6 +39,9 @@ export async function GET(req: NextRequest) {
             codingPrompt: interview.codingPrompt,
             codingTemplate: interview.codingTemplate,
             codingAnswer: interview.codingAnswer,
+            backgroundQuestionTimeSeconds:
+                interview.backgroundQuestionTimeSeconds,
+            codingQuestionTimeSeconds: interview.codingQuestionTimeSeconds,
         });
     } catch (error: any) {
         const details = error?.message ? String(error.message) : undefined;

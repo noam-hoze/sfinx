@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import RealTimeConversation from "./chat/RealTimeConversation";
 import OpenAIVoiceConversation from "./chat/OpenAIVoiceConversation";
 import OpenAITextConversation from "./chat/OpenAITextConversation";
@@ -28,6 +28,8 @@ interface RightPanelProps {
     isTextInputLocked: boolean;
     onCodingPromptReady?: () => void;
     onGreetingDelivered?: () => void;
+    backgroundDurationSeconds: number;
+    codingDurationSeconds: number;
 }
 
 const RightPanel: React.FC<RightPanelProps> = ({
@@ -52,8 +54,44 @@ const RightPanel: React.FC<RightPanelProps> = ({
     isTextInputLocked,
     onCodingPromptReady,
     onGreetingDelivered,
+    backgroundDurationSeconds,
+    codingDurationSeconds,
 }) => {
-    const isTextMode = (process.env.NEXT_PUBLIC_INTERVIEW_COMM_METHOD || "speech").toLowerCase() === "text";
+    const commMethodRaw = (process.env.NEXT_PUBLIC_INTERVIEW_COMM_METHOD || "speech")
+        .toLowerCase()
+        .trim();
+    const isTextMode =
+        commMethodRaw === "text" ||
+        commMethodRaw === "true" ||
+        commMethodRaw === "1" ||
+        commMethodRaw === "yes";
+    const voiceEngine = (
+        process.env.NEXT_PUBLIC_VOICE_ENGINE || "elevenlabs"
+    )
+        .toLowerCase()
+        .trim();
+    const isElevenLabsFlow = !isTextMode && voiceEngine !== "openai";
+
+    useEffect(() => {
+        if (!isElevenLabsFlow) {
+            return;
+        }
+        if (typeof backgroundDurationSeconds !== "number" || backgroundDurationSeconds <= 0) {
+            return;
+        }
+        if (typeof codingDurationSeconds !== "number" || codingDurationSeconds <= 0) {
+            return;
+        }
+        updateKBVariables({
+            background_time_seconds: backgroundDurationSeconds,
+            coding_time_seconds: codingDurationSeconds,
+        }).catch(() => {});
+    }, [
+        backgroundDurationSeconds,
+        codingDurationSeconds,
+        updateKBVariables,
+        isElevenLabsFlow,
+    ]);
 
     return (
         <div className="h-full flex flex-col border-t">

@@ -132,6 +132,10 @@ model InterviewContent {
   codingTemplate     String?
   /// Canonical answer used for evaluation/comparison.
   codingAnswer       String?
+  /// Timebox for answering the background question (seconds).
+  backgroundQuestionTimeSeconds Int @default(900)
+  /// Timebox for completing the coding challenge (seconds).
+  codingQuestionTimeSeconds     Int @default(1800)
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
   jobs               Job[]

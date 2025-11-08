@@ -4,7 +4,7 @@ import { authOptions } from "app/shared/services/auth";
 import { prisma } from "app/shared/services/prisma";
 import { log } from "app/shared/services";
 import { loadCompanyForUser } from "../companyContext";
-import { mapJobResponse } from "../route";
+import { mapJobResponse, coerceSeconds } from "../route";
 
 type RouteContext = {
     params: Promise<{ jobId?: string | string[] }>;
@@ -198,6 +198,14 @@ export async function PUT(request: NextRequest, context: RouteContext) {
                         typeof interview.codingAnswer === "string"
                             ? interview.codingAnswer
                             : null,
+                    backgroundQuestionTimeSeconds: coerceSeconds(
+                        (interview as any).backgroundQuestionTimeSeconds,
+                        job.interviewContent?.backgroundQuestionTimeSeconds ?? 900
+                    ),
+                    codingQuestionTimeSeconds: coerceSeconds(
+                        (interview as any).codingQuestionTimeSeconds,
+                        job.interviewContent?.codingQuestionTimeSeconds ?? 1800
+                    ),
                 };
                 if (interviewContentId) {
                     await (prisma as any).interviewContent.update({

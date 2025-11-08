@@ -5,7 +5,11 @@ import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import { confidences, DefaultConfig, stopCheck } from "@/shared/services/weightedMean/scorer";
 import { TIMEBOX_MS, formatCountdown } from "@/shared/services/backgroundSessionGuard";
 
-export default function BackgroundDebugPanel() {
+interface BackgroundDebugPanelProps {
+    timeboxMs?: number;
+}
+
+export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS }: BackgroundDebugPanelProps) {
     const debugEnabled = process.env.NEXT_PUBLIC_DEBUG_MODE === "true";
 
     const [state, setState] = useState(() => interviewChatStore.getState());
@@ -50,7 +54,8 @@ export default function BackgroundDebugPanel() {
     }, []);
 
     const now = Date.now();
-    const remainingMs = startedAtMs ? Math.max(0, startedAtMs + TIMEBOX_MS - now) : TIMEBOX_MS;
+    const limitMs = Number.isFinite(timeboxMs) && timeboxMs > 0 ? timeboxMs : TIMEBOX_MS;
+    const remainingMs = startedAtMs ? Math.max(0, startedAtMs + limitMs - now) : limitMs;
     const countdown = formatCountdown(remainingMs);
     const reasonLabel = reason ? reason.replace("_", " ") : "—";
 

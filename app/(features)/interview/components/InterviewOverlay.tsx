@@ -3,6 +3,17 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 
+function formatDurationLabel(seconds?: number | null) {
+    if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds <= 0) {
+        return null;
+    }
+    const minutes = Math.round(seconds / 60);
+    if (minutes > 0) {
+        return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+    }
+    return `${Math.round(seconds)}s`;
+}
+
 interface InterviewOverlayProps {
     isCodingStarted: boolean;
     isInterviewActive: boolean;
@@ -12,6 +23,8 @@ interface InterviewOverlayProps {
     interviewConcluded?: boolean;
     candidateName?: string;
     hasSubmitted?: boolean;
+    backgroundDurationSeconds?: number;
+    codingDurationSeconds?: number;
 }
 
 const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
@@ -23,6 +36,8 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
     interviewConcluded = false,
     candidateName = "Candidate",
     hasSubmitted = false,
+    backgroundDurationSeconds,
+    codingDurationSeconds,
 }) => {
     // Derive stage from props
     const derivedStage = useMemo(() => {
@@ -62,6 +77,15 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
         const t = setTimeout(() => setSubtitleVisible(true), 160);
         return () => clearTimeout(t);
     }, [isInterviewLoading]);
+
+    const backgroundDurationLabel = useMemo(
+        () => formatDurationLabel(backgroundDurationSeconds),
+        [backgroundDurationSeconds]
+    );
+    const codingDurationLabel = useMemo(
+        () => formatDurationLabel(codingDurationSeconds),
+        [codingDurationSeconds]
+    );
 
     // Replaced ellipsis with smooth spinner
 
@@ -143,6 +167,11 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
                                 "Click Start Interview and wait for instructions"
                             )}
                         </p>
+                        {backgroundDurationLabel && codingDurationLabel ? (
+                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                {`Background: ${backgroundDurationLabel}. Coding: ${codingDurationLabel}.`}
+                            </p>
+                        ) : null}
                         <div className="mt-6 flex flex-col items-center">
                             <button
                                 onClick={onStartInterview}
