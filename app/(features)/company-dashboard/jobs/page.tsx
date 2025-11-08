@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import type { Route } from "next";
 import { AuthGuard } from "app/shared/components";
 import { log } from "app/shared/services";
 import { JobGrid, JobGridJob } from "app/shared/components/jobs/JobGrid";
@@ -422,7 +423,7 @@ function CompanyJobsContent() {
                         getHref={(job) =>
                             `/company-dashboard/jobs/${encodeURIComponent(
                                 job.id
-                            )}`
+                            )}` as Route
                         }
                         renderActions={(job) => (
                             <>

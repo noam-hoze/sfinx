@@ -10,6 +10,8 @@ export interface JobGridCompany {
     size: string;
 }
 
+type LinkHref = Parameters<typeof Link>[0]["href"];
+
 export interface JobGridJob {
     id: string;
     title: string;
@@ -24,7 +26,7 @@ interface JobGridProps {
     showLogo: boolean;
     showCompanyName?: boolean;
     onCardClick?: (job: JobGridJob) => void;
-    getHref?: (job: JobGridJob) => string | null;
+    getHref?: (job: JobGridJob) => LinkHref | null;
     renderBadge?: (job: JobGridJob) => React.ReactNode;
     renderActions?: (job: JobGridJob) => React.ReactNode;
     emptyLabel?: string;

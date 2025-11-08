@@ -4,57 +4,13 @@ import { authOptions } from "app/shared/services/auth";
 import { prisma } from "app/shared/services/prisma";
 import { log } from "app/shared/services";
 import { loadCompanyForUser } from "./companyContext";
+import { coerceSeconds, mapJobResponse } from "./jobHelpers";
 
 function ensureCompanyRole(session: any) {
     const role = session?.user?.role;
     if (role !== "COMPANY") {
         throw new Error("Company role required");
     }
-}
-
-export function coerceSeconds(value: unknown, fallback: number) {
-    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
-        return Math.floor(value);
-    }
-    if (typeof value === "string" && value.trim().length > 0) {
-        const parsed = Number(value);
-        if (Number.isFinite(parsed) && parsed > 0) {
-            return Math.floor(parsed);
-        }
-    }
-    return fallback;
-}
-
-export function mapJobResponse(job: any, company: any) {
-    const interview = job.interviewContent;
-    return {
-        id: job.id,
-        title: job.title,
-        location: job.location,
-        type: job.type,
-        description: job.description,
-        salary: job.salary,
-        requirements: job.requirements,
-        interviewContent: interview
-            ? {
-                  id: interview.id,
-                  backgroundQuestion: interview.backgroundQuestion,
-                  codingPrompt: interview.codingPrompt,
-                  codingTemplate: interview.codingTemplate,
-                  codingAnswer: interview.codingAnswer,
-                  backgroundQuestionTimeSeconds:
-                      interview.backgroundQuestionTimeSeconds,
-                  codingQuestionTimeSeconds: interview.codingQuestionTimeSeconds,
-              }
-            : null,
-        company: {
-            id: company.id,
-            name: company.name,
-            logo: company.logo,
-            industry: company.industry,
-            size: company.size,
-        },
-    };
 }
 
 export async function GET(_request: NextRequest) {

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
+import type { Route } from "next";
 import { AuthGuard } from "app/shared/components";
 import { log } from "app/shared/services";
 import { JobGrid, JobGridJob } from "app/shared/components/jobs/JobGrid";
@@ -250,7 +251,7 @@ function JobSearchContent() {
                             const targetCompany = job.company.id;
                             return `/interview?companyId=${encodeURIComponent(
                                 targetCompany
-                            )}&jobId=${encodeURIComponent(job.id)}`;
+                            )}&jobId=${encodeURIComponent(job.id)}` as Route;
                         }}
                         renderBadge={(job) => {
                             if (!appliedSet.has(job.id)) {

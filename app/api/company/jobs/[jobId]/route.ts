@@ -4,7 +4,7 @@ import { authOptions } from "app/shared/services/auth";
 import { prisma } from "app/shared/services/prisma";
 import { log } from "app/shared/services";
 import { loadCompanyForUser } from "../companyContext";
-import { mapJobResponse, coerceSeconds } from "../route";
+import { mapJobResponse, coerceSeconds } from "../jobHelpers";
 
 type RouteContext = {
     params: Promise<{ jobId?: string | string[] }>;

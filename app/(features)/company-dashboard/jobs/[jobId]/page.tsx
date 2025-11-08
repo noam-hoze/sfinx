@@ -33,6 +33,8 @@ interface JobDetailResponse {
         codingPrompt: string;
         codingTemplate: string | null;
         codingAnswer: string | null;
+        backgroundQuestionTimeSeconds: number;
+        codingQuestionTimeSeconds: number;
     };
 }
 
