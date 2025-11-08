@@ -30,8 +30,7 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS }: Backgro
     const scorer = bg?.scorer;
     const coverage = bg?.coverage;
     const startedAtMs = bg?.startedAtMs;
-    const zeroRuns = bg?.zeroRuns ?? 0;
-    const projectsUsed = bg?.projectsUsed ?? 0;
+    const consecutiveUselessAnswers = bg?.consecutiveUselessAnswers ?? 0;
     const reason = bg?.reason;
 
     const conf = useMemo(() => (scorer ? confidences(scorer) : null), [scorer]);
@@ -173,10 +172,7 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS }: Backgro
                                 Guard
                             </span>
                             <span>
-                                Zero Runs <span className="font-mono">{zeroRuns}</span>
-                            </span>
-                            <span>
-                                Projects <span className="font-mono">{projectsUsed}</span>
+                                Useless <span className="font-mono">{consecutiveUselessAnswers}</span>
                             </span>
                         </div>
                         <div className="flex flex-col gap-1">

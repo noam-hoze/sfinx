@@ -94,26 +94,21 @@ const interviewMachineSlice = createSlice({
                     } catch {}
                 }
             } else if (state.state === "background_answered_by_user") {
-                // Evaluate guard: timebox/projects cap/stopCheck
+                // Evaluate guard: timebox/consecutive useless answers/stopCheck
                 try {
                     const s = interviewChatStore.getState();
                     const scorer = s?.background?.scorer;
                     const coverage = s?.background?.coverage;
                     const gateReady = !!(scorer && coverage && stopCheck(scorer, coverage));
-                    const zeroRuns = s.background.zeroRuns;
-                    if (zeroRuns === undefined) {
-                        throw new Error("Background guard missing zeroRuns");
-                    }
-                    const projectsUsed = s.background.projectsUsed;
-                    if (projectsUsed === undefined) {
-                        throw new Error("Background guard missing projectsUsed");
+                    const consecutiveUselessAnswers = s.background.consecutiveUselessAnswers;
+                    if (consecutiveUselessAnswers === undefined) {
+                        throw new Error("Background guard missing consecutiveUselessAnswers");
                     }
                     const timeboxMs = s.background.timeboxMs;
                     const reason = shouldTransition(
                         {
                             startedAtMs: s.background.startedAtMs,
-                            zeroRuns,
-                            projectsUsed,
+                            consecutiveUselessAnswers,
                             timeboxMs,
                         },
                         { gateReady, timeboxMs }

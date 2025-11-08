@@ -225,23 +225,22 @@ const OpenAIVoiceConversation = forwardRef<any, OpenAIVoiceConversationProps>(
                         payload: { pillars: parsed.pillars },
                     } as any);
 
-                    // Guard: only after we've seen a meaningful (non-zero) answer in this project
+                    // Guard: consecutive useless answers check
                     try {
                         const bg = interviewChatStore.getState().background as any;
-                        const zeroRunsRaw = bg?.zeroRuns;
-                        if (zeroRunsRaw === undefined) {
-                            throw new Error("Background zeroRuns missing");
+                        const consecutiveUselessAnswersRaw = bg?.consecutiveUselessAnswers;
+                        if (consecutiveUselessAnswersRaw === undefined) {
+                            throw new Error("Background consecutiveUselessAnswers missing");
                         }
-                        const zeroRuns = Number(zeroRunsRaw);
-                        if (Number.isNaN(zeroRuns)) {
-                            throw new Error("Background zeroRuns is not numeric");
+                        const consecutiveUselessAnswers = Number(consecutiveUselessAnswersRaw);
+                        if (Number.isNaN(consecutiveUselessAnswers)) {
+                            throw new Error("Background consecutiveUselessAnswers is not numeric");
                         }
-                        const seenNonZero = Boolean(bg?.seenNonZero);
-                        // Simplified rule: two consecutive zeros within the current project → cap reached
-                        if (seenNonZero && zeroRuns >= 2) {
+                        // Rule: two consecutive useless answers → move to coding
+                        if (consecutiveUselessAnswers >= 2) {
                             interviewChatStore.dispatch({
                                 type: "BG_GUARD_SET_REASON",
-                                payload: { reason: "projects_cap" },
+                                payload: { reason: "useless_answers" },
                             } as any);
                             // Cancel any ongoing reply and immediately switch to coding
                             try {

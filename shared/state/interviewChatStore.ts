@@ -53,11 +53,8 @@ export type InterviewChatState = {
         coverage?: { A: boolean; C: boolean; R: boolean };
         // Guard state
         startedAtMs?: number;
-        zeroRuns?: number;
-        projectsUsed?: number;
-        reason?: "timebox" | "projects_cap" | "gate";
-        seenNonZero?: boolean;
-        pendingProject?: boolean;
+        consecutiveUselessAnswers?: number;
+        reason?: "timebox" | "useless_answers" | "gate";
         timeboxMs?: number;
     };
 };
@@ -88,9 +85,7 @@ type Action =
     | { type: "BG_INC_QUESTIONS" }
     | { type: "BG_MARK_TRANSITION" }
     | { type: "BG_GUARD_START_TIMER" }
-    | { type: "BG_GUARD_RESET_PROJECT" }
-    | { type: "BG_GUARD_INC_ZERO_RUNS"; payload: { isZeroTriplet: boolean } }
-    | { type: "BG_GUARD_SET_REASON"; payload: { reason: "timebox" | "projects_cap" | "gate" } }
+    | { type: "BG_GUARD_SET_REASON"; payload: { reason: "timebox" | "useless_answers" | "gate" } }
     | { type: "BG_GUARD_SET_TIMEBOX"; payload: { timeboxMs?: number } }
     | {
           type: "SET_PENDING_REPLY";
@@ -162,30 +157,20 @@ function reducer(
                 C: coveragePrev.C || c > 0,
                 R: coveragePrev.R || r > 0,
             };
-            {
-                const pending = state.background.pendingProject || false;
-                const prevProjects = state.background.projectsUsed || 0;
-                const prevZero = state.background.zeroRuns || 0;
-                const becameMeaningful = !isZeroTriplet;
-                const nextProjects = pending && becameMeaningful ? prevProjects + 1 : prevProjects;
-                const nextPending = pending && becameMeaningful ? false : pending;
-                // Only start counting zeroRuns once we have at least one project in use
-                const nextZeroRuns = nextProjects > 0 ? (isZeroTriplet ? prevZero + 1 : 0) : 0;
 
-                return {
-                    ...state,
-                    background: {
-                        ...state.background,
-                        pillars: latest,
-                        scorer,
-                        coverage,
-                        zeroRuns: nextZeroRuns,
-                        seenNonZero: isZeroTriplet ? (state.background.seenNonZero || false) : true,
-                        projectsUsed: nextProjects,
-                        pendingProject: nextPending,
-                    },
-                };
-            }
+            const prevConsecutive = state.background.consecutiveUselessAnswers || 0;
+            const nextConsecutive = isZeroTriplet ? prevConsecutive + 1 : 0;
+
+            return {
+                ...state,
+                background: {
+                    ...state.background,
+                    pillars: latest,
+                    scorer,
+                    coverage,
+                    consecutiveUselessAnswers: nextConsecutive,
+                },
+            };
         }
         case "BG_INC_QUESTIONS":
             return {
@@ -210,32 +195,9 @@ function reducer(
                 background: {
                     ...state.background,
                     startedAtMs: state.background.startedAtMs ?? Date.now(),
-                    // Start with 0 projects until first meaningful answer arrives
-                    projectsUsed: state.background.projectsUsed ?? 0,
-                    zeroRuns: state.background.zeroRuns || 0,
-                    pendingProject: state.background.pendingProject ?? true,
-                    seenNonZero: false,
+                    consecutiveUselessAnswers: state.background.consecutiveUselessAnswers || 0,
                 },
             };
-        case "BG_GUARD_RESET_PROJECT":
-            return {
-                ...state,
-                background: {
-                    ...state.background,
-                    zeroRuns: 0,
-                    // Do not increment yet; wait for first meaningful answer
-                    pendingProject: true,
-                    seenNonZero: false,
-                },
-            };
-        case "BG_GUARD_INC_ZERO_RUNS": {
-            const prev = state.background.zeroRuns || 0;
-            const next = action.payload.isZeroTriplet ? prev + 1 : 0;
-            return {
-                ...state,
-                background: { ...state.background, zeroRuns: next },
-            };
-        }
         case "BG_GUARD_SET_REASON":
             return {
                 ...state,
