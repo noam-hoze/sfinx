@@ -3,6 +3,8 @@
  * - Encodes Greeting → Background → Coding → Submission → Wrap‑up.
  * - Sends system nudges via session.transport; exposes minimal stage API.
  */
+import { interviewChatStore } from "@/shared/state/interviewChatStore";
+
 export type FlowStage =
     | "greeting"
     | "background"
@@ -68,6 +70,10 @@ export function openAIFlowController() {
                 },
             });
             session?.transport?.sendEvent?.({ type: "response.create" });
+            interviewChatStore.dispatch({
+                type: "SET_PENDING_REPLY",
+                payload: { pending: true, reason: `flow:${stage}` },
+            } as any);
         } catch {}
     };
 

@@ -11,6 +11,10 @@
 ### II. Reuse-First and Modularity
 - Teams MUST prioritize reusing existing code and composing modular units over duplicating logic.
 - Modules MUST have a single clear purpose and minimal coupling; prefer helpers/services/components over large files.
+- When identical logic repeats, you MUST extract it into a shared helper immediately. Example from `OpenAITextConversation`:
+  - `interviewChatStore.dispatch({ type: "SET_PENDING_REPLY", payload: { pending: false } })`
+  - `throw new Error("OpenAI returned empty coding prompt response");`
+  These two lines appeared twice—duplication is a constitution breach.
 - Rationale: Reuse and modularity reduce defects, speed delivery, and improve maintainability.
 
 ### III. File Size Discipline (<300 lines)

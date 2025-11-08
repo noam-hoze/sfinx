@@ -7,6 +7,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FinalMessage } from "../types/openAIRealtime";
 import { log } from "app/shared/services";
+import { interviewChatStore } from "@/shared/state/interviewChatStore";
+
+function setPendingReplyState(pending: boolean, reason?: string) {
+    try {
+        const chatStage = interviewChatStore.getState().stage;
+        interviewChatStore.dispatch({
+            type: "SET_PENDING_REPLY",
+            payload: {
+                pending,
+                reason,
+                stage: pending ? chatStage : undefined,
+            },
+        } as any);
+    } catch {}
+}
 
 // Local lightweight TurnBuffer implementation (ordered, emits per-arrival)
 type TurnRecord = {
@@ -221,6 +236,7 @@ export function useOpenAIRealtimeSession(
                         sessionRef.current?.transport?.sendEvent?.({
                             type: "response.create",
                         });
+                        setPendingReplyState(true, "handsfree_auto");
                     } catch {}
                 }
             };
@@ -252,12 +268,13 @@ export function useOpenAIRealtimeSession(
         [reset]
     );
 
-    const respond = useCallback(() => {
+    const respond = useCallback((reason?: string) => {
         allowNextRef.current = true;
         try {
             sessionRef.current?.transport?.sendEvent?.({
                 type: "response.create",
             });
+            setPendingReplyState(true, reason ?? "response.create");
         } catch {}
     }, []);
 

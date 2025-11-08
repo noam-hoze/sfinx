@@ -21,10 +21,18 @@ export type InterviewStage =
 import { initState as initScorerState, update as scorerUpdate, computeWeight } from "@/shared/services/weightedMean/scorer";
 import type { AllTraitState } from "@/shared/services/weightedMean/types";
 
+type PendingReplyContext = {
+    reason?: string;
+    stage?: InterviewStage;
+    since: number;
+};
+
 export type InterviewChatState = {
     messages: ChatMessage[];
     isRecording: boolean;
     stage: InterviewStage;
+    pendingReply: boolean;
+    pendingReplyContext?: PendingReplyContext;
     // Background stage fields
     background: {
         confidence: number; // 0–100
@@ -83,7 +91,11 @@ type Action =
     | { type: "BG_GUARD_RESET_PROJECT" }
     | { type: "BG_GUARD_INC_ZERO_RUNS"; payload: { isZeroTriplet: boolean } }
     | { type: "BG_GUARD_SET_REASON"; payload: { reason: "timebox" | "projects_cap" | "gate" } }
-    | { type: "BG_GUARD_SET_TIMEBOX"; payload: { timeboxMs?: number } };
+    | { type: "BG_GUARD_SET_TIMEBOX"; payload: { timeboxMs?: number } }
+    | {
+          type: "SET_PENDING_REPLY";
+          payload: { pending: boolean; reason?: string; stage?: InterviewStage };
+      };
 
 function reducer(
     state: InterviewChatState,
@@ -240,6 +252,23 @@ function reducer(
                 },
             };
         }
+        case "SET_PENDING_REPLY":
+            if (action.payload.pending) {
+                return {
+                    ...state,
+                    pendingReply: true,
+                    pendingReplyContext: {
+                        reason: action.payload.reason,
+                        stage: action.payload.stage,
+                        since: Date.now(),
+                    },
+                };
+            }
+            return {
+                ...state,
+                pendingReply: false,
+                pendingReplyContext: undefined,
+            };
         default:
             return state;
     }
@@ -270,6 +299,7 @@ export const interviewChatStore = createStore({
     messages: [],
     isRecording: false,
     stage: null as unknown as InterviewStage,
+    pendingReply: false,
     background: {
         confidence: 0,
         questionsAsked: 0,

@@ -68,6 +68,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
     const readyRef = useRef(false);
     const scriptRef = useRef<any | null>(null);
     const codingPromptSentRef = useRef(false);
+    const codingExpectedMessageRef = useRef<string | null>(null);
 
     const post = useCallback(
       (text: string, speaker: "user" | "ai") => {
@@ -83,18 +84,71 @@ const OpenAITextConversation = forwardRef<any, Props>(
       [dispatch]
     );
 
+    const clearPendingAndThrow = useCallback((message: string): never => {
+      interviewChatStore.dispatch({
+        type: "SET_PENDING_REPLY",
+        payload: { pending: false },
+      } as any);
+      throw new Error(message);
+    }, []);
+
     const deliverAssistantPrompt = useCallback(
-      async ({ persona, instruction }: { persona: string; instruction: string }) => {
+      async ({
+        persona,
+        instruction,
+        pendingReason,
+        autoPost = true,
+        managePending = false,
+      }: {
+        persona: string;
+        instruction: string;
+        pendingReason?: string;
+        autoPost?: boolean;
+        managePending?: boolean;
+      }) => {
+        const stageSnapshot = interviewChatStore.getState().stage;
+        if (pendingReason) {
+          interviewChatStore.dispatch({
+            type: "SET_PENDING_REPLY",
+            payload: { pending: true, reason: pendingReason, stage: stageSnapshot },
+          } as any);
+        }
+        try {
         const answer = await generateAssistantReply(openaiClient, persona, instruction);
-        if (!answer) return null;
+        if (!answer) {
+          if (pendingReason && !managePending) {
+            interviewChatStore.dispatch({
+              type: "SET_PENDING_REPLY",
+              payload: { pending: false },
+            } as any);
+          }
+          return null;
+        }
+          if (autoPost) {
         post(answer, "ai");
         dispatch(machineAiFinal({ text: answer }));
-        if (onGreetingDelivered && instruction.includes("I'll be the one interviewing today!")) {
+          }
+          if (pendingReason && !managePending) {
+            interviewChatStore.dispatch({
+              type: "SET_PENDING_REPLY",
+              payload: { pending: false },
+            } as any);
+          }
+          if (autoPost && onGreetingDelivered && instruction.includes("I'll be the one interviewing today!")) {
           try {
             onGreetingDelivered();
           } catch {}
         }
         return answer;
+        } catch (error) {
+          if (pendingReason && !managePending) {
+            interviewChatStore.dispatch({
+              type: "SET_PENDING_REPLY",
+              payload: { pending: false },
+            } as any);
+          }
+          throw error;
+        }
       },
       [dispatch, onGreetingDelivered, openaiClient, post]
     );
@@ -119,20 +173,72 @@ const OpenAITextConversation = forwardRef<any, Props>(
         const persona = buildOpenAICodingPrompt(ms.companyName, taskText);
         try {
           /* eslint-disable no-console */ console.log("[coding][persona]", persona);
-          /* eslint-disable no-console */ console.log("[coding][instruction]", taskText);
         } catch {}
-        const instruction = `Ask exactly:\n"""\n${taskText}\n"""`;
+        const chatSnapshot = interviewChatStore.getState();
+        const hadPending = chatSnapshot.pendingReply;
+        const preface = hadPending
+          ? "Well, actually we will have to move on to next section which is our coding challenge."
+          : "Ok, now we will move to the coding challenge.";
+        const expectedMessage = `${preface} ${taskText}`;
+        codingExpectedMessageRef.current = expectedMessage;
+        const instruction = `Say exactly:\n"""\n${expectedMessage}\n"""`;
+        try {
+          /* eslint-disable no-console */ console.log("[coding][instruction]", expectedMessage);
+        } catch {}
         void (async () => {
-          const answer = await deliverAssistantPrompt({ persona, instruction });
-          if (answer && automaticMode && onCodingPromptReady) {
+          try {
+            const answer = await deliverAssistantPrompt({
+              persona,
+              instruction,
+              pendingReason: "coding_prompt",
+              autoPost: false,
+              managePending: true,
+            });
+            if (answer !== null) {
+              try {
+                /* eslint-disable no-console */ console.log("[coding][answer]", answer);
+              } catch {}
+            }
+            if (answer == null || answer === "") {
+              clearPendingAndThrow("OpenAI returned empty coding prompt response");
+            }
+            const expected = codingExpectedMessageRef.current;
+            if (expected === null) {
+              clearPendingAndThrow("Missing expected coding prompt guard");
+            }
+            const finalAnswer = answer!;
+            const normalize = (text: string) =>
+              text.replace(/[^\w\s]/g, "").replace(/\s+/g, " ").trim().toLowerCase();
+            const normalizedAnswer = normalize(finalAnswer);
+            const normalizedExpected = normalize(expected!);
+            if (normalizedAnswer !== normalizedExpected) {
+              clearPendingAndThrow("AI coding intro mismatch detected");
+            }
+            post(finalAnswer, "ai");
+            dispatch(machineAiFinal({ text: finalAnswer }));
+            interviewChatStore.dispatch({
+              type: "SET_PENDING_REPLY",
+              payload: { pending: false },
+            } as any);
+            if (automaticMode && onCodingPromptReady) {
             try {
               onCodingPromptReady();
             } catch {}
+            }
+          } catch (error) {
+            interviewChatStore.dispatch({
+              type: "SET_PENDING_REPLY",
+              payload: { pending: false },
+            } as any);
+            codingExpectedMessageRef.current = null;
+            throw error;
+          } finally {
+            codingExpectedMessageRef.current = null;
           }
         })();
       });
       return () => unsubscribe();
-    }, [automaticMode, deliverAssistantPrompt, onCodingPromptReady]);
+    }, [automaticMode, clearPendingAndThrow, deliverAssistantPrompt, onCodingPromptReady, dispatch, post]);
 
     const sendUserMessage = useCallback(
       async (text: string) => {
@@ -156,7 +262,11 @@ const OpenAITextConversation = forwardRef<any, Props>(
               String(ms.companyName || "Company")
             );
             const instruction = `Ask exactly: "${String(expectedQ)}"`;
-            const reply = await deliverAssistantPrompt({ persona, instruction });
+            const reply = await deliverAssistantPrompt({
+              persona,
+              instruction,
+              pendingReason: "background_question",
+            });
             if (reply) {
               interviewChatStore.dispatch({
                 type: "SET_STAGE",
@@ -229,7 +339,11 @@ const OpenAITextConversation = forwardRef<any, Props>(
       }
       const persona = buildOpenAIInterviewerPrompt(companyName);
       const instruction = `Say exactly: "Hi ${name}, I'm Carrie. I'll be the one interviewing today!"`;
-      const greeting = await deliverAssistantPrompt({ persona, instruction });
+      const greeting = await deliverAssistantPrompt({
+        persona,
+        instruction,
+        pendingReason: "greeting",
+      });
       if (!greeting) {
         const fallback = `Hi ${name}, I'm Carrie. I'll be the one interviewing today!`;
         post(fallback, "ai");
@@ -252,7 +366,11 @@ const OpenAITextConversation = forwardRef<any, Props>(
         }
         const persona = buildOpenAIInterviewerPrompt(companyName);
         const instruction = buildClosingInstruction(candidate);
-        const answer = await deliverAssistantPrompt({ persona, instruction });
+        const answer = await deliverAssistantPrompt({
+          persona,
+          instruction,
+          pendingReason: "closing_line",
+        });
         if (answer) {
           try {
             onInterviewConcluded?.(2700);

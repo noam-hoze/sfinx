@@ -324,6 +324,7 @@ const OpenAIVoiceConversation = forwardRef<any, OpenAIVoiceConversationProps>(
         const scriptRef = useRef<null>(null);
         const expectingUserRef = useRef<boolean>(false);
         const codingPromptInjectedRef = useRef<boolean>(false);
+        const codingExpectedMessageRef = useRef<string | null>(null);
         const { connected, session, connect, respond, enableHandsFree, allowNextResponse } =
             useOpenAIRealtimeSession(
                 (m) => {
@@ -387,15 +388,39 @@ const OpenAIVoiceConversation = forwardRef<any, OpenAIVoiceConversationProps>(
                             // Do not present coding yet; will be triggered by CONTROL gate
                         } catch {}
                     } else if (m.role === "ai") {
-                        try {
-                            if (typeof m.text !== "string") {
-                                throw new Error("AI response missing text");
+                        logger.info("I'm in user === ai")
+                        if (typeof m.text !== "string") {
+                            throw new Error("AI response missing text");
+                        }
+                        const textRaw = m.text.trim();
+                        const chatSnapshot = interviewChatStore.getState();
+                        if (!chatSnapshot.pendingReply) {
+                            logger.error("[openai][ai][unexpected_state]", {
+                                text: textRaw,
+                                context: chatSnapshot.pendingReplyContext,
+                            });
+                            throw new Error("AI response arrived with no pending reply state");
+                        }
+
+                        const expectedCodingMessage = codingExpectedMessageRef.current;
+                        if (expectedCodingMessage) {
+                            codingExpectedMessageRef.current = null;
+                            if (textRaw !== expectedCodingMessage) {
+                                logger.error("[openai][ai][coding_intro_mismatch]", {
+                                    expected: expectedCodingMessage,
+                                    actual: textRaw,
+                                });
+                                throw new Error("AI coding intro mismatch detected");
                             }
-                            const textRaw = m.text.trim();
-                            dispatch(machineAiFinal({ text: textRaw }));
-                            emitMachineState();
-                            if (textRaw) postToChat(textRaw, m.role);
-                        } catch {}
+                        }
+
+                        dispatch(machineAiFinal({ text: textRaw }));
+                        emitMachineState();
+                        if (textRaw) postToChat(textRaw, m.role);
+                        interviewChatStore.dispatch({
+                            type: "SET_PENDING_REPLY",
+                            payload: { pending: false },
+                        } as any);
                     }
                 },
                 { agentName: "Carrie" }
@@ -555,13 +580,53 @@ const OpenAIVoiceConversation = forwardRef<any, OpenAIVoiceConversationProps>(
                                 },
                             });
                         } catch {}
+
+                        const chatState = interviewChatStore.getState();
+                        const hadPending = chatState.pendingReply;
+                        const pendingContext = chatState.pendingReplyContext;
+                        if (chatState.stage !== "coding") {
+                            try {
+                                interviewChatStore.dispatch({
+                                    type: "SET_STAGE",
+                                    payload: "coding",
+                                } as any);
+                            } catch {}
+                        }
+                        if (hadPending) {
+                            try {
+                                logger.info("[openai][coding][pending_cancel]", {
+                                    reason: pendingContext?.reason,
+                                    stage: pendingContext?.stage,
+                                });
+                            } catch {}
+                            try {
+                                sessionRef.current?.transport?.sendEvent?.({
+                                    type: "response.cancel",
+                                });
+                            } catch {}
+                            try {
+                                interviewChatStore.dispatch({
+                                    type: "SET_PENDING_REPLY",
+                                    payload: { pending: false },
+                                } as any);
+                            } catch {}
+                        }
+
+                        const preface = hadPending
+                            ? "Well, actually we will have to move on to next section which is our coding challenge."
+                            : "Ok, now we will move to the coding challenge.";
+                        const expectedMessage = `${preface} ${taskText}`;
+                        codingExpectedMessageRef.current = expectedMessage;
+
+                        const instruction = `Say exactly:\n"""\n${expectedMessage}\n"""`;
                         try {
-                            const instruction = `Ask exactly:\n"""\n${taskText}\n"""`;
-                            logger.info("[openai][prompt][coding_question]\n" + instruction);
+                            logger.info("[openai][prompt][coding_intro]\n" + instruction);
                             try {
                                 // eslint-disable-next-line no-console
                                 console.log("[coding][instruction]", instruction);
                             } catch {}
+                        } catch {}
+                        try {
                             sessionRef.current?.transport?.sendEvent?.({
                                 type: "conversation.item.create",
                                 item: {
@@ -572,7 +637,7 @@ const OpenAIVoiceConversation = forwardRef<any, OpenAIVoiceConversationProps>(
                             });
                         } catch {}
                         try {
-                            respond();
+                            respond("coding_prompt");
                         } catch {}
                         codingPromptInjectedRef.current = true;
                     }
