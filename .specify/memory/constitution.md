@@ -50,6 +50,7 @@
 - Default-value fallbacks are forbidden; expressions like `const companyName = ms.companyName || "Company"` MUST NOT be used.
 
 ## Development Workflow & Quality Gates
+- Planning Enforcement: During planning mode, every constitution gate MUST be resolved explicitly; implementation plans MUST capture the detailed decisions, parameters, and rationale for each gate before any code changes begin (e.g., library versus custom build choices, timeboxing defaults, validation strategy).
 - Specifications: Each feature under `app/(features)/<feature>/` MUST have a local spec at `docs/specs/<feature>.md` and be referenced in commits.
 - Static analysis: Repository MUST pass `tsc --noEmit` and ESLint with project lints.
 - Testing & Coverage: Tests MUST run in CI with coverage ≥ 60% (adjustable by maintainers).
@@ -120,6 +121,7 @@
 - Default-value fallbacks are forbidden; expressions like `const companyName = ms.companyName || "Company"` MUST NOT be used.
 
 ## Development Workflow & Quality Gates
+- Planning Enforcement: During planning mode, every constitution gate MUST be resolved explicitly; implementation plans MUST capture the detailed decisions, parameters, and rationale for each gate before any code changes begin (e.g., library versus custom build choices, timeboxing defaults, validation strategy).
 - Specifications: Each feature under `app/(features)/<feature>/` MUST have a local spec at `docs/specs/<feature>.md` and be referenced in commits.
 - Static analysis: Repository MUST pass `tsc --noEmit` and ESLint with project lints.
 - Testing & Coverage: Tests MUST run in CI with coverage ≥ 60% (adjustable by maintainers).
