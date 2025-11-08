@@ -219,7 +219,13 @@ const OpenAITextConversation = forwardRef<any, Props>(
             if (hadPending) {
               cancelPendingBackgroundReply();
             }
-            const preface = "Well, actually we will have to move on to next section which is our coding challenge.";
+            const reason = chatSnapshot.background?.reason;
+            let preface = "Well, actually we will have to move on to next section which is our coding challenge.";
+            if (reason === "useless_answers") {
+              preface = "OK, let's move on to the coding question.";
+            } else if (reason === "gate") {
+              preface = "Great, let's move on to the coding question.";
+            }
             const expectedMessage = `${preface} ${taskText}`;
             codingExpectedMessageRef.current = expectedMessage;
             const instruction = hadPending
