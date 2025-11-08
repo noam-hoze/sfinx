@@ -50,6 +50,7 @@ export type InterviewChatState = {
         reason?: "timebox" | "projects_cap" | "gate";
         seenNonZero?: boolean;
         pendingProject?: boolean;
+        timeboxMs?: number;
     };
 };
 
@@ -81,7 +82,8 @@ type Action =
     | { type: "BG_GUARD_START_TIMER" }
     | { type: "BG_GUARD_RESET_PROJECT" }
     | { type: "BG_GUARD_INC_ZERO_RUNS"; payload: { isZeroTriplet: boolean } }
-    | { type: "BG_GUARD_SET_REASON"; payload: { reason: "timebox" | "projects_cap" | "gate" } };
+    | { type: "BG_GUARD_SET_REASON"; payload: { reason: "timebox" | "projects_cap" | "gate" } }
+    | { type: "BG_GUARD_SET_TIMEBOX"; payload: { timeboxMs?: number } };
 
 function reducer(
     state: InterviewChatState,
@@ -227,6 +229,17 @@ function reducer(
                 ...state,
                 background: { ...state.background, reason: action.payload.reason },
             };
+        case "BG_GUARD_SET_TIMEBOX": {
+            const next = action.payload.timeboxMs;
+            return {
+                ...state,
+                background: {
+                    ...state.background,
+                    timeboxMs:
+                        typeof next === "number" && Number.isFinite(next) && next > 0 ? next : undefined,
+                },
+            };
+        }
         default:
             return state;
     }

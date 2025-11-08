@@ -1,6 +1,6 @@
 /** Background session guard helpers and constants. */
 
-export const TIMEBOX_MS = 7 * 1000; // 4:00
+export const TIMEBOX_MS = 7 * 1000; // 4:00 default fallback; overridden per interview
 export const ZERO_RUN_LIMIT = 2;
 export const PROJECT_CAP = 2;
 
@@ -10,6 +10,7 @@ export interface GuardState {
   startedAtMs?: number;
   zeroRuns: number;
   projectsUsed: number;
+  timeboxMs?: number;
 }
 
 export function nowMs(): number {
@@ -41,10 +42,16 @@ export function incZeroRuns(consecutive: number, isZeroTriplet: boolean): number
 
 export function shouldTransition(
   gs: GuardState,
-  opts: { gateReady: boolean; clockMs?: number }
+  opts: { gateReady: boolean; clockMs?: number; timeboxMs?: number }
 ): GuardReason | null {
   const tMs = elapsedMs(gs, opts.clockMs);
-  if (tMs >= TIMEBOX_MS) return "timebox";
+  const limit =
+    typeof gs.timeboxMs === "number" && Number.isFinite(gs.timeboxMs) && gs.timeboxMs > 0
+      ? gs.timeboxMs
+      : typeof opts.timeboxMs === "number" && Number.isFinite(opts.timeboxMs) && opts.timeboxMs > 0
+      ? opts.timeboxMs
+      : TIMEBOX_MS;
+  if (tMs >= limit) return "timebox";
   if (gs.projectsUsed >= PROJECT_CAP) return "projects_cap";
   if (opts.gateReady) return "gate";
   return null;

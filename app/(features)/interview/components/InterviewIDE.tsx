@@ -138,6 +138,16 @@ const InterviewerContent = () => {
     const [interviewConcluded, setInterviewConcluded] = useState(false);
     const [isChatInputLocked, setIsChatInputLocked] = useState(true);
     const [redirectDelayMs, setRedirectDelayMs] = useState<number>(4000);
+
+    useEffect(() => {
+        if (!Number.isFinite(backgroundDurationMs) || backgroundDurationMs <= 0) {
+            return;
+        }
+        interviewChatStore.dispatch({
+            type: "BG_GUARD_SET_TIMEBOX",
+            payload: { timeboxMs: backgroundDurationMs },
+        } as any);
+    }, [backgroundDurationMs]);
     const realTimeConversationRef = useRef<any>(null);
     const automaticMode = process.env.NEXT_PUBLIC_AUTOMATIC_MODE === "true";
     const commMethodRaw = (process.env.NEXT_PUBLIC_INTERVIEW_COMM_METHOD || "speech")

@@ -108,13 +108,15 @@ const interviewMachineSlice = createSlice({
                     if (projectsUsed === undefined) {
                         throw new Error("Background guard missing projectsUsed");
                     }
+                    const timeboxMs = s.background.timeboxMs;
                     const reason = shouldTransition(
                         {
                             startedAtMs: s.background.startedAtMs,
                             zeroRuns,
                             projectsUsed,
+                            timeboxMs,
                         },
-                        { gateReady }
+                        { gateReady, timeboxMs }
                     );
                     if (reason) {
                         interviewChatStore.dispatch({ type: "BG_GUARD_SET_REASON", payload: { reason } });
