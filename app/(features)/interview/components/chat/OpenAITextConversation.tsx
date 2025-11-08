@@ -24,6 +24,7 @@ import {
   buildOpenAIInterviewerPrompt,
 } from "@/shared/prompts/openAIInterviewerPrompt";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
+import { stopCheck } from "@/shared/services/weightedMean/scorer";
 import {
   askViaChatCompletion,
   buildClosingInstruction,
@@ -220,12 +221,15 @@ const OpenAITextConversation = forwardRef<any, Props>(
               cancelPendingBackgroundReply();
             }
             const reason = chatSnapshot.background?.reason;
-            let preface = "Well, actually we will have to move on to next section which is our coding challenge.";
-            if (reason === "useless_answers") {
-              preface = "OK, let's move on to the coding question.";
-            } else if (reason === "gate") {
-              preface = "Great, let's move on to the coding question.";
-            }
+            
+            // Choose intro based solely on transition reason
+            const introMap = {
+              gate: "Great, let's move on to the coding question.",
+              useless_answers: "OK, let's move on to the coding question.",
+              timebox: "Well, actually we will have to move on to next section which is our coding challenge.",
+            };
+            const preface = introMap[reason as keyof typeof introMap] || introMap.timebox;
+            
             const expectedMessage = `${preface} ${taskText}`;
             codingExpectedMessageRef.current = expectedMessage;
             const instruction = hadPending
@@ -332,8 +336,42 @@ const OpenAITextConversation = forwardRef<any, Props>(
               stage: pendingStage,
             },
           } as any);
-          // Run CONTROL and then ask a short follow-up
+          // Run CONTROL
           await runBackgroundControl(openaiClient);
+          
+          // Check if gate is satisfied immediately (same logic as machine slice)
+          const chatState = interviewChatStore.getState();
+          const scorer = chatState.background?.scorer;
+          const coverage = chatState.background?.coverage;
+          const gateReady = !!(scorer && coverage && stopCheck(scorer, coverage));
+          
+          try {
+            /* eslint-disable no-console */ console.log("[background][after_control_check]", {
+              gateReady,
+              scorer: !!scorer,
+              coverage,
+            });
+          } catch {}
+          
+          if (gateReady) {
+            // Gate satisfied - skip follow-up entirely
+            clearPendingState();
+            try {
+              /* eslint-disable no-console */ console.log("[background][gate_satisfied_skip_followup]", {
+                machineStateBefore: store.getState().interviewMachine.state,
+              });
+            } catch {}
+            // Trigger machine to evaluate guard by dispatching aiFinal (simulating AI response)
+            dispatch(machineAiFinal({ text: "" }));
+            try {
+              /* eslint-disable no-console */ console.log("[background][dispatched_aiFinal_to_trigger_guard]", {
+                machineStateAfter: store.getState().interviewMachine.state,
+              });
+            } catch {}
+            return;
+          }
+          
+          // Ask for follow-up
           const im = store.getState().interviewMachine;
           if (!im.companyName) {
             throw new Error("Interview machine missing companyName");
