@@ -66,21 +66,9 @@ const interviewMachineSlice = createSlice({
         },
         aiFinal: (state, action: PayloadAction<{ text: string }>) => {
             if (state.state === "idle") {
-                if (!state.candidateName) {
-                    throw new Error("Interview machine missing candidateName");
-                }
-                const expected = `Hi ${
-                    state.candidateName
-                }, I'm Carrie. I'll be the one interviewing today!`;
-                const incomingText = action.payload.text;
-                if (!incomingText) {
-                    return;
-                }
-                if (incomingText.trim() === expected) {
-                    const prev = state.state;
-                    state.state = "greeting_said_by_ai";
-                    logStageTransition(prev, state.state, "ai greeting matched");
-                }
+                const prev = state.state;
+                state.state = "greeting_said_by_ai";
+                logStageTransition(prev, state.state, "ai greeting (no guard)");
             } else if (state.state === "greeting_responded_by_user") {
                 const expectedQ = state.expectedBackgroundQuestion?.trim();
                 if (

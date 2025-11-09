@@ -8,6 +8,7 @@ import React, {
   useMemo,
   useRef,
 } from "react";
+import { useSearchParams } from "next/navigation";
 import OpenAI from "openai";
 import { useDispatch } from "react-redux";
 import { addMessage } from "@/shared/state/slices/interviewChatSlice";
@@ -53,6 +54,10 @@ const OpenAITextConversation = forwardRef<any, Props>(
     if (!candidateName) {
       throw new Error("OpenAITextConversation requires a candidateName");
     }
+    const searchParams = useSearchParams();
+    const isDemoMode = searchParams.get("demo") === "true";
+    const demoUserId = searchParams.get("userId");
+    
     const dispatch = useDispatch();
     const openAIApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
     if (!openAIApiKey) {
@@ -251,10 +256,19 @@ const OpenAITextConversation = forwardRef<any, Props>(
                   
                   (async () => {
                     try {
-                      const messagesRes = await fetch(`/api/interviews/session/${sessionId}/messages`, {
+                      const url = isDemoMode
+                        ? `/api/interviews/session/${sessionId}/messages?skip-auth=true`
+                        : `/api/interviews/session/${sessionId}/messages`;
+                      
+                      const body: Record<string, any> = { messages: backgroundMessages };
+                      if (isDemoMode && demoUserId) {
+                        body.userId = demoUserId;
+                      }
+                      
+                      const messagesRes = await fetch(url, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ messages: backgroundMessages }),
+                        body: JSON.stringify(body),
                       });
                       
                       /* eslint-disable no-console */ console.log("[background][persist] POST /messages response:", messagesRes.status, messagesRes.statusText);

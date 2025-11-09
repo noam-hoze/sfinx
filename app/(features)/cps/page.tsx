@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import EvidenceReel from "./components/EvidenceReel";
 import GapAnalysis from "./components/GapAnalysis";
 import WorkstyleDashboard from "./components/WorkstyleDashboard";
@@ -13,9 +14,12 @@ import ImprovementChart from "./components/ImprovementChart";
 import TextSummary from "./components/TextSummary";
 import { AuthGuard } from "app/shared/components";
 import { log } from "app/shared/services";
+import DemoProgressHeader from "../demo/components/DemoProgressHeader";
 
 function TelemetryContent() {
     const searchParams = useSearchParams();
+    const router = useRouter();
+    const isDemoMode = searchParams.get("demo") === "true";
     const candidateId = searchParams.get("candidateId");
     const applicationId = searchParams.get("applicationId");
 
@@ -378,7 +382,18 @@ function TelemetryContent() {
 
     return (
         <div className={`bg-gray-50 ${mainContentTab === "summary" ? "min-h-screen" : "h-screen overflow-hidden"}`}>
+            {isDemoMode && <DemoProgressHeader currentStage={4} />}
             <div className={`max-w-7xl mx-auto p-4 ${mainContentTab === "summary" ? "" : "h-full"}`}>
+                {isDemoMode && (
+                    <div className="mb-4 flex justify-end">
+                        <button
+                            onClick={() => router.push(`/demo/ranked-candidates?candidateId=${candidateId}&applicationId=${applicationId}`)}
+                            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                            View All Candidates
+                        </button>
+                    </div>
+                )}
                 {/* 2x2 Grid Layout */}
                 <div className={`grid grid-cols-1 xl:grid-cols-[320px_1fr] xl:grid-rows-[auto_1fr] gap-4 xl:gap-6 ${mainContentTab === "summary" ? "" : "h-[calc(100vh-2rem)]"}`}>
                     {/* Cell 0 - Empty (top-left) */}

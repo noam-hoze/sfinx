@@ -13,6 +13,7 @@ import { seedGalSession3 } from "./seed-candidate/seed-gal-session3";
 import { seedGalSession4 } from "./seed-candidate/seed-gal-session4";
 import { seedGalSession5 } from "./seed-candidate/seed-gal-session5";
 import { seedMark } from "./seed-candidate/seed-mark";
+import { seedDemoCandidate } from "./seed-candidate/seed-demo-candidate";
 
 const prisma = new PrismaClient();
 
@@ -245,6 +246,7 @@ async function resetDatabase() {
         await seedGalSession4();
         await seedGalSession5();
         await seedMark();
+        await seedDemoCandidate();
 
         // Print summary
         const companyCount = await prisma.company.count();

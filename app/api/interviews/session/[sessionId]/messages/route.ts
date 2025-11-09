@@ -27,14 +27,37 @@ export async function POST(request: NextRequest, context: RouteContext) {
     try {
         log.info("[messages/POST] ========== START ==========");
 
+        const url = new URL(request.url);
+        const skipAuth = url.searchParams.get("skip-auth") === "true";
+
         const session = await getServerSession(authOptions);
         log.info("[messages/POST] Session:", session ? `Found (user: ${(session.user as any)?.email})` : "Not found");
-        if (!session?.user) {
-            log.warn("[messages/POST] ❌ Unauthorized request");
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        log.info("[messages/POST] Skip auth:", skipAuth);
+
+        const body = await request.json();
+        const { messages, userId: requestUserId } = body;
+
+        let userId: string;
+
+        if (skipAuth) {
+            if (!requestUserId) {
+                log.warn("[messages/POST] ❌ skip-auth mode but no userId provided in request");
+                return NextResponse.json(
+                    { error: "userId required when skip-auth=true" },
+                    { status: 400 }
+                );
+            }
+            userId = requestUserId;
+            log.info("[messages/POST] ✅ Skip auth - User ID from request:", userId);
+        } else {
+            if (!session?.user) {
+                log.warn("[messages/POST] ❌ Unauthorized request");
+                return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            }
+            userId = (session.user as any).id;
+            log.info("[messages/POST] ✅ User ID from session:", userId);
         }
 
-        const userId = (session.user as any).id;
         const { sessionId: rawSessionId } = await context.params;
         const sessionId = normalizeSessionId(rawSessionId);
         log.info("[messages/POST] userId:", userId);
@@ -69,7 +92,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         log.info("[messages/POST] ✅ Interview session found:", interviewSession.id);
 
-        const { messages } = await request.json();
         log.info("[messages/POST] Received messages:", messages?.length || 0);
 
         if (!Array.isArray(messages)) {

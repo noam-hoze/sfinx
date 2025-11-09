@@ -182,6 +182,7 @@ const InterviewerContent = () => {
         interviewSessionId,
         setInterviewSessionId,
     } = useScreenRecording();
+    const [applicationId, setApplicationId] = useState<string | null>(null);
 
     /**
      * Logs whenever the interview session ID changes (useful for tracing recording sessions).
@@ -351,18 +352,26 @@ const InterviewerContent = () => {
                 return;
             }
 
+            const isDemoMode = searchParams.get("demo") === "true";
+            const demoUserId = searchParams.get("userId");
+
             if (!applicationCreated && companyId) {
                 try {
                     const application = await createApplication({
                         companyId,
                         jobId,
+                        userId: isDemoMode ? demoUserId || undefined : undefined,
+                        isDemoMode,
                     });
                     setApplicationCreated(true);
 
                     if (application?.application?.id) {
+                        setApplicationId(application.application.id);
                         const session = await createInterviewSession({
                             applicationId: application.application.id,
                             companyId,
+                            userId: isDemoMode ? demoUserId || undefined : undefined,
+                            isDemoMode,
                         });
                         const sessionId = session.interviewSession.id;
                         setInterviewSessionId(sessionId);
@@ -524,7 +533,7 @@ const InterviewerContent = () => {
     }, [getCurrentTask, state.currentTaskId, updateCurrentCode]);
 
     /**
-     * After interview concludes, mark application as applied and optionally redirect to job search.
+     * After interview concludes, mark application as applied and optionally redirect to job search or demo flow.
      */
     useEffect(() => {
         if (interviewConcluded && companyId) {
@@ -538,18 +547,26 @@ const InterviewerContent = () => {
             const onPracticePage =
                 typeof window !== "undefined" &&
                 window.location.pathname === "/practice";
+            const isDemoMode = searchParams.get("demo") === "true";
+
             if (!onPracticePage) {
                 const delay = typeof redirectDelayMs === "number" ? redirectDelayMs : 4000;
                 setTimeout(() => {
                     try {
-                        window.location.href = "/job-search";
+                        const destination = isDemoMode
+                            ? `/demo/company-view?candidateId=${searchParams.get("userId")}&applicationId=${applicationId}`
+                            : "/job-search";
+                        window.location.href = destination;
                     } catch {
-                        router.push("/job-search");
+                        const destination = isDemoMode
+                            ? `/demo/company-view?candidateId=${searchParams.get("userId")}&applicationId=${applicationId}`
+                            : "/job-search";
+                        router.push(destination);
                     }
                 }, delay);
             }
         }
-    }, [interviewConcluded, companyId, router, markCompanyApplied, redirectDelayMs]);
+    }, [interviewConcluded, companyId, router, markCompanyApplied, redirectDelayMs, searchParams, interviewSessionId, applicationId]);
 
     /**
      * Listens for mic mute/unmute messages from child frames and syncs local state.
