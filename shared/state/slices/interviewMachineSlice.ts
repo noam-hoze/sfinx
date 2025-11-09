@@ -21,6 +21,8 @@ export type InterviewMachineState = {
     companyName?: string;
     companySlug?: string;
     roleSlug?: string;
+    // Interview session ID for persisting conversation data
+    sessionId?: string;
 };
 
 const initialState: InterviewMachineState = {
@@ -58,6 +60,9 @@ const interviewMachineSlice = createSlice({
             state.companyName = action.payload.companyName;
             state.companySlug = action.payload.companySlug;
             state.roleSlug = action.payload.roleSlug;
+        },
+        setSessionId: (state, action: PayloadAction<{ sessionId: string }>) => {
+            state.sessionId = action.payload.sessionId;
         },
         aiFinal: (state, action: PayloadAction<{ text: string }>) => {
             if (state.state === "idle") {
@@ -194,6 +199,7 @@ export const {
     startFollowup,
     setExpectedBackgroundQuestion,
     setCompanyContext,
+    setSessionId,
     end,
     reset,
     forceCoding,

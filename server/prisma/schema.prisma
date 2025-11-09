@@ -156,39 +156,41 @@ model Application {
 }
 
 model InterviewSession {
-  id            String         @id @default(cuid())
+  id            String                @id @default(cuid())
   candidateId   String
   applicationId String
   videoUrl      String?
-  startedAt     DateTime       @default(now())
+  startedAt     DateTime              @default(now())
   completedAt   DateTime?
   duration      Int?
-  status        String         @default("IN_PROGRESS")
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  application   Application    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  candidate     User           @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  status        String                @default("IN_PROGRESS")
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  application   Application           @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  candidate     User                  @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   telemetryData TelemetryData?
+  messages      ConversationMessage[]
 }
 
 model TelemetryData {
-  id                 String            @id @default(cuid())
-  interviewSessionId String            @unique
+  id                 String             @id @default(cuid())
+  interviewSessionId String             @unique
   matchScore         Int
   confidence         String
   story              String
-  hasFairnessFlag    Boolean           @default(false)
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
+  hasFairnessFlag    Boolean            @default(false)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
   // New analytics series stored as JSON arrays
   persistenceFlow    Json?
   learningToAction   Json?
   confidenceCurve    Json?
   evidenceClips      EvidenceClip[]
   gapAnalysis        GapAnalysis?
-  interviewSession   InterviewSession  @relation(fields: [interviewSessionId], references: [id], onDelete: Cascade)
+  interviewSession   InterviewSession   @relation(fields: [interviewSessionId], references: [id], onDelete: Cascade)
   videoChapters      VideoChapter[]
   workstyleMetrics   WorkstyleMetrics?
+  backgroundSummary  BackgroundSummary?
 }
 
 model WorkstyleMetrics {
@@ -261,6 +263,38 @@ model VideoCaption {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   videoChapter   VideoChapter @relation("VideoChapterCaptions", fields: [videoChapterId], references: [id], onDelete: Cascade)
+}
+
+model ConversationMessage {
+  id                 String           @id @default(cuid())
+  interviewSessionId String
+  speaker            String
+  text               String
+  stage              String
+  timestamp          DateTime
+  createdAt          DateTime         @default(now())
+  interviewSession   InterviewSession @relation(fields: [interviewSessionId], references: [id], onDelete: Cascade)
+
+  @@index([interviewSessionId, timestamp])
+}
+
+model BackgroundSummary {
+  id                 String        @id @default(cuid())
+  telemetryDataId    String        @unique
+  executiveSummary   String
+  recommendation     String?
+  adaptabilityScore  Int
+  adaptabilityText   String
+  creativityScore    Int
+  creativityText     String
+  reasoningScore     Int
+  reasoningText      String
+  conversationJson   Json
+  evidenceJson       Json
+  generatedAt        DateTime      @default(now())
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  telemetryData      TelemetryData @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
 }
 
 enum UserRole {

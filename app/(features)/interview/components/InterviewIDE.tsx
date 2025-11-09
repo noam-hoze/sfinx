@@ -31,7 +31,7 @@ import { createApplication } from "./services/applicationService";
 import { createInterviewSession } from "./services/interviewSessionService";
 import { fetchJobById } from "./services/jobService";
 import { useDispatch } from "react-redux";
-import { forceCoding, setCompanyContext } from "@/shared/state/slices/interviewMachineSlice";
+import { forceCoding, setCompanyContext, setSessionId } from "@/shared/state/slices/interviewMachineSlice";
 import BackgroundDebugPanel from "../../../shared/components/BackgroundDebugPanel";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import { store } from "@/shared/state/store";
@@ -364,7 +364,9 @@ const InterviewerContent = () => {
                             applicationId: application.application.id,
                             companyId,
                         });
-                        setInterviewSessionId(session.interviewSession.id);
+                        const sessionId = session.interviewSession.id;
+                        setInterviewSessionId(sessionId);
+                        dispatch(setSessionId({ sessionId }));
                     }
                 } catch (error) {
                     logger.error(

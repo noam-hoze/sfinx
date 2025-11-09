@@ -10,6 +10,7 @@ import PersistenceFlow from "./components/PersistenceFlow";
 import LearningToActionTimeline from "./components/LearningToActionTimeline";
 import ConfidenceBuildingCurve from "./components/ConfidenceBuildingCurve";
 import ImprovementChart from "./components/ImprovementChart";
+import TextSummary from "./components/TextSummary";
 import { AuthGuard } from "app/shared/components";
 import { log } from "app/shared/services";
 
@@ -33,7 +34,7 @@ function TelemetryContent() {
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
     const [saveSuccess, setSaveSuccess] = useState(false);
     const [storyExpanded, setStoryExpanded] = useState(false);
-    const [showImprovement, setShowImprovement] = useState(false);
+    const [mainContentTab, setMainContentTab] = useState<"summary" | "evidence" | "improvement">("summary");
     const [seriesVisible, setSeriesVisible] = useState({
         match: true,
         iter: false,
@@ -41,6 +42,8 @@ function TelemetryContent() {
         debug: false,
         ai: false,
     });
+    const [backgroundSummary, setBackgroundSummary] = useState<any>(null);
+    const [summaryLoading, setSummaryLoading] = useState(false);
 
     useEffect(() => {
         const fetchTelemetryData = async () => {
@@ -102,6 +105,38 @@ function TelemetryContent() {
 
         fetchTelemetryData();
     }, [candidateId]);
+
+    // Fetch background summary for active session
+    useEffect(() => {
+        const fetchBackgroundSummary = async () => {
+            const sessionId = activeSession?.id;
+            if (!sessionId || sessionId === "single") {
+                setBackgroundSummary(null);
+                return;
+            }
+
+            try {
+                setSummaryLoading(true);
+                const response = await fetch(
+                    `/api/interviews/session/${sessionId}/background-summary`
+                );
+
+                if (response.ok) {
+                    const data = await response.json();
+                    setBackgroundSummary(data.summary);
+                } else {
+                    setBackgroundSummary(null);
+                }
+            } catch (error) {
+                log.error("Error fetching background summary:", error);
+                setBackgroundSummary(null);
+            } finally {
+                setSummaryLoading(false);
+            }
+        };
+
+        fetchBackgroundSummary();
+    }, [activeSessionIndex, sessions]);
 
     const { candidate } = telemetryData || {};
     const activeSession = sessions[activeSessionIndex] || {};
@@ -342,10 +377,10 @@ function TelemetryContent() {
     }
 
     return (
-        <div className="h-screen bg-gray-50 overflow-hidden">
-            <div className="max-w-7xl mx-auto p-4 h-full">
+        <div className={`bg-gray-50 ${mainContentTab === "summary" ? "min-h-screen" : "h-screen overflow-hidden"}`}>
+            <div className={`max-w-7xl mx-auto p-4 ${mainContentTab === "summary" ? "" : "h-full"}`}>
                 {/* 2x2 Grid Layout */}
-                <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] xl:grid-rows-[auto_1fr] gap-4 xl:gap-6 h-[calc(100vh-2rem)]">
+                <div className={`grid grid-cols-1 xl:grid-cols-[320px_1fr] xl:grid-rows-[auto_1fr] gap-4 xl:gap-6 ${mainContentTab === "summary" ? "" : "h-[calc(100vh-2rem)]"}`}>
                     {/* Cell 0 - Empty (top-left) */}
                     <div className="xl:block">
                         {/* Candidate Profile - Minimal Apple Style */}
@@ -647,9 +682,9 @@ function TelemetryContent() {
                     </div>
 
                     {/* Cell 3 - Video / Improvement (bottom-right) */}
-                    <div className="w-full xl:w-auto h-full flex flex-col gap-2">
+                    <div className={`w-full xl:w-auto flex flex-col gap-2 ${mainContentTab === "summary" ? "" : "h-full"}`}>
                         <div className="flex items-center justify-between">
-                            {showImprovement ? (
+                            {mainContentTab === "improvement" ? (
                                 <div className="flex gap-2 text-xs">
                                     {[
                                         { key: "match", label: "Match", color: "#3b82f6" },
@@ -686,26 +721,66 @@ function TelemetryContent() {
                             )}
                             <div className="bg-white/60 border border-white/40 rounded-lg p-1 text-xs">
                                 <button
-                                    onClick={() => setShowImprovement(false)}
+                                    onClick={() => setMainContentTab("summary")}
                                     className={`${
-                                        !showImprovement ? "bg-blue-500 text-white" : "text-gray-700"
+                                        mainContentTab === "summary" ? "bg-blue-500 text-white" : "text-gray-700"
                                     } px-2 py-1 rounded`}
+                                >
+                                    Summary
+                                </button>
+                                <button
+                                    onClick={() => setMainContentTab("evidence")}
+                                    className={`${
+                                        mainContentTab === "evidence" ? "bg-blue-500 text-white" : "text-gray-700"
+                                    } px-2 py-1 rounded ml-1`}
                                 >
                                     Evidence
                                 </button>
                                 <button
-                                    onClick={() => setShowImprovement(true)}
+                                    onClick={() => setMainContentTab("improvement")}
                                     className={`${
-                                        showImprovement ? "bg-blue-500 text-white" : "text-gray-700"
+                                        mainContentTab === "improvement" ? "bg-blue-500 text-white" : "text-gray-700"
                                     } px-2 py-1 rounded ml-1`}
                                 >
                                     Improvement
                                 </button>
                             </div>
                         </div>
-                        <div className="flex-1">
-                            {showImprovement ? (
-                                <div className="w-full h-full bg-white rounded-xl border border-gray-200 p-2">
+                        <div className={mainContentTab === "summary" ? "" : "flex-1"}>
+                            {mainContentTab === "summary" ? (
+                                <div className="w-full bg-white rounded-xl border border-gray-200 p-6">
+                                    {summaryLoading ? (
+                                        <div className="flex items-center justify-center py-12">
+                                            <p className="text-gray-600">Loading background summary...</p>
+                                        </div>
+                                    ) : backgroundSummary ? (
+                                        <TextSummary
+                                            executiveSummary={backgroundSummary.executiveSummary}
+                                            recommendation={backgroundSummary.recommendation}
+                                            adaptability={{
+                                                score: backgroundSummary.adaptability.score,
+                                                text: backgroundSummary.adaptability.text,
+                                                evidence: backgroundSummary.evidenceJson?.adaptability || [],
+                                            }}
+                                            creativity={{
+                                                score: backgroundSummary.creativity.score,
+                                                text: backgroundSummary.creativity.text,
+                                                evidence: backgroundSummary.evidenceJson?.creativity || [],
+                                            }}
+                                            reasoning={{
+                                                score: backgroundSummary.reasoning.score,
+                                                text: backgroundSummary.reasoning.text,
+                                                evidence: backgroundSummary.evidenceJson?.reasoning || [],
+                                            }}
+                                        />
+                                    ) : (
+                                        <div className="flex items-center justify-center py-12">
+                                            <p className="text-gray-600">No background summary available for this session.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : mainContentTab === "improvement" ? (
+                                <div className="w-full h-full bg-white rounded-xl border border-gray-200 p-2 overflow-hidden">
                                     <ImprovementChart
                                         data={[...sessions]
                                             .map((s, i) => ({ s, i }))

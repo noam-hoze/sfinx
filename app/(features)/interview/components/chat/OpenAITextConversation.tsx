@@ -222,6 +222,93 @@ const OpenAITextConversation = forwardRef<any, Props>(
             }
             const reason = chatSnapshot.background?.reason;
             
+            // Persist background messages and trigger summary generation (fire-and-forget)
+            // Note: Session ID needs to be passed from parent component or obtained from URL/context
+            try {
+              /* eslint-disable no-console */ console.log("[background][persist] Starting persistence flow");
+              const backgroundMessages = chatSnapshot.messages.filter((msg) => {
+                // Filter messages from background stage
+                // For now, include all messages before this point (could enhance with explicit stage tracking)
+                return true;
+              }).map((msg) => ({
+                speaker: msg.speaker,
+                text: msg.text,
+                stage: "background",
+                timestamp: msg.timestamp,
+              }));
+
+              /* eslint-disable no-console */ console.log("[background][persist] Filtered messages count:", backgroundMessages.length);
+
+              if (backgroundMessages.length > 0) {
+                // Get session ID from Redux store
+                const sessionId = ms.sessionId;
+                
+                /* eslint-disable no-console */ console.log("[background][persist] sessionId from Redux store:", sessionId);
+                
+                if (sessionId) {
+                  // Save messages first (await to ensure they're persisted before summary generation)
+                  /* eslint-disable no-console */ console.log("[background][persist] Calling POST /messages with", backgroundMessages.length, "messages");
+                  
+                  (async () => {
+                    try {
+                      const messagesRes = await fetch(`/api/interviews/session/${sessionId}/messages`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ messages: backgroundMessages }),
+                      });
+                      
+                      /* eslint-disable no-console */ console.log("[background][persist] POST /messages response:", messagesRes.status, messagesRes.statusText);
+                      const messagesData = await messagesRes.json();
+                      /* eslint-disable no-console */ console.log("[background][persist] POST /messages data:", messagesData);
+                      
+                      if (!messagesRes.ok) {
+                        /* eslint-disable no-console */ console.error("[background][persist] Failed to save messages, skipping summary generation");
+                        return;
+                      }
+                      
+                      // Messages saved successfully, now trigger summary generation
+                      const scorer = chatSnapshot.background?.scorer;
+                      /* eslint-disable no-console */ console.log("[background][persist] scorer:", scorer);
+                      
+                      if (scorer) {
+                        const summaryPayload = {
+                          scores: {
+                            adaptability: Math.round((scorer.A?.S ?? 0) * 100),
+                            creativity: Math.round((scorer.C?.S ?? 0) * 100),
+                            reasoning: Math.round((scorer.R?.S ?? 0) * 100),
+                          },
+                          rationales: chatSnapshot.background?.rationales,
+                          companyName: ms.companyName,
+                          roleName: ms.roleSlug?.replace(/-/g, " "),
+                        };
+                        /* eslint-disable no-console */ console.log("[background][persist] Calling POST /background-summary with payload:", summaryPayload);
+                        
+                        const summaryRes = await fetch(`/api/interviews/session/${sessionId}/background-summary`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify(summaryPayload),
+                        });
+                        
+                        /* eslint-disable no-console */ console.log("[background][persist] POST /background-summary response:", summaryRes.status, summaryRes.statusText);
+                        const summaryData = await summaryRes.json();
+                        /* eslint-disable no-console */ console.log("[background][persist] POST /background-summary data:", summaryData);
+                      } else {
+                        /* eslint-disable no-console */ console.warn("[background][persist] No scorer found, skipping summary generation");
+                      }
+                    } catch (err) {
+                      /* eslint-disable no-console */ console.error("[background][persist] Error in persistence flow:", err);
+                    }
+                  })();
+                } else {
+                  /* eslint-disable no-console */ console.error("[background][persist] sessionId is null, cannot persist");
+                }
+              } else {
+                /* eslint-disable no-console */ console.warn("[background][persist] No messages to persist");
+              }
+            } catch (persistError) {
+              /* eslint-disable no-console */ console.error("[background][persist] Error persisting data:", persistError);
+            }
+            
             // Choose intro based solely on transition reason
             const introMap = {
               gate: "Great, let's move on to the coding question.",
