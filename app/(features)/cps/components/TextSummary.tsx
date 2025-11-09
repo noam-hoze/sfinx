@@ -122,7 +122,7 @@ const TextSummary: React.FC<TextSummaryProps> = ({
                                             {ev.question}
                                         </p>
                                         <p className="text-sm text-gray-700 mb-2 italic border-l-2 border-blue-300 pl-3">
-                                            "{ev.answerExcerpt}"
+                                            &quot;{ev.answerExcerpt}&quot;
                                         </p>
                                         <p className="text-xs text-gray-600">
                                             <span className="font-medium">
