@@ -498,8 +498,9 @@ const OpenAIVoiceConversation = forwardRef<any, OpenAIVoiceConversationProps>(
 
                 // Start: enqueue deterministic greeting (once)
                 if (!didStartRef.current) {
-                    dispatch(machineStart({ candidateName }));
-                    const text = `Say exactly: "Hi ${candidateName}, I'm Carrie. I'll be the one interviewing today!"`;
+                    const firstName = candidateName.split(' ')[0];
+                    dispatch(machineStart({ candidateName: firstName }));
+                    const text = `Say exactly: "Hi ${firstName}, I'm Carrie. I'll be the one interviewing today!"`;
                     try {
                         logger.info("[openai][prompt][greeting]\n" + text);
                     } catch {}
