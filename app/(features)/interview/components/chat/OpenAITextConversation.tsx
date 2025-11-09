@@ -285,7 +285,11 @@ const OpenAITextConversation = forwardRef<any, Props>(
                       /* eslint-disable no-console */ console.log("[background][persist] scorer:", scorer);
                       
                       if (scorer) {
-                        const summaryPayload = {
+                        const summaryUrl = isDemoMode
+                          ? `/api/interviews/session/${sessionId}/background-summary?skip-auth=true`
+                          : `/api/interviews/session/${sessionId}/background-summary`;
+                        
+                        const summaryPayload: Record<string, any> = {
                           scores: {
                             adaptability: Math.round((scorer.A?.S ?? 0) * 100),
                             creativity: Math.round((scorer.C?.S ?? 0) * 100),
@@ -295,9 +299,14 @@ const OpenAITextConversation = forwardRef<any, Props>(
                           companyName: ms.companyName,
                           roleName: ms.roleSlug?.replace(/-/g, " "),
                         };
+                        
+                        if (isDemoMode && demoUserId) {
+                          summaryPayload.userId = demoUserId;
+                        }
+                        
                         /* eslint-disable no-console */ console.log("[background][persist] Calling POST /background-summary with payload:", summaryPayload);
                         
-                        const summaryRes = await fetch(`/api/interviews/session/${sessionId}/background-summary`, {
+                        const summaryRes = await fetch(summaryUrl, {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
                           body: JSON.stringify(summaryPayload),
