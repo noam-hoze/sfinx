@@ -78,7 +78,13 @@ const InterviewerContent = () => {
         () => backgroundDurationSeconds * 1000,
         [backgroundDurationSeconds]
     );
-    const candidateName = (session?.user as any)?.name || "Candidate";
+    const isDemoMode = searchParams.get("demo") === "true";
+    const demoUserId = searchParams.get("userId");
+    const [demoCandidateName, setDemoCandidateName] = useState<string | null>(null);
+    
+    const candidateName = isDemoMode 
+        ? (demoCandidateName || "Candidate")
+        : ((session?.user as any)?.name || "Candidate");
 
     /**
      * Queues a contextual knowledge-base update for the agent (non-blocking).
@@ -190,6 +196,23 @@ const InterviewerContent = () => {
     useEffect(() => {
         logger.info("interviewSessionId changed to:", interviewSessionId);
     }, [interviewSessionId]);
+
+    /**
+     * Fetch demo candidate name when in demo mode.
+     */
+    useEffect(() => {
+        if (isDemoMode && demoUserId) {
+            fetch(`/api/candidates/${demoUserId}/basic?skip-auth=true`)
+                .then((res) => res.json())
+                .then((data) => {
+                    if (data.name) {
+                        setDemoCandidateName(data.name);
+                        logger.info("Demo candidate name fetched:", data.name);
+                    }
+                })
+                .catch((err) => logger.error("Failed to fetch demo candidate name:", err));
+        }
+    }, [isDemoMode, demoUserId]);
 
     useEffect(() => {
         if (!Number.isFinite(backgroundDurationMs) || backgroundDurationMs <= 0) {

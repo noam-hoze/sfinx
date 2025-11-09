@@ -6,7 +6,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense, useMemo } from "react";
+import { Suspense, useMemo, useEffect, useState } from "react";
 import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from "recharts";
 import DemoProgressHeader from "../components/DemoProgressHeader";
 import { generateMockCandidates } from "../utils/generateMockCandidates";
@@ -15,20 +15,41 @@ function RankedCandidatesContent() {
     const searchParams = useSearchParams();
     const candidateId = searchParams.get("candidateId");
     const applicationId = searchParams.get("applicationId");
+    const [realCandidateData, setRealCandidateData] = useState<{
+        name: string;
+        score: number;
+    } | null>(null);
+
+    useEffect(() => {
+        if (candidateId) {
+            fetch(`/api/candidates/${candidateId}/basic?skip-auth=true`)
+                .then((res) => res.json())
+                .then((data) => {
+                    if (data.name && typeof data.score === "number") {
+                        setRealCandidateData({ name: data.name, score: data.score });
+                    }
+                })
+                .catch((err) => console.error("Failed to fetch candidate data:", err));
+        }
+    }, [candidateId]);
 
     const candidates = useMemo(() => {
-        const mocks = generateMockCandidates(99, candidateId || "real");
+        const mocks = generateMockCandidates(
+            99,
+            candidateId || "real",
+            applicationId || "mock-app"
+        );
         const realCandidate = {
             id: candidateId || "real",
-            name: "You",
-            score: 85,
+            name: realCandidateData?.name || "You",
+            score: realCandidateData?.score || 0,
             status: "Completed" as const,
             summary: "Your interview",
             cpsLink: `/cps?demo=true&candidateId=${candidateId}&applicationId=${applicationId}`,
         };
         const allCandidates = [...mocks, realCandidate];
         return allCandidates.sort((a, b) => b.score - a.score);
-    }, [candidateId, applicationId]);
+    }, [candidateId, applicationId, realCandidateData]);
 
     const statusData = useMemo(() => {
         const completed = candidates.filter((c) => c.status === "Completed").length;

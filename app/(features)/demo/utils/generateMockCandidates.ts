@@ -58,10 +58,12 @@ function generateStatus(): "Invited" | "Completed" {
  * Generates mock candidates for demo ranked list.
  * @param count Total number of mock candidates to generate
  * @param realCandidateId ID of the actual interview candidate
+ * @param applicationId Application ID to include in CPS links
  */
 export function generateMockCandidates(
     count: number,
-    realCandidateId: string
+    realCandidateId: string,
+    applicationId: string
 ): MockCandidate[] {
     const candidates: MockCandidate[] = [];
 
@@ -73,7 +75,7 @@ export function generateMockCandidates(
             score: generateRandomScore(),
             status: generateStatus(),
             summary: "Interview analysis pending...",
-            cpsLink: `/cps?demo=true&candidateId=${id}`,
+            cpsLink: `/cps?demo=true&candidateId=${id}&applicationId=${applicationId}`,
         });
     }
 

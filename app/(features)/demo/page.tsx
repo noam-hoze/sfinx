@@ -6,16 +6,44 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import DemoProgressHeader from "./components/DemoProgressHeader";
 
 export default function DemoWelcomePage() {
     const router = useRouter();
+    const [name, setName] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
 
-    const handleStartInterview = () => {
-        const jobId = "meta-frontend-engineer";
-        const userId = "demo-candidate-user-id";
-        const companyId = "meta";
-        router.push(`/interview?demo=true&jobId=${jobId}&userId=${userId}&companyId=${companyId}`);
+    const handleStartInterview = async () => {
+        if (!name.trim()) {
+            alert("Please enter your name");
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            const userId = "demo-candidate-user-id";
+            
+            // Update user name in DB
+            const response = await fetch(`/api/users/${userId}/name?skip-auth=true`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: name.trim() }),
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to update name");
+            }
+
+            // Navigate to interview
+            const jobId = "meta-frontend-engineer";
+            const companyId = "meta";
+            router.push(`/interview?demo=true&jobId=${jobId}&userId=${userId}&companyId=${companyId}`);
+        } catch (error) {
+            console.error("Error updating name:", error);
+            alert("Failed to update name. Please try again.");
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -54,11 +82,27 @@ export default function DemoWelcomePage() {
                         </ul>
                     </div>
 
+                    <div className="mb-6">
+                        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                            Your Name
+                        </label>
+                        <input
+                            type="text"
+                            id="name"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="Enter your full name"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                            disabled={isLoading}
+                        />
+                    </div>
+
                     <button
                         onClick={handleStartInterview}
-                        className="w-full bg-blue-600 text-white text-lg font-medium py-4 px-8 rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+                        disabled={isLoading || !name.trim()}
+                        className="w-full bg-blue-600 text-white text-lg font-medium py-4 px-8 rounded-xl hover:bg-blue-700 transition-colors shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
-                        Start Interview
+                        {isLoading ? "Starting..." : "Start Interview"}
                     </button>
                 </div>
             </div>
