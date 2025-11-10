@@ -28,8 +28,9 @@ type PasteEvaluationState =
   | "evaluating_confidence"         // AI analyzing if answer is sufficient
   | "ready_to_evaluate"             // AI has enough data, trigger evaluation
   | "evaluation_complete"           // Evaluation sent to DB
-  | "evaluation_abandoned"          // Conversation drifted, cancel evaluation
 ```
+
+**Note:** We NEVER abandon evaluations. All paste events are saved to DB, even if conversation quality is poor (they just get low accountability scores).
 
 ### State Transitions
 
@@ -40,9 +41,8 @@ idle → pending_user_answer
   ↓ (user responds)
 evaluating_confidence
   ↓
-  ├─→ [confidence < 70%] → pending_user_answer (ask follow-up)
-  ├─→ [confidence >= 70%] → ready_to_evaluate
-  └─→ [topic_drift = true] → evaluation_abandoned
+  ├─→ [confidence < 70% AND turnCount < 3] → pending_user_answer (ask follow-up)
+  └─→ [confidence >= 70% OR turnCount >= 3] → ready_to_evaluate
 ```
 
 ---
@@ -57,13 +57,17 @@ The AI must output a **hidden CONTROL message** after each user response during 
 {
   "type": "PASTE_EVAL_CONTROL",
   "pasteEvaluationId": "uuid-of-pending-paste",
-  "confidence": 75,  // 0-100
-  "topicRelevance": 90,  // 0-100 - is user still talking about the paste?
-  "readyToEvaluate": true,  // true when confidence >= 70 AND topicRelevance >= 60
-  "needsFollowup": false,  // true if AI wants to ask another question
-  "conversationDrifted": false  // true if topicRelevance < 40
+  "confidence": 75,  // 0-100 - how well does AI understand what candidate knows
+  "turnCount": 2,  // How many questions asked so far
+  "readyToEvaluate": true  // true when confidence >= 70 OR turnCount >= 3
 }
 ```
+
+**Simplified Logic:**
+- Ask up to 3 questions maximum
+- Stop early if confidence >= 70%
+- After 3 turns, evaluate with whatever data we have
+- Even poor conversations (user drifted/didn't engage) get saved with low scores
 
 ### Confidence Criteria
 
@@ -80,21 +84,9 @@ The AI must output a **hidden CONTROL message** after each user response during 
 **Low Confidence (0-39):**
 - User avoids the question ("I don't know", "Let me think")
 - User gives completely incorrect explanations
-- User changes subject
+- User changes subject / talks about unrelated things
 
-### Topic Relevance
-
-**High Relevance (70-100):**
-- User directly addresses the pasted code
-- User references specific parts of the paste
-
-**Medium Relevance (40-69):**
-- User talks about related concepts but not the paste itself
-- User asks tangential questions
-
-**Low Relevance (0-39):**
-- User changes topic entirely
-- User talks about unrelated code
+**Note:** Even if confidence stays low (user drifted or didn't engage), we still evaluate after 3 turns. The final evaluation will reflect poor understanding with a low accountability score.
 
 ---
 
@@ -105,15 +97,14 @@ const pasteEvaluationPersona = `You are a technical interviewer evaluating wheth
 
 **Current Context:**
 - Candidate pasted: ${pastedContent}
-- You asked: ${previousAIQuestion}
-- Candidate answered: ${userAnswer}
-- Previous confidence: ${previousConfidence}%
+- Conversation so far: ${conversationHistory}
+- Current turn: ${turnCount}/3
 
 **Your Task:**
-1. Determine if candidate understands the pasted code
-2. If unclear, ask ONE follow-up question (max 2 sentences)
-3. If confident in your assessment, indicate readyToEvaluate=true
-4. If conversation has drifted off-topic, indicate conversationDrifted=true
+1. Determine if candidate understands the pasted code (confidence 0-100)
+2. If confidence < 70% and turnCount < 3, ask ONE follow-up question (1-2 sentences)
+3. If confidence >= 70% OR turnCount >= 3, set readyToEvaluate=true
+4. Vary your phrasing naturally - don't repeat exact same questions
 
 **Response Format:**
 First line: CONTROL: {CONTROL_JSON_HERE}
@@ -124,18 +115,16 @@ Second line onward: Your spoken/text response to the candidate
   "type": "PASTE_EVAL_CONTROL",
   "pasteEvaluationId": "${pasteId}",
   "confidence": 0-100,
-  "topicRelevance": 0-100,
-  "readyToEvaluate": boolean,
-  "needsFollowup": boolean,
-  "conversationDrifted": boolean
+  "turnCount": ${turnCount},
+  "readyToEvaluate": boolean
 }
 
 **Rules:**
-- Ask follow-ups if confidence < 70% AND topicRelevance >= 60%
-- Set readyToEvaluate=true when confidence >= 70%
-- Set conversationDrifted=true when topicRelevance < 40%
-- Keep questions short and natural
+- Set readyToEvaluate=true when confidence >= 70% OR turnCount >= 3
+- Keep questions short and conversational
+- If user avoids question, rephrase naturally
 - Don't teach or give hints
+- On turn 3, accept whatever answer you have
 `;
 ```
 
@@ -166,12 +155,11 @@ interface PendingPasteEvaluation {
   // Confidence tracking
   confidenceHistory: Array<{
     confidence: number;
-    topicRelevance: number;
     timestamp: number;
   }>;
   
   currentConfidence: number;
-  currentTopicRelevance: number;
+  turnCount: number;
   
   // State
   state: PasteEvaluationState;
@@ -201,7 +189,7 @@ const pendingEvaluation: PendingPasteEvaluation = {
   conversationTurns: [],
   confidenceHistory: [],
   currentConfidence: 0,
-  currentTopicRelevance: 100,
+  turnCount: 0,
   state: "idle",
 };
 
@@ -256,15 +244,14 @@ const aiResponse = await askViaChatCompletion(
 const [controlLine, ...responseLinesconst controlJSON = JSON.parse(controlLine.replace("CONTROL: ", ""));
 const aiText = responseLines.join("\n");
 
-// Update confidence
+// Update confidence and turn count
 updatePendingEvaluation(evaluationId, {
   currentConfidence: controlJSON.confidence,
-  currentTopicRelevance: controlJSON.topicRelevance,
+  turnCount: controlJSON.turnCount,
   confidenceHistory: [
     ...history,
     {
       confidence: controlJSON.confidence,
-      topicRelevance: controlJSON.topicRelevance,
       timestamp: Date.now(),
     }
   ],
@@ -279,7 +266,8 @@ updatePendingEvaluation(evaluationId, {
 
 ```typescript
 if (controlJSON.readyToEvaluate) {
-  // Trigger evaluation
+  // Confidence >= 70% OR turnCount >= 3
+  // Trigger evaluation (even if low confidence after 3 turns)
   updatePendingEvaluation(evaluationId, {
     state: "ready_to_evaluate",
     finalUserAnswer: lastUserMessage,
@@ -289,16 +277,8 @@ if (controlJSON.readyToEvaluate) {
   // Call evaluation API
   await evaluateAndSavePasteAccountability(evaluationId);
   
-} else if (controlJSON.conversationDrifted) {
-  // Abandon evaluation
-  updatePendingEvaluation(evaluationId, {
-    state: "evaluation_abandoned",
-  });
-  
-  // Remove from pending list (don't save to DB)
-  removePendingEvaluation(evaluationId);
-  
-} else if (controlJSON.needsFollowup) {
+} else {
+  // Continue conversation (confidence < 70% and turnCount < 3)
   // AI will ask another question in next turn
   updatePendingEvaluation(evaluationId, {
     state: "pending_user_answer",
@@ -380,8 +360,9 @@ const [pendingPasteEvaluations, setPendingPasteEvaluations] =
 
 **Solution:** 
 - Set timeout (e.g., 5 minutes)
-- If no user response, mark as `evaluation_abandoned`
-- Don't save to DB
+- If no user response, trigger evaluation with empty answer
+- Save to DB with low accountability score (0-20)
+- This shows candidate pasted but didn't engage
 
 ### Case 3: User Pastes Mid-Conversation
 
@@ -391,14 +372,15 @@ const [pendingPasteEvaluations, setPendingPasteEvaluations] =
 - Only track pastes during `in_coding_session` state
 - Ignore pastes in other stages
 
-### Case 4: AI Asks Unrelated Question First
+### Case 4: User Changes Topic While Being Evaluated
 
-**Problem:** User already has pending paste evaluation, but AI asks about something else.
+**Problem:** User is being evaluated about a paste but changes topic.
 
 **Solution:**
-- AI should prioritize paste evaluation questions
-- Update system prompt to say: "First address the pending paste evaluation"
-- If AI switches topics, mark paste evaluation as drifted
+- Continue up to 3 turns regardless
+- Final evaluation will see the irrelevant answers
+- Low confidence + poor answers = low accountability score
+- Still saves to DB (shows paste + disengagement)
 
 ---
 
@@ -439,9 +421,9 @@ const [pendingPasteEvaluations, setPendingPasteEvaluations] =
 
 ### Edge Cases
 - [ ] User pastes multiple times → Each tracked separately
-- [ ] User ignores AI question → Timeout → Abandoned
-- [ ] User changes topic mid-evaluation → Drifted → Abandoned
-- [ ] Topic relevance drops below 40% → Abandoned
+- [ ] User ignores AI question → Timeout → Evaluated with empty answer → Low score
+- [ ] User changes topic mid-evaluation → Continue 3 turns → Low score
+- [ ] User gives irrelevant answers → Evaluated after 3 turns → Low score
 
 ### DB Verification
 - [ ] `ExternalToolUsage` record created with all timestamps
@@ -455,11 +437,12 @@ const [pendingPasteEvaluations, setPendingPasteEvaluations] =
 
 The external tool usage evaluation is a **stateful, multi-turn conversation process** that:
 
-1. **Tracks pending evaluations** as state objects
+1. **Tracks pending evaluations** as state objects (one per paste)
 2. **Uses AI confidence scoring** (like background stage) to determine readiness
-3. **Detects conversation drift** and abandons irrelevant evaluations
-4. **Saves complete context** (paste, question, answer, timestamps) to DB
-5. **Handles edge cases** (multiple pastes, timeouts, topic changes)
+3. **3-turn maximum** - asks up to 3 questions, then evaluates regardless
+4. **Never abandons** - all paste events saved to DB (even poor conversations)
+5. **Saves complete context** (paste, question, answer, timestamps) to DB
+6. **Handles edge cases** (multiple pastes, timeouts, topic changes, disengagement)
 
-This ensures we only evaluate pastes where the candidate genuinely engaged with the AI's questions, providing high-quality accountability scores.
+This ensures **complete transparency** - companies see ALL external tool usage with accountability scores reflecting engagement quality (high scores = good understanding, low scores = disengagement/poor understanding).
 
