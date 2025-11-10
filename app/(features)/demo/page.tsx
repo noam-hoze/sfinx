@@ -7,7 +7,6 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import DemoProgressHeader from "./components/DemoProgressHeader";
 
 export default function DemoWelcomePage() {
     const router = useRouter();
@@ -48,8 +47,6 @@ export default function DemoWelcomePage() {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            <DemoProgressHeader currentStage={1} />
-
             <div className="max-w-3xl mx-auto px-4 py-16">
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12">
                     <h1 className="text-4xl font-semibold text-gray-900 mb-6">
@@ -91,6 +88,11 @@ export default function DemoWelcomePage() {
                             id="name"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter" && name.trim() && !isLoading) {
+                                    handleStartInterview();
+                                }
+                            }}
                             placeholder="Enter your full name"
                             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
                             disabled={isLoading}

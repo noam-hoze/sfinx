@@ -33,9 +33,8 @@ export default function DemoProgressHeader({
     currentStage,
 }: DemoProgressHeaderProps) {
     return (
-        <div className="w-full bg-white border-b border-gray-200 py-8">
-            <div className="max-w-4xl mx-auto px-4">
-                <div className="flex items-center justify-between">
+        <div className="w-full">
+            <div className="flex items-center justify-between">
                     {stages.map((stage, index) => {
                         const status = getStageStatus(
                             stage.number,
@@ -122,7 +121,6 @@ export default function DemoProgressHeader({
                             </div>
                         );
                     })}
-                </div>
             </div>
         </div>
     );

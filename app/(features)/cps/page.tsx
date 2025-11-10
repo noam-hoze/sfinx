@@ -14,7 +14,6 @@ import ImprovementChart from "./components/ImprovementChart";
 import TextSummary from "./components/TextSummary";
 import { AuthGuard } from "app/shared/components";
 import { log } from "app/shared/services";
-import DemoProgressHeader from "../demo/components/DemoProgressHeader";
 
 function TelemetryContent() {
     const searchParams = useSearchParams();
@@ -382,7 +381,6 @@ function TelemetryContent() {
 
     return (
         <div className={`bg-gray-50 ${mainContentTab === "summary" ? "min-h-screen" : "h-screen overflow-hidden"}`}>
-            {isDemoMode && <DemoProgressHeader currentStage={4} />}
             <div className={`max-w-7xl mx-auto p-4 ${mainContentTab === "summary" ? "" : "h-full"}`}>
                 {isDemoMode && (
                     <div className="mb-4 flex justify-end">

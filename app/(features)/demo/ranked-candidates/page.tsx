@@ -8,7 +8,6 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useEffect, useState } from "react";
 import { PieChart, Pie, Cell, Legend, Tooltip, ResponsiveContainer } from "recharts";
-import DemoProgressHeader from "../components/DemoProgressHeader";
 import { generateMockCandidates } from "../utils/generateMockCandidates";
 
 function RankedCandidatesContent() {
@@ -64,8 +63,6 @@ function RankedCandidatesContent() {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            <DemoProgressHeader currentStage={5} />
-
             <div className="max-w-7xl mx-auto px-4 py-8">
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
                     <h1 className="text-3xl font-semibold text-gray-900 mb-8">
