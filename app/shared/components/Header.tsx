@@ -18,7 +18,7 @@ export default function Header() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const isDemoMode = searchParams.get("demo") === "true";
+    const isDemoMode = searchParams.get("demo") === "true" || pathname?.startsWith("/demo");
 
     // Sliding indicator state
     const [indicatorStyle, setIndicatorStyle] = useState({ width: 0, left: 0 });

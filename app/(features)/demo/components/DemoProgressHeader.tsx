@@ -5,6 +5,8 @@
 
 "use client";
 
+import React from "react";
+
 interface DemoProgressHeaderProps {
     currentStage: 1 | 2 | 3 | 4 | 5;
 }
@@ -34,7 +36,7 @@ export default function DemoProgressHeader({
 }: DemoProgressHeaderProps) {
     return (
         <div className="w-full">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center">
                     {stages.map((stage, index) => {
                         const status = getStageStatus(
                             stage.number,
@@ -43,7 +45,7 @@ export default function DemoProgressHeader({
                         const isLast = index === stages.length - 1;
 
                         return (
-                            <div key={stage.number} className="flex items-center flex-1">
+                            <React.Fragment key={stage.number}>
                                 <div className="flex flex-col items-center">
                                     {/* Stage Dot */}
                                     <div
@@ -118,7 +120,7 @@ export default function DemoProgressHeader({
                                         `}
                                     />
                                 )}
-                            </div>
+                            </React.Fragment>
                         );
                     })}
             </div>
