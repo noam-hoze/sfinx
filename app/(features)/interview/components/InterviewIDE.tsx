@@ -792,6 +792,7 @@ const InterviewerContent = () => {
                             isTextInputLocked={isChatInputLocked}
                             onCodingPromptReady={handleCodingPromptReady}
                             onGreetingDelivered={() => setIsChatInputLocked(false)}
+                            setInputLocked={setIsChatInputLocked}
                         />
                     </Panel>
                 </PanelGroup>

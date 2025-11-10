@@ -40,6 +40,7 @@ type Props = {
   onCodingPromptReady?: () => void;
   onGreetingDelivered?: () => void;
   onInterviewConcluded?: (delayMs?: number) => void;
+  setInputLocked?: (locked: boolean) => void;
 };
 
 const OpenAITextConversation = forwardRef<any, Props>(
@@ -50,6 +51,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
     onCodingPromptReady,
     onGreetingDelivered,
     onInterviewConcluded,
+    setInputLocked,
   }, ref) => {
     if (!candidateName) {
       throw new Error("OpenAITextConversation requires a candidateName");
@@ -171,6 +173,8 @@ const OpenAITextConversation = forwardRef<any, Props>(
           }
         post(answer, "ai");
         dispatch(machineAiFinal({ text: answer }));
+          // Unlock input when AI responds
+          setInputLocked?.(false);
           }
           if (pendingReason && !managePending) {
             interviewChatStore.dispatch({
@@ -194,7 +198,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
           throw error;
         }
       },
-      [dispatch, onGreetingDelivered, openaiClient, post]
+      [dispatch, onGreetingDelivered, setInputLocked, openaiClient, post]
     );
 
     /** Injects the coding prompt once the guard advances into the coding session. */
@@ -404,6 +408,8 @@ const OpenAITextConversation = forwardRef<any, Props>(
           /* eslint-disable no-console */ console.log("[text][send]", text);
         } catch {}
         post(text, "user");
+        // Lock input when user sends message
+        setInputLocked?.(true);
         dispatch(machineUserFinal());
         try {
           /* eslint-disable no-console */ console.log(
@@ -515,6 +521,8 @@ const OpenAITextConversation = forwardRef<any, Props>(
             }
             post(follow, "ai");
             dispatch(machineAiFinal({ text: follow }));
+            // Unlock input when AI responds
+            setInputLocked?.(false);
             clearPendingState();
           } else {
             clearPendingState();
@@ -522,7 +530,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
           return;
         }
       },
-      [clearPendingState, deliverAssistantPrompt, dispatch, openaiClient, post]
+      [clearPendingState, deliverAssistantPrompt, dispatch, setInputLocked, openaiClient, post]
     );
 
     const startConversation = useCallback(async () => {

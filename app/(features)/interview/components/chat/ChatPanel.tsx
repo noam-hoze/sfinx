@@ -29,8 +29,16 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
     }));
     const isRecording = chat.isRecording;
     const messagesContainerRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {}, [transcriptions, isRecording]);
+
+    // Auto-focus input when it gets re-enabled
+    useEffect(() => {
+        if (!isInputDisabled && inputRef.current) {
+            inputRef.current.focus();
+        }
+    }, [isInputDisabled]);
 
     // Auto-scroll to bottom when new messages arrive (smooth)
     useEffect(() => {
@@ -151,6 +159,7 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
                         className="flex items-center gap-2"
                     >
                         <input
+                            ref={inputRef}
                             name="chat_input"
                             placeholder="Type your message…"
                             className="flex-1 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm"
