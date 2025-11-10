@@ -181,7 +181,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
                 const iterationSpeedLinks: number[] = [];
                 const debugLoopsLinks: number[] = [];
-                const refactorCleanupsLinks: number[] = [];
                 const aiAssistUsageLinks: number[] = [];
 
                 // Add iteration evidence links (calculate video offset from recordingStartedAt)
@@ -254,12 +253,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         debugLoopsLinks.push(clip.startTime);
                     }
                     if (
-                        clip.category === "REFACTOR_CLEANUPS" ||
-                        clip.title.includes("Refactor")
-                    ) {
-                        refactorCleanupsLinks.push(clip.startTime);
-                    }
-                    if (
                         clip.category === "AI_ASSIST_USAGE" ||
                         clip.title.includes("AI Assist")
                     ) {
@@ -308,21 +301,21 @@ export async function GET(request: NextRequest, context: RouteContext) {
                     workstyle: telemetry?.workstyleMetrics
                         ? {
                               iterationSpeed: {
-                                  value: telemetry.workstyleMetrics.iterationSpeed,
+                                  value: telemetry.workstyleMetrics.iterationSpeed ?? 0,
                                   level:
-                                      telemetry.workstyleMetrics.iterationSpeed >= 10
+                                      (telemetry.workstyleMetrics.iterationSpeed ?? 0) >= 10
                                           ? "High"
-                                          : telemetry.workstyleMetrics.iterationSpeed >= 5
+                                          : (telemetry.workstyleMetrics.iterationSpeed ?? 0) >= 5
                                           ? "Moderate"
                                           : "Low",
                                   color:
-                                      telemetry.workstyleMetrics.iterationSpeed >= 10
+                                      (telemetry.workstyleMetrics.iterationSpeed ?? 0) >= 10
                                           ? "blue"
-                                          : telemetry.workstyleMetrics.iterationSpeed >= 5
+                                          : (telemetry.workstyleMetrics.iterationSpeed ?? 0) >= 5
                                           ? "yellow"
                                           : "red",
                                   evidenceLinks: iterationSpeedLinks,
-                                  tpe: telemetry.workstyleMetrics.iterationSpeed || 0,
+                                  tpe: telemetry.workstyleMetrics.iterationSpeed ?? 0,
                               },
                               debugLoops: (() => {
                                   const loops = sessionDebugLoops.filter((loop: any) => loop.resolved);
@@ -344,26 +337,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
                                       unresolved: sessionDebugLoops.filter((loop: any) => !loop.resolved).length,
                                   };
                               })(),
-                              refactorCleanups: {
-                                  value: telemetry.workstyleMetrics.refactorCleanups,
-                                  level:
-                                      telemetry.workstyleMetrics.refactorCleanups >= 80
-                                          ? "Strong"
-                                          : telemetry.workstyleMetrics.refactorCleanups >= 60
-                                          ? "Moderate"
-                                          : "Weak",
-                                  color:
-                                      telemetry.workstyleMetrics.refactorCleanups >= 80
-                                          ? "blue"
-                                          : telemetry.workstyleMetrics.refactorCleanups >= 60
-                                          ? "yellow"
-                                          : "red",
-                                  evidenceLinks: refactorCleanupsLinks,
-                                  // TPE center value (counts scale)
-                                  tpe: 1,
-                              },
                               aiAssistUsage: {
-                                  value: telemetry.workstyleMetrics.externalToolUsage,
+                                  value: telemetry.workstyleMetrics.externalToolUsage ?? 0,
                                   level:
                                       avgAccountabilityScore >= 70
                                           ? "High"
@@ -377,7 +352,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                                           ? "yellow"
                                           : "red",
                                   isFairnessFlag:
-                                      telemetry.workstyleMetrics.externalToolUsage > 50,
+                                      (telemetry.workstyleMetrics.externalToolUsage ?? 0) > 50,
                                   evidenceLinks: aiAssistUsageLinks,
                                   // TPE center value (counts scale)
                                   tpe: 1,
@@ -506,10 +481,6 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             if (body.workstyle.debugLoops?.value !== undefined) {
                 workstyleData.debugLoops = body.workstyle.debugLoops.value;
             }
-            if (body.workstyle.refactorCleanups?.value !== undefined) {
-                workstyleData.refactorCleanups =
-                    body.workstyle.refactorCleanups.value;
-            }
             if (body.workstyle.aiAssistUsage?.value !== undefined) {
                 workstyleData.externalToolUsage = body.workstyle.aiAssistUsage.value;
             }
@@ -539,10 +510,6 @@ export async function PUT(request: NextRequest, context: RouteContext) {
                 },
                 { title: "Debug Loop", data: body.workstyle.debugLoops },
                 {
-                    title: "Refactor & Cleanups",
-                    data: body.workstyle.refactorCleanups,
-                },
-                {
                     title: "AI Assist Usage",
                     data: body.workstyle.aiAssistUsage,
                 },
@@ -554,7 +521,6 @@ export async function PUT(request: NextRequest, context: RouteContext) {
                         const categoryMap: Record<string, string> = {
                             "Iteration Speed": "ITERATION_SPEED",
                             "Debug Loop": "DEBUG_LOOP",
-                            "Refactor & Cleanups": "REFACTOR_CLEANUPS",
                             "AI Assist Usage": "AI_ASSIST_USAGE",
                         };
                         const category = categoryMap[metric.title];

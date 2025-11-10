@@ -25,8 +25,6 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                 return "Velocity of meaningful change cycles (edit → run/test → result). Measured from saves/runs and test outcomes—time‑to‑first‑success, median/p95 cycle time, and iterations per 10 minutes. Faster, consistent cycles score higher.";
             case "debugLoops":
                 return "Tracks sequences from failing to passing states (problem isolation → fix). Uses error/test status transitions and repeated attempts; fewer, well‑structured loops with quick isolation and a high fix rate indicate effective debugging.";
-            case "refactorCleanups":
-                return "Structural and code‑quality improvements beyond immediate correctness. Diff heuristics (rename/extract, dead‑code deletion), LOC/complexity deltas, and lint fixes after pass state are considered; thoughtful cleanups improve maintainability.";
             case "aiAssistUsage":
                 return "Tracks code pasted from external sources during the coding session. Each paste triggers a multi-turn conversation where the candidate explains their understanding. Scores reflect how well they understand the pasted code, with evidence links to the exact moments in the video.";
             default:
@@ -109,11 +107,6 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
             data: workstyle.debugLoops,
         },
         {
-            key: "refactorCleanups" as keyof WorkstyleMetrics,
-            label: "Refactor & Cleanups",
-            data: workstyle.refactorCleanups,
-        },
-        {
             key: "aiAssistUsage" as keyof WorkstyleMetrics,
             label: "External Tool Usage",
             data: workstyle.aiAssistUsage,
@@ -129,7 +122,7 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
             <div className="divide-y divide-gray-100">
                 {metrics.map((metric) => {
                     const data = (metric as any).data;
-                    if (data == null || (data as any).value == null)
+                    if (data == null)
                         return null;
                     
                     // Special rendering for Iterations

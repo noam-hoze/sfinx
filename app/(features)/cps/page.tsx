@@ -38,7 +38,6 @@ function TelemetryContent() {
     const [seriesVisible, setSeriesVisible] = useState({
         match: true,
         iter: false,
-        refactor: false,
         debug: false,
         ai: false,
     });
@@ -170,7 +169,6 @@ function TelemetryContent() {
         const metricKeys = [
             "iterationSpeed",
             "debugLoops",
-            "refactorCleanups",
             "aiAssistUsage",
         ] as const;
         let bestKey: (typeof metricKeys)[number] | null = null;
@@ -188,7 +186,6 @@ function TelemetryContent() {
     const topMetricLabelMap: Record<string, string> = {
         iterationSpeed: "Iteration Speed",
         debugLoops: "Debug Loops",
-        refactorCleanups: "Refactor & Cleanups",
         aiAssistUsage: "External Tool Usage",
     };
     const topMetricLabel = topMetricKey
@@ -261,7 +258,6 @@ function TelemetryContent() {
             const workstyleKeys = [
                 "iterationSpeed",
                 "debugLoops",
-                "refactorCleanups",
                 "aiAssistUsage",
             ];
             workstyleKeys.forEach((key) => {
@@ -671,7 +667,6 @@ function TelemetryContent() {
                                     {[
                                         { key: "match", label: "Match", color: "#3b82f6" },
                                         { key: "iter", label: "Iteration", color: "#a78bfa" },
-                                        { key: "refactor", label: "Refactor", color: "#10b981" },
                                         { key: "debug", label: "Debug", color: "#f97316" },
                                         { key: "ai", label: "AI", color: "#64748b" },
                                     ].map((s: any) => (
@@ -777,7 +772,6 @@ function TelemetryContent() {
                                                 sessionIndex: i,
                                                 match: typeof s.matchScore === "number" ? s.matchScore : null,
                                                 iter: s.workstyle?.iterationSpeed?.value ?? null,
-                                                refactor: s.workstyle?.refactorCleanups?.value ?? null,
                                                 debug:
                                                     s.workstyle?.debugLoops?.value != null
                                                         ? 100 - s.workstyle.debugLoops.value
@@ -794,9 +788,6 @@ function TelemetryContent() {
                                                         (e.title || "").includes("Iteration") &&
                                                         e.startTime !== null &&
                                                         e.startTime !== undefined
-                                                )?.startTime,
-                                                refactorTs: (s.evidence || []).find(
-                                                    (e: any) => (e.title || "").includes("Refactor") && e.startTime !== null && e.startTime !== undefined
                                                 )?.startTime,
                                                 debugTs: (s.evidence || []).find(
                                                     (e: any) => (e.title || "").includes("Debug") && e.startTime !== null && e.startTime !== undefined
