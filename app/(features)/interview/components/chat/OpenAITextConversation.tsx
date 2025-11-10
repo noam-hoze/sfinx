@@ -1073,24 +1073,20 @@ The candidate is working on this task. Respond to their question while following
     const sayClosingLine = useCallback(
       async (name?: string) => {
         const candidate = typeof name === "string" && name.trim().length > 0 ? name.trim() : candidateName;
-        const companyName = store.getState().interviewMachine.companyName;
-        if (!companyName) {
-          throw new Error("Interview machine missing companyName for closing line");
-        }
-        const persona = buildOpenAIInterviewerPrompt(companyName);
-        const instruction = buildClosingInstruction(candidate);
-        const answer = await deliverAssistantPrompt({
-          persona,
-          instruction,
-          pendingReason: "closing_line",
-        });
-        if (answer) {
-          try {
-            onInterviewConcluded?.(2700);
-          } catch {}
-        }
+        
+        // WORKAROUND: Post closing message directly instead of asking OpenAI to generate it.
+        // OpenAI sometimes refuses to follow the exact instruction (responding with "I'm unable to...") 
+        // or corrupts the output. Since this is the final message and must be consistent for all 
+        // candidates, we bypass AI generation and post the exact scripted message directly.
+        const closingMessage = `Thank you so much ${candidate}, the next steps will be shared with you shortly.`;
+        post(closingMessage, "ai");
+        dispatch(machineAiFinal({ text: closingMessage }));
+        
+        try {
+          onInterviewConcluded?.(2700);
+        } catch {}
       },
-      [candidateName, deliverAssistantPrompt, onInterviewConcluded]
+      [candidateName, post, dispatch, onInterviewConcluded]
     );
 
     useImperativeHandle(ref, () => ({
