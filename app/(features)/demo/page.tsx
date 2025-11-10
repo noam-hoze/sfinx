@@ -104,7 +104,7 @@ export default function DemoWelcomePage() {
                         disabled={isLoading || !name.trim()}
                         className="w-full bg-blue-600 text-white text-lg font-medium py-4 px-8 rounded-xl hover:bg-blue-700 transition-colors shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
-                        {isLoading ? "Starting..." : "Start Interview"}
+                        {isLoading ? "Starting..." : "Continue to Interview"}
                     </button>
                 </div>
             </div>

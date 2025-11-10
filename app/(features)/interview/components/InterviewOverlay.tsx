@@ -39,6 +39,15 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
     backgroundDurationSeconds,
     codingDurationSeconds,
 }) => {
+    const commMethodRaw = (process.env.NEXT_PUBLIC_INTERVIEW_COMM_METHOD || "speech")
+        .toLowerCase()
+        .trim();
+    const isTextMode =
+        commMethodRaw === "text" ||
+        commMethodRaw === "true" ||
+        commMethodRaw === "1" ||
+        commMethodRaw === "yes";
+
     // Derive stage from props
     const derivedStage = useMemo(() => {
         if (interviewConcluded) return "submitted";
@@ -167,11 +176,6 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
                                 "Click Start Interview and wait for instructions"
                             )}
                         </p>
-                        {backgroundDurationLabel && codingDurationLabel ? (
-                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                {`Background: ${backgroundDurationLabel}. Coding: ${codingDurationLabel}.`}
-                            </p>
-                        ) : null}
                         <div className="mt-6 flex flex-col items-center">
                             <button
                                 onClick={onStartInterview}
