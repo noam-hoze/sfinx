@@ -135,6 +135,22 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS }: Backgro
         );
     }
 
+    // Clean panel for coding stage (no background-specific data)
+    if (stageName === "coding") {
+        return (
+            <div className="rounded-[28px] border border-slate-200/70 bg-white/80 px-6 py-5 text-sm shadow-lg shadow-slate-900/5 backdrop-blur-xl dark:border-slate-700/60 dark:bg-slate-900/80 dark:text-slate-100">
+                <div className="flex flex-col gap-4">
+                    <div className="text-[11px] uppercase tracking-[0.32em] text-slate-500 dark:text-slate-400">
+                        {panelTitle}
+                    </div>
+                    <div className="text-sm text-slate-600 dark:text-slate-300">
+                        Workstyle metrics tracking active
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="rounded-[28px] border border-slate-200/70 bg-white/80 px-6 py-5 text-sm shadow-lg shadow-slate-900/5 backdrop-blur-xl dark:border-slate-700/60 dark:bg-slate-900/80 dark:text-slate-100">
             <div className="flex flex-col gap-5">

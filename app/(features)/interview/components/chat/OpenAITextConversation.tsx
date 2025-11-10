@@ -272,6 +272,10 @@ Ask one short, relevant follow-up question about the pasted code to understand t
         const ms = store.getState().interviewMachine;
         if (ms.state !== "in_coding_session" || codingPromptSentRef.current) return;
         codingPromptSentRef.current = true;
+        
+        // Update interviewChatStore stage to "coding" so debug panel reflects it
+        interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" } as any);
+        
         if (!ms.companyName) {
           throw new Error("Interview machine missing companyName for coding prompt");
         }
