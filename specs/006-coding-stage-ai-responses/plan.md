@@ -375,12 +375,50 @@ Caption from OpenAI examples:
 - Store each event with all timestamps, answer, and evaluation in DB
 - Generate video evidence links for all paste events
 
-## Files to Modify
-1. `EditorPanel.tsx` - remove one-time trigger limit, track all pastes with timestamps
-2. Conversation component - detect AI's paste-related question (save timestamp) and capture user's answer (save timestamp)
-3. New API endpoint: `/api/interviews/evaluate-paste-accountability` - OpenAI evaluation with caption
-4. DB schema - add external tool usage fields with Q&A, timestamps, and evaluation
+## Test Page (For Simplified Development)
+
+To test the multi-turn conversation logic in isolation before wiring it into the full interview:
+
+**Create:** `/test/external-tool-conversation` page
+
+**Features:**
+- **Text Input**: Large textarea where you paste code (assumed to be a paste event)
+- **Chat Interface**: Real-time conversation with OpenAI
+- **Debug Panel**: Shows live progress:
+  - `confidence`: 0-100
+  - `turnCount`: 1/3, 2/3, 3/3
+  - `readyToEvaluate`: true/false
+  - `conversationHistory`: Full message log
+
+**Flow:**
+1. Paste code in textarea → Click "Simulate Paste"
+2. AI asks question about the pasted code
+3. You respond via chat
+4. Debug panel updates with CONTROL data
+5. After confidence >= 70% OR turnCount >= 3:
+   - Shows final evaluation (understanding, accountability score, reasoning, caption)
+   - Display full conversation history
+
+**Benefits:**
+- Test conversation logic without full interview setup
+- Validate CONTROL message parsing
+- Verify 3-turn maximum enforcement
+- See confidence scoring in action
+- Test edge cases (user avoiding question, changing topic, etc.)
+
+**Implementation:**
+- Simple Next.js page (`app/test/external-tool-conversation/page.tsx`)
+- Direct OpenAI API calls (reuse paste evaluation persona)
+- Local React state for pending evaluation
+- No DB integration needed (testing only)
+
+## Files to Modify (Full Implementation)
+1. `EditorPanel.tsx` - remove one-time trigger limit, track all pastes with timestamps (✅ DONE)
+2. Conversation component - implement multi-turn conversation with confidence tracking
+3. New API endpoint: `/api/interviews/evaluate-paste-accountability` - OpenAI evaluation with caption (✅ DONE)
+4. DB schema - add external tool usage fields with Q&A, timestamps, and evaluation (✅ DONE)
 5. CPS page - display paste count, accountability score, percentage, and video evidence links with captions
+6. **Test page** - `/test/external-tool-conversation` for isolated testing (NEW)
 
 ---
 
