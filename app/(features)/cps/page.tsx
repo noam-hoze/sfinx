@@ -189,7 +189,7 @@ function TelemetryContent() {
         iterationSpeed: "Iteration Speed",
         debugLoops: "Debug Loops",
         refactorCleanups: "Refactor & Cleanups",
-        aiAssistUsage: "AI Assist Usage",
+        aiAssistUsage: "External Tool Usage",
     };
     const topMetricLabel = topMetricKey
         ? topMetricLabelMap[topMetricKey]

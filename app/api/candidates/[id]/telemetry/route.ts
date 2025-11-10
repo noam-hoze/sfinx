@@ -129,6 +129,21 @@ export async function GET(request: NextRequest, context: RouteContext) {
             },
         });
 
+        // Fetch external tool usages for all sessions
+        const allExternalToolUsages = await prisma.externalToolUsage.findMany({
+            where: {
+                interviewSessionId: { in: sessionIds },
+            },
+            select: {
+                interviewSessionId: true,
+                timestamp: true,
+                aiQuestionTimestamp: true,
+                understanding: true,
+                accountabilityScore: true,
+                caption: true,
+            },
+        });
+
         // Group iterations by session
         const iterationsBySession = new Map<string, any[]>();
         for (const iter of allIterations) {
@@ -145,6 +160,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 debugLoopsBySession.set(loop.interviewSessionId, []);
             }
             debugLoopsBySession.get(loop.interviewSessionId)!.push(loop);
+        }
+
+        // Group external tool usages by session
+        const externalToolsBySession = new Map<string, any[]>();
+        for (const tool of allExternalToolUsages) {
+            if (!externalToolsBySession.has(tool.interviewSessionId)) {
+                externalToolsBySession.set(tool.interviewSessionId, []);
+            }
+            externalToolsBySession.get(tool.interviewSessionId)!.push(tool);
         }
 
         // Transform sessions array
@@ -182,6 +206,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
                                 debugLoopsLinks.push(videoOffset);
                             }
                         });
+                }
+
+                // Add external tool usage evidence links
+                const sessionExternalTools = externalToolsBySession.get(session.id) || [];
+                if (session.recordingStartedAt && sessionExternalTools.length > 0) {
+                    sessionExternalTools.forEach((tool: any) => {
+                        // Use aiQuestionTimestamp (when paste was first detected)
+                        const videoOffset = (new Date(tool.aiQuestionTimestamp).getTime() - new Date(session.recordingStartedAt).getTime()) / 1000;
+                        if (videoOffset >= 0) {
+                            aiAssistUsageLinks.push(videoOffset);
+                        }
+                    });
                 }
 
                 evidenceClips.forEach((clip: any) => {

@@ -28,7 +28,7 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
             case "refactorCleanups":
                 return "Structural and code‑quality improvements beyond immediate correctness. Diff heuristics (rename/extract, dead‑code deletion), LOC/complexity deltas, and lint fixes after pass state are considered; thoughtful cleanups improve maintainability.";
             case "aiAssistUsage":
-                return "Transparent view of AI involvement versus original work. Signals include prompts per session, adoption rate, edit distance, and the percent of final code that is AI‑originated; balanced, edited use is fine while heavy reliance is flagged.";
+                return "Tracks code pasted from external sources during the coding session. Each paste triggers a multi-turn conversation where the candidate explains their understanding. Scores reflect how well they understand the pasted code, with evidence links to the exact moments in the video.";
             default:
                 return "";
         }
@@ -115,7 +115,7 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
         },
         {
             key: "aiAssistUsage" as keyof WorkstyleMetrics,
-            label: "AI Assist Usage",
+            label: "External Tool Usage",
             data: workstyle.aiAssistUsage,
         },
     ];
