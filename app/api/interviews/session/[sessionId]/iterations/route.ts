@@ -76,6 +76,34 @@ export async function POST(
             });
         }
 
+        // Create VideoChapter + VideoCaption for this iteration
+        if (session?.recordingStartedAt && session?.telemetryData?.id && caption) {
+            const iterationTimestamp = timestamp ? new Date(timestamp) : new Date();
+            const videoOffset = Math.floor((iterationTimestamp.getTime() - session.recordingStartedAt.getTime()) / 1000);
+            
+            if (videoOffset >= 0) {
+                const videoChapter = await prisma.videoChapter.create({
+                    data: {
+                        telemetryDataId: session.telemetryData.id,
+                        title: `Iteration ${iterationCount}`,
+                        startTime: videoOffset,
+                        endTime: videoOffset + 3,
+                        description: `Code execution: ${evaluation}`,
+                        thumbnailUrl: null,
+                    },
+                });
+
+                await prisma.videoCaption.create({
+                    data: {
+                        videoChapterId: videoChapter.id,
+                        text: caption,
+                        startTime: videoOffset,
+                        endTime: videoOffset + 3,
+                    },
+                });
+            }
+        }
+
         return NextResponse.json(iteration);
     } catch (error: any) {
         console.error("[iterations] Error creating iteration:", error);

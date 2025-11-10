@@ -100,6 +100,43 @@ export async function POST(request: NextRequest, context: RouteContext) {
             log.warn("[DEBUG LOOP API] No TelemetryData found for session, skipping counter update");
         }
 
+        // Create VideoChapter + VideoCaption for this debug loop
+        const session = await prisma.interviewSession.findUnique({
+            where: { id: sessionId },
+            select: { recordingStartedAt: true },
+        });
+
+        if (session?.recordingStartedAt && telemetryData?.id && caption && resolved) {
+            const resolutionTimestamp = new Date(endTimestamp);
+            const videoOffset = Math.floor((resolutionTimestamp.getTime() - session.recordingStartedAt.getTime()) / 1000);
+            
+            if (videoOffset >= 0) {
+                log.info("[DEBUG LOOP API] Creating VideoChapter and VideoCaption at offset:", videoOffset);
+                
+                const videoChapter = await prisma.videoChapter.create({
+                    data: {
+                        telemetryDataId: telemetryData.id,
+                        title: `Debug Loop Resolved`,
+                        startTime: videoOffset,
+                        endTime: videoOffset + 3,
+                        description: `Resolved ${errorCount} consecutive errors`,
+                        thumbnailUrl: null,
+                    },
+                });
+
+                await prisma.videoCaption.create({
+                    data: {
+                        videoChapterId: videoChapter.id,
+                        text: caption,
+                        startTime: videoOffset,
+                        endTime: videoOffset + 3,
+                    },
+                });
+                
+                log.info("[DEBUG LOOP API] VideoCaption created");
+            }
+        }
+
         log.info("[DEBUG LOOP API] ✅ Success! Returning response");
 
         return NextResponse.json({ debugLoop }, { status: 201 });
