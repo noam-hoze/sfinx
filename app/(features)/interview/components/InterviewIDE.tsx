@@ -862,12 +862,12 @@ const InterviewerContent = () => {
                                 readOnly={!isCodingStarted}
                                 onElevenLabsUpdate={onElevenLabsUpdate}
                                 updateKBVariables={updateKBVariables}
-                                onPasteDetected={(pastedCode) => {
+                                onPasteDetected={(pastedCode, timestamp) => {
                                     if (isTextMode) {
                                         try {
                                             const ref = realTimeConversationRef.current;
                                             if (ref?.handlePasteDetected) {
-                                                ref.handlePasteDetected(pastedCode);
+                                                ref.handlePasteDetected(pastedCode, timestamp);
                                             }
                                         } catch {}
                                     }

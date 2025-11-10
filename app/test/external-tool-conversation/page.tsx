@@ -184,13 +184,13 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
       let control: ControlData | null = null;
 
       // Parse CONTROL message if present
-      const controlMatch = response.match(/CONTROL:\s*(\{[^}]+\})/);
+      const controlMatch = response.match(/CONTROL:\s*(\{[\s\S]*?\})/);
       if (controlMatch) {
         try {
           control = JSON.parse(controlMatch[1]);
           setControlData(control);
           // Remove CONTROL line from displayed text
-          aiText = response.replace(/CONTROL:\s*\{[^}]+\}\s*\n?/, "").trim();
+          aiText = response.replace(/CONTROL:\s*\{[\s\S]*?\}\s*\n?/, "").trim();
         } catch (e) {
           console.error("Failed to parse CONTROL:", e);
         }

@@ -433,6 +433,86 @@ const [pendingPasteEvaluations, setPendingPasteEvaluations] =
 
 ---
 
+## Message Tagging & History Isolation
+
+### Problem
+
+Paste evaluation creates a mini-conversation within the main interview:
+
+```
+AI: "Tell me about your background"
+User: "I worked at Google"
+--- PASTE DETECTED ---
+AI: "Can you explain useEffect in this code?" ← paste eval
+User: "No" ← paste eval
+AI: "What about useState?" ← paste eval
+User: "No" ← paste eval
+--- PASTE EVAL ENDS ---
+User: "Should I add error handling?"
+AI: [sees "No, No" in history] "How can I help?" ← WRONG PERSONA
+```
+
+**Root cause:** Paste eval messages pollute the main interview context, confusing the AI's persona.
+
+### Solution: Tag & Filter
+
+**1. Tag messages during paste evaluation:**
+
+```typescript
+// When adding message during paste eval
+post(message, speaker, { isPasteEval: true });
+```
+
+**2. Filter when building history for normal coding:**
+
+```typescript
+// In buildControlContextMessages or equivalent
+const historyMessages = interviewChatStore.getState().messages
+  .filter(m => !m.isPasteEval)  // Exclude paste eval messages
+  .slice(-30)
+  .map(m => ({
+    role: m.speaker === "user" ? "user" : "assistant",
+    content: m.text,
+  }));
+```
+
+**Result:** Clean separation. Paste eval is a "side quest" that doesn't pollute the main interview narrative.
+
+### Implementation
+
+**Modify `interviewChatStore.ts`:**
+
+```typescript
+interface Message {
+  text: string;
+  speaker: "user" | "ai";
+  timestamp: number;
+  isPasteEval?: boolean;  // NEW: tag for paste evaluation messages
+}
+```
+
+**Modify `post()` function signature:**
+
+```typescript
+post(text: string, speaker: "user" | "ai", metadata?: { isPasteEval?: boolean })
+```
+
+**Modify `buildControlContextMessages()`:**
+
+```typescript
+export function buildControlContextMessages(k: number) {
+  const { messages } = interviewChatStore.getState();
+  const filtered = messages.filter(m => !m.isPasteEval);  // NEW
+  const slice = filtered.slice(-Math.max(1, k));
+  return slice.map((m) => ({
+    role: m.role === "user" ? ("user" as const) : ("assistant" as const),
+    content: m.text,
+  }));
+}
+```
+
+---
+
 ## Summary
 
 The external tool usage evaluation is a **stateful, multi-turn conversation process** that:
@@ -443,6 +523,7 @@ The external tool usage evaluation is a **stateful, multi-turn conversation proc
 4. **Never abandons** - all paste events saved to DB (even poor conversations)
 5. **Saves complete context** (paste, question, answer, timestamps) to DB
 6. **Handles edge cases** (multiple pastes, timeouts, topic changes, disengagement)
+7. **Isolates paste eval messages** - tagged and filtered from main interview history
 
 This ensures **complete transparency** - companies see ALL external tool usage with accountability scores reflecting engagement quality (high scores = good understanding, low scores = disengagement/poor understanding).
 

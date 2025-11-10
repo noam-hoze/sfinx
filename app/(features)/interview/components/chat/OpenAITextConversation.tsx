@@ -85,13 +85,13 @@ const OpenAITextConversation = forwardRef<any, Props>(
     const codingExpectedMessageRef = useRef<string | null>(null);
 
     const post = useCallback(
-      (text: string, speaker: "user" | "ai") => {
+      (text: string, speaker: "user" | "ai", metadata?: { isPasteEval?: boolean }) => {
         if (!text) return;
         dispatch(addMessage({ text, speaker }));
         try {
           interviewChatStore.dispatch({
             type: "ADD_MESSAGE",
-            payload: { text, speaker },
+            payload: { text, speaker, isPasteEval: metadata?.isPasteEval },
           } as any);
         } catch {}
       },
@@ -207,59 +207,75 @@ const OpenAITextConversation = forwardRef<any, Props>(
       [dispatch, onGreetingDelivered, setInputLocked, openaiClient, post]
     );
 
-    /** Handle paste detection during coding stage */
+    /** Handle paste detection during coding stage - Start evaluation flow */
     const handlePasteDetected = useCallback(
-      async (pastedCode: string) => {
+      async (pastedCode: string, timestamp: number) => {
         const ms = store.getState().interviewMachine;
         if (ms.state !== "in_coding_session") return;
         
+        const pasteEvaluationId = `paste-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+        
         try {
-          /* eslint-disable no-console */ console.log("[coding][paste_detected]", { pastedCode });
+          /* eslint-disable no-console */ console.log("[paste_eval][detected]", { 
+            pasteEvaluationId, 
+            pastedCode: pastedCode.substring(0, 100) + "...",
+            timestamp 
+          });
         } catch {}
+        
+        // Update debug panel - start evaluation
+        interviewChatStore.dispatch({
+          type: "CODING_START_PASTE_EVAL",
+          payload: {
+            pasteEvaluationId,
+            pastedContent: pastedCode,
+            timestamp,
+          },
+        } as any);
         
         // Get coding context
         const codingPrompt = scriptRef.current?.codingPrompt;
-        const codingAnswer = scriptRef.current?.codingAnswer;
-        const codingTemplate = scriptRef.current?.codingTemplate;
         
-        if (!codingPrompt || !codingAnswer || !codingTemplate) {
-          /* eslint-disable no-console */ console.error("[coding] Missing coding context for paste followup");
+        if (!codingPrompt) {
+          /* eslint-disable no-console */ console.error("[paste_eval] Missing coding task");
           return;
         }
         
-        // Build system prompt
-        const companyName = ms.companyName || "Company";
-        const codingPersona = buildOpenAICodingPrompt(companyName, codingPrompt);
-        
-        const systemPrompt = `${codingPersona}
+        // Build initial question prompt (no CONTROL needed for first question)
+        const initialPrompt = `You are a technical interviewer. A candidate just pasted this code:
 
-Reference Information:
-Starting Template:
-${codingTemplate}
-
-Expected Solution:
-${codingAnswer}
-
-The candidate just pasted code into the editor:
 ${pastedCode}
 
-Ask one short, relevant follow-up question about the pasted code to understand their reasoning. Keep it to 1-2 sentences.`;
+The coding task they're working on: ${codingPrompt}
+
+Ask ONE short, relevant question (1-2 sentences) to understand if they comprehend what they pasted. Don't evaluate yet, just ask.`;
         
-        // Get conversation history
-        const historyMessages = buildControlContextMessages(CONTROL_CONTEXT_TURNS);
-        
-        // Generate AI question
+        // Generate AI question with EMPTY history (fresh conversation about this paste)
         const question = await askViaChatCompletion(
           openaiClient,
-          systemPrompt,
-          historyMessages
+          initialPrompt,
+          []  // No history - focus only on the pasted code
         );
         
         if (question) {
-          post(question, "ai");
+          const aiQuestionTimestamp = Date.now();
+          post(question, "ai", { isPasteEval: true });
           dispatch(machineAiFinal({ text: question }));
+          
+          // Update debug panel with question (answerCount still 0 - no answers yet)
+          interviewChatStore.dispatch({
+            type: "CODING_UPDATE_PASTE_EVAL",
+            payload: {
+              confidence: 0,
+              answerCount: 0,
+              readyToEvaluate: false,
+              currentQuestion: question,
+              aiQuestionTimestamp,
+            },
+          } as any);
+          
           try {
-            /* eslint-disable no-console */ console.log("[coding][paste_followup]", question);
+            /* eslint-disable no-console */ console.log("[paste_eval][question_asked]", { pasteEvaluationId, question });
           } catch {}
         }
       },
@@ -476,7 +492,12 @@ Ask one short, relevant follow-up question about the pasted code to understand t
         try {
           /* eslint-disable no-console */ console.log("[text][send]", text);
         } catch {}
-        post(text, "user");
+        
+        // Check if we're in active paste evaluation to tag message
+        const chatState = interviewChatStore.getState();
+        const isPasteEvalActive = !!chatState.coding?.activePasteEvaluation;
+        
+        post(text, "user", { isPasteEval: isPasteEvalActive });
         // Lock input when user sends message
         setInputLocked?.(true);
         dispatch(machineUserFinal());
@@ -605,7 +626,298 @@ Ask one short, relevant follow-up question about the pasted code to understand t
             /* eslint-disable no-console */ console.log("[coding][user_message]", text);
           } catch {}
           
-          // Get coding context from script
+          // Check if we're in an active paste evaluation
+          const chatState = interviewChatStore.getState();
+          const activePasteEval = chatState.coding?.activePasteEvaluation;
+          
+          if (activePasteEval) {
+            // Handle paste evaluation flow with CONTROL messages
+            // Increment answer count AFTER user answers
+            const nextAnswerCount = activePasteEval.answerCount + 1;
+            
+            try {
+              /* eslint-disable no-console */ console.log("[paste_eval][user_answer]", { 
+                id: activePasteEval.pasteEvaluationId,
+                answerCount: nextAnswerCount 
+              });
+            } catch {}
+            
+            const codingPrompt = scriptRef.current?.codingPrompt;
+            if (!codingPrompt) {
+              /* eslint-disable no-console */ console.error("[paste_eval] Missing coding task");
+              setInputLocked?.(false);
+              return;
+            }
+            
+            // Build paste evaluation prompt with CONTROL format
+            // Only get messages AFTER the paste timestamp (this paste conversation only)
+            const allMessages = buildControlContextMessages(CONTROL_CONTEXT_TURNS);
+            const pasteConversation = allMessages.filter(m => {
+              const msgTimestamp = interviewChatStore.getState().messages.find(msg => msg.text === m.content)?.timestamp;
+              return msgTimestamp && msgTimestamp >= activePasteEval.timestamp;
+            });
+            
+            const conversationHistory = pasteConversation
+              .filter(m => m.role !== "system")
+              .map(m => `${m.role === "user" ? "Candidate" : "AI"}: ${m.content}`)
+              .join("\n");
+            
+            const pasteEvalPrompt = `CRITICAL: YOU MUST START YOUR RESPONSE WITH A CONTROL LINE IN THIS EXACT FORMAT:
+CONTROL: {"type":"PASTE_EVAL_CONTROL","pasteEvaluationId":"${activePasteEval.pasteEvaluationId}","confidence":0-100,"answerCount":${nextAnswerCount},"readyToEvaluate":true/false}
+
+After the CONTROL line, add your conversational response to the candidate.
+
+---
+
+You are evaluating whether a candidate understands code they pasted.
+
+**Context:**
+- Pasted code: ${activePasteEval.pastedContent}
+- Task: ${codingPrompt}
+- Conversation: ${conversationHistory || "Just started"}
+- User answers: ${nextAnswerCount}/3
+
+**Your Job:**
+1. Evaluate their understanding (confidence 0-100)
+2. If confidence < 70% AND answerCount < 3: Ask ONE short follow-up question (1-2 sentences)
+3. If confidence >= 70% OR answerCount >= 3: Set readyToEvaluate=true AND send a brief acknowledgment like "Thank you for explaining. Let's continue with the task."
+
+**Example Responses:**
+
+Continue (answerCount < 3, confidence < 70%):
+CONTROL: {"type":"PASTE_EVAL_CONTROL","pasteEvaluationId":"${activePasteEval.pasteEvaluationId}","confidence":45,"answerCount":${nextAnswerCount},"readyToEvaluate":false}
+Could you explain how the useEffect hook works here?
+
+Done (answerCount = 3 OR confidence >= 70%):
+CONTROL: {"type":"PASTE_EVAL_CONTROL","pasteEvaluationId":"${activePasteEval.pasteEvaluationId}","confidence":75,"answerCount":${nextAnswerCount},"readyToEvaluate":true}
+Thank you for explaining. Let's continue with the task.
+
+REMEMBER: ALWAYS start with CONTROL line first!`;
+            
+            // Get conversation history (only messages AFTER paste)
+            const historyMessages = pasteConversation;
+            
+            // Generate AI response with CONTROL
+            const fullResponse = await askViaChatCompletion(
+              openaiClient,
+              pasteEvalPrompt,
+              historyMessages
+            );
+            
+            if (!fullResponse) {
+              setInputLocked?.(false);
+              return;
+            }
+            
+            try {
+              /* eslint-disable no-console */ console.log("[paste_eval][raw_response]", fullResponse);
+            } catch {}
+            
+            // Parse CONTROL message
+            let aiText = fullResponse;
+            let control: any = null;
+            
+            const controlMatch = fullResponse.match(/CONTROL:\s*(\{[\s\S]*?\})/);
+            
+            try {
+              /* eslint-disable no-console */ console.log("[paste_eval][controlMatch]", controlMatch ? "FOUND" : "NOT FOUND");
+            } catch {}
+            
+            if (controlMatch) {
+              try {
+                control = JSON.parse(controlMatch[1]);
+                aiText = fullResponse.replace(/CONTROL:\s*\{[\s\S]*?\}\s*\n?/, "").trim();
+                
+                try {
+                  /* eslint-disable no-console */ console.log("[paste_eval][control]", control);
+                } catch {}
+              } catch (e) {
+                /* eslint-disable no-console */ console.error("[paste_eval] Failed to parse CONTROL:", e);
+              }
+            }
+            
+            // Force evaluation if we've reached 3 answers
+            const shouldEvaluate = (control && control.readyToEvaluate) || nextAnswerCount >= 3;
+            
+            // Post AI response (either follow-up question or acknowledgment)
+            if (aiText) {
+              post(aiText, "ai", { isPasteEval: true });
+              dispatch(machineAiFinal({ text: aiText }));
+              
+              if (shouldEvaluate) {
+                try {
+                  /* eslint-disable no-console */ console.log("[paste_eval][acknowledgment_sent]", {
+                    text: aiText,
+                    reason: "evaluation_complete"
+                  });
+                } catch {}
+              }
+            }
+            
+            if (shouldEvaluate) {
+              try {
+                /* eslint-disable no-console */ console.log("[paste_eval][triggering_evaluation]", { 
+                  nextAnswerCount, 
+                  controlReady: control?.readyToEvaluate,
+                  forced: nextAnswerCount >= 3 
+                });
+              } catch {}
+            }
+            
+            // Update debug panel with confidence (use our calculated answer count, not OpenAI's)
+            if (control) {
+              const userAnswerTimestamp = Date.now();
+              interviewChatStore.dispatch({
+                type: "CODING_UPDATE_PASTE_EVAL",
+                payload: {
+                  confidence: control.confidence ?? 0,
+                  answerCount: nextAnswerCount,
+                  readyToEvaluate: shouldEvaluate,
+                  currentQuestion: !shouldEvaluate ? aiText : undefined,
+                  userAnswerTimestamp,
+                },
+              } as any);
+              
+              // If ready to evaluate, trigger final evaluation
+              if (shouldEvaluate) {
+                try {
+                  /* eslint-disable no-console */ console.log("[paste_eval][ready_to_evaluate]", {
+                    id: activePasteEval.pasteEvaluationId,
+                    confidence: control.confidence,
+                  });
+                } catch {}
+                
+                // Combine conversation for final evaluation (only paste conversation)
+                const userAnswers = pasteConversation
+                  .filter(m => m.role === "user")
+                  .map(m => m.content)
+                  .join(" ");
+                const aiQuestions = pasteConversation
+                  .filter(m => m.role === "assistant")
+                  .map(m => m.content)
+                  .join(" ");
+                
+                // Call evaluation API
+                const evalPayload = {
+                  pastedContent: activePasteEval.pastedContent,
+                  aiQuestion: aiQuestions,
+                  userAnswer: userAnswers,
+                  codingTask: codingPrompt,
+                };
+                
+                try {
+                  /* eslint-disable no-console */ console.log("[paste_eval][eval_payload]", evalPayload);
+                } catch {}
+                
+                const evalResponse = await fetch("/api/interviews/evaluate-paste-accountability", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(evalPayload),
+                });
+                
+                if (evalResponse.ok) {
+                  const evaluation = await evalResponse.json();
+                  
+                  try {
+                    /* eslint-disable no-console */ console.log("[paste_eval][evaluation_result]", evaluation);
+                  } catch {}
+                  
+                  // Update debug panel with final evaluation
+                  interviewChatStore.dispatch({
+                    type: "CODING_UPDATE_PASTE_EVAL",
+                    payload: {
+                      confidence: control.confidence ?? 0,
+                      answerCount: nextAnswerCount,
+                      readyToEvaluate: true,
+                      currentQuestion: aiText,
+                      evaluationReasoning: evaluation.reasoning,
+                      evaluationCaption: evaluation.caption,
+                    },
+                  } as any);
+                  
+                  // Save to DB
+                  const sessionId = ms.sessionId;
+                  if (sessionId && activePasteEval.aiQuestionTimestamp && activePasteEval.userAnswerTimestamp) {
+                    const dbPayload = {
+                      timestamp: activePasteEval.timestamp,
+                      pastedContent: activePasteEval.pastedContent,
+                      characterCount: activePasteEval.pastedContent.length,
+                      aiQuestion: aiQuestions,
+                      aiQuestionTimestamp: activePasteEval.aiQuestionTimestamp,
+                      userAnswer: userAnswers,
+                      userAnswerTimestamp: activePasteEval.userAnswerTimestamp,
+                      understanding: evaluation.understanding,
+                      accountabilityScore: evaluation.accountabilityScore,
+                      reasoning: evaluation.reasoning,
+                      caption: evaluation.caption,
+                    };
+                    
+                    try {
+                      /* eslint-disable no-console */ console.log("[paste_eval][saving_to_db]", dbPayload);
+                    } catch {}
+                    
+                    const dbResponse = await fetch(`/api/interviews/session/${sessionId}/external-tools`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(dbPayload),
+                    });
+                    
+                    if (dbResponse.ok) {
+                      try {
+                        /* eslint-disable no-console */ console.log("[paste_eval][saved_to_db]");
+                      } catch {}
+                    } else {
+                      try {
+                        const errorData = await dbResponse.json();
+                        /* eslint-disable no-console */ console.error("[paste_eval][db_error]", {
+                          status: dbResponse.status,
+                          error: errorData
+                        });
+                      } catch {}
+                    }
+                  } else {
+                    try {
+                      /* eslint-disable no-console */ console.error("[paste_eval][missing_data]", {
+                        hasSessionId: !!sessionId,
+                        hasAiTimestamp: !!activePasteEval.aiQuestionTimestamp,
+                        hasUserTimestamp: !!activePasteEval.userAnswerTimestamp
+                      });
+                    } catch {}
+                  }
+                } else {
+                  // Evaluation API returned error
+                  try {
+                    const errorData = await evalResponse.json();
+                    /* eslint-disable no-console */ console.error("[paste_eval][eval_api_error]", {
+                      status: evalResponse.status,
+                      error: errorData
+                    });
+                  } catch (e) {
+                    /* eslint-disable no-console */ console.error("[paste_eval][eval_api_error]", {
+                      status: evalResponse.status,
+                      message: "Could not parse error response"
+                    });
+                  }
+                }
+                
+                // Wait 2 seconds before clearing (so user can see evaluation in debug panel)
+                setTimeout(() => {
+                  interviewChatStore.dispatch({
+                    type: "CODING_CLEAR_PASTE_EVAL",
+                  } as any);
+                  
+                  try {
+                    /* eslint-disable no-console */ console.log("[paste_eval][cleared] Returning to normal coding flow");
+                  } catch {}
+                }, 2000);
+              }
+            }
+            
+            setInputLocked?.(false);
+            return;
+          }
+          
+          // Normal coding stage conversation (no active paste evaluation)
           const codingPrompt = scriptRef.current?.codingPrompt;
           const codingAnswer = scriptRef.current?.codingAnswer;
           const codingTemplate = scriptRef.current?.codingTemplate;
@@ -621,7 +933,10 @@ Ask one short, relevant follow-up question about the pasted code to understand t
           const codingPersona = buildOpenAICodingPrompt(companyName, codingPrompt);
           
           // Add context about template and expected answer to the system prompt
-          const systemPrompt = `${codingPersona}
+          let systemPrompt = `${codingPersona}`;
+          
+          
+          systemPrompt += `
 
 Reference Information:
 Starting Template:
@@ -632,7 +947,7 @@ ${codingAnswer}
 
 The candidate is working on this task. Respond to their question while following the behavioral rules above.`;
           
-          // Get conversation history (last 30 messages)
+          // Get conversation history (last 30 messages, filtered for paste eval)
           const historyMessages = buildControlContextMessages(CONTROL_CONTEXT_TURNS);
           
           // Generate AI response using chat completions

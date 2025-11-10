@@ -9,6 +9,7 @@ export type ChatMessage = {
     text: string;
     speaker: ChatSpeaker;
     timestamp: number;
+    isPasteEval?: boolean;  // Tag for paste evaluation messages
 };
 
 export type InterviewStage =
@@ -57,10 +58,26 @@ export type InterviewChatState = {
         reason?: "timebox" | "useless_answers" | "gate";
         timeboxMs?: number;
     };
+    // Coding stage fields
+    coding: {
+        activePasteEvaluation?: {
+            pasteEvaluationId: string;
+            pastedContent: string;
+            timestamp: number;
+            aiQuestionTimestamp?: number;
+            userAnswerTimestamp?: number;
+            confidence: number; // 0-100
+            answerCount: number; // 0-3 (number of user answers)
+            readyToEvaluate: boolean;
+            currentQuestion?: string;
+            evaluationReasoning?: string;
+            evaluationCaption?: string;
+        };
+    };
 };
 
 type Action =
-    | { type: "ADD_MESSAGE"; payload: { text: string; speaker: ChatSpeaker } }
+    | { type: "ADD_MESSAGE"; payload: { text: string; speaker: ChatSpeaker; isPasteEval?: boolean } }
     | { type: "CLEAR" }
     | { type: "SET_RECORDING"; payload: boolean }
     | { type: "SET_STAGE"; payload: InterviewStage }
@@ -90,7 +107,27 @@ type Action =
     | {
           type: "SET_PENDING_REPLY";
           payload: { pending: boolean; reason?: string; stage?: InterviewStage };
-      };
+      }
+    | {
+          type: "CODING_START_PASTE_EVAL";
+          payload: {
+              pasteEvaluationId: string;
+              pastedContent: string;
+              timestamp: number;
+          };
+      }
+    | {
+          type: "CODING_UPDATE_PASTE_EVAL";
+          payload: {
+              confidence: number;
+              answerCount: number;
+              readyToEvaluate: boolean;
+              currentQuestion?: string;
+              evaluationReasoning?: string;
+              evaluationCaption?: string;
+          };
+      }
+    | { type: "CODING_CLEAR_PASTE_EVAL" };
 
 function reducer(
     state: InterviewChatState,
@@ -106,6 +143,7 @@ function reducer(
                 text: action.payload.text,
                 speaker: action.payload.speaker,
                 timestamp: Date.now(),
+                isPasteEval: action.payload.isPasteEval,
             };
             return { ...state, messages: [...state.messages, msg] };
         }
@@ -231,6 +269,48 @@ function reducer(
                 pendingReply: false,
                 pendingReplyContext: undefined,
             };
+        case "CODING_START_PASTE_EVAL":
+            return {
+                ...state,
+                coding: {
+                    ...state.coding,
+                    activePasteEvaluation: {
+                        pasteEvaluationId: action.payload.pasteEvaluationId,
+                        pastedContent: action.payload.pastedContent,
+                        timestamp: action.payload.timestamp,
+                        confidence: 0,
+                        answerCount: 0, // Start at 0 - no user answers yet
+                        readyToEvaluate: false,
+                    },
+                },
+            };
+        case "CODING_UPDATE_PASTE_EVAL":
+            if (!state.coding.activePasteEvaluation) return state;
+            return {
+                ...state,
+                coding: {
+                    ...state.coding,
+                    activePasteEvaluation: {
+                        ...state.coding.activePasteEvaluation,
+                        confidence: action.payload.confidence,
+                        answerCount: action.payload.answerCount,
+                        readyToEvaluate: action.payload.readyToEvaluate,
+                        currentQuestion: action.payload.currentQuestion,
+                        aiQuestionTimestamp: action.payload.aiQuestionTimestamp ?? state.coding.activePasteEvaluation.aiQuestionTimestamp,
+                        userAnswerTimestamp: action.payload.userAnswerTimestamp ?? state.coding.activePasteEvaluation.userAnswerTimestamp,
+                        evaluationReasoning: action.payload.evaluationReasoning,
+                        evaluationCaption: action.payload.evaluationCaption,
+                    },
+                },
+            };
+        case "CODING_CLEAR_PASTE_EVAL":
+            return {
+                ...state,
+                coding: {
+                    ...state.coding,
+                    activePasteEvaluation: undefined,
+                },
+            };
         default:
             return state;
     }
@@ -267,4 +347,5 @@ export const interviewChatStore = createStore({
         questionsAsked: 0,
         transitioned: false,
     },
+    coding: {},
 });
