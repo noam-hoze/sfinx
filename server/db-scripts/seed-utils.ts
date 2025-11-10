@@ -1,6 +1,6 @@
 import { PrismaClient, UserRole } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { log } from "app/shared/services/logger";
+import { log } from "app/shared/services";
 
 export interface BasicCandidateInput {
     name: string;

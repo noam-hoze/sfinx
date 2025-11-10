@@ -7,7 +7,7 @@
 
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { log } from "app/shared/services/logger";
+import { log } from "app/shared/services";
 
 const prisma = new PrismaClient();
 

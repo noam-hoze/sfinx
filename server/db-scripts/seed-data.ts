@@ -4,7 +4,7 @@ import { PrismaClient, CompanySize, JobType, UserRole } from "@prisma/client";
 import fs from "fs";
 import path from "path";
 import bcrypt from "bcryptjs";
-import { log } from "app/shared/services/logger";
+import { log } from "app/shared/services";
 
 // Import seed functions
 import { seedGal } from "./seed-candidate/seed-gal";
