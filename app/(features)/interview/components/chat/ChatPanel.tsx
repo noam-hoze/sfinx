@@ -19,9 +19,11 @@ interface ChatPanelProps {
     onToggleMicMute?: () => void;
     onSendText?: (text: string) => Promise<void>;
     isInputDisabled?: boolean;
+    isInterviewActive?: boolean;
+    isAgentConnected?: boolean;
 }
 
-const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisabled = false }: ChatPanelProps) => {
+const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisabled = false, isInterviewActive = false, isAgentConnected = false }: ChatPanelProps) => {
     const chat = useSelector((s: RootState) => s.interviewChat);
     const transcriptions: TranscriptionMessage[] = chat.messages.map((m) => ({
         id: m.id,
@@ -76,6 +78,19 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
                         </h3>
                     </div>
                     <div className="flex items-center space-x-2">
+                        <div className="text-xs font-medium">
+                            <span
+                                className={
+                                    isInterviewActive && isAgentConnected
+                                        ? "text-green-600 dark:text-green-400"
+                                        : "text-gray-500 dark:text-gray-400"
+                                }
+                            >
+                                {isInterviewActive && isAgentConnected
+                                    ? "connected"
+                                    : "disconnected"}
+                            </span>
+                        </div>
                         {typeof onSendText !== "function" && (
                             <button
                                 onClick={onToggleMicMute}
@@ -142,7 +157,7 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
                                         <div className="flex items-center space-x-2 mb-1">
                                             <span className="text-xs opacity-75">
                                                 {message.speaker === "ai"
-                                                    ? "AI"
+                                                    ? "Sfinx"
                                                     : "You"}
                                             </span>
                                         </div>

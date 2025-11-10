@@ -56,6 +56,8 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
     // Derive stage from props
     const derivedStage = useMemo(() => {
         if (interviewConcluded) return "submitted";
+        // Computing insights after submission
+        if (isInterviewLoading && hasSubmitted) return "computing";
         // Once loading starts, treat as a distinct forward-only stage
         if (isInterviewLoading) return "loading";
         // Pre-stage wrapping as soon as coding starts (overlay remains hidden while coding)
@@ -76,6 +78,15 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
     const [visible, setVisible] = useState<boolean>(true);
     const [subtitleVisible, setSubtitleVisible] = useState<boolean>(true);
     const [hideStartButton, setHideStartButton] = useState<boolean>(false);
+    const [computingMessageIndex, setComputingMessageIndex] = useState<number>(0);
+
+    const computingMessages = [
+        "Analyzing your performance",
+        "Still working on it",
+        "Running AI evaluations",
+        "Almost there",
+        "Finalizing your results"
+    ];
 
     useEffect(() => {
         setHideStartButton(shouldHideStartButton());
@@ -97,6 +108,23 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
         return () => clearTimeout(t);
     }, [isInterviewLoading]);
 
+    useEffect(() => {
+        if (stage === "computing") {
+            setComputingMessageIndex(0);
+            const timer = setInterval(() => {
+                setComputingMessageIndex((prevIndex) => {
+                    if (prevIndex < computingMessages.length - 1) {
+                        return prevIndex + 1;
+                    }
+                    return prevIndex; // Stick with the last message
+                });
+            }, 3500);
+            return () => clearInterval(timer);
+        } else {
+            setComputingMessageIndex(0);
+        }
+    }, [stage, computingMessages.length]);
+
     const backgroundDurationLabel = useMemo(
         () => formatDurationLabel(backgroundDurationSeconds),
         [backgroundDurationSeconds]
@@ -109,14 +137,22 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
     // Replaced ellipsis with smooth spinner
 
     // Fade overlay out when coding starts (cross-fade timing aligned with stage fade)
-    const containerVisibility = isCodingStarted
+    // But show it again when computing insights or when submitted
+    const containerVisibility = isCodingStarted && stage !== "computing" && stage !== "submitted"
         ? "opacity-0 pointer-events-none"
         : "opacity-100";
 
     return (
-        <div
-            className={`absolute inset-0 z-20 bg-white/80 dark:bg-black/70 backdrop-blur-md flex items-center justify-center select-none transition-opacity duration-500 ease-out ${containerVisibility}`}
-        >
+        <>
+            <style>{`
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+            `}</style>
+            <div
+                className={`absolute inset-0 z-20 bg-white/80 dark:bg-black/70 backdrop-blur-md flex items-center justify-center select-none transition-opacity duration-500 ease-out ${containerVisibility}`}
+            >
             <div
                 className={`text-center transition-opacity duration-500 ${
                     visible ? "opacity-100" : "opacity-0"
@@ -154,7 +190,7 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
                             Interview Started!
                         </h2>
                         <p className="mt-2 text-base md:text-lg text-gray-600 dark:text-gray-300">
-                            {isTextMode ? "Use the chatbox on the right to talk with Carrie, your AI interviewer 💬" : "just speak naturally 😎"}
+                            {isTextMode ? "Use the chatbox on the right to talk with Sfinx, your AI interviewer 💬" : "just speak naturally 😎"}
                         </p>
                     </>
                 ) : stage === "wrapping" ? (
@@ -165,6 +201,22 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
                         <p className="mt-2 text-base md:text-lg text-gray-600 dark:text-gray-300">
                             waiting for the interviewer to finish the closing
                             line…
+                        </p>
+                    </>
+                ) : stage === "computing" ? (
+                    <>
+                        <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                            Computing interview insights
+                        </h2>
+                        <p className="mt-2 text-base md:text-lg text-gray-600 dark:text-gray-300 flex items-center justify-center gap-2">
+                            <span 
+                                key={computingMessageIndex} 
+                                className="transition-opacity duration-[2000ms] opacity-0"
+                                style={{ animation: 'fadeIn 0.5s ease-in forwards' }}
+                            >
+                                {computingMessages[computingMessageIndex]}
+                            </span>
+                            <Loader2 className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
                         </p>
                     </>
                 ) : (
@@ -210,6 +262,7 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
                 )}
             </div>
         </div>
+        </>
     );
 };
 

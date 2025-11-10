@@ -51,10 +51,10 @@ export default function DemoWelcomePage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="max-w-3xl mx-auto px-4 py-16">
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="max-w-3xl px-4">
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12">
-                    <h1 className="text-4xl font-semibold text-gray-900 mb-6">
+                    <h1 className="text-4xl font-semibold text-gray-900 mb-6 text-center">
                         Welcome to Sfinx Demo
                     </h1>
 

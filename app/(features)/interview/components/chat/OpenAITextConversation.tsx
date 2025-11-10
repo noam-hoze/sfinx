@@ -1051,14 +1051,14 @@ The candidate is working on this task. Respond to their question while following
         throw new Error("Interview machine missing companyName");
       }
       const persona = buildOpenAIInterviewerPrompt(companyName);
-      const instruction = `Say exactly: "Hi ${firstName}, I'm Carrie. I'll be the one interviewing today!"`;
+      const instruction = `Say exactly: "Hi ${firstName}, I'm Sfinx. I'll be the one interviewing today!"`;
       const greeting = await deliverAssistantPrompt({
         persona,
         instruction,
         pendingReason: "greeting",
       });
       if (!greeting) {
-        const fallback = `Hi ${firstName}, I'm Carrie. I'll be the one interviewing today!`;
+        const fallback = `Hi ${firstName}, I'm Sfinx. I'll be the one interviewing today!`;
         post(fallback, "ai");
         dispatch(machineAiFinal({ text: fallback }));
         try {

@@ -20,7 +20,7 @@ export function openAIFlowController() {
     const greet = (session: any, candidateName: string) => {
         send(
             session,
-            `You are Carrie, an AI interviewer. Greet ${candidateName} warmly and ask if they are ready to begin.`
+            `You are Sfinx, an AI interviewer. Greet ${candidateName} warmly and ask if they are ready to begin.`
         );
         stage = "background"; // proceed to background after greeting prompt is sent
     };

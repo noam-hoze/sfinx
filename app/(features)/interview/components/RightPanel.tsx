@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
+import Image from "next/image";
 import RealTimeConversation from "./chat/RealTimeConversation";
 import OpenAIVoiceConversation from "./chat/OpenAIVoiceConversation";
 import OpenAITextConversation from "./chat/OpenAITextConversation";
@@ -97,62 +98,38 @@ const RightPanel: React.FC<RightPanelProps> = ({
 
     return (
         <div className="h-full flex flex-col border-t">
-            <div className="flex-[1] flex flex-col bg-white dark:bg-gray-800">
-                <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2">
-                            <div
-                                className={`w-2 h-2 rounded-full ${
-                                    isInterviewActive && isAgentConnected
-                                        ? "bg-green-500"
-                                        : "bg-red-500"
-                                }`}
-                            ></div>
-                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                                Carrie
-                            </h3>
-                        </div>
-                        <div className="text-xs font-medium">
-                            <span
-                                className={
-                                    isInterviewActive && isAgentConnected
-                                        ? "text-green-600 dark:text-green-400"
-                                        : "text-gray-500 dark:text-gray-400"
-                                }
-                            >
-                                {isInterviewActive && isAgentConnected
-                                    ? "connected"
-                                    : "disconnected"}
-                            </span>
-                        </div>
-                    </div>
+            {/* Text mode - hidden conversation component for state management */}
+            {isTextMode && (
+                <div className="hidden">
+                    <OpenAITextConversation
+                        ref={realTimeConversationRef}
+                        candidateName={candidateName}
+                        onStartConversation={() => {
+                            setIsAgentConnected(true);
+                            onStartConversation();
+                        }}
+                        automaticMode={automaticMode}
+                        onCodingPromptReady={() => {
+                            onCodingPromptReady?.();
+                            if (automaticMode) {
+                                onAutoStartCoding();
+                            }
+                        }}
+                        onGreetingDelivered={onGreetingDelivered}
+                        onInterviewConcluded={(delayMs?: number) => {
+                            try {
+                                onInterviewConcluded(delayMs);
+                            } catch {}
+                        }}
+                        setInputLocked={setInputLocked}
+                    />
                 </div>
+            )}
 
-            <div className="flex-1 p-4">
-                    {isTextMode ? (
-                        <OpenAITextConversation
-                            ref={realTimeConversationRef}
-                            candidateName={candidateName}
-                            onStartConversation={() => {
-                                setIsAgentConnected(true);
-                                onStartConversation();
-                            }}
-                            automaticMode={automaticMode}
-                            onCodingPromptReady={() => {
-                                onCodingPromptReady?.();
-                                if (automaticMode) {
-                                    onAutoStartCoding();
-                                }
-                            }}
-                            onGreetingDelivered={onGreetingDelivered}
-                            onInterviewConcluded={(delayMs?: number) => {
-                                try {
-                                    onInterviewConcluded(delayMs);
-                                } catch {}
-                            }}
-                            setInputLocked={setInputLocked}
-                        />
-                    ) : ( (process.env.NEXT_PUBLIC_VOICE_ENGINE || "elevenlabs") === "openai" ? (
+            {/* Voice mode - show conversation area */}
+            {!isTextMode && (
+                <div className="flex-[1] flex flex-col bg-white dark:bg-gray-800 p-4">
+                    {(process.env.NEXT_PUBLIC_VOICE_ENGINE || "elevenlabs") === "openai" ? (
                         <OpenAIVoiceConversation
                             ref={realTimeConversationRef}
                             isInterviewActive={isInterviewActive}
@@ -179,7 +156,8 @@ const RightPanel: React.FC<RightPanelProps> = ({
                                 onEndConversation();
                             }}
                             onInterviewConcluded={onInterviewConcluded}
-                        />) : (
+                        />
+                    ) : (
                         <RealTimeConversation
                             ref={realTimeConversationRef}
                             isInterviewActive={isInterviewActive}
@@ -200,11 +178,13 @@ const RightPanel: React.FC<RightPanelProps> = ({
                                 onEndConversation();
                             }}
                             onInterviewConcluded={onInterviewConcluded}
-                        />))}
+                        />
+                    )}
                 </div>
-            </div>
+            )}
 
-            <div className="flex-[3] h-full overflow-hidden">
+
+            <div className={`${isTextMode ? 'flex-1' : 'flex-[3]'} h-full overflow-hidden`}>
                 <ChatPanel
                     micMuted={micMuted}
                     onToggleMicMute={onToggleMicMute}
@@ -217,6 +197,8 @@ const RightPanel: React.FC<RightPanelProps> = ({
                         } catch {}
                     } : undefined}
                     isInputDisabled={isTextMode && isTextInputLocked}
+                    isInterviewActive={isInterviewActive}
+                    isAgentConnected={isAgentConnected}
                 />
             </div>
         </div>

@@ -361,6 +361,7 @@ const InterviewerContent = () => {
             await stateMachineHandleSubmission(state.currentCode);
             
             // Generate coding gaps and summary from session data
+            setIsInterviewLoading(true);
             if (interviewSessionId && interviewScript) {
                 logger.info("Generating coding gaps for session:", interviewSessionId);
                 try {
@@ -409,6 +410,7 @@ const InterviewerContent = () => {
                     logger.error("Error generating coding summary:", summaryError);
                 }
             }
+            setIsInterviewLoading(false);
             
             // OpenAI flow: say closing line and rely on response.done to end
             try {

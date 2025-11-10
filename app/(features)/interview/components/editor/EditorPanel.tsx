@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
-import { Play, RotateCcw, MessageSquare } from "lucide-react";
+import { Play, RotateCcw } from "lucide-react";
 import CodePreview from "./CodePreview";
 import { log } from "../../../../shared/services";
 function computeDiffSegments(
@@ -246,42 +246,6 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
         }
     };
 
-    const askFollowup = useCallback(() => {
-        const baseline = followupBaselineRef.current;
-        if (!baseline) {
-            throw new Error("Follow-up baseline is undefined; coding template not initialized.");
-        }
-        if (baseline.trim().length === 0) {
-            throw new Error("Follow-up baseline is empty; coding template not initialized.");
-        }
-        try {
-            const current = currentCode;
-            // Build precise delta (added and removed) using jsdiff
-            const { added, removed } = computeDiffSegments(baseline, current);
-
-            const addedChars = added.length;
-            const removedChars = removed.length;
-
-            // Optional truncation to avoid oversized prompts
-            const truncate = (s: string, max = 2000) =>
-                s.length > max ? s.slice(0, max) + "\n... [truncated]" : s;
-
-            const payload = {
-                added: truncate(added),
-                removed: truncate(removed),
-                addedChars,
-                removedChars,
-            };
-
-            log.info("[Editor] Follow-up payload:", payload);
-            onAskFollowup?.(payload);
-            followupBaselineRef.current = current;
-        } catch (e) {
-            log.error(e);
-            throw e;
-        }
-    }, [currentCode, onAskFollowup]);
-
     if (showDiff) {
         return (
             <div className="h-full flex flex-col">
@@ -369,18 +333,6 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                     ))}
                 </div>
                 <div className="flex items-center space-x-2">
-                    <button
-                        onClick={askFollowup}
-                        disabled={readOnly}
-                        className={`p-2 text-sm rounded transition-all duration-200 hover:shadow-sm transform hover:scale-[1.02] flex items-center ${
-                            readOnly
-                                ? "bg-gray-200 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400"
-                                : "bg-gray-100 text-deep-slate hover:bg-gray-200 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
-                        }`}
-                        title="Ask one follow-up about recent changes"
-                    >
-                        <MessageSquare className="w-4 h-4" />
-                    </button>
                     <button
                         onClick={runCode}
                         className="p-2 text-sm bg-[#2463eb] text-white rounded hover:bg-[#1d4ed8] transition-all duration-200 hover:shadow-sm transform hover:scale-[1.02] flex items-center dark:bg-[#2463eb] dark:hover:bg-[#1d4ed8]"
