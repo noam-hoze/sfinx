@@ -48,7 +48,7 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
                 behavior: "smooth",
             });
         }
-    }, [transcriptions]);
+    }, [chat.messages.length]);
 
     return (
         <div className="h-full flex flex-col bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
