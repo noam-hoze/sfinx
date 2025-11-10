@@ -57,7 +57,7 @@ interface EditorPanelProps {
     readOnly?: boolean;
     onElevenLabsUpdate?: (text: string) => Promise<void>;
     updateKBVariables?: (updates: any) => Promise<void>;
-    onPasteDetected?: (pastedCode: string) => void;
+    onPasteDetected?: (pastedCode: string, timestamp: number) => void;
     onAskFollowup?: (payload: {
         added: string;
         removed: string;
@@ -104,8 +104,6 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     const previousCodeRef = useRef<string>(propCurrentCode);
     const lastChangeTimeRef = useRef<number>(0); // Start at 0 so first paste has large timeSinceLastChange
     const pasteStartTimeRef = useRef<number>(0);
-    const lastPasteDetectionTimeRef = useRef<number>(0);
-    const usingAITriggeredRef = useRef<boolean>(false);
 
     // Update local state when prop changes
     useEffect(() => {
@@ -200,35 +198,31 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                 const previousTime = lastChangeTimeRef.current;
                 const timeSinceLastChange = now - previousTime;
 
-                // Demo heuristic: fire once when a single change inserts >=80 chars
-                if (!usingAITriggeredRef.current) {
-                    if (charactersAdded >= 80) {
-                        usingAITriggeredRef.current = true;
+                // Track ALL burst inserts (>=80 chars) - no one-time limit
+                if (charactersAdded >= 80) {
+                    // Compute simple inserted segment between previousCode -> value
+                    const insertedSegment = computeInsertedSegment(
+                        previousCode,
+                        value
+                    );
+                    log.debug(
+                        "Inserted segment:",
+                        insertedSegment
+                    );
 
-                        // Compute simple inserted segment between previousCode -> value
-                        const insertedSegment = computeInsertedSegment(
-                            previousCode,
-                            value
-                        );
-                        log.debug(
-                            "Inserted segment (demo):",
-                            insertedSegment
-                        );
-
-                        log.info(
-                            "🚨 Burst insert detected - setting using_ai: true (demo, one-time)",
-                            { insertedLength: charactersAdded }
-                        );
-                        
-                        // Voice mode: update KB variables
-                        updateKBVariables?.({
-                            using_ai: true,
-                            ai_added_code: insertedSegment,
-                        });
-                        
-                        // Text mode: direct callback
-                        onPasteDetected?.(insertedSegment);
-                    }
+                    log.info(
+                        "🚨 Burst insert detected - external tool usage",
+                        { insertedLength: charactersAdded, timestamp: now }
+                    );
+                    
+                    // Voice mode: update KB variables
+                    updateKBVariables?.({
+                        using_ai: true,
+                        ai_added_code: insertedSegment,
+                    });
+                    
+                    // Text mode: direct callback with timestamp
+                    onPasteDetected?.(insertedSegment, now);
                 }
 
                 // Update refs

@@ -175,6 +175,7 @@ model InterviewSession {
   messages           ConversationMessage[]
   iterations         Iteration[]
   debugLoops         DebugLoop[]
+  externalToolUsages ExternalToolUsage[]
 }
 
 model TelemetryData {
@@ -199,15 +200,16 @@ model TelemetryData {
 }
 
 model WorkstyleMetrics {
-  id               String        @id @default(cuid())
-  telemetryDataId  String        @unique
-  iterationSpeed   Int?
-  debugLoops       Int?
-  refactorCleanups Int?
-  aiAssistUsage    Int?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  telemetryData    TelemetryData @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
+  id                String        @id @default(cuid())
+  telemetryDataId   String        @unique
+  iterationSpeed    Int?
+  debugLoops        Int?
+  refactorCleanups  Int?
+  aiAssistUsage     Int?
+  externalToolUsage Int?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  telemetryData     TelemetryData @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
 }
 
 model GapAnalysis {
@@ -369,10 +371,49 @@ model DebugLoop {
   @@index([interviewSessionId])
 }
 
+/// Tracks external tool usage (pasted code from AI, Stack Overflow, etc.).
+model ExternalToolUsage {
+  id                    String            @id @default(cuid())
+  interviewSessionId    String
+  /// Timestamp when paste occurred.
+  timestamp             DateTime          @default(now())
+  /// Content that was pasted.
+  pastedContent         String
+  /// Character count of paste.
+  characterCount        Int
+  /// AI's followup question about the pasted code.
+  aiQuestion            String
+  /// Timestamp when AI asked the question.
+  aiQuestionTimestamp   DateTime
+  /// User's answer to AI's question.
+  userAnswer            String
+  /// Timestamp when user answered.
+  userAnswerTimestamp   DateTime
+  /// OpenAI evaluation of understanding.
+  understanding         UnderstandingLevel
+  /// Accountability score (0-100).
+  accountabilityScore   Int
+  /// OpenAI reasoning for evaluation.
+  reasoning             String
+  /// Caption for video evidence.
+  caption               String
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  interviewSession      InterviewSession  @relation(fields: [interviewSessionId], references: [id], onDelete: Cascade)
+
+  @@index([interviewSessionId])
+}
+
 enum IterationResult {
   CORRECT
   PARTIAL
   INCORRECT
+}
+
+enum UnderstandingLevel {
+  FULL
+  PARTIAL
+  NONE
 }
 
 enum ApplicationStatus {
@@ -388,4 +429,5 @@ enum EvidenceCategory {
   DEBUG_LOOP
   REFACTOR_CLEANUPS
   AI_ASSIST_USAGE
+  EXTERNAL_TOOL_USAGE
 }
