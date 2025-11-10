@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { Loader2 } from "lucide-react";
 
 function shouldHideStartButton(): boolean {
@@ -158,6 +159,17 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
                     visible ? "opacity-100" : "opacity-0"
                 }`}
             >
+                {/* Sfinx Avatar - centered above content */}
+                <div className="mb-6">
+                    <Image
+                        src="/sfinx-avatar.png"
+                        alt="Sfinx"
+                        width={120}
+                        height={120}
+                        className="mx-auto rounded-full"
+                    />
+                </div>
+
                 {stage === "submitted" ? (
                     <div className="px-6">
                         <div className="mb-8">
