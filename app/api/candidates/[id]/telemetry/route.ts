@@ -346,21 +346,21 @@ export async function GET(request: NextRequest, context: RouteContext) {
                                   tpe: 1,
                               },
                               aiAssistUsage: {
-                                  value: telemetry.workstyleMetrics.aiAssistUsage,
+                                  value: telemetry.workstyleMetrics.externalToolUsage,
                                   level:
-                                      telemetry.workstyleMetrics.aiAssistUsage <= 20
+                                      telemetry.workstyleMetrics.externalToolUsage <= 20
                                           ? "Minimal"
-                                          : telemetry.workstyleMetrics.aiAssistUsage <= 50
+                                          : telemetry.workstyleMetrics.externalToolUsage <= 50
                                           ? "Moderate"
                                           : "High",
                                   color:
-                                      telemetry.workstyleMetrics.aiAssistUsage <= 20
+                                      telemetry.workstyleMetrics.externalToolUsage <= 20
                                           ? "white"
-                                          : telemetry.workstyleMetrics.aiAssistUsage <= 50
+                                          : telemetry.workstyleMetrics.externalToolUsage <= 50
                                           ? "yellow"
                                           : "red",
                                   isFairnessFlag:
-                                      telemetry.workstyleMetrics.aiAssistUsage > 50,
+                                      telemetry.workstyleMetrics.externalToolUsage > 50,
                                   evidenceLinks: aiAssistUsageLinks,
                                   // TPE center value (counts scale)
                                   tpe: 1,
@@ -489,7 +489,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
                     body.workstyle.refactorCleanups.value;
             }
             if (body.workstyle.aiAssistUsage?.value !== undefined) {
-                workstyleData.aiAssistUsage = body.workstyle.aiAssistUsage.value;
+                workstyleData.externalToolUsage = body.workstyle.aiAssistUsage.value;
             }
 
             if (Object.keys(workstyleData).length > 0) {
