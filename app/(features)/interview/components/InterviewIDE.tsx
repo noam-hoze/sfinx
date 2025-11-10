@@ -712,6 +712,16 @@ const InterviewerContent = () => {
                                 readOnly={!isCodingStarted}
                                 onElevenLabsUpdate={onElevenLabsUpdate}
                                 updateKBVariables={updateKBVariables}
+                                onPasteDetected={(pastedCode) => {
+                                    if (isTextMode) {
+                                        try {
+                                            const ref = realTimeConversationRef.current;
+                                            if (ref?.handlePasteDetected) {
+                                                ref.handlePasteDetected(pastedCode);
+                                            }
+                                        } catch {}
+                                    }
+                                }}
                                 onAskFollowup={(payload) => {
                                     try {
                                         const ref =

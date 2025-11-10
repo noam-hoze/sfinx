@@ -32,6 +32,10 @@ import {
   generateAssistantReply,
   runBackgroundControl,
 } from "./openAITextConversationHelpers";
+import {
+  buildControlContextMessages,
+  CONTROL_CONTEXT_TURNS,
+} from "../../../../shared/services";
 
 type Props = {
   candidateName: string;
@@ -41,6 +45,7 @@ type Props = {
   onGreetingDelivered?: () => void;
   onInterviewConcluded?: (delayMs?: number) => void;
   setInputLocked?: (locked: boolean) => void;
+  onPasteDetected?: (pastedCode: string) => void;
 };
 
 const OpenAITextConversation = forwardRef<any, Props>(
@@ -52,6 +57,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
     onGreetingDelivered,
     onInterviewConcluded,
     setInputLocked,
+    onPasteDetected,
   }, ref) => {
     if (!candidateName) {
       throw new Error("OpenAITextConversation requires a candidateName");
@@ -199,6 +205,65 @@ const OpenAITextConversation = forwardRef<any, Props>(
         }
       },
       [dispatch, onGreetingDelivered, setInputLocked, openaiClient, post]
+    );
+
+    /** Handle paste detection during coding stage */
+    const handlePasteDetected = useCallback(
+      async (pastedCode: string) => {
+        const ms = store.getState().interviewMachine;
+        if (ms.state !== "in_coding_session") return;
+        
+        try {
+          /* eslint-disable no-console */ console.log("[coding][paste_detected]", { pastedCode });
+        } catch {}
+        
+        // Get coding context
+        const codingPrompt = scriptRef.current?.codingPrompt;
+        const codingAnswer = scriptRef.current?.codingAnswer;
+        const codingTemplate = scriptRef.current?.codingTemplate;
+        
+        if (!codingPrompt || !codingAnswer || !codingTemplate) {
+          /* eslint-disable no-console */ console.error("[coding] Missing coding context for paste followup");
+          return;
+        }
+        
+        // Build system prompt
+        const companyName = ms.companyName || "Company";
+        const codingPersona = buildOpenAICodingPrompt(companyName, codingPrompt);
+        
+        const systemPrompt = `${codingPersona}
+
+Reference Information:
+Starting Template:
+${codingTemplate}
+
+Expected Solution:
+${codingAnswer}
+
+The candidate just pasted code into the editor:
+${pastedCode}
+
+Ask one short, relevant follow-up question about the pasted code to understand their reasoning. Keep it to 1-2 sentences.`;
+        
+        // Get conversation history
+        const historyMessages = buildControlContextMessages(CONTROL_CONTEXT_TURNS);
+        
+        // Generate AI question
+        const question = await askViaChatCompletion(
+          openaiClient,
+          systemPrompt,
+          historyMessages
+        );
+        
+        if (question) {
+          post(question, "ai");
+          dispatch(machineAiFinal({ text: question }));
+          try {
+            /* eslint-disable no-console */ console.log("[coding][paste_followup]", question);
+          } catch {}
+        }
+      },
+      [dispatch, openaiClient, post]
     );
 
     /** Injects the coding prompt once the guard advances into the coding session. */
@@ -529,6 +594,63 @@ const OpenAITextConversation = forwardRef<any, Props>(
           }
           return;
         }
+
+        // Handle coding stage messages
+        if (ms.state === "in_coding_session") {
+          try {
+            /* eslint-disable no-console */ console.log("[coding][user_message]", text);
+          } catch {}
+          
+          // Get coding context from script
+          const codingPrompt = scriptRef.current?.codingPrompt;
+          const codingAnswer = scriptRef.current?.codingAnswer;
+          const codingTemplate = scriptRef.current?.codingTemplate;
+          
+          if (!codingPrompt || !codingAnswer || !codingTemplate) {
+            /* eslint-disable no-console */ console.error("[coding] Missing coding context from script");
+            setInputLocked?.(false);
+            return;
+          }
+          
+          // Build system prompt with coding persona
+          const companyName = ms.companyName || "Company";
+          const codingPersona = buildOpenAICodingPrompt(companyName, codingPrompt);
+          
+          // Add context about template and expected answer to the system prompt
+          const systemPrompt = `${codingPersona}
+
+Reference Information:
+Starting Template:
+${codingTemplate}
+
+Expected Solution:
+${codingAnswer}
+
+The candidate is working on this task. Respond to their question while following the behavioral rules above.`;
+          
+          // Get conversation history (last 30 messages)
+          const historyMessages = buildControlContextMessages(CONTROL_CONTEXT_TURNS);
+          
+          // Generate AI response using chat completions
+          const reply = await askViaChatCompletion(
+            openaiClient,
+            systemPrompt,
+            historyMessages
+          );
+          
+          if (reply) {
+            post(reply, "ai");
+            dispatch(machineAiFinal({ text: reply }));
+            setInputLocked?.(false);
+            try {
+              /* eslint-disable no-console */ console.log("[coding][ai_response]", reply);
+            } catch {}
+          } else {
+            setInputLocked?.(false);
+          }
+          
+          return;
+        }
       },
       [clearPendingState, deliverAssistantPrompt, dispatch, setInputLocked, openaiClient, post]
     );
@@ -615,6 +737,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
       startConversation,
       sendUserMessage,
       sayClosingLine,
+      handlePasteDetected,
     }));
 
     return null;

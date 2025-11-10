@@ -57,6 +57,7 @@ interface EditorPanelProps {
     readOnly?: boolean;
     onElevenLabsUpdate?: (text: string) => Promise<void>;
     updateKBVariables?: (updates: any) => Promise<void>;
+    onPasteDetected?: (pastedCode: string) => void;
     onAskFollowup?: (payload: {
         added: string;
         removed: string;
@@ -81,6 +82,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     readOnly = false,
     onElevenLabsUpdate,
     updateKBVariables,
+    onPasteDetected,
     onAskFollowup,
 }) => {
     if (propCurrentCode === undefined) {
@@ -212,10 +214,15 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                             "🚨 Burst insert detected - setting using_ai: true (demo, one-time)",
                             { insertedLength: charactersAdded }
                         );
+                        
+                        // Voice mode: update KB variables
                         updateKBVariables?.({
                             using_ai: true,
                             ai_added_code: insertedSegment,
                         });
+                        
+                        // Text mode: direct callback
+                        onPasteDetected?.(insertedSegment);
                     }
                 }
 
@@ -230,7 +237,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                 onCodeChange?.(value);
             }
         },
-        [onCodeChange, updateKBVariables]
+        [onCodeChange, updateKBVariables, onPasteDetected]
     );
 
     const runCode = () => {
