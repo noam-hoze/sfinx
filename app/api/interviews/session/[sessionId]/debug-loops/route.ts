@@ -91,6 +91,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
                     data: {
                         telemetryDataId: telemetryData.id,
                         debugLoops: 1,
+                        externalToolUsage: 0,
                     },
                 });
                 log.info("[DEBUG LOOP API] WorkstyleMetrics created");

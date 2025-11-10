@@ -113,6 +113,7 @@ export async function POST(request: NextRequest) {
                 await tx.workstyleMetrics.create({
                     data: {
                         telemetryDataId: telemetry.id,
+                        externalToolUsage: 0,
                     } as any,
                 });
                 log.info("✅ [TX] WorkstyleMetrics created for telemetry", {
