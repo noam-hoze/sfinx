@@ -6,13 +6,18 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 
 function CompanyViewContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const candidateId = searchParams.get("candidateId");
     const applicationId = searchParams.get("applicationId");
+
+    // Prefetch CPS page in background for instant navigation
+    useEffect(() => {
+        router.prefetch(`/cps?demo=true&candidateId=${candidateId}&applicationId=${applicationId}`);
+    }, [router, candidateId, applicationId]);
 
     const handleViewReport = () => {
         router.push(`/cps?demo=true&candidateId=${candidateId}&applicationId=${applicationId}`);
