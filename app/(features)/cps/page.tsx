@@ -34,7 +34,7 @@ function TelemetryContent() {
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
     const [saveSuccess, setSaveSuccess] = useState(false);
     const [storyExpanded, setStoryExpanded] = useState(false);
-    const [mainContentTab, setMainContentTab] = useState<"summary" | "evidence" | "improvement">("summary");
+    const [mainContentTab, setMainContentTab] = useState<"summary" | "evidence" | "improvement">("evidence");
     const [seriesVisible, setSeriesVisible] = useState({
         match: true,
         iter: false,
@@ -698,20 +698,20 @@ function TelemetryContent() {
                             )}
                             <div className="bg-white/60 border border-white/40 rounded-lg p-1 text-xs">
                                 <button
-                                    onClick={() => setMainContentTab("summary")}
-                                    className={`${
-                                        mainContentTab === "summary" ? "bg-blue-500 text-white" : "text-gray-700"
-                                    } px-2 py-1 rounded`}
-                                >
-                                    Summary
-                                </button>
-                                <button
                                     onClick={() => setMainContentTab("evidence")}
                                     className={`${
                                         mainContentTab === "evidence" ? "bg-blue-500 text-white" : "text-gray-700"
-                                    } px-2 py-1 rounded ml-1`}
+                                    } px-2 py-1 rounded`}
                                 >
                                     Evidence
+                                </button>
+                                <button
+                                    onClick={() => setMainContentTab("summary")}
+                                    className={`${
+                                        mainContentTab === "summary" ? "bg-blue-500 text-white" : "text-gray-700"
+                                    } px-2 py-1 rounded ml-1`}
+                                >
+                                    Summary
                                 </button>
                                 <button
                                     onClick={() => setMainContentTab("improvement")}
