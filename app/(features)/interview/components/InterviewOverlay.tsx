@@ -144,7 +144,7 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
                             Interview Started!
                         </h2>
                         <p className="mt-2 text-base md:text-lg text-gray-600 dark:text-gray-300">
-                            just speak naturally 😎
+                            {isTextMode ? "Use the chatbox on the right to talk with Carrie, your AI interviewer 💬" : "just speak naturally 😎"}
                         </p>
                     </>
                 ) : stage === "wrapping" ? (
