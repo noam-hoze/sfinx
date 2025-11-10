@@ -360,7 +360,7 @@ const InterviewerContent = () => {
             await insertRecordingUrl();
             await stateMachineHandleSubmission(state.currentCode);
             
-            // Generate coding gaps from session data
+            // Generate coding gaps and summary from session data
             if (interviewSessionId && interviewScript) {
                 logger.info("Generating coding gaps for session:", interviewSessionId);
                 try {
@@ -383,6 +383,30 @@ const InterviewerContent = () => {
                     }
                 } catch (gapsError) {
                     logger.error("Error generating coding gaps:", gapsError);
+                }
+
+                // Generate coding summary
+                logger.info("Generating coding summary for session:", interviewSessionId);
+                try {
+                    const summaryResponse = await fetch("/api/interviews/generate-coding-summary", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            sessionId: interviewSessionId,
+                            finalCode: state.currentCode,
+                            codingTask: interviewScript.codingPrompt,
+                            expectedSolution: interviewScript.codingAnswer,
+                        }),
+                    });
+                    
+                    if (summaryResponse.ok) {
+                        const summaryData = await summaryResponse.json();
+                        logger.info("✅ Coding summary generated");
+                    } else {
+                        logger.error("Failed to generate coding summary:", summaryResponse.status);
+                    }
+                } catch (summaryError) {
+                    logger.error("Error generating coding summary:", summaryError);
                 }
             }
             

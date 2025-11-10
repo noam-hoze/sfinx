@@ -5,7 +5,7 @@ import path from "path";
 import { PrismaClient } from "@prisma/client";
 import { z } from "zod";
 import { seedBasicCandidate, ensureApplicationForCompany } from "../seed-utils";
-import { log } from "app/shared/services";
+import { log } from "app/shared/services/logger";
 
 const prisma = new PrismaClient();
 

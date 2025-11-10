@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 
 import { seedCandidateFromFile } from "./seed-candidate-from-json";
-import { log } from "app/shared/services";
+import { log } from "app/shared/services/logger";
 
 export async function seedGalSession3() {
     await seedCandidateFromFile("server/db-scripts/data/gal_session3.json", {

@@ -10,6 +10,7 @@ import WorkstyleDashboard from "./components/WorkstyleDashboard";
 import ImprovementChart from "./components/ImprovementChart";
 import TextSummary from "./components/TextSummary";
 import SummaryOverlay from "./components/SummaryOverlay";
+import CodingSummaryOverlay from "./components/CodingSummaryOverlay";
 import { AuthGuard } from "app/shared/components";
 import { log } from "app/shared/services";
 
@@ -35,7 +36,7 @@ function TelemetryContent() {
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
     const [saveSuccess, setSaveSuccess] = useState(false);
     const [storyExpanded, setStoryExpanded] = useState(false);
-    const [mainContentTab, setMainContentTab] = useState<"summary" | "evidence" | "improvement">("evidence");
+    const [mainContentTab, setMainContentTab] = useState<"summary" | "evidence" | "improvement" | "coding">("evidence");
     const [seriesVisible, setSeriesVisible] = useState({
         match: true,
         iter: false,
@@ -43,7 +44,9 @@ function TelemetryContent() {
         ai: false,
     });
     const [backgroundSummary, setBackgroundSummary] = useState<any>(null);
+    const [codingSummary, setCodingSummary] = useState<any>(null);
     const [summaryLoading, setSummaryLoading] = useState(false);
+    const [codingSummaryLoading, setCodingSummaryLoading] = useState(false);
 
     useEffect(() => {
         const fetchTelemetryData = async () => {
@@ -140,6 +143,38 @@ function TelemetryContent() {
         };
 
         fetchBackgroundSummary();
+    }, [activeSessionIndex, sessions]);
+
+    // Fetch coding summary for active session
+    useEffect(() => {
+        const fetchCodingSummary = async () => {
+            const sessionId = activeSession?.id;
+            if (!sessionId || sessionId === "single") {
+                setCodingSummary(null);
+                return;
+            }
+
+            try {
+                setCodingSummaryLoading(true);
+                const response = await fetch(
+                    `/api/interviews/session/${sessionId}/coding-summary`
+                );
+
+                if (response.ok) {
+                    const data = await response.json();
+                    setCodingSummary(data.summary);
+                } else {
+                    setCodingSummary(null);
+                }
+            } catch (error) {
+                log.error("Error fetching coding summary:", error);
+                setCodingSummary(null);
+            } finally {
+                setCodingSummaryLoading(false);
+            }
+        };
+
+        fetchCodingSummary();
     }, [activeSessionIndex, sessions]);
 
     const { candidate } = telemetryData || {};
@@ -722,6 +757,14 @@ function TelemetryContent() {
                                 >
                                     Improvement
                                 </button>
+                                <button
+                                    onClick={() => setMainContentTab("coding")}
+                                    className={`${
+                                        mainContentTab === "coding" ? "bg-blue-500 text-white" : "text-gray-700"
+                                    } px-2 py-1 rounded ml-1`}
+                                >
+                                    Coding
+                                </button>
                             </div>
                         </div>
                         <div className="flex-1">
@@ -783,7 +826,7 @@ function TelemetryContent() {
                                         videoUrl={videoUrl}
                                         duration={duration}
                                         chapters={chapters}
-                                        paused={mainContentTab === "summary"}
+                                        paused={mainContentTab === "summary" || mainContentTab === "coding"}
                                     />
                                     {mainContentTab === "summary" && (
                                         <>
@@ -814,6 +857,36 @@ function TelemetryContent() {
                                             ) : (
                                                 <div className="absolute inset-0 bg-white z-10 flex items-center justify-center">
                                                     <p className="text-gray-600">No background summary available for this session.</p>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                    {mainContentTab === "coding" && (
+                                        <>
+                                            {codingSummaryLoading ? (
+                                                <div className="absolute inset-0 bg-white z-10 flex items-center justify-center">
+                                                    <p className="text-gray-600">Loading coding summary...</p>
+                                                </div>
+                                            ) : codingSummary ? (
+                                                <CodingSummaryOverlay
+                                                    executiveSummary={codingSummary.executiveSummary}
+                                                    recommendation={codingSummary.recommendation}
+                                                    codeQuality={{
+                                                        score: codingSummary.codeQuality.score,
+                                                        text: codingSummary.codeQuality.text,
+                                                    }}
+                                                    problemSolving={{
+                                                        score: codingSummary.problemSolving.score,
+                                                        text: codingSummary.problemSolving.text,
+                                                    }}
+                                                    independence={{
+                                                        score: codingSummary.independence.score,
+                                                        text: codingSummary.independence.text,
+                                                    }}
+                                                />
+                                            ) : (
+                                                <div className="absolute inset-0 bg-white z-10 flex items-center justify-center">
+                                                    <p className="text-gray-600">No coding summary available for this session.</p>
                                                 </div>
                                             )}
                                         </>

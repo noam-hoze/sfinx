@@ -197,6 +197,7 @@ model TelemetryData {
   videoChapters      VideoChapter[]
   workstyleMetrics   WorkstyleMetrics?
   backgroundSummary  BackgroundSummary?
+  codingSummary      CodingSummary?
 }
 
 model WorkstyleMetrics {
@@ -302,6 +303,23 @@ model BackgroundSummary {
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   telemetryData     TelemetryData @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
+}
+
+model CodingSummary {
+  id                  String        @id @default(cuid())
+  telemetryDataId     String        @unique
+  executiveSummary    String
+  recommendation      String?
+  codeQualityScore    Int
+  codeQualityText     String
+  problemSolvingScore Int
+  problemSolvingText  String
+  independenceScore   Int
+  independenceText    String
+  generatedAt         DateTime      @default(now())
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  telemetryData       TelemetryData @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
 }
 
 enum UserRole {

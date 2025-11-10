@@ -3,7 +3,7 @@
 import { config } from "dotenv";
 import { execSync } from "child_process";
 import { PrismaClient } from "@prisma/client";
-import { log } from "app/shared/services";
+import { log } from "app/shared/services/logger";
 
 // Load environment variables from .env file
 config();

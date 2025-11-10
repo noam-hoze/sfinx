@@ -489,6 +489,127 @@ Store in existing gaps tables (maintain current schema):
 
 ---
 
+# Step 6: Coding Summary Generation
+
+## Overview
+Generate a comprehensive narrative summary of the coding stage performance, similar to how `BackgroundSummary` works for the background stage. This summary will be displayed alongside the background summary in the Summary overlay on the CPS page.
+
+## Input to OpenAI
+Send complete coding session context:
+- **Iterations data**: All evaluations, attempts, time to solution, success rate
+- **Debug loops**: Count, depth, patterns, resolution times
+- **External tool usage**: Paste count, accountability scores, understanding levels
+- **Final code submission**: The candidate's final solution
+- **Coding task**: The original task they were solving
+- **Expected solution**: The reference answer
+- **Gaps**: Already generated major/minor gaps
+
+## OpenAI Evaluation
+System prompt: "Analyze the candidate's coding session performance and provide a comprehensive summary with scores. Return STRICT JSON only."
+
+**Response format:**
+```json
+{
+  "executiveSummary": "Overall narrative summary of coding performance",
+  "recommendation": "HIRE" | "NO HIRE" | "STRONG HIRE",
+  "codeQuality": {
+    "score": 0-100,
+    "text": "Detailed assessment of code quality, structure, and best practices"
+  },
+  "problemSolving": {
+    "score": 0-100,
+    "text": "Analysis of problem-solving approach, iterations, and debugging"
+  },
+  "independence": {
+    "score": 0-100,
+    "text": "Assessment of self-sufficiency vs external tool reliance"
+  }
+}
+```
+
+## DB Structure
+Add new model `CodingSummary` to `schema.prisma`:
+
+```prisma
+model CodingSummary {
+  id                  String        @id @default(cuid())
+  telemetryDataId     String        @unique
+  executiveSummary    String
+  recommendation      String?
+  codeQualityScore    Int
+  codeQualityText     String
+  problemSolvingScore Int
+  problemSolvingText  String
+  independenceScore   Int
+  independenceText    String
+  generatedAt         DateTime      @default(now())
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  telemetryData       TelemetryData @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
+}
+```
+
+## Display on CPS
+Add a new **"Coding"** tab to the CPS page (alongside Evidence, Summary, Improvement).
+
+**Tab Structure:**
+- **Evidence** tab - video reel (existing)
+- **Summary** tab - background summary (4 slides, existing)
+- **Improvement** tab - improvement chart (existing)
+- **Coding** tab - coding summary (4 slides, NEW)
+
+**Coding tab slide structure (4 slides):**
+- **Slide 1: Executive Summary + Recommendation** ← NEW
+- **Slide 2: Code Quality (score + text)** ← NEW
+- **Slide 3: Problem Solving (score + text)** ← NEW
+- **Slide 4: Independence (score + text)** ← NEW
+
+## Implementation Points
+1. **API Endpoint**: Create `/api/interviews/generate-coding-summary`
+   - Triggered after coding stage completion (same time as gaps generation)
+   - Gathers all coding metrics (iterations, debug loops, external tool usage)
+   - Sends to OpenAI with comprehensive context
+   - Stores result in `CodingSummary` table
+
+2. **Database Migration**:
+   - Add `CodingSummary` model to schema
+   - Add relation to `TelemetryData`
+   - Run migration
+
+3. **Trigger Integration**:
+   - Call from `InterviewIDE.tsx` on submission (alongside gaps generation)
+   - Pass all relevant coding session data
+
+4. **UI Updates**:
+   - Create new `CodingSummaryOverlay.tsx` component (duplicate of `SummaryOverlay.tsx` structure)
+   - Add "Coding" button to tab navigation in CPS page
+   - When "Coding" tab is active, show video with `CodingSummaryOverlay` on top
+   - Use same styling and navigation as `SummaryOverlay` (4 slides with prev/next)
+
+5. **API Integration**:
+   - Fetch `codingSummary` in `/api/candidates/[id]/telemetry` endpoint
+   - Include in response alongside `backgroundSummary`
+   - Pass to `CodingSummaryOverlay` component in CPS page when "Coding" tab is active
+
+## Files to Modify
+1. `server/prisma/schema.prisma` - add `CodingSummary` model
+2. New API endpoint: `/api/interviews/generate-coding-summary` - OpenAI evaluation
+3. `InterviewIDE.tsx` - trigger summary generation on submission
+4. New component: `app/(features)/cps/components/CodingSummaryOverlay.tsx` - coding summary presentation
+5. `app/(features)/cps/page.tsx` - add "Coding" tab and integrate overlay
+6. `/api/candidates/[id]/telemetry/route.ts` - fetch and return coding summary
+
+## Success Criteria
+- Coding summary generated automatically on interview submission
+- Summary stored in database with all required fields
+- CPS page has new "Coding" tab alongside Evidence, Summary, Improvement
+- Coding tab shows video with 4-slide overlay (Executive, Code Quality, Problem Solving, Independence)
+- Smooth navigation between slides with prev/next buttons
+- Consistent styling with existing Summary overlay
+- Video pauses when Coding tab is active
+
+---
+
 # Summary: Complete CPS Implementation
 
 ## Metrics Overview
