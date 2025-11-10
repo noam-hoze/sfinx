@@ -26,6 +26,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
         const { id } = await context.params;
         const candidateId = normalizeId(id);
 
+        log.info("[Telemetry API] GET request for candidateId:", candidateId);
+
         if (!candidateId) {
             return NextResponse.json(
                 { error: "Candidate id is required" },
@@ -33,15 +35,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
             );
         }
         const applicationId = request.nextUrl.searchParams.get("applicationId");
+        log.info("[Telemetry API] applicationId:", applicationId);
+        log.info("[Telemetry API] Prisma client status:", prisma ? "initialized" : "null");
 
         // Get all interview sessions for this candidate (newest first)
         let interviewSessions = await prisma.interviewSession.findMany({
             where: {
                 candidateId: candidateId,
                 ...(applicationId ? { applicationId } : {}),
-                telemetryData: {
-                    isNot: null,
-                },
             },
             include: {
                 telemetryData: {
@@ -102,6 +103,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
         const candidate = interviewSessions[0].candidate;
 
+        log.info("[Telemetry API] Found candidate:", candidate?.id, "Sessions:", interviewSessions.length);
+
         // Fetch iterations for all sessions to generate evidence links
         const sessionIds = interviewSessions.map((s: any) => s.id);
         const allIterations = await prisma.iteration.findMany({
@@ -128,192 +131,207 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
         // Transform sessions array
         const sessions = interviewSessions.map((session: any) => {
-            const telemetry = session.telemetryData;
-            const evidenceClips = telemetry.evidenceClips || [];
-            const sessionIterations = iterationsBySession.get(session.id) || [];
+            try {
+                log.info("[Telemetry API] Processing session:", session.id, "videoUrl from DB:", session.videoUrl);
+                const telemetry = session.telemetryData;
+                const evidenceClips = telemetry?.evidenceClips || [];
+                const sessionIterations = iterationsBySession.get(session.id) || [];
 
-            const iterationSpeedLinks: number[] = [];
-            const debugLoopsLinks: number[] = [];
-            const refactorCleanupsLinks: number[] = [];
-            const aiAssistUsageLinks: number[] = [];
+                const iterationSpeedLinks: number[] = [];
+                const debugLoopsLinks: number[] = [];
+                const refactorCleanupsLinks: number[] = [];
+                const aiAssistUsageLinks: number[] = [];
 
-            // Add iteration evidence links (calculate video offset from recordingStartedAt)
-            if (session.recordingStartedAt) {
-                sessionIterations.forEach((iter: any) => {
-                    const videoOffset = (new Date(iter.timestamp).getTime() - new Date(session.recordingStartedAt).getTime()) / 1000;
-                    if (videoOffset >= 0) {
-                        iterationSpeedLinks.push(videoOffset);
+                // Add iteration evidence links (calculate video offset from recordingStartedAt)
+                if (session.recordingStartedAt) {
+                    sessionIterations.forEach((iter: any) => {
+                        const videoOffset = (new Date(iter.timestamp).getTime() - new Date(session.recordingStartedAt).getTime()) / 1000;
+                        if (videoOffset >= 0) {
+                            iterationSpeedLinks.push(videoOffset);
+                        }
+                    });
+                }
+
+                evidenceClips.forEach((clip: any) => {
+                    if (clip.startTime === null || clip.startTime === undefined)
+                        return;
+                    // Prefer explicit category if available; fallback to title heuristics
+                    if (
+                        clip.category === "ITERATION_SPEED" ||
+                        clip.title.includes("Iteration Speed")
+                    ) {
+                        iterationSpeedLinks.push(clip.startTime);
+                    }
+                    if (
+                        clip.category === "DEBUG_LOOP" ||
+                        clip.title.includes("Debug Loop")
+                    ) {
+                        debugLoopsLinks.push(clip.startTime);
+                    }
+                    if (
+                        clip.category === "REFACTOR_CLEANUPS" ||
+                        clip.title.includes("Refactor")
+                    ) {
+                        refactorCleanupsLinks.push(clip.startTime);
+                    }
+                    if (
+                        clip.category === "AI_ASSIST_USAGE" ||
+                        clip.title.includes("AI Assist")
+                    ) {
+                        aiAssistUsageLinks.push(clip.startTime);
                     }
                 });
-            }
 
-            evidenceClips.forEach((clip: any) => {
-                if (clip.startTime === null || clip.startTime === undefined)
-                    return;
-                // Prefer explicit category if available; fallback to title heuristics
-                if (
-                    clip.category === "ITERATION_SPEED" ||
-                    clip.title.includes("Iteration Speed")
-                ) {
-                    iterationSpeedLinks.push(clip.startTime);
-                }
-                if (
-                    clip.category === "DEBUG_LOOP" ||
-                    clip.title.includes("Debug Loop")
-                ) {
-                    debugLoopsLinks.push(clip.startTime);
-                }
-                if (
-                    clip.category === "REFACTOR_CLEANUPS" ||
-                    clip.title.includes("Refactor")
-                ) {
-                    refactorCleanupsLinks.push(clip.startTime);
-                }
-                if (
-                    clip.category === "AI_ASSIST_USAGE" ||
-                    clip.title.includes("AI Assist")
-                ) {
-                    aiAssistUsageLinks.push(clip.startTime);
-                }
-            });
-
-            return {
-                id: session.id,
-                createdAt: session.createdAt,
-                videoUrl: session.videoUrl,
-                duration: session.duration,
-                matchScore: telemetry.matchScore,
-                confidence: telemetry.confidence,
-                story: telemetry.story,
-                gaps: {
-                    gaps:
-                        telemetry.gapAnalysis?.gaps.map((gap: any) => ({
-                            severity: gap.severity,
-                            description: gap.description,
-                            color: gap.color,
-                            evidenceLinks: gap.evidenceLinks,
+                return {
+                    id: session.id,
+                    createdAt: session.createdAt,
+                    videoUrl: session.videoUrl,
+                    duration: session.duration,
+                    matchScore: telemetry?.matchScore ?? null,
+                    confidence: telemetry?.confidence ?? null,
+                    story: telemetry?.story ?? null,
+                    gaps: {
+                        gaps:
+                            telemetry?.gapAnalysis?.gaps.map((gap: any) => ({
+                                severity: gap.severity,
+                                description: gap.description,
+                                color: gap.color,
+                                evidenceLinks: gap.evidenceLinks,
+                            })) || [],
+                    },
+                    evidence: telemetry?.evidenceClips?.map((clip: any) => ({
+                        id: clip.id,
+                        title: clip.title,
+                        thumbnailUrl: clip.thumbnailUrl,
+                        duration: clip.duration,
+                        description: clip.description,
+                        startTime: clip.startTime,
+                    })) || [],
+                    chapters: telemetry?.videoChapters?.map((chapter: any) => ({
+                        id: chapter.id,
+                        title: chapter.title,
+                        startTime: chapter.startTime,
+                        endTime: chapter.endTime,
+                        description: chapter.description,
+                        thumbnailUrl: chapter.thumbnailUrl,
+                        captions: chapter.captions?.map((caption: any) => ({
+                            text: caption.text,
+                            startTime: caption.startTime,
+                            endTime: caption.endTime,
                         })) || [],
-                },
-                evidence: telemetry.evidenceClips.map((clip: any) => ({
-                    id: clip.id,
-                    title: clip.title,
-                    thumbnailUrl: clip.thumbnailUrl,
-                    duration: clip.duration,
-                    description: clip.description,
-                    startTime: clip.startTime,
-                })),
-                chapters: telemetry.videoChapters.map((chapter: any) => ({
-                    id: chapter.id,
-                    title: chapter.title,
-                    startTime: chapter.startTime,
-                    endTime: chapter.endTime,
-                    description: chapter.description,
-                    thumbnailUrl: chapter.thumbnailUrl,
-                    captions: chapter.captions.map((caption: any) => ({
-                        text: caption.text,
-                        startTime: caption.startTime,
-                        endTime: caption.endTime,
-                    })),
-                })),
-                workstyle: telemetry.workstyleMetrics
-                    ? {
-                          iterationSpeed: {
-                              value: telemetry.workstyleMetrics.iterationSpeed,
-                              level:
-                                  telemetry.workstyleMetrics.iterationSpeed >= 10
-                                      ? "High"
-                                      : telemetry.workstyleMetrics.iterationSpeed >= 5
-                                      ? "Moderate"
-                                      : "Low",
-                              color:
-                                  telemetry.workstyleMetrics.iterationSpeed >= 10
-                                      ? "blue"
-                                      : telemetry.workstyleMetrics.iterationSpeed >= 5
-                                      ? "yellow"
-                                      : "red",
-                              evidenceLinks: iterationSpeedLinks,
-                              tpe: telemetry.workstyleMetrics.iterationSpeed || 0,
-                          },
-                          debugLoops: {
-                              value: telemetry.workstyleMetrics.debugLoops,
-                              level:
-                                  telemetry.workstyleMetrics.debugLoops <= 30
-                                      ? "Fast"
-                                      : telemetry.workstyleMetrics.debugLoops <= 60
-                                      ? "Moderate"
-                                      : "Slow",
-                              color:
-                                  telemetry.workstyleMetrics.debugLoops <= 30
-                                      ? "blue"
-                                      : telemetry.workstyleMetrics.debugLoops <= 60
-                                      ? "yellow"
-                                      : "red",
-                              evidenceLinks: debugLoopsLinks,
-                              // TPE center value (counts scale)
-                              tpe: 1,
-                          },
-                          refactorCleanups: {
-                              value: telemetry.workstyleMetrics.refactorCleanups,
-                              level:
-                                  telemetry.workstyleMetrics.refactorCleanups >= 80
-                                      ? "Strong"
-                                      : telemetry.workstyleMetrics.refactorCleanups >= 60
-                                      ? "Moderate"
-                                      : "Weak",
-                              color:
-                                  telemetry.workstyleMetrics.refactorCleanups >= 80
-                                      ? "blue"
-                                      : telemetry.workstyleMetrics.refactorCleanups >= 60
-                                      ? "yellow"
-                                      : "red",
-                              evidenceLinks: refactorCleanupsLinks,
-                              // TPE center value (counts scale)
-                              tpe: 1,
-                          },
-                          aiAssistUsage: {
-                              value: telemetry.workstyleMetrics.aiAssistUsage,
-                              level:
-                                  telemetry.workstyleMetrics.aiAssistUsage <= 20
-                                      ? "Minimal"
-                                      : telemetry.workstyleMetrics.aiAssistUsage <= 50
-                                      ? "Moderate"
-                                      : "High",
-                              color:
-                                  telemetry.workstyleMetrics.aiAssistUsage <= 20
-                                      ? "white"
-                                      : telemetry.workstyleMetrics.aiAssistUsage <= 50
-                                      ? "yellow"
-                                      : "red",
-                              isFairnessFlag:
-                                  telemetry.workstyleMetrics.aiAssistUsage > 50,
-                              evidenceLinks: aiAssistUsageLinks,
-                              // TPE center value (counts scale)
-                              tpe: 1,
-                          },
-                      }
-                    : null,
-                hasFairnessFlag: telemetry.hasFairnessFlag,
-                // Include new analytics series (may be empty arrays)
-                persistenceFlow: telemetry.persistenceFlow || [],
-                learningToAction: telemetry.learningToAction || [],
-                confidenceCurve: telemetry.confidenceCurve || [],
-            };
+                    })) || [],
+                    workstyle: telemetry?.workstyleMetrics
+                        ? {
+                              iterationSpeed: {
+                                  value: telemetry.workstyleMetrics.iterationSpeed,
+                                  level:
+                                      telemetry.workstyleMetrics.iterationSpeed >= 10
+                                          ? "High"
+                                          : telemetry.workstyleMetrics.iterationSpeed >= 5
+                                          ? "Moderate"
+                                          : "Low",
+                                  color:
+                                      telemetry.workstyleMetrics.iterationSpeed >= 10
+                                          ? "blue"
+                                          : telemetry.workstyleMetrics.iterationSpeed >= 5
+                                          ? "yellow"
+                                          : "red",
+                                  evidenceLinks: iterationSpeedLinks,
+                                  tpe: telemetry.workstyleMetrics.iterationSpeed || 0,
+                              },
+                              debugLoops: {
+                                  value: telemetry.workstyleMetrics.debugLoops,
+                                  level:
+                                      telemetry.workstyleMetrics.debugLoops <= 30
+                                          ? "Fast"
+                                          : telemetry.workstyleMetrics.debugLoops <= 60
+                                          ? "Moderate"
+                                          : "Slow",
+                                  color:
+                                      telemetry.workstyleMetrics.debugLoops <= 30
+                                          ? "blue"
+                                          : telemetry.workstyleMetrics.debugLoops <= 60
+                                          ? "yellow"
+                                          : "red",
+                                  evidenceLinks: debugLoopsLinks,
+                                  // TPE center value (counts scale)
+                                  tpe: 1,
+                              },
+                              refactorCleanups: {
+                                  value: telemetry.workstyleMetrics.refactorCleanups,
+                                  level:
+                                      telemetry.workstyleMetrics.refactorCleanups >= 80
+                                          ? "Strong"
+                                          : telemetry.workstyleMetrics.refactorCleanups >= 60
+                                          ? "Moderate"
+                                          : "Weak",
+                                  color:
+                                      telemetry.workstyleMetrics.refactorCleanups >= 80
+                                          ? "blue"
+                                          : telemetry.workstyleMetrics.refactorCleanups >= 60
+                                          ? "yellow"
+                                          : "red",
+                                  evidenceLinks: refactorCleanupsLinks,
+                                  // TPE center value (counts scale)
+                                  tpe: 1,
+                              },
+                              aiAssistUsage: {
+                                  value: telemetry.workstyleMetrics.aiAssistUsage,
+                                  level:
+                                      telemetry.workstyleMetrics.aiAssistUsage <= 20
+                                          ? "Minimal"
+                                          : telemetry.workstyleMetrics.aiAssistUsage <= 50
+                                          ? "Moderate"
+                                          : "High",
+                                  color:
+                                      telemetry.workstyleMetrics.aiAssistUsage <= 20
+                                          ? "white"
+                                          : telemetry.workstyleMetrics.aiAssistUsage <= 50
+                                          ? "yellow"
+                                          : "red",
+                                  isFairnessFlag:
+                                      telemetry.workstyleMetrics.aiAssistUsage > 50,
+                                  evidenceLinks: aiAssistUsageLinks,
+                                  // TPE center value (counts scale)
+                                  tpe: 1,
+                              },
+                          }
+                        : null,
+                    hasFairnessFlag: telemetry?.hasFairnessFlag ?? false,
+                    // Include new analytics series (may be empty arrays)
+                    persistenceFlow: telemetry?.persistenceFlow || [],
+                    learningToAction: telemetry?.learningToAction || [],
+                    confidenceCurve: telemetry?.confidenceCurve || [],
+                };
+            } catch (sessionError) {
+                log.error("[Telemetry API] Error processing session:", session.id, sessionError);
+                throw sessionError;
+            }
         });
 
-        return NextResponse.json({
+        const response = {
             candidate: {
                 id: candidate.id,
                 name: candidate.name,
                 image: candidate.image,
                 // For convenience, surface the latest session's match/confidence
-                matchScore: interviewSessions[0].telemetryData!.matchScore,
-                confidence: interviewSessions[0].telemetryData!.confidence,
-                story: interviewSessions[0].telemetryData!.story || null,
+                matchScore: interviewSessions[0]?.telemetryData?.matchScore ?? null,
+                confidence: interviewSessions[0]?.telemetryData?.confidence ?? null,
+                story: interviewSessions[0]?.telemetryData?.story ?? null,
             },
             sessions,
-        });
+        };
+
+        log.info("[Telemetry API] Returning sessions count:", sessions.length);
+        log.info("[Telemetry API] First session videoUrl:", sessions[0]?.videoUrl);
+
+        return NextResponse.json(response);
     } catch (error) {
-        log.error("Error fetching candidate telemetry:", error);
+        log.error("[Telemetry API GET] Error:", error);
+        if (error instanceof Error) {
+            log.error("[Telemetry API GET] Error message:", error.message);
+            log.error("[Telemetry API GET] Error stack:", error.stack);
+        }
         return NextResponse.json(
             { error: "Failed to fetch telemetry data" },
             { status: 500 }
@@ -333,6 +351,8 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             );
         }
         const body = await request.json();
+
+        log.info("[Telemetry API PUT] Prisma client status:", prisma ? "initialized" : "null");
 
         // Get the most recent interview session for this candidate
         const interviewSession = await prisma.interviewSession.findFirst({

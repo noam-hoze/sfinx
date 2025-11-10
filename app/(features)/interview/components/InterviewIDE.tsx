@@ -185,9 +185,10 @@ const InterviewerContent = () => {
     const {
         startRecording,
         stopRecording,
+        insertRecordingUrl,
         interviewSessionId,
         setInterviewSessionId,
-    } = useScreenRecording();
+    } = useScreenRecording(isDemoMode);
     const [applicationId, setApplicationId] = useState<string | null>(null);
 
     /**
@@ -269,6 +270,7 @@ const InterviewerContent = () => {
                 logger.info("⏰ Timer expired - ending interview...");
                 updateSubmission(state.currentCode);
                 await stopRecording();
+                await insertRecordingUrl();
                 await stateMachineHandleSubmission(state.currentCode);
                 // OpenAI flow: say closing line and end via response.done
                 try {
@@ -346,6 +348,7 @@ const InterviewerContent = () => {
         try {
             updateSubmission(state.currentCode);
             await stopRecording();
+            await insertRecordingUrl();
             await stateMachineHandleSubmission(state.currentCode);
             // OpenAI flow: say closing line and rely on response.done to end
             try {
@@ -361,7 +364,7 @@ const InterviewerContent = () => {
         } catch (error) {
             logger.error("❌ Failed to submit solution:", error);
         }
-    }, [candidateName, setCodingStarted, setCodingState, state.currentCode, stateMachineHandleSubmission, stopRecording, stopTimer, updateSubmission]);
+    }, [candidateName, insertRecordingUrl, setCodingStarted, setCodingState, state.currentCode, stateMachineHandleSubmission, stopRecording, stopTimer, updateSubmission]);
 
     /**
      * Starts the interview: begins recording, creates application/session, resets code, and connects to the agent.

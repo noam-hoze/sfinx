@@ -64,13 +64,17 @@ function TelemetryContent() {
 
                 if (response.ok) {
                     const data = await response.json();
+                    console.log("[CPS] Telemetry data received:", data);
                     // Supports new API shape with sessions[]
                     if (data.sessions) {
+                        console.log("[CPS] Sessions found:", data.sessions.length);
+                        console.log("[CPS] First session videoUrl:", data.sessions[0]?.videoUrl);
                         setTelemetryData({ candidate: data.candidate });
                         setSessions(data.sessions || []);
                         setActiveSessionIndex(0);
                     } else {
                         // Backward compatibility with single-session shape
+                        console.log("[CPS] Using legacy format, videoUrl:", data.videoUrl);
                         setTelemetryData(data);
                         setSessions([
                             {
@@ -140,6 +144,7 @@ function TelemetryContent() {
 
     const { candidate } = telemetryData || {};
     const activeSession = sessions[activeSessionIndex] || {};
+    console.log("[CPS] Active session:", activeSession);
     const formatMonthYear = (dateIso?: string) =>
         dateIso
             ? new Date(dateIso).toLocaleDateString(undefined, {
@@ -149,6 +154,7 @@ function TelemetryContent() {
             : "";
     const { gaps, evidence, chapters, workstyle, videoUrl, duration } =
         activeSession;
+    console.log("[CPS] Extracted videoUrl:", videoUrl, "duration:", duration);
     const persistenceFlow = activeSession.persistenceFlow || [];
     const learningToAction = activeSession.learningToAction || [];
     const confidenceCurve = activeSession.confidenceCurve || [];

@@ -216,12 +216,14 @@ export default function Header() {
                 {/* User Avatar and Menu / Demo Restart Button */}
                 <div className="flex items-center justify-end gap-4">
                     {isDemoMode && (
-                        <Link
-                            href="/demo"
+                        <button
+                            onClick={() => {
+                                window.location.href = '/demo';
+                            }}
                             className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
                         >
                             Restart Demo
-                        </Link>
+                        </button>
                     )}
                     {session?.user && (
                         <Menu as="div" className="relative">
