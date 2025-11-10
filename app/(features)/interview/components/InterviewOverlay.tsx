@@ -3,6 +3,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 
+function shouldHideStartButton(): boolean {
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem("sfinx-demo-autostart") === "true";
+}
+
 function formatDurationLabel(seconds?: number | null) {
     if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds <= 0) {
         return null;
@@ -39,6 +44,15 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
     backgroundDurationSeconds,
     codingDurationSeconds,
 }) => {
+    const commMethodRaw = (process.env.NEXT_PUBLIC_INTERVIEW_COMM_METHOD || "speech")
+        .toLowerCase()
+        .trim();
+    const isTextMode =
+        commMethodRaw === "text" ||
+        commMethodRaw === "true" ||
+        commMethodRaw === "1" ||
+        commMethodRaw === "yes";
+
     // Derive stage from props
     const derivedStage = useMemo(() => {
         if (interviewConcluded) return "submitted";
@@ -61,6 +75,11 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
     const [stage, setStage] = useState<string>(derivedStage);
     const [visible, setVisible] = useState<boolean>(true);
     const [subtitleVisible, setSubtitleVisible] = useState<boolean>(true);
+    const [hideStartButton, setHideStartButton] = useState<boolean>(false);
+
+    useEffect(() => {
+        setHideStartButton(shouldHideStartButton());
+    }, []);
 
     useEffect(() => {
         if (derivedStage === stage) return;
@@ -135,7 +154,7 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
                             Interview Started!
                         </h2>
                         <p className="mt-2 text-base md:text-lg text-gray-600 dark:text-gray-300">
-                            just speak naturally 😎
+                            {isTextMode ? "Use the chatbox on the right to talk with Carrie, your AI interviewer 💬" : "just speak naturally 😎"}
                         </p>
                     </>
                 ) : stage === "wrapping" ? (
@@ -164,32 +183,29 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
                                     <Loader2 className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
                                 </span>
                             ) : (
-                                "Click Start Interview and wait for instructions"
+                                hideStartButton ? "Getting ready..." : "Click Start Interview and wait for instructions"
                             )}
                         </p>
-                        {backgroundDurationLabel && codingDurationLabel ? (
-                            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                {`Background: ${backgroundDurationLabel}. Coding: ${codingDurationLabel}.`}
-                            </p>
-                        ) : null}
-                        <div className="mt-6 flex flex-col items-center">
-                            <button
-                                onClick={onStartInterview}
-                                disabled={isInterviewLoading}
-                                className={`px-6 py-3 text-sm font-medium rounded-full transform transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-sm flex items-center gap-2 ${
-                                    isInterviewLoading
-                                        ? "bg-gray-100 text-gray-500 cursor-not-allowed dark:bg-gray-800 dark:text-gray-400"
-                                        : "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20"
-                                } translate-y-2`}
-                                title={
-                                    isInterviewLoading
-                                        ? "Getting things started..."
-                                        : "Start Interview"
-                                }
-                            >
-                                Start Interview
-                            </button>
-                        </div>
+                        {!hideStartButton && (
+                            <div className="mt-6 flex flex-col items-center">
+                                <button
+                                    onClick={onStartInterview}
+                                    disabled={isInterviewLoading}
+                                    className={`px-6 py-3 text-sm font-medium rounded-full transform transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-sm flex items-center gap-2 ${
+                                        isInterviewLoading
+                                            ? "bg-gray-100 text-gray-500 cursor-not-allowed dark:bg-gray-800 dark:text-gray-400"
+                                            : "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/10 dark:text-green-400 dark:hover:bg-green-900/20"
+                                    } translate-y-2`}
+                                    title={
+                                        isInterviewLoading
+                                            ? "Getting things started..."
+                                            : "Start Interview"
+                                    }
+                                >
+                                    Start Interview
+                                </button>
+                            </div>
+                        )}
                     </>
                 )}
             </div>

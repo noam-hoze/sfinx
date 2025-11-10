@@ -1,9 +1,11 @@
+"use client";
+
 import { Suspense } from "react";
 import { InterviewIDE } from "./components";
 import { InterviewProvider } from "app/shared/contexts";
 import { AuthGuard } from "app/shared/components";
 
-export default function InterviewerPage() {
+function InterviewPageContent() {
     return (
         <AuthGuard requiredRole="CANDIDATE">
             <InterviewProvider>
@@ -12,5 +14,13 @@ export default function InterviewerPage() {
                 </Suspense>
             </InterviewProvider>
         </AuthGuard>
+    );
+}
+
+export default function InterviewerPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <InterviewPageContent />
+        </Suspense>
     );
 }

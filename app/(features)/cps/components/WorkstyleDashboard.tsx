@@ -25,10 +25,8 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                 return "Velocity of meaningful change cycles (edit → run/test → result). Measured from saves/runs and test outcomes—time‑to‑first‑success, median/p95 cycle time, and iterations per 10 minutes. Faster, consistent cycles score higher.";
             case "debugLoops":
                 return "Tracks sequences from failing to passing states (problem isolation → fix). Uses error/test status transitions and repeated attempts; fewer, well‑structured loops with quick isolation and a high fix rate indicate effective debugging.";
-            case "refactorCleanups":
-                return "Structural and code‑quality improvements beyond immediate correctness. Diff heuristics (rename/extract, dead‑code deletion), LOC/complexity deltas, and lint fixes after pass state are considered; thoughtful cleanups improve maintainability.";
             case "aiAssistUsage":
-                return "Transparent view of AI involvement versus original work. Signals include prompts per session, adoption rate, edit distance, and the percent of final code that is AI‑originated; balanced, edited use is fine while heavy reliance is flagged.";
+                return "Tracks code pasted from external sources during the coding session. Each paste triggers a multi-turn conversation where the candidate explains their understanding. Scores reflect how well they understand the pasted code, with evidence links to the exact moments in the video.";
             default:
                 return "";
         }
@@ -109,13 +107,8 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
             data: workstyle.debugLoops,
         },
         {
-            key: "refactorCleanups" as keyof WorkstyleMetrics,
-            label: "Refactor & Cleanups",
-            data: workstyle.refactorCleanups,
-        },
-        {
             key: "aiAssistUsage" as keyof WorkstyleMetrics,
-            label: "AI Assist Usage",
+            label: "External Tool Usage",
             data: workstyle.aiAssistUsage,
         },
     ];
@@ -129,8 +122,264 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
             <div className="divide-y divide-gray-100">
                 {metrics.map((metric) => {
                     const data = (metric as any).data;
-                    if (data == null || (data as any).value == null)
+                    if (data == null)
                         return null;
+                    
+                    // Special rendering for Iterations
+                    if (metric.key === "iterationSpeed") {
+                        return (
+                            <div
+                                key={metric.key}
+                                className="py-3 first:pt-0 last:pb-0 px-2 rounded-md hover:bg-gray-50 transition"
+                            >
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-medium text-gray-700">
+                                            {metric.label}
+                                        </span>
+                                        <div className="group relative flex items-center">
+                                            <Info
+                                                size={14}
+                                                className="text-gray-400"
+                                            />
+                                            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 bg-white text-black text-xs rounded py-2 px-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none border border-gray-200 shadow-lg z-10 whitespace-normal">
+                                                {getTooltipText(metric.key)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-2xl font-bold text-gray-900">
+                                            {metric.data.value}
+                                        </span>
+                                        <span className={`text-xs font-medium px-2 py-1 rounded ${
+                                            metric.data.level === "High"
+                                                ? "bg-blue-100 text-blue-700"
+                                                : metric.data.level === "Moderate"
+                                                ? "bg-yellow-100 text-yellow-700"
+                                                : "bg-red-100 text-red-700"
+                                        }`}>
+                                            {metric.data.level}
+                                        </span>
+                                    </div>
+                                    <span className="text-xs text-gray-500">
+                                        {metric.data.value === 1 ? "iteration" : "iterations"}
+                                    </span>
+                                    {!editMode && (metric.data.evidenceLinks ?? []).length > 0 && (
+                                        <div className="flex items-center gap-1 flex-wrap">
+                                            <span className="text-xs text-gray-500 mr-1">Evidence:</span>
+                                            {(metric.data.evidenceLinks ?? []).map(
+                                                (timestamp: number, index: number) => (
+                                                    <button
+                                                        key={index}
+                                                        onClick={() => {
+                                                            setClickedTimestamp(timestamp);
+                                                            onVideoJump(timestamp);
+                                                        }}
+                                                        className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-all duration-200 ${
+                                                            clickedTimestamp === timestamp
+                                                                ? "text-blue-600 bg-blue-50 ring-2 ring-blue-200"
+                                                                : "text-gray-600 bg-gray-100 hover:text-blue-600 hover:bg-blue-50"
+                                                        }`}
+                                                        title={`Jump to ${Math.floor(
+                                                            timestamp / 60
+                                                        )}:${(timestamp % 60)
+                                                            .toString()
+                                                            .padStart(2, "0")}`}
+                                                    >
+                                                        {index + 1}
+                                                    </button>
+                                                )
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    }
+
+                    if (metric.key === "debugLoops") {
+                        return (
+                            <div
+                                key={metric.key}
+                                className="py-3 first:pt-0 last:pb-0 px-2 rounded-md hover:bg-gray-50 transition"
+                            >
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-medium text-gray-700">
+                                            {metric.label}
+                                        </span>
+                                        <div className="group relative flex items-center">
+                                            <Info
+                                                size={14}
+                                                className="text-gray-400"
+                                            />
+                                            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 bg-white text-black text-xs rounded py-2 px-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none border border-gray-200 shadow-lg z-10 whitespace-normal">
+                                                {getTooltipText(metric.key)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-2xl font-bold text-gray-900">
+                                            {metric.data.value || 0}
+                                        </span>
+                                        <span className={`text-xs font-medium px-2 py-1 rounded ${
+                                            metric.data.level === "Fast"
+                                                ? "bg-blue-100 text-blue-700"
+                                                : metric.data.level === "Moderate"
+                                                ? "bg-yellow-100 text-yellow-700"
+                                                : "bg-red-100 text-red-700"
+                                        }`}>
+                                            {metric.data.level}
+                                        </span>
+                                    </div>
+                                    <span className="text-xs text-gray-500">
+                                        Total Loops Resolved
+                                    </span>
+                                    {(metric.data as any).avgDepth !== undefined && (
+                                        <>
+                                            <span className="text-xs text-gray-500">
+                                                Average Depth: {(metric.data as any).avgDepth} errors per loop
+                                            </span>
+                                            <span className="text-xs text-gray-500">
+                                                Longest Loop: {(metric.data as any).longestLoop} consecutive errors
+                                            </span>
+                                            {(metric.data as any).unresolved > 0 && (
+                                                <span className="text-xs text-gray-500">
+                                                    Unresolved: {(metric.data as any).unresolved}
+                                                </span>
+                                            )}
+                                        </>
+                                    )}
+                                    {!editMode && (metric.data.evidenceLinks ?? []).length > 0 && (
+                                        <div className="flex items-center gap-1 flex-wrap">
+                                            <span className="text-xs text-gray-500 mr-1">Evidence:</span>
+                                            {(metric.data.evidenceLinks ?? []).map(
+                                                (timestamp: number, index: number) => (
+                                                    <button
+                                                        key={index}
+                                                        onClick={() => {
+                                                            setClickedTimestamp(timestamp);
+                                                            onVideoJump(timestamp);
+                                                        }}
+                                                        className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-all duration-200 ${
+                                                            clickedTimestamp === timestamp
+                                                                ? "text-blue-600 bg-blue-50 ring-2 ring-blue-200"
+                                                                : "text-gray-600 bg-gray-100 hover:text-blue-600 hover:bg-blue-50"
+                                                        }`}
+                                                        title={`Jump to ${Math.floor(
+                                                            timestamp / 60
+                                                        )}:${(timestamp % 60)
+                                                            .toString()
+                                                            .padStart(2, "0")}`}
+                                                    >
+                                                        {index + 1}
+                                                    </button>
+                                                )
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    }
+
+                    if (metric.key === "aiAssistUsage") {
+                        return (
+                            <div
+                                key={metric.key}
+                                className="py-3 first:pt-0 last:pb-0 px-2 rounded-md hover:bg-gray-50 transition"
+                            >
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-medium text-gray-700">
+                                            {metric.label}
+                                        </span>
+                                        <div className="group relative flex items-center">
+                                            <Info
+                                                size={14}
+                                                className="text-gray-400"
+                                            />
+                                            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 bg-white text-black text-xs rounded py-2 px-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none border border-gray-200 shadow-lg z-10 whitespace-normal">
+                                                {getTooltipText(metric.key)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-2xl font-bold text-gray-900">
+                                            {metric.data.value || 0}
+                                        </span>
+                                        <span className={`text-xs font-medium px-2 py-1 rounded ${
+                                            metric.data.level === "High"
+                                                ? "bg-blue-100 text-blue-700"
+                                                : metric.data.level === "Moderate"
+                                                ? "bg-yellow-100 text-yellow-700"
+                                                : "bg-red-100 text-red-700"
+                                        }`}>
+                                            {metric.data.level}
+                                        </span>
+                                    </div>
+                                    <span className="text-xs text-gray-500">
+                                        {metric.data.value === 1 ? "Paste Detected" : "Pastes Detected"}
+                                    </span>
+                                    {((metric.data as any).fullCount !== undefined || 
+                                      (metric.data as any).partialCount !== undefined || 
+                                      (metric.data as any).noneCount !== undefined) && (
+                                        <>
+                                            <span className="text-xs text-gray-500 font-medium mt-1">
+                                                Understanding Breakdown:
+                                            </span>
+                                            <div className="flex flex-col gap-1 text-xs text-gray-500">
+                                                <span>• Full: {(metric.data as any).fullCount || 0}</span>
+                                                <span>• Partial: {(metric.data as any).partialCount || 0}</span>
+                                                <span>• None: {(metric.data as any).noneCount || 0}</span>
+                                            </div>
+                                            {(metric.data as any).avgAccountabilityScore !== undefined && (
+                                                <span className="text-xs text-gray-500">
+                                                    Avg. Accountability Score: {(metric.data as any).avgAccountabilityScore}%
+                                                </span>
+                                            )}
+                                        </>
+                                    )}
+                                    {!editMode && (metric.data.evidenceLinks ?? []).length > 0 && (
+                                        <div className="flex items-center gap-1 flex-wrap">
+                                            <span className="text-xs text-gray-500 mr-1">Evidence:</span>
+                                            {(metric.data.evidenceLinks ?? []).map(
+                                                (timestamp: number, index: number) => (
+                                                    <button
+                                                        key={index}
+                                                        onClick={() => {
+                                                            setClickedTimestamp(timestamp);
+                                                            onVideoJump(timestamp);
+                                                        }}
+                                                        className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-all duration-200 ${
+                                                            clickedTimestamp === timestamp
+                                                                ? "text-blue-600 bg-blue-50 ring-2 ring-blue-200"
+                                                                : "text-gray-600 bg-gray-100 hover:text-blue-600 hover:bg-blue-50"
+                                                        }`}
+                                                        title={`Jump to ${Math.floor(
+                                                            timestamp / 60
+                                                        )}:${(timestamp % 60)
+                                                            .toString()
+                                                            .padStart(2, "0")}`}
+                                                    >
+                                                        {index + 1}
+                                                    </button>
+                                                )
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    }
+                    
+                    // Standard rendering for other metrics
                     return (
                         <div
                             key={metric.key}

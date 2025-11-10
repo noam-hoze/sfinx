@@ -39,6 +39,7 @@ export async function GET(req: NextRequest) {
             codingPrompt: interview.codingPrompt,
             codingTemplate: interview.codingTemplate,
             codingAnswer: interview.codingAnswer,
+            expectedOutput: interview.expectedOutput,
             backgroundQuestionTimeSeconds:
                 interview.backgroundQuestionTimeSeconds,
             codingQuestionTimeSeconds: interview.codingQuestionTimeSeconds,

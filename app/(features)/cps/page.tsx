@@ -3,19 +3,21 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import EvidenceReel from "./components/EvidenceReel";
 import GapAnalysis from "./components/GapAnalysis";
 import WorkstyleDashboard from "./components/WorkstyleDashboard";
-import PersistenceFlow from "./components/PersistenceFlow";
-import LearningToActionTimeline from "./components/LearningToActionTimeline";
-import ConfidenceBuildingCurve from "./components/ConfidenceBuildingCurve";
 import ImprovementChart from "./components/ImprovementChart";
 import TextSummary from "./components/TextSummary";
+import SummaryOverlay from "./components/SummaryOverlay";
+import CodingSummaryOverlay from "./components/CodingSummaryOverlay";
 import { AuthGuard } from "app/shared/components";
 import { log } from "app/shared/services";
 
 function TelemetryContent() {
     const searchParams = useSearchParams();
+    const router = useRouter();
+    const isDemoMode = searchParams.get("demo") === "true";
     const candidateId = searchParams.get("candidateId");
     const applicationId = searchParams.get("applicationId");
 
@@ -27,23 +29,24 @@ function TelemetryContent() {
     const [currentVideoTime, setCurrentVideoTime] = React.useState(0);
     const [jumpKey, setJumpKey] = React.useState(0);
     const [activeTab, setActiveTab] = useState<
-        "benchmarks" | "insights" | "gaps"
+        "benchmarks" | "gaps"
     >("benchmarks");
     const [editMode, setEditMode] = useState(false);
     const [saving, setSaving] = useState(false);
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
     const [saveSuccess, setSaveSuccess] = useState(false);
     const [storyExpanded, setStoryExpanded] = useState(false);
-    const [mainContentTab, setMainContentTab] = useState<"summary" | "evidence" | "improvement">("summary");
+    const [mainContentTab, setMainContentTab] = useState<"summary" | "evidence" | "improvement" | "coding">("evidence");
     const [seriesVisible, setSeriesVisible] = useState({
         match: true,
         iter: false,
-        refactor: false,
         debug: false,
         ai: false,
     });
     const [backgroundSummary, setBackgroundSummary] = useState<any>(null);
+    const [codingSummary, setCodingSummary] = useState<any>(null);
     const [summaryLoading, setSummaryLoading] = useState(false);
+    const [codingSummaryLoading, setCodingSummaryLoading] = useState(false);
 
     useEffect(() => {
         const fetchTelemetryData = async () => {
@@ -64,13 +67,17 @@ function TelemetryContent() {
 
                 if (response.ok) {
                     const data = await response.json();
+                    console.log("[CPS] Telemetry data received:", data);
                     // Supports new API shape with sessions[]
                     if (data.sessions) {
+                        console.log("[CPS] Sessions found:", data.sessions.length);
+                        console.log("[CPS] First session videoUrl:", data.sessions[0]?.videoUrl);
                         setTelemetryData({ candidate: data.candidate });
                         setSessions(data.sessions || []);
                         setActiveSessionIndex(0);
                     } else {
                         // Backward compatibility with single-session shape
+                        console.log("[CPS] Using legacy format, videoUrl:", data.videoUrl);
                         setTelemetryData(data);
                         setSessions([
                             {
@@ -138,8 +145,41 @@ function TelemetryContent() {
         fetchBackgroundSummary();
     }, [activeSessionIndex, sessions]);
 
+    // Fetch coding summary for active session
+    useEffect(() => {
+        const fetchCodingSummary = async () => {
+            const sessionId = activeSession?.id;
+            if (!sessionId || sessionId === "single") {
+                setCodingSummary(null);
+                return;
+            }
+
+            try {
+                setCodingSummaryLoading(true);
+                const response = await fetch(
+                    `/api/interviews/session/${sessionId}/coding-summary`
+                );
+
+                if (response.ok) {
+                    const data = await response.json();
+                    setCodingSummary(data.summary);
+                } else {
+                    setCodingSummary(null);
+                }
+            } catch (error) {
+                log.error("Error fetching coding summary:", error);
+                setCodingSummary(null);
+            } finally {
+                setCodingSummaryLoading(false);
+            }
+        };
+
+        fetchCodingSummary();
+    }, [activeSessionIndex, sessions]);
+
     const { candidate } = telemetryData || {};
     const activeSession = sessions[activeSessionIndex] || {};
+    console.log("[CPS] Active session:", activeSession);
     const formatMonthYear = (dateIso?: string) =>
         dateIso
             ? new Date(dateIso).toLocaleDateString(undefined, {
@@ -149,6 +189,7 @@ function TelemetryContent() {
             : "";
     const { gaps, evidence, chapters, workstyle, videoUrl, duration } =
         activeSession;
+    console.log("[CPS] Extracted videoUrl:", videoUrl, "duration:", duration);
     const persistenceFlow = activeSession.persistenceFlow || [];
     const learningToAction = activeSession.learningToAction || [];
     const confidenceCurve = activeSession.confidenceCurve || [];
@@ -164,7 +205,6 @@ function TelemetryContent() {
         const metricKeys = [
             "iterationSpeed",
             "debugLoops",
-            "refactorCleanups",
             "aiAssistUsage",
         ] as const;
         let bestKey: (typeof metricKeys)[number] | null = null;
@@ -182,8 +222,7 @@ function TelemetryContent() {
     const topMetricLabelMap: Record<string, string> = {
         iterationSpeed: "Iteration Speed",
         debugLoops: "Debug Loops",
-        refactorCleanups: "Refactor & Cleanups",
-        aiAssistUsage: "AI Assist Usage",
+        aiAssistUsage: "External Tool Usage",
     };
     const topMetricLabel = topMetricKey
         ? topMetricLabelMap[topMetricKey]
@@ -255,7 +294,6 @@ function TelemetryContent() {
             const workstyleKeys = [
                 "iterationSpeed",
                 "debugLoops",
-                "refactorCleanups",
                 "aiAssistUsage",
             ];
             workstyleKeys.forEach((key) => {
@@ -377,10 +415,20 @@ function TelemetryContent() {
     }
 
     return (
-        <div className={`bg-gray-50 ${mainContentTab === "summary" ? "min-h-screen" : "h-screen overflow-hidden"}`}>
-            <div className={`max-w-7xl mx-auto p-4 ${mainContentTab === "summary" ? "" : "h-full"}`}>
+        <div className="bg-gray-50 h-screen overflow-hidden">
+            <div className="max-w-7xl mx-auto p-4 h-full">
+                {isDemoMode && (
+                    <div className="mb-4 flex justify-end">
+                        <button
+                            onClick={() => router.push(`/demo/ranked-candidates?candidateId=${candidateId}&applicationId=${applicationId}`)}
+                            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                            View All Candidates
+                        </button>
+                    </div>
+                )}
                 {/* 2x2 Grid Layout */}
-                <div className={`grid grid-cols-1 xl:grid-cols-[320px_1fr] xl:grid-rows-[auto_1fr] gap-4 xl:gap-6 ${mainContentTab === "summary" ? "" : "h-[calc(100vh-2rem)]"}`}>
+                <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] xl:grid-rows-[auto_1fr] gap-4 xl:gap-6 h-[calc(100vh-2rem)]">
                     {/* Cell 0 - Empty (top-left) */}
                     <div className="xl:block">
                         {/* Candidate Profile - Minimal Apple Style */}
@@ -569,16 +617,6 @@ function TelemetryContent() {
                                     Benchmarks
                                 </button>
                                 <button
-                                    onClick={() => setActiveTab("insights")}
-                                    className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ease-out ${
-                                        activeTab === "insights"
-                                            ? "bg-blue-500 text-white shadow-md"
-                                            : "text-gray-600 hover:text-gray-900 hover:bg-white/40"
-                                    }`}
-                                >
-                                    Insights
-                                </button>
-                                <button
                                     onClick={() => setActiveTab("gaps")}
                                     className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ease-out ${
                                         activeTab === "gaps"
@@ -593,9 +631,7 @@ function TelemetryContent() {
 
                         {/* Tab Content */}
                         <div
-                            className={`space-y-3 ${
-                                activeTab === "insights" ? "" : "max-h-[calc(100vh-18rem)] overflow-y-auto"
-                            } border-t border-l border-r border-white/40 border-b-2 border-b-white/60 rounded-2xl bg-white/20 backdrop-blur-sm p-3 shadow-sm`}
+                            className="space-y-3 max-h-[calc(100vh-18rem)] overflow-y-auto border-t border-l border-r border-white/40 border-b-2 border-b-white/60 rounded-2xl bg-white/20 backdrop-blur-sm p-3 shadow-sm"
                         >
                             {activeTab === "benchmarks" && (
                                 <div className="space-y-3 animate-in slide-in-from-right-2 duration-300">
@@ -627,28 +663,6 @@ function TelemetryContent() {
                                 </div>
                             )}
 
-                            {activeTab === "insights" && (
-                                <div className="space-y-3 animate-in slide-in-from-left-2 duration-300">
-                                    {/* <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
-                                        <PersistenceFlow
-                                            data={persistenceFlow}
-                                            onVideoJump={onVideoJump}
-                                        />
-                                    </div> */}
-                                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
-                                        <LearningToActionTimeline
-                                            data={learningToAction}
-                                            onVideoJump={onVideoJump}
-                                        />
-                                    </div>
-                                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
-                                        <ConfidenceBuildingCurve
-                                            data={confidenceCurve}
-                                            onVideoJump={onVideoJump}
-                                        />
-                                    </div>
-                                </div>
-                            )}
                             {activeTab === "gaps" && (
                                 <div className="space-y-3 animate-in slide-in-from-left-2 duration-300">
                                     {gaps && (
@@ -681,15 +695,14 @@ function TelemetryContent() {
                         </div>
                     </div>
 
-                    {/* Cell 3 - Video / Improvement (bottom-right) */}
-                    <div className={`w-full xl:w-auto flex flex-col gap-2 ${mainContentTab === "summary" ? "" : "h-full"}`}>
+                    {/* Cell 3 - Video / Improvement / Summary (bottom-right) */}
+                    <div className="w-full xl:w-auto flex flex-col gap-2 h-full">
                         <div className="flex items-center justify-between">
                             {mainContentTab === "improvement" ? (
                                 <div className="flex gap-2 text-xs">
                                     {[
                                         { key: "match", label: "Match", color: "#3b82f6" },
                                         { key: "iter", label: "Iteration", color: "#a78bfa" },
-                                        { key: "refactor", label: "Refactor", color: "#10b981" },
                                         { key: "debug", label: "Debug", color: "#f97316" },
                                         { key: "ai", label: "AI", color: "#64748b" },
                                     ].map((s: any) => (
@@ -721,20 +734,28 @@ function TelemetryContent() {
                             )}
                             <div className="bg-white/60 border border-white/40 rounded-lg p-1 text-xs">
                                 <button
-                                    onClick={() => setMainContentTab("summary")}
-                                    className={`${
-                                        mainContentTab === "summary" ? "bg-blue-500 text-white" : "text-gray-700"
-                                    } px-2 py-1 rounded`}
-                                >
-                                    Summary
-                                </button>
-                                <button
                                     onClick={() => setMainContentTab("evidence")}
                                     className={`${
                                         mainContentTab === "evidence" ? "bg-blue-500 text-white" : "text-gray-700"
+                                    } px-2 py-1 rounded`}
+                                >
+                                    Reel
+                                </button>
+                                <button
+                                    onClick={() => setMainContentTab("summary")}
+                                    className={`${
+                                        mainContentTab === "summary" ? "bg-blue-500 text-white" : "text-gray-700"
                                     } px-2 py-1 rounded ml-1`}
                                 >
-                                    Evidence
+                                    Experience
+                                </button>
+                                <button
+                                    onClick={() => setMainContentTab("coding")}
+                                    className={`${
+                                        mainContentTab === "coding" ? "bg-blue-500 text-white" : "text-gray-700"
+                                    } px-2 py-1 rounded ml-1`}
+                                >
+                                    Coding
                                 </button>
                                 <button
                                     onClick={() => setMainContentTab("improvement")}
@@ -746,40 +767,8 @@ function TelemetryContent() {
                                 </button>
                             </div>
                         </div>
-                        <div className={mainContentTab === "summary" ? "" : "flex-1"}>
-                            {mainContentTab === "summary" ? (
-                                <div className="w-full bg-white rounded-xl border border-gray-200 p-6">
-                                    {summaryLoading ? (
-                                        <div className="flex items-center justify-center py-12">
-                                            <p className="text-gray-600">Loading background summary...</p>
-                                        </div>
-                                    ) : backgroundSummary ? (
-                                        <TextSummary
-                                            executiveSummary={backgroundSummary.executiveSummary}
-                                            recommendation={backgroundSummary.recommendation}
-                                            adaptability={{
-                                                score: backgroundSummary.adaptability.score,
-                                                text: backgroundSummary.adaptability.text,
-                                                evidence: backgroundSummary.evidenceJson?.adaptability || [],
-                                            }}
-                                            creativity={{
-                                                score: backgroundSummary.creativity.score,
-                                                text: backgroundSummary.creativity.text,
-                                                evidence: backgroundSummary.evidenceJson?.creativity || [],
-                                            }}
-                                            reasoning={{
-                                                score: backgroundSummary.reasoning.score,
-                                                text: backgroundSummary.reasoning.text,
-                                                evidence: backgroundSummary.evidenceJson?.reasoning || [],
-                                            }}
-                                        />
-                                    ) : (
-                                        <div className="flex items-center justify-center py-12">
-                                            <p className="text-gray-600">No background summary available for this session.</p>
-                                        </div>
-                                    )}
-                                </div>
-                            ) : mainContentTab === "improvement" ? (
+                        <div className="flex-1">
+                            {mainContentTab === "improvement" ? (
                                 <div className="w-full h-full bg-white rounded-xl border border-gray-200 p-2 overflow-hidden">
                                     <ImprovementChart
                                         data={[...sessions]
@@ -795,7 +784,6 @@ function TelemetryContent() {
                                                 sessionIndex: i,
                                                 match: typeof s.matchScore === "number" ? s.matchScore : null,
                                                 iter: s.workstyle?.iterationSpeed?.value ?? null,
-                                                refactor: s.workstyle?.refactorCleanups?.value ?? null,
                                                 debug:
                                                     s.workstyle?.debugLoops?.value != null
                                                         ? 100 - s.workstyle.debugLoops.value
@@ -812,9 +800,6 @@ function TelemetryContent() {
                                                         (e.title || "").includes("Iteration") &&
                                                         e.startTime !== null &&
                                                         e.startTime !== undefined
-                                                )?.startTime,
-                                                refactorTs: (s.evidence || []).find(
-                                                    (e: any) => (e.title || "").includes("Refactor") && e.startTime !== null && e.startTime !== undefined
                                                 )?.startTime,
                                                 debugTs: (s.evidence || []).find(
                                                     (e: any) => (e.title || "").includes("Debug") && e.startTime !== null && e.startTime !== undefined
@@ -834,13 +819,79 @@ function TelemetryContent() {
                                     />
                                 </div>
                             ) : videoUrl ? (
-                                <EvidenceReel
-                                    jumpToTime={currentVideoTime}
-                                    jumpKey={jumpKey}
-                                    videoUrl={videoUrl}
-                                    duration={duration}
-                                    chapters={chapters}
-                                />
+                                <div className="relative w-full h-full">
+                                    <EvidenceReel
+                                        jumpToTime={currentVideoTime}
+                                        jumpKey={jumpKey}
+                                        videoUrl={videoUrl}
+                                        duration={duration}
+                                        chapters={chapters}
+                                        paused={mainContentTab === "summary" || mainContentTab === "coding"}
+                                    />
+                                    {mainContentTab === "summary" && (
+                                        <>
+                                            {summaryLoading ? (
+                                                <div className="absolute inset-0 bg-white z-10 flex items-center justify-center">
+                                                    <p className="text-gray-600">Loading background summary...</p>
+                                                </div>
+                                            ) : backgroundSummary ? (
+                                                <SummaryOverlay
+                                                    executiveSummary={backgroundSummary.executiveSummary}
+                                                    recommendation={backgroundSummary.recommendation}
+                                                    adaptability={{
+                                                        score: backgroundSummary.adaptability.score,
+                                                        text: backgroundSummary.adaptability.text,
+                                                        evidence: backgroundSummary.evidenceJson?.adaptability || [],
+                                                    }}
+                                                    creativity={{
+                                                        score: backgroundSummary.creativity.score,
+                                                        text: backgroundSummary.creativity.text,
+                                                        evidence: backgroundSummary.evidenceJson?.creativity || [],
+                                                    }}
+                                                    reasoning={{
+                                                        score: backgroundSummary.reasoning.score,
+                                                        text: backgroundSummary.reasoning.text,
+                                                        evidence: backgroundSummary.evidenceJson?.reasoning || [],
+                                                    }}
+                                                />
+                                            ) : (
+                                                <div className="absolute inset-0 bg-white z-10 flex items-center justify-center">
+                                                    <p className="text-gray-600">No background summary available for this session.</p>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                    {mainContentTab === "coding" && (
+                                        <>
+                                            {codingSummaryLoading ? (
+                                                <div className="absolute inset-0 bg-white z-10 flex items-center justify-center">
+                                                    <p className="text-gray-600">Loading coding summary...</p>
+                                                </div>
+                                            ) : codingSummary ? (
+                                                <CodingSummaryOverlay
+                                                    executiveSummary={codingSummary.executiveSummary}
+                                                    recommendation={codingSummary.recommendation}
+                                                    codeQuality={{
+                                                        score: codingSummary.codeQuality.score,
+                                                        text: codingSummary.codeQuality.text,
+                                                    }}
+                                                    problemSolving={{
+                                                        score: codingSummary.problemSolving.score,
+                                                        text: codingSummary.problemSolving.text,
+                                                    }}
+                                                    independence={{
+                                                        score: codingSummary.independence.score,
+                                                        text: codingSummary.independence.text,
+                                                    }}
+                                                />
+                                            ) : (
+                                                <div className="absolute inset-0 bg-white z-10 flex items-center justify-center">
+                                                    <p className="text-gray-600">No coding summary available for this session.</p>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
                             ) : (
                                 <div className="aspect-video bg-gray-200 rounded-xl" />
                             )}

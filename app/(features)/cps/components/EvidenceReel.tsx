@@ -13,6 +13,7 @@ type Props = {
     jumpKey?: number;
     duration?: number;
     chapters?: any[];
+    paused?: boolean;
 };
 
 export default function EvidenceReel({
@@ -21,6 +22,7 @@ export default function EvidenceReel({
     jumpKey,
     duration,
     chapters = [],
+    paused = false,
 }: Props) {
     const playerRef = useRef<any>(null);
 
@@ -33,6 +35,21 @@ export default function EvidenceReel({
             }
         }
     }, [jumpToTime, jumpKey]);
+
+    // Handle paused state
+    useEffect(() => {
+        if (playerRef.current) {
+            if (paused) {
+                if (playerRef.current.remote) {
+                    playerRef.current.remote.pause();
+                } else if (playerRef.current.pause) {
+                    playerRef.current.pause();
+                }
+            } else {
+                // Don't auto-play when unpaused - let user control it
+            }
+        }
+    }, [paused]);
 
     const formatVttTime = (seconds: number) => {
         const date = new Date(0);

@@ -1,36 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "app/shared/services/auth";
 import { log } from "app/shared/services";
-
-const globalForPrisma = globalThis as unknown as {
-    prisma: PrismaClient | undefined;
-};
-
-const prisma = globalForPrisma.prisma ?? new PrismaClient();
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+import prisma from "lib/prisma";
 
 export async function POST(request: NextRequest) {
     try {
         log.info("🔍 Interview session creation API called");
 
+        const url = new URL(request.url);
+        const skipAuth = url.searchParams.get("skip-auth") === "true";
+
         const session = await getServerSession(authOptions);
         log.info("🔍 Session:", session ? "Found" : "Not found");
+        log.info("🔍 Skip auth:", skipAuth);
 
-        if (!(session?.user as any)?.id) {
-            log.warn("❌ No user ID in session");
-            return NextResponse.json(
-                { error: "Unauthorized" },
-                { status: 401 }
-            );
+        const body = await request.json();
+        const { applicationId, companyId, userId: requestUserId } = body;
+
+        let userId: string;
+
+        if (skipAuth) {
+            if (!requestUserId) {
+                log.warn("❌ skip-auth mode but no userId provided in request");
+                return NextResponse.json(
+                    { error: "userId required when skip-auth=true" },
+                    { status: 400 }
+                );
+            }
+            userId = requestUserId;
+            log.info("✅ Skip auth - User ID from request:", userId);
+        } else {
+            if (!(session?.user as any)?.id) {
+                log.warn("❌ No user ID in session");
+                return NextResponse.json(
+                    { error: "Unauthorized" },
+                    { status: 401 }
+                );
+            }
+            userId = (session!.user as any).id;
+            log.info("✅ User ID from session:", userId);
         }
 
-        const userId = (session!.user as any).id;
-        log.info("✅ User ID:", userId);
-
-        const { applicationId, companyId } = await request.json();
         log.info("📋 Request data:", { applicationId, companyId });
 
         if (!applicationId) {
@@ -75,6 +86,7 @@ export async function POST(request: NextRequest) {
                         candidateId: userId,
                         applicationId: applicationId,
                         status: "IN_PROGRESS",
+                        recordingStartedAt: new Date(), // Set recording start time for video offset calculation
                     },
                 });
                 log.info("✅ [TX] InterviewSession created", {
@@ -101,6 +113,7 @@ export async function POST(request: NextRequest) {
                 await tx.workstyleMetrics.create({
                     data: {
                         telemetryDataId: telemetry.id,
+                        externalToolUsage: 0,
                     } as any,
                 });
                 log.info("✅ [TX] WorkstyleMetrics created for telemetry", {

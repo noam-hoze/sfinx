@@ -6,7 +6,9 @@ import { interviewChatStore } from "../../../shared/state/interviewChatStore";
  */
 export function buildControlContextMessages(k: number) {
     const { messages } = interviewChatStore.getState();
-    const slice = messages.slice(-Math.max(1, k));
+    // Filter out paste evaluation messages to keep main interview context clean
+    const filtered = messages.filter(m => !m.isPasteEval);
+    const slice = filtered.slice(-Math.max(1, k));
     return slice.map((m) => ({
         role: m.speaker === "user" ? ("user" as const) : ("assistant" as const),
         content: m.text,

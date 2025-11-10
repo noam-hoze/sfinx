@@ -4,11 +4,12 @@ import React from "react";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Menu } from "@headlessui/react";
 import { log } from "../services";
 import SfinxLogo from "./SfinxLogo";
+import DemoProgressHeader from "../../../app/(features)/demo/components/DemoProgressHeader";
 
 const logger = log;
 
@@ -16,6 +17,8 @@ export default function Header() {
     const { data: session } = useSession();
     const router = useRouter();
     const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const isDemoMode = searchParams.get("demo") === "true" || pathname?.startsWith("/demo");
 
     // Sliding indicator state
     const [indicatorStyle, setIndicatorStyle] = useState({ width: 0, left: 0 });
@@ -73,6 +76,19 @@ export default function Header() {
     const role = (session?.user as any)?.role;
     const settingsPath = role === "COMPANY" ? "/company-dashboard/settings" : "/settings";
 
+    // Get current demo stage based on pathname
+    const getDemoStage = (): 1 | 2 | 3 | 4 | 5 | null => {
+        if (!isDemoMode) return null;
+        if (pathname === "/demo") return 1;
+        if (pathname === "/interview") return 2;
+        if (pathname === "/demo/company-view") return 3;
+        if (pathname === "/cps") return 4;
+        if (pathname === "/demo/ranked-candidates") return 5;
+        return null;
+    };
+
+    const demoStage = getDemoStage();
+
     return (
         <header className="bg-white border-b border-gray-200 px-4 py-4 relative">
             <div className="grid grid-cols-[auto_1fr_auto] items-center gap-64">
@@ -85,11 +101,16 @@ export default function Header() {
                     />
                 </Link>
 
-                {/* Primary Navigation (role-based) */}
-                <nav
-                    ref={navRef}
-                    className="flex items-center gap-24 justify-start relative"
-                >
+                {/* Center: Demo Breadcrumbs or Primary Navigation */}
+                {demoStage ? (
+                    <div className="flex justify-center">
+                        <DemoProgressHeader currentStage={demoStage} />
+                    </div>
+                ) : (
+                    <nav
+                        ref={navRef}
+                        className="flex items-center gap-24 justify-start relative"
+                    >
                     {/* {(session?.user as any)?.role === "COMPANY" && (
                         <Link
                             ref={(el) => {
@@ -178,19 +199,32 @@ export default function Header() {
                             </Link>
                         </>
                     )}
-                </nav>
+                    </nav>
+                )}
 
-                {/* Sliding indicator */}
-                <div
-                    className="absolute bottom-0 left-0 h-[1px] bg-blue-700 transition-all duration-300 ease-in-out"
-                    style={{
-                        width: indicatorStyle.width,
-                        left: indicatorStyle.left,
-                    }}
-                />
+                {/* Sliding indicator (only for non-demo mode) */}
+                {!demoStage && (
+                    <div
+                        className="absolute bottom-0 left-0 h-[1px] bg-blue-700 transition-all duration-300 ease-in-out"
+                        style={{
+                            width: indicatorStyle.width,
+                            left: indicatorStyle.left,
+                        }}
+                    />
+                )}
 
-                {/* User Avatar and Menu */}
-                <div className="flex items-center justify-end">
+                {/* User Avatar and Menu / Demo Restart Button */}
+                <div className="flex items-center justify-end gap-4">
+                    {isDemoMode && (
+                        <button
+                            onClick={() => {
+                                window.location.href = '/demo';
+                            }}
+                            className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+                        >
+                            Restart Demo
+                        </button>
+                    )}
                     {session?.user && (
                         <Menu as="div" className="relative">
                             <Menu.Button className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden relative">

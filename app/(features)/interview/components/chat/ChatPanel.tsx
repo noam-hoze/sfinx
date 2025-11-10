@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/shared/state/store";
 import { MessageSquare, Mic, MicOff } from "lucide-react";
+import TypingIndicator from "./TypingIndicator";
+import { interviewChatStore } from "@/shared/state/interviewChatStore";
 
 interface TranscriptionMessage {
     id: string;
@@ -28,11 +30,31 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
         timestamp: new Date(m.timestamp),
     }));
     const isRecording = chat.isRecording;
+    const [isPendingReply, setIsPendingReply] = useState(false);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    // Subscribe to interviewChatStore for pendingReply state
+    useEffect(() => {
+        const updatePendingState = () => {
+            const state = interviewChatStore.getState();
+            setIsPendingReply(state.pendingReply);
+        };
+        updatePendingState();
+        const unsubscribe = interviewChatStore.subscribe(updatePendingState);
+        return unsubscribe;
+    }, []);
 
     useEffect(() => {}, [transcriptions, isRecording]);
 
-    // Auto-scroll to bottom when new messages arrive (smooth)
+    // Auto-focus input when it gets re-enabled
+    useEffect(() => {
+        if (!isInputDisabled && inputRef.current) {
+            inputRef.current.focus();
+        }
+    }, [isInputDisabled]);
+
+    // Auto-scroll to bottom when new messages arrive or typing indicator appears (smooth)
     useEffect(() => {
         if (messagesContainerRef.current) {
             messagesContainerRef.current.scrollTo({
@@ -40,7 +62,7 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
                 behavior: "smooth",
             });
         }
-    }, [transcriptions]);
+    }, [chat.messages.length, isPendingReply]);
 
     return (
         <div className="h-full flex flex-col bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
@@ -100,36 +122,39 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
                             </p>
                         </div>
                     ) : (
-                        transcriptions.map((message) => (
-                            <div
-                                key={message.id}
-                                className={`flex ${
-                                    message.speaker === "user"
-                                        ? "justify-end"
-                                        : "justify-start"
-                                }`}
-                            >
+                        <>
+                            {transcriptions.map((message) => (
                                 <div
-                                    className={`max-w-xs lg:max-w-md px-3 py-2 rounded-lg text-sm ${
+                                    key={message.id}
+                                    className={`flex ${
                                         message.speaker === "user"
-                                            ? "bg-blue-600 text-white"
-                                            : "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
+                                            ? "justify-end"
+                                            : "justify-start"
                                     }`}
                                 >
-                                    <div className="flex items-center space-x-2 mb-1">
-                                        <span className="text-xs opacity-75">
-                                            {message.speaker === "ai"
-                                                ? "AI"
-                                                : "You"}
+                                    <div
+                                        className={`max-w-xs lg:max-w-md px-3 py-2 rounded-lg text-sm ${
+                                            message.speaker === "user"
+                                                ? "bg-blue-600 text-white"
+                                                : "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
+                                        }`}
+                                    >
+                                        <div className="flex items-center space-x-2 mb-1">
+                                            <span className="text-xs opacity-75">
+                                                {message.speaker === "ai"
+                                                    ? "AI"
+                                                    : "You"}
+                                            </span>
+                                        </div>
+                                        <p>{message.text}</p>
+                                        <span className="text-xs opacity-50 mt-1 block">
+                                            {message.timestamp.toLocaleTimeString()}
                                         </span>
                                     </div>
-                                    <p>{message.text}</p>
-                                    <span className="text-xs opacity-50 mt-1 block">
-                                        {message.timestamp.toLocaleTimeString()}
-                                    </span>
                                 </div>
-                            </div>
-                        ))
+                            ))}
+                            {isPendingReply && <TypingIndicator />}
+                        </>
                     )}
                 </div>
             </div>
@@ -151,6 +176,7 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
                         className="flex items-center gap-2"
                     >
                         <input
+                            ref={inputRef}
                             name="chat_input"
                             placeholder="Type your message…"
                             className="flex-1 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm"

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "app/shared/services/auth";
 import { log } from "app/shared/services";
@@ -10,14 +9,7 @@ import {
     SUMMARY_TEMPERATURE,
     type SummaryOutput,
 } from "@/shared/prompts/backgroundSummaryPrompt";
-
-const globalForPrisma = globalThis as unknown as {
-    prisma: PrismaClient | undefined;
-};
-
-const prisma = globalForPrisma.prisma ?? new PrismaClient();
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+import prisma from "lib/prisma";
 
 type RouteContext = {
     params: Promise<{ sessionId?: string | string[] }>;
@@ -116,14 +108,37 @@ export async function POST(request: NextRequest, context: RouteContext) {
     try {
         log.info("[background-summary/POST] ========== START ==========");
 
+        const url = new URL(request.url);
+        const skipAuth = url.searchParams.get("skip-auth") === "true";
+
         const session = await getServerSession(authOptions);
         log.info("[background-summary/POST] Session:", session ? `Found (user: ${(session.user as any)?.email})` : "Not found");
-        if (!session?.user) {
-            log.warn("[background-summary/POST] ❌ Unauthorized request");
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        log.info("[background-summary/POST] Skip auth:", skipAuth);
+
+        const body = await request.json();
+        const { scores, rationales, companyName, roleName, userId: requestUserId } = body;
+
+        let userId: string;
+
+        if (skipAuth) {
+            if (!requestUserId) {
+                log.warn("[background-summary/POST] ❌ skip-auth mode but no userId provided in request");
+                return NextResponse.json(
+                    { error: "userId required when skip-auth=true" },
+                    { status: 400 }
+                );
+            }
+            userId = requestUserId;
+            log.info("[background-summary/POST] ✅ Skip auth - User ID from request:", userId);
+        } else {
+            if (!session?.user) {
+                log.warn("[background-summary/POST] ❌ Unauthorized request");
+                return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+            }
+            userId = (session.user as any).id;
+            log.info("[background-summary/POST] ✅ User ID from session:", userId);
         }
 
-        const userId = (session.user as any).id;
         const { sessionId: rawSessionId } = await context.params;
         const sessionId = normalizeSessionId(rawSessionId);
         log.info("[background-summary/POST] userId:", userId);
@@ -196,8 +211,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         log.info("[background-summary/POST] TelemetryData ID:", interviewSession.telemetryData.id);
 
-        const body = await request.json();
-        const { scores, rationales, companyName, roleName } = body;
         log.info("[background-summary/POST] Request body:", { scores, rationales, companyName, roleName });
 
         if (!scores || typeof scores.adaptability !== "number") {

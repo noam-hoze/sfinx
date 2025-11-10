@@ -3,7 +3,7 @@ import { log } from "../../../../shared/services";
 
 const logger = log;
 
-export const useScreenRecording = () => {
+export const useScreenRecording = (isDemoMode: boolean = false) => {
     const [isRecording, setIsRecording] = useState(false);
     const [recordingPermissionGranted, setRecordingPermissionGranted] =
         useState(false);
@@ -416,12 +416,20 @@ export const useScreenRecording = () => {
             const uploadData = await uploadResponse.json();
             logger.info("✅ Recording uploaded:", uploadData.recordingUrl);
 
+            const updateUrl = isDemoMode 
+                ? `/api/interviews/session/${interviewSessionId}?skip-auth=true`
+                : `/api/interviews/session/${interviewSessionId}`;
+
             logger.info(
                 "📤 Sending update request to:",
-                `/api/interviews/session/${interviewSessionId}`
+                updateUrl,
+                "isDemoMode:",
+                isDemoMode,
+                "videoUrl:",
+                uploadData.recordingUrl
             );
             const updateResponse = await fetch(
-                `/api/interviews/session/${interviewSessionId}`,
+                updateUrl,
                 {
                     method: "PATCH",
                     headers: {
@@ -437,6 +445,7 @@ export const useScreenRecording = () => {
 
             if (!updateResponse.ok) {
                 const errorText = await updateResponse.text();
+                logger.error("❌ Update response text:", errorText);
                 logger.error("❌ Update failed:", errorText);
                 throw new Error(
                     `Failed to update interview session: ${updateResponse.status}`

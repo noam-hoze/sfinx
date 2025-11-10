@@ -78,7 +78,13 @@ const InterviewerContent = () => {
         () => backgroundDurationSeconds * 1000,
         [backgroundDurationSeconds]
     );
-    const candidateName = (session?.user as any)?.name || "Candidate";
+    const isDemoMode = searchParams.get("demo") === "true";
+    const demoUserId = searchParams.get("userId");
+    const [demoCandidateName, setDemoCandidateName] = useState<string | null>(null);
+    
+    const candidateName = isDemoMode 
+        ? (demoCandidateName || "Candidate")
+        : ((session?.user as any)?.name || "Candidate");
 
     /**
      * Queues a contextual knowledge-base update for the agent (non-blocking).
@@ -138,6 +144,14 @@ const InterviewerContent = () => {
     const [interviewConcluded, setInterviewConcluded] = useState(false);
     const [isChatInputLocked, setIsChatInputLocked] = useState(true);
     const [redirectDelayMs, setRedirectDelayMs] = useState<number>(4000);
+    
+    // Debug loop tracking
+    const [consecutiveErrors, setConsecutiveErrors] = useState(0);
+    const [debugLoopStartTime, setDebugLoopStartTime] = useState<Date | null>(null);
+    
+    // Store interview script data for iteration tracking
+    const [interviewScript, setInterviewScript] = useState<any>(null);
+    const [lastEvaluation, setLastEvaluation] = useState<string | null>(null);
 
     useEffect(() => {
         if (!Number.isFinite(backgroundDurationMs) || backgroundDurationMs <= 0) {
@@ -167,6 +181,7 @@ const InterviewerContent = () => {
         return true;
     });
     const timeboxFiredRef = useRef(false);
+    const autoStartTriggeredRef = useRef(false);
 
     const toggleDebugPanel = useCallback(() => {
         if (!isDebugModeEnabled) return;
@@ -179,9 +194,11 @@ const InterviewerContent = () => {
     const {
         startRecording,
         stopRecording,
+        insertRecordingUrl,
         interviewSessionId,
         setInterviewSessionId,
-    } = useScreenRecording();
+    } = useScreenRecording(isDemoMode);
+    const [applicationId, setApplicationId] = useState<string | null>(null);
 
     /**
      * Logs whenever the interview session ID changes (useful for tracing recording sessions).
@@ -189,6 +206,23 @@ const InterviewerContent = () => {
     useEffect(() => {
         logger.info("interviewSessionId changed to:", interviewSessionId);
     }, [interviewSessionId]);
+
+    /**
+     * Fetch demo candidate name when in demo mode.
+     */
+    useEffect(() => {
+        if (isDemoMode && demoUserId) {
+            fetch(`/api/candidates/${demoUserId}/basic?skip-auth=true`)
+                .then((res) => res.json())
+                .then((data) => {
+                    if (data.name) {
+                        setDemoCandidateName(data.name);
+                        logger.info("Demo candidate name fetched:", data.name);
+                    }
+                })
+                .catch((err) => logger.error("Failed to fetch demo candidate name:", err));
+        }
+    }, [isDemoMode, demoUserId]);
 
     useEffect(() => {
         if (!Number.isFinite(backgroundDurationMs) || backgroundDurationMs <= 0) {
@@ -245,6 +279,7 @@ const InterviewerContent = () => {
                 logger.info("⏰ Timer expired - ending interview...");
                 updateSubmission(state.currentCode);
                 await stopRecording();
+                await insertRecordingUrl();
                 await stateMachineHandleSubmission(state.currentCode);
                 // OpenAI flow: say closing line and end via response.done
                 try {
@@ -322,7 +357,59 @@ const InterviewerContent = () => {
         try {
             updateSubmission(state.currentCode);
             await stopRecording();
+            await insertRecordingUrl();
             await stateMachineHandleSubmission(state.currentCode);
+            
+            // Generate coding gaps and summary from session data
+            if (interviewSessionId && interviewScript) {
+                logger.info("Generating coding gaps for session:", interviewSessionId);
+                try {
+                    const gapsResponse = await fetch("/api/interviews/generate-coding-gaps", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            sessionId: interviewSessionId,
+                            finalCode: state.currentCode,
+                            codingTask: interviewScript.codingPrompt,
+                            expectedSolution: interviewScript.codingAnswer,
+                        }),
+                    });
+                    
+                    if (gapsResponse.ok) {
+                        const gapsData = await gapsResponse.json();
+                        logger.info("✅ Coding gaps generated:", gapsData.gapsCount);
+                    } else {
+                        logger.error("Failed to generate coding gaps:", gapsResponse.status);
+                    }
+                } catch (gapsError) {
+                    logger.error("Error generating coding gaps:", gapsError);
+                }
+
+                // Generate coding summary
+                logger.info("Generating coding summary for session:", interviewSessionId);
+                try {
+                    const summaryResponse = await fetch("/api/interviews/generate-coding-summary", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            sessionId: interviewSessionId,
+                            finalCode: state.currentCode,
+                            codingTask: interviewScript.codingPrompt,
+                            expectedSolution: interviewScript.codingAnswer,
+                        }),
+                    });
+                    
+                    if (summaryResponse.ok) {
+                        const summaryData = await summaryResponse.json();
+                        logger.info("✅ Coding summary generated");
+                    } else {
+                        logger.error("Failed to generate coding summary:", summaryResponse.status);
+                    }
+                } catch (summaryError) {
+                    logger.error("Error generating coding summary:", summaryError);
+                }
+            }
+            
             // OpenAI flow: say closing line and rely on response.done to end
             try {
                 const ref = realTimeConversationRef.current;
@@ -337,7 +424,7 @@ const InterviewerContent = () => {
         } catch (error) {
             logger.error("❌ Failed to submit solution:", error);
         }
-    }, [candidateName, setCodingStarted, setCodingState, state.currentCode, stateMachineHandleSubmission, stopRecording, stopTimer, updateSubmission]);
+    }, [candidateName, insertRecordingUrl, interviewScript, interviewSessionId, setCodingStarted, setCodingState, state.currentCode, stateMachineHandleSubmission, stopRecording, stopTimer, updateSubmission]);
 
     /**
      * Starts the interview: begins recording, creates application/session, resets code, and connects to the agent.
@@ -351,18 +438,26 @@ const InterviewerContent = () => {
                 return;
             }
 
+            const isDemoMode = searchParams.get("demo") === "true";
+            const demoUserId = searchParams.get("userId");
+
             if (!applicationCreated && companyId) {
                 try {
                     const application = await createApplication({
                         companyId,
                         jobId,
+                        userId: isDemoMode ? demoUserId || undefined : undefined,
+                        isDemoMode,
                     });
                     setApplicationCreated(true);
 
                     if (application?.application?.id) {
+                        setApplicationId(application.application.id);
                         const session = await createInterviewSession({
                             applicationId: application.application.id,
                             companyId,
+                            userId: isDemoMode ? demoUserId || undefined : undefined,
+                            isDemoMode,
                         });
                         const sessionId = session.interviewSession.id;
                         setInterviewSessionId(sessionId);
@@ -398,6 +493,19 @@ const InterviewerContent = () => {
         isTextMode,
         setIsChatInputLocked,
     ]);
+
+    /**
+     * Auto-start interview when coming from demo page (one-time flag).
+     */
+    useEffect(() => {
+        const shouldAutoStart = sessionStorage.getItem("sfinx-demo-autostart") === "true";
+        if (shouldAutoStart && !autoStartTriggeredRef.current && !isInterviewActive && demoCandidateName) {
+            autoStartTriggeredRef.current = true;
+            sessionStorage.removeItem("sfinx-demo-autostart");
+            logger.info("Auto-starting interview from demo flow");
+            handleInterviewButtonClick();
+        }
+    }, [isInterviewActive, demoCandidateName, handleInterviewButtonClick]);
 
     /**
      * Toggles microphone mute state via the real-time conversation ref.
@@ -503,6 +611,7 @@ const InterviewerContent = () => {
                 );
             }
             const data = await resp.json();
+            setInterviewScript(data); // Store script for iteration tracking
             const tmpl = String(data?.codingTemplate || "");
             if (tmpl.trim().length > 0) {
                 updateCurrentCode(tmpl);
@@ -524,7 +633,7 @@ const InterviewerContent = () => {
     }, [getCurrentTask, state.currentTaskId, updateCurrentCode]);
 
     /**
-     * After interview concludes, mark application as applied and optionally redirect to job search.
+     * After interview concludes, mark application as applied and optionally redirect to job search or demo flow.
      */
     useEffect(() => {
         if (interviewConcluded && companyId) {
@@ -538,18 +647,26 @@ const InterviewerContent = () => {
             const onPracticePage =
                 typeof window !== "undefined" &&
                 window.location.pathname === "/practice";
+            const isDemoMode = searchParams.get("demo") === "true";
+
             if (!onPracticePage) {
                 const delay = typeof redirectDelayMs === "number" ? redirectDelayMs : 4000;
                 setTimeout(() => {
                     try {
-                        window.location.href = "/job-search";
+                        const destination = isDemoMode
+                            ? `/demo/company-view?candidateId=${searchParams.get("userId")}&applicationId=${applicationId}`
+                            : "/job-search";
+                        window.location.href = destination;
                     } catch {
-                        router.push("/job-search");
+                        const destination = isDemoMode
+                            ? `/demo/company-view?candidateId=${searchParams.get("userId")}&applicationId=${applicationId}`
+                            : "/job-search";
+                        router.push(destination);
                     }
                 }, delay);
             }
         }
-    }, [interviewConcluded, companyId, router, markCompanyApplied, redirectDelayMs]);
+    }, [interviewConcluded, companyId, router, markCompanyApplied, redirectDelayMs, searchParams, interviewSessionId, applicationId]);
 
     /**
      * Listens for mic mute/unmute messages from child frames and syncs local state.
@@ -574,6 +691,144 @@ const InterviewerContent = () => {
             updateCurrentCode(code);
         },
         [updateCurrentCode]
+    );
+
+    /**
+     * Handles execution result from CodePreview after Run is clicked.
+     * Evaluates output against expected and saves iteration to DB.
+     */
+    const handleExecutionResult = useCallback(
+        async (result: { status: "success" | "error"; output: string }) => {
+            if (!interviewSessionId || !interviewScript?.expectedOutput) {
+                logger.info("Skipping iteration tracking - missing session ID or expected output");
+                return;
+            }
+
+            try {
+                logger.info("📊 Iteration tracked - evaluating output");
+
+                // Get current code snapshot
+                const codeSnapshot = state.currentCode;
+
+                // Call OpenAI evaluation endpoint
+                const evalResponse = await fetch("/api/interviews/evaluate-output", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        actualOutput: result.output,
+                        expectedOutput: interviewScript.expectedOutput,
+                        codingTask: interviewScript.codingPrompt,
+                        codeSnapshot,
+                    }),
+                });
+
+                if (!evalResponse.ok) {
+                    logger.error("Failed to evaluate iteration");
+                    return;
+                }
+
+                const evaluation = await evalResponse.json();
+                logger.info("✅ Evaluation result:", evaluation);
+
+                // Save iteration to DB (all iterations are evidence-worthy)
+                const url = isDemoMode
+                    ? `/api/interviews/session/${interviewSessionId}/iterations?skip-auth=true`
+                    : `/api/interviews/session/${interviewSessionId}/iterations`;
+
+                const body: Record<string, any> = {
+                    timestamp: new Date().toISOString(),
+                    codeSnapshot,
+                    actualOutput: result.output,
+                    expectedOutput: interviewScript.expectedOutput,
+                    evaluation: evaluation.evaluation,
+                    reasoning: evaluation.reasoning,
+                    matchPercentage: evaluation.matchPercentage,
+                    caption: evaluation.caption,
+                };
+
+                if (isDemoMode && demoUserId) {
+                    body.userId = demoUserId;
+                }
+
+                const saveResponse = await fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body),
+                });
+
+                if (saveResponse.ok) {
+                    logger.info("✅ Iteration saved to DB");
+                    setLastEvaluation(evaluation.evaluation);
+                } else {
+                    logger.error("Failed to save iteration");
+                }
+                
+                // Track debug loops
+                logger.info(`[DEBUG LOOP] Result status: ${result.status}, consecutiveErrors: ${consecutiveErrors}`);
+                
+                if (result.status === "error") {
+                    // Start or continue debug loop
+                    if (consecutiveErrors === 0) {
+                        const startTime = new Date();
+                        setDebugLoopStartTime(startTime);
+                        logger.info(`🔴 [DEBUG LOOP] Loop started at ${startTime.toISOString()}`);
+                    }
+                    setConsecutiveErrors((prev) => prev + 1);
+                    logger.info(`🔴 [DEBUG LOOP] Consecutive errors now: ${consecutiveErrors + 1}`);
+                } else if (result.status === "success" && consecutiveErrors > 0) {
+                    // Debug loop resolved
+                    const endTime = new Date();
+                    const caption = `Resolved ${consecutiveErrors} consecutive runtime error${consecutiveErrors > 1 ? "s" : ""}`;
+                    
+                    logger.info(`✅ [DEBUG LOOP] Loop resolved - ${caption}`);
+                    logger.info(`[DEBUG LOOP] Start time: ${debugLoopStartTime?.toISOString()}, End time: ${endTime.toISOString()}`);
+                    
+                    const debugLoopUrl = isDemoMode
+                        ? `/api/interviews/session/${interviewSessionId}/debug-loops?skip-auth=true`
+                        : `/api/interviews/session/${interviewSessionId}/debug-loops`;
+                    
+                    const debugLoopBody: Record<string, any> = {
+                        startTimestamp: debugLoopStartTime!.toISOString(),
+                        endTimestamp: endTime.toISOString(),
+                        errorCount: consecutiveErrors,
+                        resolved: true,
+                        caption,
+                    };
+                    
+                    if (isDemoMode && demoUserId) {
+                        debugLoopBody.userId = demoUserId;
+                    }
+                    
+                    logger.info(`[DEBUG LOOP] Sending POST to: ${debugLoopUrl}`);
+                    logger.info(`[DEBUG LOOP] Request body:`, debugLoopBody);
+                    
+                    const debugLoopResponse = await fetch(debugLoopUrl, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(debugLoopBody),
+                    });
+                    
+                    logger.info(`[DEBUG LOOP] Response status: ${debugLoopResponse.status}`);
+                    
+                    if (debugLoopResponse.ok) {
+                        const responseData = await debugLoopResponse.json();
+                        logger.info("✅ [DEBUG LOOP] Saved to DB:", responseData);
+                    } else {
+                        const errorText = await debugLoopResponse.text();
+                        logger.error(`❌ [DEBUG LOOP] Failed to save:`, errorText);
+                    }
+                    
+                    // Reset tracking
+                    setConsecutiveErrors(0);
+                    setDebugLoopStartTime(null);
+                } else if (result.status === "success" && consecutiveErrors === 0) {
+                    logger.info(`[DEBUG LOOP] Success with no prior errors - no loop to save`);
+                }
+            } catch (error) {
+                logger.error("❌ Error tracking iteration:", error);
+            }
+        },
+        [interviewSessionId, interviewScript, state.currentCode, lastEvaluation, isDemoMode, demoUserId, consecutiveErrors, debugLoopStartTime]
     );
 
     /**
@@ -672,6 +927,16 @@ const InterviewerContent = () => {
                                 readOnly={!isCodingStarted}
                                 onElevenLabsUpdate={onElevenLabsUpdate}
                                 updateKBVariables={updateKBVariables}
+                                onPasteDetected={(pastedCode, timestamp) => {
+                                    if (isTextMode) {
+                                        try {
+                                            const ref = realTimeConversationRef.current;
+                                            if (ref?.handlePasteDetected) {
+                                                ref.handlePasteDetected(pastedCode, timestamp);
+                                            }
+                                        } catch {}
+                                    }
+                                }}
                                 onAskFollowup={(payload) => {
                                     try {
                                         const ref =
@@ -685,6 +950,7 @@ const InterviewerContent = () => {
                                         }
                                     } catch {}
                                 }}
+                                onExecutionResult={handleExecutionResult}
                             />
                             <InterviewOverlay
                                 isCodingStarted={isCodingStarted}
@@ -752,6 +1018,7 @@ const InterviewerContent = () => {
                             isTextInputLocked={isChatInputLocked}
                             onCodingPromptReady={handleCodingPromptReady}
                             onGreetingDelivered={() => setIsChatInputLocked(false)}
+                            setInputLocked={setIsChatInputLocked}
                         />
                     </Panel>
                 </PanelGroup>

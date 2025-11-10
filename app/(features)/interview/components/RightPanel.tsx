@@ -30,6 +30,7 @@ interface RightPanelProps {
     onGreetingDelivered?: () => void;
     backgroundDurationSeconds: number;
     codingDurationSeconds: number;
+    setInputLocked?: (locked: boolean) => void;
 }
 
 const RightPanel: React.FC<RightPanelProps> = ({
@@ -56,6 +57,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
     onGreetingDelivered,
     backgroundDurationSeconds,
     codingDurationSeconds,
+    setInputLocked,
 }) => {
     const commMethodRaw = (process.env.NEXT_PUBLIC_INTERVIEW_COMM_METHOD || "speech")
         .toLowerCase()
@@ -148,6 +150,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
                                     onInterviewConcluded(delayMs);
                                 } catch {}
                             }}
+                            setInputLocked={setInputLocked}
                         />
                     ) : ( (process.env.NEXT_PUBLIC_VOICE_ENGINE || "elevenlabs") === "openai" ? (
                         <OpenAIVoiceConversation
