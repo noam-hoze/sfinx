@@ -208,8 +208,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         });
                 }
 
-                // Add external tool usage evidence links
+                // Add external tool usage evidence links and calculate breakdown
                 const sessionExternalTools = externalToolsBySession.get(session.id) || [];
+                let fullCount = 0;
+                let partialCount = 0;
+                let noneCount = 0;
+                let totalScore = 0;
+                
                 if (session.recordingStartedAt && sessionExternalTools.length > 0) {
                     sessionExternalTools.forEach((tool: any) => {
                         // Use aiQuestionTimestamp (when paste was first detected)
@@ -217,8 +222,20 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         if (videoOffset >= 0) {
                             aiAssistUsageLinks.push(videoOffset);
                         }
+                        
+                        // Count understanding levels
+                        if (tool.understanding === "FULL") fullCount++;
+                        else if (tool.understanding === "PARTIAL") partialCount++;
+                        else if (tool.understanding === "NONE") noneCount++;
+                        
+                        // Sum accountability scores
+                        totalScore += tool.accountabilityScore || 0;
                     });
                 }
+                
+                const avgAccountabilityScore = sessionExternalTools.length > 0 
+                    ? Math.round(totalScore / sessionExternalTools.length) 
+                    : 0;
 
                 evidenceClips.forEach((clip: any) => {
                     if (clip.startTime === null || clip.startTime === undefined)
@@ -348,15 +365,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
                               aiAssistUsage: {
                                   value: telemetry.workstyleMetrics.externalToolUsage,
                                   level:
-                                      telemetry.workstyleMetrics.externalToolUsage <= 20
-                                          ? "Minimal"
-                                          : telemetry.workstyleMetrics.externalToolUsage <= 50
+                                      avgAccountabilityScore >= 70
+                                          ? "High"
+                                          : avgAccountabilityScore >= 40
                                           ? "Moderate"
-                                          : "High",
+                                          : "Low",
                                   color:
-                                      telemetry.workstyleMetrics.externalToolUsage <= 20
-                                          ? "white"
-                                          : telemetry.workstyleMetrics.externalToolUsage <= 50
+                                      avgAccountabilityScore >= 70
+                                          ? "blue"
+                                          : avgAccountabilityScore >= 40
                                           ? "yellow"
                                           : "red",
                                   isFairnessFlag:
@@ -364,6 +381,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
                                   evidenceLinks: aiAssistUsageLinks,
                                   // TPE center value (counts scale)
                                   tpe: 1,
+                                  // External tool usage breakdown
+                                  fullCount,
+                                  partialCount,
+                                  noneCount,
+                                  avgAccountabilityScore,
                               },
                           }
                         : null,
