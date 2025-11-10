@@ -9,6 +9,7 @@ import GapAnalysis from "./components/GapAnalysis";
 import WorkstyleDashboard from "./components/WorkstyleDashboard";
 import ImprovementChart from "./components/ImprovementChart";
 import TextSummary from "./components/TextSummary";
+import SummaryOverlay from "./components/SummaryOverlay";
 import { AuthGuard } from "app/shared/components";
 import { log } from "app/shared/services";
 
@@ -379,8 +380,8 @@ function TelemetryContent() {
     }
 
     return (
-        <div className={`bg-gray-50 ${mainContentTab === "summary" ? "min-h-screen" : "h-screen overflow-hidden"}`}>
-            <div className={`max-w-7xl mx-auto p-4 ${mainContentTab === "summary" ? "" : "h-full"}`}>
+        <div className="bg-gray-50 h-screen overflow-hidden">
+            <div className="max-w-7xl mx-auto p-4 h-full">
                 {isDemoMode && (
                     <div className="mb-4 flex justify-end">
                         <button
@@ -392,7 +393,7 @@ function TelemetryContent() {
                     </div>
                 )}
                 {/* 2x2 Grid Layout */}
-                <div className={`grid grid-cols-1 xl:grid-cols-[320px_1fr] xl:grid-rows-[auto_1fr] gap-4 xl:gap-6 ${mainContentTab === "summary" ? "" : "h-[calc(100vh-2rem)]"}`}>
+                <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] xl:grid-rows-[auto_1fr] gap-4 xl:gap-6 h-[calc(100vh-2rem)]">
                     {/* Cell 0 - Empty (top-left) */}
                     <div className="xl:block">
                         {/* Candidate Profile - Minimal Apple Style */}
@@ -659,8 +660,8 @@ function TelemetryContent() {
                         </div>
                     </div>
 
-                    {/* Cell 3 - Video / Improvement (bottom-right) */}
-                    <div className={`w-full xl:w-auto flex flex-col gap-2 ${mainContentTab === "summary" ? "" : "h-full"}`}>
+                    {/* Cell 3 - Video / Improvement / Summary (bottom-right) */}
+                    <div className="w-full xl:w-auto flex flex-col gap-2 h-full">
                         <div className="flex items-center justify-between">
                             {mainContentTab === "improvement" ? (
                                 <div className="flex gap-2 text-xs">
@@ -723,40 +724,8 @@ function TelemetryContent() {
                                 </button>
                             </div>
                         </div>
-                        <div className={mainContentTab === "summary" ? "" : "flex-1"}>
-                            {mainContentTab === "summary" ? (
-                                <div className="w-full bg-white rounded-xl border border-gray-200 p-6">
-                                    {summaryLoading ? (
-                                        <div className="flex items-center justify-center py-12">
-                                            <p className="text-gray-600">Loading background summary...</p>
-                                        </div>
-                                    ) : backgroundSummary ? (
-                                        <TextSummary
-                                            executiveSummary={backgroundSummary.executiveSummary}
-                                            recommendation={backgroundSummary.recommendation}
-                                            adaptability={{
-                                                score: backgroundSummary.adaptability.score,
-                                                text: backgroundSummary.adaptability.text,
-                                                evidence: backgroundSummary.evidenceJson?.adaptability || [],
-                                            }}
-                                            creativity={{
-                                                score: backgroundSummary.creativity.score,
-                                                text: backgroundSummary.creativity.text,
-                                                evidence: backgroundSummary.evidenceJson?.creativity || [],
-                                            }}
-                                            reasoning={{
-                                                score: backgroundSummary.reasoning.score,
-                                                text: backgroundSummary.reasoning.text,
-                                                evidence: backgroundSummary.evidenceJson?.reasoning || [],
-                                            }}
-                                        />
-                                    ) : (
-                                        <div className="flex items-center justify-center py-12">
-                                            <p className="text-gray-600">No background summary available for this session.</p>
-                                        </div>
-                                    )}
-                                </div>
-                            ) : mainContentTab === "improvement" ? (
+                        <div className="flex-1">
+                            {mainContentTab === "improvement" ? (
                                 <div className="w-full h-full bg-white rounded-xl border border-gray-200 p-2 overflow-hidden">
                                     <ImprovementChart
                                         data={[...sessions]
@@ -807,13 +776,49 @@ function TelemetryContent() {
                                     />
                                 </div>
                             ) : videoUrl ? (
-                                <EvidenceReel
-                                    jumpToTime={currentVideoTime}
-                                    jumpKey={jumpKey}
-                                    videoUrl={videoUrl}
-                                    duration={duration}
-                                    chapters={chapters}
-                                />
+                                <div className="relative w-full h-full">
+                                    <EvidenceReel
+                                        jumpToTime={currentVideoTime}
+                                        jumpKey={jumpKey}
+                                        videoUrl={videoUrl}
+                                        duration={duration}
+                                        chapters={chapters}
+                                        paused={mainContentTab === "summary"}
+                                    />
+                                    {mainContentTab === "summary" && (
+                                        <>
+                                            {summaryLoading ? (
+                                                <div className="absolute inset-0 bg-white z-10 flex items-center justify-center">
+                                                    <p className="text-gray-600">Loading background summary...</p>
+                                                </div>
+                                            ) : backgroundSummary ? (
+                                                <SummaryOverlay
+                                                    executiveSummary={backgroundSummary.executiveSummary}
+                                                    recommendation={backgroundSummary.recommendation}
+                                                    adaptability={{
+                                                        score: backgroundSummary.adaptability.score,
+                                                        text: backgroundSummary.adaptability.text,
+                                                        evidence: backgroundSummary.evidenceJson?.adaptability || [],
+                                                    }}
+                                                    creativity={{
+                                                        score: backgroundSummary.creativity.score,
+                                                        text: backgroundSummary.creativity.text,
+                                                        evidence: backgroundSummary.evidenceJson?.creativity || [],
+                                                    }}
+                                                    reasoning={{
+                                                        score: backgroundSummary.reasoning.score,
+                                                        text: backgroundSummary.reasoning.text,
+                                                        evidence: backgroundSummary.evidenceJson?.reasoning || [],
+                                                    }}
+                                                />
+                                            ) : (
+                                                <div className="absolute inset-0 bg-white z-10 flex items-center justify-center">
+                                                    <p className="text-gray-600">No background summary available for this session.</p>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
                             ) : (
                                 <div className="aspect-video bg-gray-200 rounded-xl" />
                             )}
