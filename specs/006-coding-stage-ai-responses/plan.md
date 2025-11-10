@@ -5,6 +5,48 @@ Enable AI responses during coding and implement comprehensive metrics for the CP
 
 ---
 
+# Video Timestamp Synchronization
+
+## Problem
+Evidence links need to direct to the exact moment in the video recording where an event occurred (paste, iteration, debug loop resolution, etc.).
+
+## Solution
+Use recording start time as reference point and calculate video offsets for all events.
+
+### At Recording Start
+Store `recordingStartedAt: Date` in the interview session when `startRecording()` is called in `useScreenRecording` hook.
+
+### At Each Event
+Store regular timestamp: `eventTimestamp: Date`
+
+### Calculate Video Position
+```typescript
+videoOffset = (eventTimestamp - recordingStartedAt) / 1000  // seconds into video
+videoUrl = `/video/${sessionId}?t=${videoOffset}`
+```
+
+### Example
+```typescript
+recordingStartedAt: 2025-01-10 14:00:00.000
+pasteEvent:         2025-01-10 14:05:30.500
+
+videoOffset = 330.5 seconds (5 minutes 30.5 seconds into video)
+```
+
+### Benefits
+- Uses same clock source (client time) - no sync issues
+- Can reconstruct absolute timeline
+- Simple arithmetic
+- Standard approach (YouTube, video editors)
+
+### Implementation
+1. Add `recordingStartedAt: Date` field to `InterviewSession` DB schema
+2. Persist recording start time when `useScreenRecording.startRecording()` is called
+3. All event timestamps use `new Date()` or `Date.now()`
+4. Calculate video offset when displaying evidence links on CPS page
+
+---
+
 # Step 1: Coding Stage AI Responses
 
 ## Problem
@@ -143,31 +185,28 @@ iterations: [
 ```
 
 ## Video Evidence for CPS
-Save timestamps of meaningful iteration moments for video playback:
-- **Evaluation changes**: When evaluation transitions (incorrect → partial, partial → correct)
-- **First partial success**: Candidate makes initial progress
-- **First correct solution**: Breakthrough moment
-- **Final submission**: End result
-
-Each evidence link shows:
+**All iterations are evidence-worthy** - every Run click is saved as evidence with:
 - Video timestamp linking to recorded session
-- Caption from OpenAI (e.g., "First working solution achieved")
-- Allows company to see the exact moment in context
+- Caption from OpenAI (e.g., "First working solution achieved", "Component fails to render")
+- Evaluation result (CORRECT/PARTIAL/INCORRECT)
+- Match percentage
+
+Rationale: Every iteration represents a meaningful candidate action worth reviewing.
 
 ## Metrics to Display on CPS
 - **Count**: Total meaningful runs with output evaluation
 - **Success rate**: Correct vs partial vs incorrect
 - **Time to solution**: Duration until first correct
-- **Video Evidence** (1-3 citations): Evaluation transitions, first success, breakthrough moments
+- **Video Evidence** (all iterations): Every run with caption, evaluation, and match percentage
 
 ## Implementation Points
 - Track Run button clicks in `EditorPanel`
 - Capture output from `CodePreview` after execution
 - Call OpenAI evaluation endpoint (returns evaluation + caption)
-- Identify meaningful iterations (evaluation transitions) for video evidence
-- Store iteration data in DB with timestamps and captions
-- Display on CPS: total iterations, successful vs failed, time to first correct solution
-- Display video evidence links (1-3 citations) with captions for key moments
+- Store ALL iteration data in DB with timestamps and captions
+- Update `WorkstyleMetrics.iterationSpeed` incrementally after each run
+- Display on CPS: total iterations, success rate, time to first correct solution
+- Display video evidence links for ALL iterations with captions
 
 ## Files to Modify
 1. Interview script schema - add `expectedOutput`
@@ -420,7 +459,7 @@ Store in existing gaps tables (maintain current schema):
 - **Count**: Total meaningful runs with output evaluation
 - **Success rate**: Correct vs partial vs incorrect
 - **Time to solution**: Duration until first correct
-- **Video Evidence** (1-3 citations): Evaluation transitions, first success, breakthrough moments
+- **Video Evidence** (all iterations): Every run with caption, evaluation, and match percentage
 
 ### 2. Debug Loops
 - **Count**: Total consecutive error sequences

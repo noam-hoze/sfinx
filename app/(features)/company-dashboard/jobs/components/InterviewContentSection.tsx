@@ -6,6 +6,7 @@ export interface InterviewContentState {
     codingPrompt: string;
     codingTemplate: string;
     codingAnswer: string;
+    expectedOutput: string;
 }
 
 export interface InterviewDurationState {
@@ -49,7 +50,7 @@ export function InterviewContentSection({
     canRemove = true,
     allowEmptyCodingPrompt = false,
 }: InterviewContentSectionProps) {
-    const { backgroundQuestion, codingPrompt, codingTemplate, codingAnswer } =
+    const { backgroundQuestion, codingPrompt, codingTemplate, codingAnswer, expectedOutput } =
         state;
 
     const updateField =
@@ -124,6 +125,17 @@ export function InterviewContentSection({
                         placeholder="Expected approach, edge cases, and time/space complexity..."
                     />
                 </label>
+
+                <label className="flex flex-col text-sm font-medium text-gray-700 lg:col-span-2">
+                    Expected Output
+                    <textarea
+                        value={expectedOutput}
+                        onChange={updateField("expectedOutput")}
+                        disabled={disabled}
+                        className="mt-1 min-h-[120px] rounded-xl border border-gray-200 px-4 py-3 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                        placeholder="Describe the expected visual output or behavior (e.g., 'A list of 5 users displayed with name and email')"
+                    />
+                </label>
             </div>
 
             <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -159,6 +171,7 @@ export const emptyInterviewContentState: InterviewContentState = {
     codingPrompt: "",
     codingTemplate: "",
     codingAnswer: "",
+    expectedOutput: "",
 };
 
 export const defaultInterviewDurations: InterviewDurationState = {

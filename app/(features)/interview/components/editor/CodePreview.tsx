@@ -7,17 +7,24 @@ interface CodePreviewProps {
     code: string;
     isActive: boolean;
     isDarkMode?: boolean;
+    onExecutionResult?: (result: {
+        status: "success" | "error";
+        output: string;
+    }) => void;
 }
 
 const CodePreview: React.FC<CodePreviewProps> = ({
     code,
     isActive,
     isDarkMode = false,
+    onExecutionResult,
 }) => {
     const [isExecuting, setIsExecuting] = useState(false);
     const [executionStatus, setExecutionStatus] = useState<
         "idle" | "success" | "error"
     >("idle");
+    const [errorMessage, setErrorMessage] = useState<string>("");
+    const previewRef = React.useRef<HTMLDivElement>(null);
 
     // Use the code directly - it should include the render() call
     const wrappedCode = React.useMemo(
@@ -52,16 +59,46 @@ render(DefaultComponent);
         if (isActive && code) {
             setIsExecuting(true);
             setExecutionStatus("idle");
+            setErrorMessage("");
 
-            // Simulate execution delay
+            // Simulate execution delay and capture output
             const timer = setTimeout(() => {
                 setIsExecuting(false);
-                setExecutionStatus("success");
+                
+                // Try to capture rendered output
+                try {
+                    const previewElement = previewRef.current;
+                    let output = "";
+                    
+                    if (previewElement) {
+                        // Capture text content from preview
+                        output = previewElement.innerText || previewElement.textContent || "";
+                    }
+                    
+                    // If output is empty or default message, try to describe what rendered
+                    if (!output || output.includes("Write some React code")) {
+                        output = "Component rendered (visual output)";
+                    }
+                    
+                    setExecutionStatus("success");
+                    onExecutionResult?.({
+                        status: "success",
+                        output: output.trim(),
+                    });
+                } catch (error) {
+                    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+                    setErrorMessage(errorMsg);
+                    setExecutionStatus("error");
+                    onExecutionResult?.({
+                        status: "error",
+                        output: `Error: ${errorMsg}`,
+                    });
+                }
             }, 500);
 
             return () => clearTimeout(timer);
         }
-    }, [isActive, code]);
+    }, [isActive, code, onExecutionResult]);
 
     if (!isActive) return null;
 
@@ -83,7 +120,9 @@ render(DefaultComponent);
                             isDarkMode ? "bg-red-900 text-red-200" : "bg-red-50"
                         }`}
                     />
-                    <LivePreview className="min-h-[400px] flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-8" />
+                    <div ref={previewRef}>
+                        <LivePreview className="min-h-[400px] flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-8" />
+                    </div>
                 </LiveProvider>
             </div>
         </div>

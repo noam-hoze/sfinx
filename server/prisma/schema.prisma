@@ -132,6 +132,8 @@ model InterviewContent {
   codingTemplate     String?
   /// Canonical answer used for evaluation/comparison.
   codingAnswer       String?
+  /// Expected visual output or behavior for iteration evaluation.
+  expectedOutput     String?
   /// Timebox for answering the background question (seconds).
   backgroundQuestionTimeSeconds Int @default(900)
   /// Timebox for completing the coding challenge (seconds).
@@ -156,20 +158,23 @@ model Application {
 }
 
 model InterviewSession {
-  id            String                @id @default(cuid())
-  candidateId   String
-  applicationId String
-  videoUrl      String?
-  startedAt     DateTime              @default(now())
-  completedAt   DateTime?
-  duration      Int?
-  status        String                @default("IN_PROGRESS")
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
-  application   Application           @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  candidate     User                  @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  telemetryData TelemetryData?
-  messages      ConversationMessage[]
+  id                  String                @id @default(cuid())
+  candidateId         String
+  applicationId       String
+  videoUrl            String?
+  /// Timestamp when screen recording started (for video offset calculation).
+  recordingStartedAt  DateTime?
+  startedAt           DateTime              @default(now())
+  completedAt         DateTime?
+  duration            Int?
+  status              String                @default("IN_PROGRESS")
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  application         Application           @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  candidate           User                  @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  telemetryData       TelemetryData?
+  messages            ConversationMessage[]
+  iterations          Iteration[]
 }
 
 model TelemetryData {
@@ -315,6 +320,39 @@ enum JobType {
   FULL_TIME
   PART_TIME
   CONTRACT
+}
+
+/// Tracks each code run iteration during the coding stage.
+model Iteration {
+  id                  String           @id @default(cuid())
+  interviewSessionId  String
+  /// Absolute timestamp when Run button was clicked.
+  timestamp           DateTime         @default(now())
+  /// Full code snapshot at time of run.
+  codeSnapshot        String
+  /// Captured output from preview (text, description, or error message).
+  actualOutput        String
+  /// Expected output from interview script.
+  expectedOutput      String
+  /// OpenAI evaluation result.
+  evaluation          IterationResult
+  /// OpenAI reasoning for evaluation.
+  reasoning           String
+  /// Match percentage (0-100).
+  matchPercentage     Int
+  /// Caption for video evidence.
+  caption             String
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  interviewSession    InterviewSession @relation(fields: [interviewSessionId], references: [id], onDelete: Cascade)
+
+  @@index([interviewSessionId])
+}
+
+enum IterationResult {
+  CORRECT
+  PARTIAL
+  INCORRECT
 }
 
 enum ApplicationStatus {

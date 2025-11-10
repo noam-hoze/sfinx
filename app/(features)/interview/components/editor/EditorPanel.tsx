@@ -64,6 +64,10 @@ interface EditorPanelProps {
         addedChars: number;
         removedChars: number;
     }) => void;
+    onExecutionResult?: (result: {
+        status: "success" | "error";
+        output: string;
+    }) => void;
 }
 
 const EditorPanel: React.FC<EditorPanelProps> = ({
@@ -84,6 +88,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     updateKBVariables,
     onPasteDetected,
     onAskFollowup,
+    onExecutionResult,
 }) => {
     if (propCurrentCode === undefined) {
         throw new Error("EditorPanel requires currentCode");
@@ -420,6 +425,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                         code={currentCode}
                         isActive={activeTab === "preview"}
                         isDarkMode={isDarkMode}
+                        onExecutionResult={onExecutionResult}
                     />
                 )}
             </div>

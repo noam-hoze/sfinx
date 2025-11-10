@@ -511,6 +511,10 @@ const InterviewerContent = () => {
         };
     }, [jobId, dispatch]);
 
+    // Store interview script data for iteration tracking
+    const [interviewScript, setInterviewScript] = useState<any>(null);
+    const [lastEvaluation, setLastEvaluation] = useState<string | null>(null);
+
     /**
      * Initializes editor content with the default snippet if empty.
      */
@@ -535,6 +539,7 @@ const InterviewerContent = () => {
                 );
             }
             const data = await resp.json();
+            setInterviewScript(data); // Store script for iteration tracking
             const tmpl = String(data?.codingTemplate || "");
             if (tmpl.trim().length > 0) {
                 updateCurrentCode(tmpl);
@@ -614,6 +619,82 @@ const InterviewerContent = () => {
             updateCurrentCode(code);
         },
         [updateCurrentCode]
+    );
+
+    /**
+     * Handles execution result from CodePreview after Run is clicked.
+     * Evaluates output against expected and saves iteration to DB.
+     */
+    const handleExecutionResult = useCallback(
+        async (result: { status: "success" | "error"; output: string }) => {
+            if (!interviewSessionId || !interviewScript?.expectedOutput) {
+                logger.info("Skipping iteration tracking - missing session ID or expected output");
+                return;
+            }
+
+            try {
+                logger.info("📊 Iteration tracked - evaluating output");
+
+                // Get current code snapshot
+                const codeSnapshot = state.currentCode;
+
+                // Call OpenAI evaluation endpoint
+                const evalResponse = await fetch("/api/interviews/evaluate-output", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        actualOutput: result.output,
+                        expectedOutput: interviewScript.expectedOutput,
+                        codingTask: interviewScript.codingPrompt,
+                        codeSnapshot,
+                    }),
+                });
+
+                if (!evalResponse.ok) {
+                    logger.error("Failed to evaluate iteration");
+                    return;
+                }
+
+                const evaluation = await evalResponse.json();
+                logger.info("✅ Evaluation result:", evaluation);
+
+                // Save iteration to DB (all iterations are evidence-worthy)
+                const url = isDemoMode
+                    ? `/api/interviews/session/${interviewSessionId}/iterations?skip-auth=true`
+                    : `/api/interviews/session/${interviewSessionId}/iterations`;
+
+                const body: Record<string, any> = {
+                    timestamp: new Date().toISOString(),
+                    codeSnapshot,
+                    actualOutput: result.output,
+                    expectedOutput: interviewScript.expectedOutput,
+                    evaluation: evaluation.evaluation,
+                    reasoning: evaluation.reasoning,
+                    matchPercentage: evaluation.matchPercentage,
+                    caption: evaluation.caption,
+                };
+
+                if (isDemoMode && demoUserId) {
+                    body.userId = demoUserId;
+                }
+
+                const saveResponse = await fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body),
+                });
+
+                if (saveResponse.ok) {
+                    logger.info("✅ Iteration saved to DB");
+                    setLastEvaluation(evaluation.evaluation);
+                } else {
+                    logger.error("Failed to save iteration");
+                }
+            } catch (error) {
+                logger.error("❌ Error tracking iteration:", error);
+            }
+        },
+        [interviewSessionId, interviewScript, state.currentCode, lastEvaluation, isDemoMode, demoUserId]
     );
 
     /**
@@ -735,6 +816,7 @@ const InterviewerContent = () => {
                                         }
                                     } catch {}
                                 }}
+                                onExecutionResult={handleExecutionResult}
                             />
                             <InterviewOverlay
                                 isCodingStarted={isCodingStarted}

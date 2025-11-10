@@ -94,6 +94,7 @@ export async function POST(request: NextRequest) {
                         candidateId: userId,
                         applicationId: applicationId,
                         status: "IN_PROGRESS",
+                        recordingStartedAt: new Date(), // Set recording start time for video offset calculation
                     },
                 });
                 log.info("✅ [TX] InterviewSession created", {

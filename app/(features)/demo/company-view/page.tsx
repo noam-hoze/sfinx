@@ -7,6 +7,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import DemoProgressHeader from "../components/DemoProgressHeader";
 
 function CompanyViewContent() {
     const router = useRouter();
@@ -20,6 +21,11 @@ function CompanyViewContent() {
 
     return (
         <div className="min-h-screen bg-gray-50">
+            <div className="bg-white border-b border-gray-200 py-6">
+                <div className="max-w-7xl mx-auto px-4">
+                    <DemoProgressHeader currentStage={3} />
+                </div>
+            </div>
             <div className="max-w-3xl mx-auto px-4 py-16">
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12">
                     <div className="text-center mb-8">

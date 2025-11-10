@@ -102,15 +102,50 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
         const candidate = interviewSessions[0].candidate;
 
+        // Fetch iterations for all sessions to generate evidence links
+        const sessionIds = interviewSessions.map((s: any) => s.id);
+        const allIterations = await prisma.iteration.findMany({
+            where: {
+                interviewSessionId: { in: sessionIds },
+            },
+            select: {
+                interviewSessionId: true,
+                timestamp: true,
+                caption: true,
+                evaluation: true,
+                matchPercentage: true,
+            },
+        });
+
+        // Group iterations by session
+        const iterationsBySession = new Map<string, any[]>();
+        for (const iter of allIterations) {
+            if (!iterationsBySession.has(iter.interviewSessionId)) {
+                iterationsBySession.set(iter.interviewSessionId, []);
+            }
+            iterationsBySession.get(iter.interviewSessionId)!.push(iter);
+        }
+
         // Transform sessions array
         const sessions = interviewSessions.map((session: any) => {
             const telemetry = session.telemetryData;
             const evidenceClips = telemetry.evidenceClips || [];
+            const sessionIterations = iterationsBySession.get(session.id) || [];
 
             const iterationSpeedLinks: number[] = [];
             const debugLoopsLinks: number[] = [];
             const refactorCleanupsLinks: number[] = [];
             const aiAssistUsageLinks: number[] = [];
+
+            // Add iteration evidence links (calculate video offset from recordingStartedAt)
+            if (session.recordingStartedAt) {
+                sessionIterations.forEach((iter: any) => {
+                    const videoOffset = (new Date(iter.timestamp).getTime() - new Date(session.recordingStartedAt).getTime()) / 1000;
+                    if (videoOffset >= 0) {
+                        iterationSpeedLinks.push(videoOffset);
+                    }
+                });
+            }
 
             evidenceClips.forEach((clip: any) => {
                 if (clip.startTime === null || clip.startTime === undefined)
@@ -185,20 +220,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
                           iterationSpeed: {
                               value: telemetry.workstyleMetrics.iterationSpeed,
                               level:
-                                  telemetry.workstyleMetrics.iterationSpeed >= 80
+                                  telemetry.workstyleMetrics.iterationSpeed >= 10
                                       ? "High"
-                                      : telemetry.workstyleMetrics.iterationSpeed >= 60
+                                      : telemetry.workstyleMetrics.iterationSpeed >= 5
                                       ? "Moderate"
                                       : "Low",
                               color:
-                                  telemetry.workstyleMetrics.iterationSpeed >= 80
+                                  telemetry.workstyleMetrics.iterationSpeed >= 10
                                       ? "blue"
-                                      : telemetry.workstyleMetrics.iterationSpeed >= 60
+                                      : telemetry.workstyleMetrics.iterationSpeed >= 5
                                       ? "yellow"
                                       : "red",
                               evidenceLinks: iterationSpeedLinks,
-                              // TPE center value (counts scale)
-                              tpe: 1,
+                              tpe: telemetry.workstyleMetrics.iterationSpeed || 0,
                           },
                           debugLoops: {
                               value: telemetry.workstyleMetrics.debugLoops,

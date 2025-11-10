@@ -131,6 +131,82 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                     const data = (metric as any).data;
                     if (data == null || (data as any).value == null)
                         return null;
+                    
+                    // Special rendering for Iterations
+                    if (metric.key === "iterationSpeed") {
+                        return (
+                            <div
+                                key={metric.key}
+                                className="py-3 first:pt-0 last:pb-0 px-2 rounded-md hover:bg-gray-50 transition"
+                            >
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-medium text-gray-700">
+                                            {metric.label}
+                                        </span>
+                                        <div className="group relative flex items-center">
+                                            <Info
+                                                size={14}
+                                                className="text-gray-400"
+                                            />
+                                            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 bg-white text-black text-xs rounded py-2 px-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none border border-gray-200 shadow-lg z-10 whitespace-normal">
+                                                {getTooltipText(metric.key)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-2xl font-bold text-gray-900">
+                                            {metric.data.value}
+                                        </span>
+                                        <span className={`text-xs font-medium px-2 py-1 rounded ${
+                                            metric.data.level === "High"
+                                                ? "bg-blue-100 text-blue-700"
+                                                : metric.data.level === "Moderate"
+                                                ? "bg-yellow-100 text-yellow-700"
+                                                : "bg-red-100 text-red-700"
+                                        }`}>
+                                            {metric.data.level}
+                                        </span>
+                                    </div>
+                                    <span className="text-xs text-gray-500">
+                                        {metric.data.value === 1 ? "iteration" : "iterations"}
+                                    </span>
+                                    {!editMode && (metric.data.evidenceLinks ?? []).length > 0 && (
+                                        <div className="flex items-center gap-1 flex-wrap">
+                                            <span className="text-xs text-gray-500 mr-1">Evidence:</span>
+                                            {(metric.data.evidenceLinks ?? []).map(
+                                                (timestamp: number, index: number) => (
+                                                    <button
+                                                        key={index}
+                                                        onClick={() => {
+                                                            setClickedTimestamp(timestamp);
+                                                            onVideoJump(timestamp);
+                                                        }}
+                                                        className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-all duration-200 ${
+                                                            clickedTimestamp === timestamp
+                                                                ? "text-blue-600 bg-blue-50 ring-2 ring-blue-200"
+                                                                : "text-gray-600 bg-gray-100 hover:text-blue-600 hover:bg-blue-50"
+                                                        }`}
+                                                        title={`Jump to ${Math.floor(
+                                                            timestamp / 60
+                                                        )}:${(timestamp % 60)
+                                                            .toString()
+                                                            .padStart(2, "0")}`}
+                                                    >
+                                                        {index + 1}
+                                                    </button>
+                                                )
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    }
+                    
+                    // Standard rendering for other metrics
                     return (
                         <div
                             key={metric.key}

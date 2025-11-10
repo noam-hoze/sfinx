@@ -7,9 +7,6 @@ import { useRouter } from "next/navigation";
 import EvidenceReel from "./components/EvidenceReel";
 import GapAnalysis from "./components/GapAnalysis";
 import WorkstyleDashboard from "./components/WorkstyleDashboard";
-import PersistenceFlow from "./components/PersistenceFlow";
-import LearningToActionTimeline from "./components/LearningToActionTimeline";
-import ConfidenceBuildingCurve from "./components/ConfidenceBuildingCurve";
 import ImprovementChart from "./components/ImprovementChart";
 import TextSummary from "./components/TextSummary";
 import { AuthGuard } from "app/shared/components";
@@ -30,7 +27,7 @@ function TelemetryContent() {
     const [currentVideoTime, setCurrentVideoTime] = React.useState(0);
     const [jumpKey, setJumpKey] = React.useState(0);
     const [activeTab, setActiveTab] = useState<
-        "benchmarks" | "insights" | "gaps"
+        "benchmarks" | "gaps"
     >("benchmarks");
     const [editMode, setEditMode] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -582,16 +579,6 @@ function TelemetryContent() {
                                     Benchmarks
                                 </button>
                                 <button
-                                    onClick={() => setActiveTab("insights")}
-                                    className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ease-out ${
-                                        activeTab === "insights"
-                                            ? "bg-blue-500 text-white shadow-md"
-                                            : "text-gray-600 hover:text-gray-900 hover:bg-white/40"
-                                    }`}
-                                >
-                                    Insights
-                                </button>
-                                <button
                                     onClick={() => setActiveTab("gaps")}
                                     className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ease-out ${
                                         activeTab === "gaps"
@@ -606,9 +593,7 @@ function TelemetryContent() {
 
                         {/* Tab Content */}
                         <div
-                            className={`space-y-3 ${
-                                activeTab === "insights" ? "" : "max-h-[calc(100vh-18rem)] overflow-y-auto"
-                            } border-t border-l border-r border-white/40 border-b-2 border-b-white/60 rounded-2xl bg-white/20 backdrop-blur-sm p-3 shadow-sm`}
+                            className="space-y-3 max-h-[calc(100vh-18rem)] overflow-y-auto border-t border-l border-r border-white/40 border-b-2 border-b-white/60 rounded-2xl bg-white/20 backdrop-blur-sm p-3 shadow-sm"
                         >
                             {activeTab === "benchmarks" && (
                                 <div className="space-y-3 animate-in slide-in-from-right-2 duration-300">
@@ -640,28 +625,6 @@ function TelemetryContent() {
                                 </div>
                             )}
 
-                            {activeTab === "insights" && (
-                                <div className="space-y-3 animate-in slide-in-from-left-2 duration-300">
-                                    {/* <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
-                                        <PersistenceFlow
-                                            data={persistenceFlow}
-                                            onVideoJump={onVideoJump}
-                                        />
-                                    </div> */}
-                                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
-                                        <LearningToActionTimeline
-                                            data={learningToAction}
-                                            onVideoJump={onVideoJump}
-                                        />
-                                    </div>
-                                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2">
-                                        <ConfidenceBuildingCurve
-                                            data={confidenceCurve}
-                                            onVideoJump={onVideoJump}
-                                        />
-                                    </div>
-                                </div>
-                            )}
                             {activeTab === "gaps" && (
                                 <div className="space-y-3 animate-in slide-in-from-left-2 duration-300">
                                     {gaps && (

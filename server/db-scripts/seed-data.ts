@@ -49,12 +49,84 @@ const mapJobType = (type: string): JobType => {
     }
 };
 
+const FRONTEND_BACKGROUND_QUESTION = "Tell me about a complex React integration you built. What made it challenging?";
+
+const SHARED_FRONTEND_INTERVIEW = {
+    id: "shared-frontend-interview",
+    backgroundQuestion: FRONTEND_BACKGROUND_QUESTION,
+    codingPrompt:
+        "Please build a React component called `UserList` that fetches users from the provided API and displays their name and email in a styled list. Feel free to ask me anything you want.",
+    codingTemplate: `/*
+  Task:
+  Build a React component called \`UserList\` that:
+  1. Fetches users from the API: https://jsonplaceholder.typicode.com/users
+  2. Displays each user's name and email in a list.
+  3. Shows a "Loading..." message while fetching.
+  4. Shows an error message if the request fails.
+*/
+
+function UserList() {
+  // Your code here
+
+  return (
+    <ul>
+      {/* Render user name and email here */}
+    </ul>
+  );
+}
+
+render(<UserList />);
+`,
+    codingAnswer: `function UserList() {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetch("https://jsonplaceholder.typicode.com/users")
+      .then(r => r.json())
+      .then(d => {
+        setUsers(d);
+        setLoading(false);
+      })
+      .catch(e => {
+        setError(e.message);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error}</div>;
+
+  return (
+    <ul>
+      {users.map(u => (
+        <li key={u.id}>
+          <strong>{u.name}</strong> - {u.email}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+render(<UserList />);
+`,
+    expectedOutput: `Leanne Graham - Sincere@april.biz
+Ervin Howell - Shanna@melissa.tv
+Clementine Bauch - Nathan@yesenia.net
+Patricia Lebsack - Julianne.OConner@kory.org
+Chelsey Dietrich - Lucio_Hettinger@annie.ca
+Mrs. Dennis Schulist - Karley_Dach@jasper.info
+Kurtis Weissnat - Telly.Hoeger@billy.biz
+Nicholas Runolfsdottir V - Sherwood@rosamond.me
+Glenna Reichert - Chaim_McDermott@dana.io
+Clementina DuBuque - Rey.Padberg@karina.biz`,
+    backgroundQuestionTimeSeconds: 3 * 60,
+    codingQuestionTimeSeconds: 7 * 60,
+};
+
 async function resetDatabase() {
     try {
-        const interviewScriptPath = path.join(
-            process.cwd(),
-            "server/interviews/meta/frontend-engineer/interviewScript.json"
-        );
         const companiesPath = path.join(
             process.cwd(),
             "server/db-scripts/data/companies.json"
@@ -62,14 +134,6 @@ async function resetDatabase() {
         const companiesData = JSON.parse(
             fs.readFileSync(companiesPath, "utf-8")
         );
-        const interviewScript = JSON.parse(
-            fs.readFileSync(interviewScriptPath, "utf-8")
-        );
-        const codingPrompt: string | undefined =
-            interviewScript?.codingChallenge?.prompt;
-        if (!codingPrompt) {
-            throw new Error("Missing coding prompt in interview script JSON");
-        }
         log.info("Clearing existing data...");
 
         // Delete in reverse order of dependencies
@@ -162,23 +226,29 @@ async function resetDatabase() {
             log.info(`   └─ Created ${companyData.openRoles.length} jobs for ${company.name}`);
         }
 
-        log.info("Seeding shared interview content for frontend roles...");
+        log.info("Seeding shared interview content for all Frontend Engineer roles...");
         const interviewContent = await prisma.interviewContent.upsert({
             where: {
-                id: "shared-frontend-interview",
+                id: SHARED_FRONTEND_INTERVIEW.id,
             },
             update: {
-                backgroundQuestion: interviewScript.backgroundQuestion,
-                codingPrompt,
-                codingTemplate: interviewScript?.codingChallenge?.template,
-                codingAnswer: interviewScript?.codingChallenge?.answer,
+                backgroundQuestion: SHARED_FRONTEND_INTERVIEW.backgroundQuestion,
+                codingPrompt: SHARED_FRONTEND_INTERVIEW.codingPrompt,
+                codingTemplate: SHARED_FRONTEND_INTERVIEW.codingTemplate,
+                codingAnswer: SHARED_FRONTEND_INTERVIEW.codingAnswer,
+                expectedOutput: SHARED_FRONTEND_INTERVIEW.expectedOutput,
+                backgroundQuestionTimeSeconds: SHARED_FRONTEND_INTERVIEW.backgroundQuestionTimeSeconds,
+                codingQuestionTimeSeconds: SHARED_FRONTEND_INTERVIEW.codingQuestionTimeSeconds,
             },
             create: {
-                id: "shared-frontend-interview",
-                backgroundQuestion: interviewScript.backgroundQuestion,
-                codingPrompt,
-                codingTemplate: interviewScript?.codingChallenge?.template,
-                codingAnswer: interviewScript?.codingChallenge?.answer,
+                id: SHARED_FRONTEND_INTERVIEW.id,
+                backgroundQuestion: SHARED_FRONTEND_INTERVIEW.backgroundQuestion,
+                codingPrompt: SHARED_FRONTEND_INTERVIEW.codingPrompt,
+                codingTemplate: SHARED_FRONTEND_INTERVIEW.codingTemplate,
+                codingAnswer: SHARED_FRONTEND_INTERVIEW.codingAnswer,
+                expectedOutput: SHARED_FRONTEND_INTERVIEW.expectedOutput,
+                backgroundQuestionTimeSeconds: SHARED_FRONTEND_INTERVIEW.backgroundQuestionTimeSeconds,
+                codingQuestionTimeSeconds: SHARED_FRONTEND_INTERVIEW.codingQuestionTimeSeconds,
             },
         });
         const frontendJobUpdate = await prisma.job.updateMany({
@@ -193,48 +263,7 @@ async function resetDatabase() {
             throw new Error("No Frontend Engineer jobs found to attach interview content");
         }
         log.info(
-            `Linked interview content to ${frontendJobUpdate.count} Frontend Engineer jobs`
-        );
-
-        log.info("Customizing Meta Frontend Engineer interview timers...");
-        const metaInterviewContent = await prisma.interviewContent.upsert({
-            where: {
-                id: "meta-frontend-interview",
-            },
-            update: {
-                backgroundQuestion: interviewScript.backgroundQuestion,
-                codingPrompt,
-                codingTemplate: interviewScript?.codingChallenge?.template,
-                codingAnswer: interviewScript?.codingChallenge?.answer,
-                backgroundQuestionTimeSeconds: 3 * 60,
-                codingQuestionTimeSeconds: 7 * 60,
-            },
-            create: {
-                id: "meta-frontend-interview",
-                backgroundQuestion: interviewScript.backgroundQuestion,
-                codingPrompt,
-                codingTemplate: interviewScript?.codingChallenge?.template,
-                codingAnswer: interviewScript?.codingChallenge?.answer,
-                backgroundQuestionTimeSeconds: 3 * 60,
-                codingQuestionTimeSeconds: 7 * 60,
-            },
-        });
-        const metaFrontendUpdate = await prisma.job.updateMany({
-            where: {
-                companyId: "meta",
-                title: "Frontend Engineer",
-            },
-            data: {
-                interviewContentId: metaInterviewContent.id,
-            },
-        });
-        if (metaFrontendUpdate.count === 0) {
-            throw new Error(
-                "Meta Frontend Engineer job not found for timer customization"
-            );
-        }
-        log.info(
-            `Applied Meta-specific timers to ${metaFrontendUpdate.count} Frontend Engineer job(s)`
+            `Linked interview content to ${frontendJobUpdate.count} Frontend Engineer jobs (including Meta)`
         );
 
         log.info("Database reset and seeded successfully!");
