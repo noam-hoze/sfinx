@@ -142,7 +142,7 @@ const CodingSummaryOverlay: React.FC<CodingSummaryOverlayProps> = ({
                                 : "bg-blue-500 text-white hover:bg-blue-600"
                         }`}
                     >
-                        <span className="hidden md:inline">← Previous</span>
+                        <span className="hidden md:inline">Previous</span>
                         <span className="md:hidden">←</span>
                     </button>
 
@@ -161,7 +161,7 @@ const CodingSummaryOverlay: React.FC<CodingSummaryOverlayProps> = ({
                                 : "bg-blue-500 text-white hover:bg-blue-600"
                         }`}
                     >
-                        <span className="hidden md:inline">Next →</span>
+                        <span className="hidden md:inline">Next</span>
                         <span className="md:hidden">→</span>
                     </button>
                 </div>
