@@ -144,6 +144,10 @@ const InterviewerContent = () => {
     const [interviewConcluded, setInterviewConcluded] = useState(false);
     const [isChatInputLocked, setIsChatInputLocked] = useState(true);
     const [redirectDelayMs, setRedirectDelayMs] = useState<number>(4000);
+    
+    // Debug loop tracking
+    const [consecutiveErrors, setConsecutiveErrors] = useState(0);
+    const [debugLoopStartTime, setDebugLoopStartTime] = useState<Date | null>(null);
 
     useEffect(() => {
         if (!Number.isFinite(backgroundDurationMs) || backgroundDurationMs <= 0) {
@@ -693,11 +697,60 @@ const InterviewerContent = () => {
                 } else {
                     logger.error("Failed to save iteration");
                 }
+                
+                // Track debug loops
+                if (result.status === "error") {
+                    // Start or continue debug loop
+                    if (consecutiveErrors === 0) {
+                        setDebugLoopStartTime(new Date());
+                        logger.info("🔴 Debug loop started");
+                    }
+                    setConsecutiveErrors((prev) => prev + 1);
+                    logger.info(`🔴 Consecutive errors: ${consecutiveErrors + 1}`);
+                } else if (result.status === "success" && consecutiveErrors > 0) {
+                    // Debug loop resolved
+                    const endTime = new Date();
+                    const caption = `Resolved ${consecutiveErrors} consecutive runtime error${consecutiveErrors > 1 ? "s" : ""}`;
+                    
+                    logger.info(`✅ Debug loop resolved - ${caption}`);
+                    
+                    const debugLoopUrl = isDemoMode
+                        ? `/api/interviews/session/${interviewSessionId}/debug-loops?skip-auth=true`
+                        : `/api/interviews/session/${interviewSessionId}/debug-loops`;
+                    
+                    const debugLoopBody: Record<string, any> = {
+                        startTimestamp: debugLoopStartTime!.toISOString(),
+                        endTimestamp: endTime.toISOString(),
+                        errorCount: consecutiveErrors,
+                        resolved: true,
+                        caption,
+                    };
+                    
+                    if (isDemoMode && demoUserId) {
+                        debugLoopBody.userId = demoUserId;
+                    }
+                    
+                    const debugLoopResponse = await fetch(debugLoopUrl, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(debugLoopBody),
+                    });
+                    
+                    if (debugLoopResponse.ok) {
+                        logger.info("✅ Debug loop saved to DB");
+                    } else {
+                        logger.error("Failed to save debug loop");
+                    }
+                    
+                    // Reset tracking
+                    setConsecutiveErrors(0);
+                    setDebugLoopStartTime(null);
+                }
             } catch (error) {
                 logger.error("❌ Error tracking iteration:", error);
             }
         },
-        [interviewSessionId, interviewScript, state.currentCode, lastEvaluation, isDemoMode, demoUserId]
+        [interviewSessionId, interviewScript, state.currentCode, lastEvaluation, isDemoMode, demoUserId, consecutiveErrors, debugLoopStartTime]
     );
 
     /**

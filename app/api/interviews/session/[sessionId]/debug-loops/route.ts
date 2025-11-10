@@ -1,0 +1,130 @@
+import { NextRequest, NextResponse } from "next/server";
+import { PrismaClient } from "@prisma/client";
+import { log } from "app/shared/services";
+
+const globalForPrisma = globalThis as unknown as {
+    prisma: PrismaClient | undefined;
+};
+
+const prisma = globalForPrisma.prisma ?? new PrismaClient();
+
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+
+type RouteContext = {
+    params: Promise<{ sessionId?: string | string[] }>;
+};
+
+function normalizeSessionId(sessionId: string | string[] | undefined) {
+    if (Array.isArray(sessionId)) {
+        return sessionId[0] ?? "";
+    }
+    return sessionId ?? "";
+}
+
+/**
+ * POST /api/interviews/session/[sessionId]/debug-loops
+ * Creates a new debug loop record for the interview session.
+ */
+export async function POST(request: NextRequest, context: RouteContext) {
+    try {
+        const { sessionId: rawSessionId } = await context.params;
+        const sessionId = normalizeSessionId(rawSessionId);
+
+        if (!sessionId) {
+            return NextResponse.json(
+                { error: "Session ID is required" },
+                { status: 400 }
+            );
+        }
+
+        const body = await request.json();
+        const { startTimestamp, endTimestamp, errorCount, resolved, caption } = body;
+
+        if (!startTimestamp || !endTimestamp || errorCount === undefined || resolved === undefined || !caption) {
+            return NextResponse.json(
+                { error: "Missing required fields: startTimestamp, endTimestamp, errorCount, resolved, caption" },
+                { status: 400 }
+            );
+        }
+
+        // Create debug loop
+        const debugLoop = await prisma.debugLoop.create({
+            data: {
+                interviewSessionId: sessionId,
+                startTimestamp: new Date(startTimestamp),
+                endTimestamp: new Date(endTimestamp),
+                errorCount: parseInt(errorCount, 10),
+                resolved: Boolean(resolved),
+                caption: String(caption),
+            },
+        });
+
+        // Update WorkstyleMetrics.debugLoops counter
+        const telemetryData = await prisma.telemetryData.findUnique({
+            where: { interviewSessionId: sessionId },
+            include: { workstyleMetrics: true },
+        });
+
+        if (telemetryData) {
+            if (telemetryData.workstyleMetrics) {
+                await prisma.workstyleMetrics.update({
+                    where: { id: telemetryData.workstyleMetrics.id },
+                    data: {
+                        debugLoops: {
+                            increment: 1,
+                        },
+                    },
+                });
+            } else {
+                await prisma.workstyleMetrics.create({
+                    data: {
+                        telemetryDataId: telemetryData.id,
+                        debugLoops: 1,
+                    },
+                });
+            }
+        }
+
+        log.info("Debug loop created:", debugLoop.id);
+
+        return NextResponse.json({ debugLoop }, { status: 201 });
+    } catch (error) {
+        log.error("Error creating debug loop:", error);
+        return NextResponse.json(
+            { error: "Failed to create debug loop" },
+            { status: 500 }
+        );
+    }
+}
+
+/**
+ * GET /api/interviews/session/[sessionId]/debug-loops
+ * Fetches all debug loops for the interview session.
+ */
+export async function GET(request: NextRequest, context: RouteContext) {
+    try {
+        const { sessionId: rawSessionId } = await context.params;
+        const sessionId = normalizeSessionId(rawSessionId);
+
+        if (!sessionId) {
+            return NextResponse.json(
+                { error: "Session ID is required" },
+                { status: 400 }
+            );
+        }
+
+        const debugLoops = await prisma.debugLoop.findMany({
+            where: { interviewSessionId: sessionId },
+            orderBy: { startTimestamp: "asc" },
+        });
+
+        return NextResponse.json({ debugLoops });
+    } catch (error) {
+        log.error("Error fetching debug loops:", error);
+        return NextResponse.json(
+            { error: "Failed to fetch debug loops" },
+            { status: 500 }
+        );
+    }
+}
+

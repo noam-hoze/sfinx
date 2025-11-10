@@ -25,7 +25,6 @@ model Account {
   @@unique([provider, providerAccountId])
 }
 
-
 model User {
   id                String             @id @default(cuid())
   name              String?
@@ -102,79 +101,80 @@ model Company {
 }
 
 model Job {
-  id           String        @id @default(cuid())
-  title        String
-  type         JobType
-  location     String
-  salary       String?
-  description  String?
-  requirements String?
-  isActive     Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  companyId    String
+  id                 String            @id @default(cuid())
+  title              String
+  type               JobType
+  location           String
+  salary             String?
+  description        String?
+  requirements       String?
+  isActive           Boolean           @default(true)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  companyId          String
   /// Foreign key linking to shared interview content.
   interviewContentId String?
   /// Optional interview content assigned to this job.
   interviewContent   InterviewContent? @relation(fields: [interviewContentId], references: [id], onDelete: SetNull)
-  applications Application[]
-  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  applications       Application[]
+  company            Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
 }
 
 /// Interview script content shared across one or more jobs.
 model InterviewContent {
-  id                 String   @id @default(cuid())
+  id                            String   @id @default(cuid())
   /// Background question presented before the coding challenge.
-  backgroundQuestion String?
+  backgroundQuestion            String?
   /// Coding challenge prompt shown to the candidate.
-  codingPrompt       String
+  codingPrompt                  String
   /// Starter template inserted into the coding editor.
-  codingTemplate     String?
+  codingTemplate                String?
   /// Canonical answer used for evaluation/comparison.
-  codingAnswer       String?
+  codingAnswer                  String?
   /// Expected visual output or behavior for iteration evaluation.
-  expectedOutput     String?
+  expectedOutput                String?
   /// Timebox for answering the background question (seconds).
-  backgroundQuestionTimeSeconds Int @default(900)
+  backgroundQuestionTimeSeconds Int      @default(900)
   /// Timebox for completing the coding challenge (seconds).
-  codingQuestionTimeSeconds     Int @default(1800)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  jobs               Job[]
+  codingQuestionTimeSeconds     Int      @default(1800)
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @updatedAt
+  jobs                          Job[]
 }
 
 model Application {
-  id               String            @id @default(cuid())
-  status           ApplicationStatus @default(PENDING)
-  appliedAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  candidateId      String
-  jobId            String
-  candidate        User              @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  job              Job               @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  id                String             @id @default(cuid())
+  status            ApplicationStatus  @default(PENDING)
+  appliedAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  candidateId       String
+  jobId             String
+  candidate         User               @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  job               Job                @relation(fields: [jobId], references: [id], onDelete: Cascade)
   interviewSessions InterviewSession[]
 
   @@unique([candidateId, jobId])
 }
 
 model InterviewSession {
-  id                  String                @id @default(cuid())
-  candidateId         String
-  applicationId       String
-  videoUrl            String?
+  id                 String                @id @default(cuid())
+  candidateId        String
+  applicationId      String
+  videoUrl           String?
   /// Timestamp when screen recording started (for video offset calculation).
-  recordingStartedAt  DateTime?
-  startedAt           DateTime              @default(now())
-  completedAt         DateTime?
-  duration            Int?
-  status              String                @default("IN_PROGRESS")
-  createdAt           DateTime              @default(now())
-  updatedAt           DateTime              @updatedAt
-  application         Application           @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  candidate           User                  @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  telemetryData       TelemetryData?
-  messages            ConversationMessage[]
-  iterations          Iteration[]
+  recordingStartedAt DateTime?
+  startedAt          DateTime              @default(now())
+  completedAt        DateTime?
+  duration           Int?
+  status             String                @default("IN_PROGRESS")
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  application        Application           @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  candidate          User                  @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  telemetryData      TelemetryData?
+  messages           ConversationMessage[]
+  iterations         Iteration[]
+  debugLoops         DebugLoop[]
 }
 
 model TelemetryData {
@@ -232,7 +232,7 @@ model Gap {
 }
 
 model EvidenceClip {
-  id              String        @id @default(cuid())
+  id              String            @id @default(cuid())
   telemetryDataId String
   title           String
   thumbnailUrl    String?
@@ -240,9 +240,9 @@ model EvidenceClip {
   description     String
   startTime       Int?
   category        EvidenceCategory?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  telemetryData   TelemetryData @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  telemetryData   TelemetryData     @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
 }
 
 model VideoChapter {
@@ -284,22 +284,22 @@ model ConversationMessage {
 }
 
 model BackgroundSummary {
-  id                 String        @id @default(cuid())
-  telemetryDataId    String        @unique
-  executiveSummary   String
-  recommendation     String?
-  adaptabilityScore  Int
-  adaptabilityText   String
-  creativityScore    Int
-  creativityText     String
-  reasoningScore     Int
-  reasoningText      String
-  conversationJson   Json
-  evidenceJson       Json
-  generatedAt        DateTime      @default(now())
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
-  telemetryData      TelemetryData @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
+  id                String        @id @default(cuid())
+  telemetryDataId   String        @unique
+  executiveSummary  String
+  recommendation    String?
+  adaptabilityScore Int
+  adaptabilityText  String
+  creativityScore   Int
+  creativityText    String
+  reasoningScore    Int
+  reasoningText     String
+  conversationJson  Json
+  evidenceJson      Json
+  generatedAt       DateTime      @default(now())
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  telemetryData     TelemetryData @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
 }
 
 enum UserRole {
@@ -324,27 +324,47 @@ enum JobType {
 
 /// Tracks each code run iteration during the coding stage.
 model Iteration {
-  id                  String           @id @default(cuid())
-  interviewSessionId  String
+  id                 String           @id @default(cuid())
+  interviewSessionId String
   /// Absolute timestamp when Run button was clicked.
-  timestamp           DateTime         @default(now())
+  timestamp          DateTime         @default(now())
   /// Full code snapshot at time of run.
-  codeSnapshot        String
+  codeSnapshot       String
   /// Captured output from preview (text, description, or error message).
-  actualOutput        String
+  actualOutput       String
   /// Expected output from interview script.
-  expectedOutput      String
+  expectedOutput     String
   /// OpenAI evaluation result.
-  evaluation          IterationResult
+  evaluation         IterationResult
   /// OpenAI reasoning for evaluation.
-  reasoning           String
+  reasoning          String
   /// Match percentage (0-100).
-  matchPercentage     Int
+  matchPercentage    Int
   /// Caption for video evidence.
-  caption             String
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
-  interviewSession    InterviewSession @relation(fields: [interviewSessionId], references: [id], onDelete: Cascade)
+  caption            String
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  interviewSession   InterviewSession @relation(fields: [interviewSessionId], references: [id], onDelete: Cascade)
+
+  @@index([interviewSessionId])
+}
+
+model DebugLoop {
+  id                 String           @id @default(cuid())
+  interviewSessionId String
+  /// Timestamp when the debug loop started (first error).
+  startTimestamp     DateTime
+  /// Timestamp when the loop ended (first success after errors).
+  endTimestamp       DateTime
+  /// Number of consecutive errors before resolution.
+  errorCount         Int
+  /// Whether the loop was resolved (true) or still failing (false).
+  resolved           Boolean
+  /// Caption for video evidence.
+  caption            String
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  interviewSession   InterviewSession @relation(fields: [interviewSessionId], references: [id], onDelete: Cascade)
 
   @@index([interviewSessionId])
 }

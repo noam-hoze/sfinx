@@ -120,6 +120,24 @@ export async function GET(request: NextRequest, context: RouteContext) {
             },
         });
 
+        // Fetch debug loops for all sessions
+        const allDebugLoops = await prisma.debugLoop.findMany({
+            where: {
+                interviewSessionId: { in: sessionIds },
+            },
+            select: {
+                interviewSessionId: true,
+                startTimestamp: true,
+                endTimestamp: true,
+                errorCount: true,
+                resolved: true,
+                caption: true,
+            },
+            orderBy: {
+                errorCount: "desc", // Order by error count for selecting longest loops
+            },
+        });
+
         // Group iterations by session
         const iterationsBySession = new Map<string, any[]>();
         for (const iter of allIterations) {
@@ -127,6 +145,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 iterationsBySession.set(iter.interviewSessionId, []);
             }
             iterationsBySession.get(iter.interviewSessionId)!.push(iter);
+        }
+
+        // Group debug loops by session
+        const debugLoopsBySession = new Map<string, any[]>();
+        for (const loop of allDebugLoops) {
+            if (!debugLoopsBySession.has(loop.interviewSessionId)) {
+                debugLoopsBySession.set(loop.interviewSessionId, []);
+            }
+            debugLoopsBySession.get(loop.interviewSessionId)!.push(loop);
         }
 
         // Transform sessions array
@@ -148,6 +175,24 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         const videoOffset = (new Date(iter.timestamp).getTime() - new Date(session.recordingStartedAt).getTime()) / 1000;
                         if (videoOffset >= 0) {
                             iterationSpeedLinks.push(videoOffset);
+                        }
+                    });
+                }
+
+                // Add debug loop evidence links (significant loops ≥3 errors)
+                const sessionDebugLoops = debugLoopsBySession.get(session.id) || [];
+                if (session.recordingStartedAt && sessionDebugLoops.length > 0) {
+                    // Sort by error count (descending) to get most significant loops
+                    const significantLoops = sessionDebugLoops
+                        .filter((loop: any) => loop.resolved && loop.errorCount >= 3)
+                        .sort((a: any, b: any) => b.errorCount - a.errorCount)
+                        .slice(0, 2); // Take top 2 most significant loops
+                    
+                    significantLoops.forEach((loop: any) => {
+                        // Use endTimestamp (resolution moment) for video evidence
+                        const videoOffset = (new Date(loop.endTimestamp).getTime() - new Date(session.recordingStartedAt).getTime()) / 1000;
+                        if (videoOffset >= 0) {
+                            debugLoopsLinks.push(videoOffset);
                         }
                     });
                 }
@@ -239,24 +284,26 @@ export async function GET(request: NextRequest, context: RouteContext) {
                                   evidenceLinks: iterationSpeedLinks,
                                   tpe: telemetry.workstyleMetrics.iterationSpeed || 0,
                               },
-                              debugLoops: {
-                                  value: telemetry.workstyleMetrics.debugLoops,
-                                  level:
-                                      telemetry.workstyleMetrics.debugLoops <= 30
-                                          ? "Fast"
-                                          : telemetry.workstyleMetrics.debugLoops <= 60
-                                          ? "Moderate"
-                                          : "Slow",
-                                  color:
-                                      telemetry.workstyleMetrics.debugLoops <= 30
-                                          ? "blue"
-                                          : telemetry.workstyleMetrics.debugLoops <= 60
-                                          ? "yellow"
-                                          : "red",
-                                  evidenceLinks: debugLoopsLinks,
-                                  // TPE center value (counts scale)
-                                  tpe: 1,
-                              },
+                              debugLoops: (() => {
+                                  const loops = sessionDebugLoops.filter((loop: any) => loop.resolved);
+                                  const totalLoops = loops.length;
+                                  const totalErrors = loops.reduce((sum: number, loop: any) => sum + loop.errorCount, 0);
+                                  const avgDepth = totalLoops > 0 ? totalErrors / totalLoops : 0;
+                                  const longestLoop = loops.length > 0 
+                                      ? Math.max(...loops.map((loop: any) => loop.errorCount))
+                                      : 0;
+                                  
+                                  return {
+                                      value: totalLoops,
+                                      level: avgDepth < 2 ? "Fast" : avgDepth <= 4 ? "Moderate" : "Slow",
+                                      color: avgDepth < 2 ? "blue" : avgDepth <= 4 ? "yellow" : "red",
+                                      evidenceLinks: debugLoopsLinks,
+                                      tpe: totalLoops,
+                                      avgDepth: Math.round(avgDepth * 10) / 10, // Round to 1 decimal
+                                      longestLoop,
+                                      unresolved: sessionDebugLoops.filter((loop: any) => !loop.resolved).length,
+                                  };
+                              })(),
                               refactorCleanups: {
                                   value: telemetry.workstyleMetrics.refactorCleanups,
                                   level:
