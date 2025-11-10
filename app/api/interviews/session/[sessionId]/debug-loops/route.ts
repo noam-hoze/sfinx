@@ -27,10 +27,15 @@ function normalizeSessionId(sessionId: string | string[] | undefined) {
  */
 export async function POST(request: NextRequest, context: RouteContext) {
     try {
+        log.info("[DEBUG LOOP API] POST request received");
+        
         const { sessionId: rawSessionId } = await context.params;
         const sessionId = normalizeSessionId(rawSessionId);
 
+        log.info("[DEBUG LOOP API] Session ID:", sessionId);
+
         if (!sessionId) {
+            log.error("[DEBUG LOOP API] No session ID provided");
             return NextResponse.json(
                 { error: "Session ID is required" },
                 { status: 400 }
@@ -38,9 +43,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
         }
 
         const body = await request.json();
+        log.info("[DEBUG LOOP API] Request body:", body);
+        
         const { startTimestamp, endTimestamp, errorCount, resolved, caption } = body;
 
         if (!startTimestamp || !endTimestamp || errorCount === undefined || resolved === undefined || !caption) {
+            log.error("[DEBUG LOOP API] Missing required fields");
             return NextResponse.json(
                 { error: "Missing required fields: startTimestamp, endTimestamp, errorCount, resolved, caption" },
                 { status: 400 }
@@ -48,6 +56,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         }
 
         // Create debug loop
+        log.info("[DEBUG LOOP API] Creating debug loop in DB...");
+        
         const debugLoop = await prisma.debugLoop.create({
             data: {
                 interviewSessionId: sessionId,
@@ -59,14 +69,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
             },
         });
 
+        log.info("[DEBUG LOOP API] Debug loop created:", debugLoop.id);
+
         // Update WorkstyleMetrics.debugLoops counter
+        log.info("[DEBUG LOOP API] Updating WorkstyleMetrics counter...");
+        
         const telemetryData = await prisma.telemetryData.findUnique({
             where: { interviewSessionId: sessionId },
             include: { workstyleMetrics: true },
         });
 
         if (telemetryData) {
+            log.info("[DEBUG LOOP API] TelemetryData found:", telemetryData.id);
+            
             if (telemetryData.workstyleMetrics) {
+                log.info("[DEBUG LOOP API] WorkstyleMetrics exists, incrementing...");
                 await prisma.workstyleMetrics.update({
                     where: { id: telemetryData.workstyleMetrics.id },
                     data: {
@@ -75,21 +92,30 @@ export async function POST(request: NextRequest, context: RouteContext) {
                         },
                     },
                 });
+                log.info("[DEBUG LOOP API] Counter incremented");
             } else {
+                log.info("[DEBUG LOOP API] WorkstyleMetrics doesn't exist, creating...");
                 await prisma.workstyleMetrics.create({
                     data: {
                         telemetryDataId: telemetryData.id,
                         debugLoops: 1,
                     },
                 });
+                log.info("[DEBUG LOOP API] WorkstyleMetrics created");
             }
+        } else {
+            log.warn("[DEBUG LOOP API] No TelemetryData found for session, skipping counter update");
         }
 
-        log.info("Debug loop created:", debugLoop.id);
+        log.info("[DEBUG LOOP API] ✅ Success! Returning response");
 
         return NextResponse.json({ debugLoop }, { status: 201 });
     } catch (error) {
-        log.error("Error creating debug loop:", error);
+        log.error("[DEBUG LOOP API] ❌ Error creating debug loop:", error);
+        if (error instanceof Error) {
+            log.error("[DEBUG LOOP API] Error message:", error.message);
+            log.error("[DEBUG LOOP API] Error stack:", error.stack);
+        }
         return NextResponse.json(
             { error: "Failed to create debug loop" },
             { status: 500 }

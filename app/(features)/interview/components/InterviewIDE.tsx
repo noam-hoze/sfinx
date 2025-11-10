@@ -699,20 +699,24 @@ const InterviewerContent = () => {
                 }
                 
                 // Track debug loops
+                logger.info(`[DEBUG LOOP] Result status: ${result.status}, consecutiveErrors: ${consecutiveErrors}`);
+                
                 if (result.status === "error") {
                     // Start or continue debug loop
                     if (consecutiveErrors === 0) {
-                        setDebugLoopStartTime(new Date());
-                        logger.info("🔴 Debug loop started");
+                        const startTime = new Date();
+                        setDebugLoopStartTime(startTime);
+                        logger.info(`🔴 [DEBUG LOOP] Loop started at ${startTime.toISOString()}`);
                     }
                     setConsecutiveErrors((prev) => prev + 1);
-                    logger.info(`🔴 Consecutive errors: ${consecutiveErrors + 1}`);
+                    logger.info(`🔴 [DEBUG LOOP] Consecutive errors now: ${consecutiveErrors + 1}`);
                 } else if (result.status === "success" && consecutiveErrors > 0) {
                     // Debug loop resolved
                     const endTime = new Date();
                     const caption = `Resolved ${consecutiveErrors} consecutive runtime error${consecutiveErrors > 1 ? "s" : ""}`;
                     
-                    logger.info(`✅ Debug loop resolved - ${caption}`);
+                    logger.info(`✅ [DEBUG LOOP] Loop resolved - ${caption}`);
+                    logger.info(`[DEBUG LOOP] Start time: ${debugLoopStartTime?.toISOString()}, End time: ${endTime.toISOString()}`);
                     
                     const debugLoopUrl = isDemoMode
                         ? `/api/interviews/session/${interviewSessionId}/debug-loops?skip-auth=true`
@@ -730,21 +734,30 @@ const InterviewerContent = () => {
                         debugLoopBody.userId = demoUserId;
                     }
                     
+                    logger.info(`[DEBUG LOOP] Sending POST to: ${debugLoopUrl}`);
+                    logger.info(`[DEBUG LOOP] Request body:`, debugLoopBody);
+                    
                     const debugLoopResponse = await fetch(debugLoopUrl, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify(debugLoopBody),
                     });
                     
+                    logger.info(`[DEBUG LOOP] Response status: ${debugLoopResponse.status}`);
+                    
                     if (debugLoopResponse.ok) {
-                        logger.info("✅ Debug loop saved to DB");
+                        const responseData = await debugLoopResponse.json();
+                        logger.info("✅ [DEBUG LOOP] Saved to DB:", responseData);
                     } else {
-                        logger.error("Failed to save debug loop");
+                        const errorText = await debugLoopResponse.text();
+                        logger.error(`❌ [DEBUG LOOP] Failed to save:`, errorText);
                     }
                     
                     // Reset tracking
                     setConsecutiveErrors(0);
                     setDebugLoopStartTime(null);
+                } else if (result.status === "success" && consecutiveErrors === 0) {
+                    logger.info(`[DEBUG LOOP] Success with no prior errors - no loop to save`);
                 }
             } catch (error) {
                 logger.error("❌ Error tracking iteration:", error);

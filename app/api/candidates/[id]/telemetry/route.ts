@@ -179,22 +179,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
                     });
                 }
 
-                // Add debug loop evidence links (significant loops ≥3 errors)
+                // Add debug loop evidence links (all resolved loops)
                 const sessionDebugLoops = debugLoopsBySession.get(session.id) || [];
                 if (session.recordingStartedAt && sessionDebugLoops.length > 0) {
-                    // Sort by error count (descending) to get most significant loops
-                    const significantLoops = sessionDebugLoops
-                        .filter((loop: any) => loop.resolved && loop.errorCount >= 3)
-                        .sort((a: any, b: any) => b.errorCount - a.errorCount)
-                        .slice(0, 2); // Take top 2 most significant loops
-                    
-                    significantLoops.forEach((loop: any) => {
-                        // Use endTimestamp (resolution moment) for video evidence
-                        const videoOffset = (new Date(loop.endTimestamp).getTime() - new Date(session.recordingStartedAt).getTime()) / 1000;
-                        if (videoOffset >= 0) {
-                            debugLoopsLinks.push(videoOffset);
-                        }
-                    });
+                    sessionDebugLoops
+                        .filter((loop: any) => loop.resolved)
+                        .forEach((loop: any) => {
+                            // Use endTimestamp (resolution moment) for video evidence
+                            const videoOffset = (new Date(loop.endTimestamp).getTime() - new Date(session.recordingStartedAt).getTime()) / 1000;
+                            if (videoOffset >= 0) {
+                                debugLoopsLinks.push(videoOffset);
+                            }
+                        });
                 }
 
                 evidenceClips.forEach((clip: any) => {
