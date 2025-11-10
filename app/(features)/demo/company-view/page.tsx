@@ -6,13 +6,14 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 function CompanyViewContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const candidateId = searchParams.get("candidateId");
     const applicationId = searchParams.get("applicationId");
+    const [isLoading, setIsLoading] = useState(false);
 
     // Prefetch CPS page in background for instant navigation
     useEffect(() => {
@@ -20,6 +21,7 @@ function CompanyViewContent() {
     }, [router, candidateId, applicationId]);
 
     const handleViewReport = () => {
+        setIsLoading(true);
         router.push(`/cps?demo=true&candidateId=${candidateId}&applicationId=${applicationId}`);
     };
 
@@ -66,9 +68,10 @@ function CompanyViewContent() {
 
                     <button
                         onClick={handleViewReport}
-                        className="w-full bg-blue-600 text-white text-lg font-medium py-4 px-8 rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
+                        disabled={isLoading}
+                        className="w-full bg-blue-600 text-white text-lg font-medium py-4 px-8 rounded-xl hover:bg-blue-700 transition-colors shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
-                        View Interview Report
+                        {isLoading ? "Loading..." : "View Interview Report"}
                     </button>
                 </div>
             </div>

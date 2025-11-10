@@ -47,6 +47,7 @@ function TelemetryContent() {
     const [codingSummary, setCodingSummary] = useState<any>(null);
     const [summaryLoading, setSummaryLoading] = useState(false);
     const [codingSummaryLoading, setCodingSummaryLoading] = useState(false);
+    const [isNavigating, setIsNavigating] = useState(false);
 
     useEffect(() => {
         const fetchTelemetryData = async () => {
@@ -420,10 +421,14 @@ function TelemetryContent() {
                 {isDemoMode && (
                     <div className="mb-4 flex justify-end">
                         <button
-                            onClick={() => router.push(`/demo/ranked-candidates?candidateId=${candidateId}&applicationId=${applicationId}`)}
-                            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                            onClick={() => {
+                                setIsNavigating(true);
+                                router.push(`/demo/ranked-candidates?candidateId=${candidateId}&applicationId=${applicationId}`);
+                            }}
+                            disabled={isNavigating}
+                            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                         >
-                            View All Candidates
+                            {isNavigating ? "Loading..." : "View All Candidates"}
                         </button>
                     </div>
                 )}

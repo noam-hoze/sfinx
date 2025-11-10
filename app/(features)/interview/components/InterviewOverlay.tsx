@@ -159,16 +159,18 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
                     visible ? "opacity-100" : "opacity-0"
                 }`}
             >
-                {/* Sfinx Avatar - centered above content */}
-                <div className="mb-6">
-                    <Image
-                        src="/sfinx-avatar.png"
-                        alt="Sfinx"
-                        width={120}
-                        height={120}
-                        className="mx-auto rounded-full"
-                    />
-                </div>
+                {/* Sfinx Avatar - centered above content (except submitted stage) */}
+                {stage !== "submitted" && (
+                    <div className="mb-6">
+                        <Image
+                            src="/sfinx-avatar.png"
+                            alt="Sfinx"
+                            width={120}
+                            height={120}
+                            className="mx-auto rounded-full"
+                        />
+                    </div>
+                )}
 
                 {stage === "submitted" ? (
                     <div className="px-6">
