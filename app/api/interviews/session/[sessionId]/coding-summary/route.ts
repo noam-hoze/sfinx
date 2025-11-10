@@ -4,10 +4,10 @@ import prisma from "lib/prisma";
 
 export async function GET(
     _request: NextRequest,
-    { params }: { params: { sessionId: string } }
+    { params }: { params: Promise<{ sessionId: string }> }
 ) {
     try {
-        const { sessionId } = params;
+        const { sessionId } = await params;
 
         log.info("[Coding Summary API] Fetching summary for session:", sessionId);
 
