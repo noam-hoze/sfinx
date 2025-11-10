@@ -717,6 +717,12 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
             // Get conversation history (only messages AFTER paste)
             const historyMessages = pasteConversation;
             
+            // Set pending state before API call
+            interviewChatStore.dispatch({
+              type: "SET_PENDING_REPLY",
+              payload: { pending: true, reason: "paste_eval_followup", stage: "coding" },
+            } as any);
+            
             // Generate AI response with CONTROL
             const fullResponse = await askViaChatCompletion(
               openaiClient,
@@ -725,6 +731,7 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
             );
             
             if (!fullResponse) {
+              clearPendingState();
               setInputLocked?.(false);
               return;
             }
@@ -763,6 +770,7 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
             if (aiText) {
               post(aiText, "ai", { isPasteEval: true });
               dispatch(machineAiFinal({ text: aiText }));
+              clearPendingState();
               
               if (shouldEvaluate) {
                 try {
@@ -975,6 +983,12 @@ The candidate is working on this task. Respond to their question while following
           // Get conversation history (last 30 messages, filtered for paste eval)
           const historyMessages = buildControlContextMessages(CONTROL_CONTEXT_TURNS);
           
+          // Set pending state before API call
+          interviewChatStore.dispatch({
+            type: "SET_PENDING_REPLY",
+            payload: { pending: true, reason: "coding_question", stage: "coding" },
+          } as any);
+          
           // Generate AI response using chat completions
           const reply = await askViaChatCompletion(
             openaiClient,
@@ -985,11 +999,13 @@ The candidate is working on this task. Respond to their question while following
           if (reply) {
             post(reply, "ai");
             dispatch(machineAiFinal({ text: reply }));
+            clearPendingState();
             setInputLocked?.(false);
             try {
               /* eslint-disable no-console */ console.log("[coding][ai_response]", reply);
             } catch {}
           } else {
+            clearPendingState();
             setInputLocked?.(false);
           }
           
