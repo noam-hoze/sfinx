@@ -148,6 +148,10 @@ const InterviewerContent = () => {
     // Debug loop tracking
     const [consecutiveErrors, setConsecutiveErrors] = useState(0);
     const [debugLoopStartTime, setDebugLoopStartTime] = useState<Date | null>(null);
+    
+    // Store interview script data for iteration tracking
+    const [interviewScript, setInterviewScript] = useState<any>(null);
+    const [lastEvaluation, setLastEvaluation] = useState<string | null>(null);
 
     useEffect(() => {
         if (!Number.isFinite(backgroundDurationMs) || backgroundDurationMs <= 0) {
@@ -355,6 +359,33 @@ const InterviewerContent = () => {
             await stopRecording();
             await insertRecordingUrl();
             await stateMachineHandleSubmission(state.currentCode);
+            
+            // Generate coding gaps from session data
+            if (interviewSessionId && interviewScript) {
+                logger.info("Generating coding gaps for session:", interviewSessionId);
+                try {
+                    const gapsResponse = await fetch("/api/interviews/generate-coding-gaps", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            sessionId: interviewSessionId,
+                            finalCode: state.currentCode,
+                            codingTask: interviewScript.codingPrompt,
+                            expectedSolution: interviewScript.codingAnswer,
+                        }),
+                    });
+                    
+                    if (gapsResponse.ok) {
+                        const gapsData = await gapsResponse.json();
+                        logger.info("✅ Coding gaps generated:", gapsData.gapsCount);
+                    } else {
+                        logger.error("Failed to generate coding gaps:", gapsResponse.status);
+                    }
+                } catch (gapsError) {
+                    logger.error("Error generating coding gaps:", gapsError);
+                }
+            }
+            
             // OpenAI flow: say closing line and rely on response.done to end
             try {
                 const ref = realTimeConversationRef.current;
@@ -369,7 +400,7 @@ const InterviewerContent = () => {
         } catch (error) {
             logger.error("❌ Failed to submit solution:", error);
         }
-    }, [candidateName, insertRecordingUrl, setCodingStarted, setCodingState, state.currentCode, stateMachineHandleSubmission, stopRecording, stopTimer, updateSubmission]);
+    }, [candidateName, insertRecordingUrl, interviewScript, interviewSessionId, setCodingStarted, setCodingState, state.currentCode, stateMachineHandleSubmission, stopRecording, stopTimer, updateSubmission]);
 
     /**
      * Starts the interview: begins recording, creates application/session, resets code, and connects to the agent.
@@ -531,10 +562,6 @@ const InterviewerContent = () => {
             mounted = false;
         };
     }, [jobId, dispatch]);
-
-    // Store interview script data for iteration tracking
-    const [interviewScript, setInterviewScript] = useState<any>(null);
-    const [lastEvaluation, setLastEvaluation] = useState<string | null>(null);
 
     /**
      * Initializes editor content with the default snippet if empty.
