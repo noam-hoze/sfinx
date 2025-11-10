@@ -739,7 +739,7 @@ function TelemetryContent() {
                                         mainContentTab === "evidence" ? "bg-blue-500 text-white" : "text-gray-700"
                                     } px-2 py-1 rounded`}
                                 >
-                                    Evidence
+                                    Reel
                                 </button>
                                 <button
                                     onClick={() => setMainContentTab("summary")}
@@ -747,15 +747,7 @@ function TelemetryContent() {
                                         mainContentTab === "summary" ? "bg-blue-500 text-white" : "text-gray-700"
                                     } px-2 py-1 rounded ml-1`}
                                 >
-                                    Summary
-                                </button>
-                                <button
-                                    onClick={() => setMainContentTab("improvement")}
-                                    className={`${
-                                        mainContentTab === "improvement" ? "bg-blue-500 text-white" : "text-gray-700"
-                                    } px-2 py-1 rounded ml-1`}
-                                >
-                                    Improvement
+                                    Experience
                                 </button>
                                 <button
                                     onClick={() => setMainContentTab("coding")}
@@ -764,6 +756,14 @@ function TelemetryContent() {
                                     } px-2 py-1 rounded ml-1`}
                                 >
                                     Coding
+                                </button>
+                                <button
+                                    onClick={() => setMainContentTab("improvement")}
+                                    className={`${
+                                        mainContentTab === "improvement" ? "bg-blue-500 text-white" : "text-gray-700"
+                                    } px-2 py-1 rounded ml-1`}
+                                >
+                                    Improvement
                                 </button>
                             </div>
                         </div>
