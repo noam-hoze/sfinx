@@ -38,9 +38,10 @@ export default function DemoWelcomePage() {
                 throw new Error("Failed to create demo user");
             }
 
-            // Navigate to interview
+            // Navigate to interview with auto-start
             const jobId = "meta-frontend-engineer";
             const companyId = "meta";
+            sessionStorage.setItem("sfinx-demo-autostart", "true");
             router.push(`/interview?demo=true&jobId=${jobId}&userId=${userId}&companyId=${companyId}`);
         } catch (error) {
             console.error("Error creating demo user:", error);

@@ -177,6 +177,7 @@ const InterviewerContent = () => {
         return true;
     });
     const timeboxFiredRef = useRef(false);
+    const autoStartTriggeredRef = useRef(false);
 
     const toggleDebugPanel = useCallback(() => {
         if (!isDebugModeEnabled) return;
@@ -437,6 +438,19 @@ const InterviewerContent = () => {
         isTextMode,
         setIsChatInputLocked,
     ]);
+
+    /**
+     * Auto-start interview when coming from demo page (one-time flag).
+     */
+    useEffect(() => {
+        const shouldAutoStart = sessionStorage.getItem("sfinx-demo-autostart") === "true";
+        if (shouldAutoStart && !autoStartTriggeredRef.current && !isInterviewActive && demoCandidateName) {
+            autoStartTriggeredRef.current = true;
+            sessionStorage.removeItem("sfinx-demo-autostart");
+            logger.info("Auto-starting interview from demo flow");
+            handleInterviewButtonClick();
+        }
+    }, [isInterviewActive, demoCandidateName, handleInterviewButtonClick]);
 
     /**
      * Toggles microphone mute state via the real-time conversation ref.
