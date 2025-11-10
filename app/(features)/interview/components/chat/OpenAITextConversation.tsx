@@ -37,6 +37,10 @@ import {
   CONTROL_CONTEXT_TURNS,
 } from "../../../../shared/services";
 
+// Paste evaluation constants
+const MAX_PASTE_EVAL_ANSWERS = 3;
+const MIN_CONFIDENCE_TO_EVALUATE = 70;
+
 type Props = {
   candidateName: string;
   onStartConversation?: () => void;
@@ -650,15 +654,26 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
             }
             
             // Build paste evaluation prompt with CONTROL format
-            // Only get messages AFTER the paste timestamp (this paste conversation only)
-            const allMessages = buildControlContextMessages(CONTROL_CONTEXT_TURNS);
-            const pasteConversation = allMessages.filter(m => {
-              const msgTimestamp = interviewChatStore.getState().messages.find(msg => msg.text === m.content)?.timestamp;
-              return msgTimestamp && msgTimestamp >= activePasteEval.timestamp;
-            });
+            // Get raw messages directly from store (not filtered by buildControlContextMessages)
+            const rawMessages = interviewChatStore.getState().messages;
+            
+            // Only get paste eval messages AFTER the paste timestamp
+            const pasteConversation = rawMessages
+              .filter(m => m.isPasteEval && m.timestamp >= activePasteEval.timestamp)
+              .map(m => ({
+                role: m.speaker === "user" ? "user" as const : "assistant" as const,
+                content: m.text,
+              }));
+            
+            try {
+              /* eslint-disable no-console */ console.log("[paste_eval][conversation_extracted]", {
+                totalMessages: rawMessages.length,
+                pasteEvalMessages: pasteConversation.length,
+                pasteTimestamp: activePasteEval.timestamp
+              });
+            } catch {}
             
             const conversationHistory = pasteConversation
-              .filter(m => m.role !== "system")
               .map(m => `${m.role === "user" ? "Candidate" : "AI"}: ${m.content}`)
               .join("\n");
             
@@ -675,20 +690,25 @@ You are evaluating whether a candidate understands code they pasted.
 - Pasted code: ${activePasteEval.pastedContent}
 - Task: ${codingPrompt}
 - Conversation: ${conversationHistory || "Just started"}
-- User answers: ${nextAnswerCount}/3
+- User answers: ${nextAnswerCount}/${MAX_PASTE_EVAL_ANSWERS}
 
 **Your Job:**
 1. Evaluate their understanding (confidence 0-100)
-2. If confidence < 70% AND answerCount < 3: Ask ONE short follow-up question (1-2 sentences)
-3. If confidence >= 70% OR answerCount >= 3: Set readyToEvaluate=true AND send a brief acknowledgment like "Thank you for explaining. Let's continue with the task."
+2. If confidence < ${MIN_CONFIDENCE_TO_EVALUATE}% AND answerCount < ${MAX_PASTE_EVAL_ANSWERS}: Ask ONE short follow-up question (1-2 sentences)
+3. If confidence >= ${MIN_CONFIDENCE_TO_EVALUATE}% OR answerCount >= ${MAX_PASTE_EVAL_ANSWERS}: Set readyToEvaluate=true AND send a brief acknowledgment like "Thank you for explaining. Let's continue with the task."
+
+**CRITICAL: If answerCount = ${MAX_PASTE_EVAL_ANSWERS}, you MUST:**
+- Set readyToEvaluate=true
+- Send ONLY an acknowledgment message (NOT another question)
+- Example: "Thank you for explaining. Let's continue with the task."
 
 **Example Responses:**
 
-Continue (answerCount < 3, confidence < 70%):
+Continue (answerCount < ${MAX_PASTE_EVAL_ANSWERS}, confidence < ${MIN_CONFIDENCE_TO_EVALUATE}%):
 CONTROL: {"type":"PASTE_EVAL_CONTROL","pasteEvaluationId":"${activePasteEval.pasteEvaluationId}","confidence":45,"answerCount":${nextAnswerCount},"readyToEvaluate":false}
 Could you explain how the useEffect hook works here?
 
-Done (answerCount = 3 OR confidence >= 70%):
+Done (answerCount = ${MAX_PASTE_EVAL_ANSWERS} OR confidence >= ${MIN_CONFIDENCE_TO_EVALUATE}%):
 CONTROL: {"type":"PASTE_EVAL_CONTROL","pasteEvaluationId":"${activePasteEval.pasteEvaluationId}","confidence":75,"answerCount":${nextAnswerCount},"readyToEvaluate":true}
 Thank you for explaining. Let's continue with the task.
 
@@ -736,8 +756,8 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
               }
             }
             
-            // Force evaluation if we've reached 3 answers
-            const shouldEvaluate = (control && control.readyToEvaluate) || nextAnswerCount >= 3;
+            // Force evaluation if we've reached max answers
+            const shouldEvaluate = (control && control.readyToEvaluate) || nextAnswerCount >= MAX_PASTE_EVAL_ANSWERS;
             
             // Post AI response (either follow-up question or acknowledgment)
             if (aiText) {
@@ -755,13 +775,13 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
             }
             
             if (shouldEvaluate) {
-              try {
-                /* eslint-disable no-console */ console.log("[paste_eval][triggering_evaluation]", { 
-                  nextAnswerCount, 
-                  controlReady: control?.readyToEvaluate,
-                  forced: nextAnswerCount >= 3 
-                });
-              } catch {}
+                try {
+                  /* eslint-disable no-console */ console.log("[paste_eval][triggering_evaluation]", { 
+                    nextAnswerCount, 
+                    controlReady: control?.readyToEvaluate,
+                    forced: nextAnswerCount >= MAX_PASTE_EVAL_ANSWERS
+                  });
+                } catch {}
             }
             
             // Update debug panel with confidence (use our calculated answer count, not OpenAI's)
@@ -806,7 +826,12 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                 };
                 
                 try {
-                  /* eslint-disable no-console */ console.log("[paste_eval][eval_payload]", evalPayload);
+                  /* eslint-disable no-console */ console.log("[paste_eval][eval_payload]", {
+                    ...evalPayload,
+                    aiQuestion_length: aiQuestions.length,
+                    userAnswer_length: userAnswers.length,
+                    pasteConversation_count: pasteConversation.length
+                  });
                 } catch {}
                 
                 const evalResponse = await fetch("/api/interviews/evaluate-paste-accountability", {
