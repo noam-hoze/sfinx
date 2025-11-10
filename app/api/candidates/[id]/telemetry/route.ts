@@ -1,14 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
 import { log } from "app/shared/services";
-
-const globalForPrisma = globalThis as unknown as {
-    prisma: PrismaClient | undefined;
-};
-
-const prisma = globalForPrisma.prisma ?? new PrismaClient();
-
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+import prisma from "lib/prisma";
 
 type RouteContext = {
     params: Promise<{ id?: string | string[] }>;
@@ -36,7 +28,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
         }
         const applicationId = request.nextUrl.searchParams.get("applicationId");
         log.info("[Telemetry API] applicationId:", applicationId);
-        log.info("[Telemetry API] Prisma client status:", prisma ? "initialized" : "null");
 
         // Get all interview sessions for this candidate (newest first)
         let interviewSessions = await prisma.interviewSession.findMany({
@@ -394,8 +385,6 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             );
         }
         const body = await request.json();
-
-        log.info("[Telemetry API PUT] Prisma client status:", prisma ? "initialized" : "null");
 
         // Get the most recent interview session for this candidate
         const interviewSession = await prisma.interviewSession.findFirst({

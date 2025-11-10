@@ -21,17 +21,21 @@ export default function DemoWelcomePage() {
 
         setIsLoading(true);
         try {
-            const userId = "demo-candidate-user-id";
+            // Generate unique user ID for this demo session
+            const userId = `demo-candidate-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
             
-            // Update user name in DB
-            const response = await fetch(`/api/users/${userId}/name?skip-auth=true`, {
-                method: "PATCH",
+            // Create new demo user with the provided name
+            const response = await fetch(`/api/users/demo?skip-auth=true`, {
+                method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: name.trim() }),
+                body: JSON.stringify({ 
+                    userId,
+                    name: name.trim() 
+                }),
             });
 
             if (!response.ok) {
-                throw new Error("Failed to update name");
+                throw new Error("Failed to create demo user");
             }
 
             // Navigate to interview
@@ -39,8 +43,8 @@ export default function DemoWelcomePage() {
             const companyId = "meta";
             router.push(`/interview?demo=true&jobId=${jobId}&userId=${userId}&companyId=${companyId}`);
         } catch (error) {
-            console.error("Error updating name:", error);
-            alert("Failed to update name. Please try again.");
+            console.error("Error creating demo user:", error);
+            alert("Failed to start demo. Please try again.");
             setIsLoading(false);
         }
     };
