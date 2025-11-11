@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.17.0] - 2025-11-11
+
+### Added
+
+- **Vercel Blob Storage Integration**: Screen recording uploads now use Vercel Blob for cloud storage instead of filesystem
+- **Production Video Playback**: Fixed video recording and playback in production environment on Vercel
+
+### Changed
+
+- **Recording Storage Architecture**: Migrated from local filesystem (`public/uploads/recordings/`) to Vercel Blob CDN
+- **Upload Endpoint**: Updated `/api/interviews/session/screen-recording` to use `@vercel/blob` package
+
+### Fixed
+
+- **Production Video Issues**: Resolved blank video container in CPS page caused by serverless filesystem limitations
+- **Recording Persistence**: Videos now persist in cloud storage instead of ephemeral serverless filesystem
+
+### Technical
+
+- **Package Dependencies**: Added `@vercel/blob` v2.0.0 for cloud storage integration
+- **Environment Variables**: Added `BLOB_READ_WRITE_TOKEN` for Vercel Blob authentication
+- **API Architecture**: Simplified upload endpoint by removing filesystem operations in favor of cloud storage
+
 ## [1.16.1] - 2025-11-08
 
 ### Fixed
