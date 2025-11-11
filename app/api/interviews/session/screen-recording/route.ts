@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import { join } from "path";
+import { put } from "@vercel/blob";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "app/shared/services/auth";
 import { log } from "app/shared/services";
@@ -36,44 +35,21 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Create recordings directory if it doesn't exist
-        const recordingsDir = join(
-            process.cwd(),
-            "public",
-            "uploads",
-            "recordings"
-        );
-        log.info("Creating directory:", recordingsDir);
-
-        try {
-            await mkdir(recordingsDir, { recursive: true });
-            log.info("Directory created successfully");
-        } catch (error) {
-            log.warn(
-                "⚠️ Directory creation error (might already exist):",
-                error
-            );
-        }
-
         // Generate unique filename
         const timestamp = Date.now();
         const filename = `recording-${timestamp}.mp4`;
-        const filepath = join(recordingsDir, filename);
 
-        log.info("Saving file to:", filepath);
+        log.info("Uploading to Vercel Blob:", filename);
 
-        // Convert File to Buffer and save
-        const bytes = await recording.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        log.info("Buffer size:", buffer.length);
+        // Upload to Vercel Blob
+        const blob = await put(filename, recording, {
+            access: "public",
+            addRandomSuffix: true,
+        });
 
-        await writeFile(filepath, buffer);
-        log.info("File written successfully");
+        const recordingUrl = blob.url;
 
-        // Create public URL for the recording
-        const recordingUrl = `/uploads/recordings/${filename}`;
-
-        log.info("Recording uploaded successfully:", recordingUrl);
+        log.info("Recording uploaded successfully to Vercel Blob:", recordingUrl);
 
         return NextResponse.json({
             message: "Recording uploaded successfully",

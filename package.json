@@ -19,6 +19,7 @@
         "e2e": "playwright test --project=voice-chromium --headed --workers=1"
     },
     "dependencies": {
+        "@vercel/blob": "^2.0.0",
         "@elevenlabs/react": "^0.6.1",
         "@google-cloud/dialogflow-cx": "^5.3.0",
         "@google-cloud/speech": "^6.7.1",
