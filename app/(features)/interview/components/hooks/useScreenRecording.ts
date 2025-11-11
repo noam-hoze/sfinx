@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { upload } from "@vercel/blob/client";
 import { log } from "../../../../shared/services";
 
 const logger = log;
@@ -51,52 +52,37 @@ export const useScreenRecording = (isDemoMode: boolean = false) => {
             }
 
             try {
-                logger.info("📤 Starting server upload process...");
+                logger.info("📤 Starting direct Blob upload...");
+                logger.info("📁 Blob size:", blob.size, "bytes");
 
-                const formData = new FormData();
-                formData.append(
-                    "recording",
-                    blob,
-                    `interview-${interviewSessionIdRef.current}.mp4`
-                );
+                const filename = `interview-${interviewSessionIdRef.current}.mp4`;
 
-                logger.info(
-                    "📤 Sending upload request to /api/interviews/session/screen-recording"
-                );
-                const uploadResponse = await fetch(
-                    "/api/interviews/session/screen-recording",
-                    {
-                        method: "POST",
-                        body: formData,
-                    }
-                );
+                // Direct client-side upload to Vercel Blob (bypasses API route size limits)
+                const blobResult = await upload(filename, blob, {
+                    access: "public",
+                    handleUploadUrl: "/api/interviews/session/blob-upload-url",
+                });
 
-                logger.info("📤 Upload response status:", uploadResponse.status);
+                const recordingUrl = blobResult.url;
+                logger.info("✅ Recording uploaded to Blob:", recordingUrl);
 
-                if (!uploadResponse.ok) {
-                    const errorText = await uploadResponse.text();
-                    logger.error("❌ Upload failed:", errorText);
-                    throw new Error(
-                        `Failed to upload recording: ${uploadResponse.status}`
-                    );
-                }
-
-                const uploadData = await uploadResponse.json();
-                logger.info("✅ Recording uploaded:", uploadData.recordingUrl);
+                const updateUrl = isDemoMode 
+                    ? `/api/interviews/session/${interviewSessionIdRef.current}?skip-auth=true`
+                    : `/api/interviews/session/${interviewSessionIdRef.current}`;
 
                 logger.info(
                     "📤 Sending update request to:",
-                    `/api/interviews/session/${interviewSessionIdRef.current}`
+                    updateUrl
                 );
                 const updateResponse = await fetch(
-                    `/api/interviews/session/${interviewSessionIdRef.current}`,
+                    updateUrl,
                     {
                         method: "PATCH",
                         headers: {
                             "Content-Type": "application/json",
                         },
                         body: JSON.stringify({
-                            videoUrl: uploadData.recordingUrl,
+                            videoUrl: recordingUrl,
                         }),
                     }
                 );
@@ -383,38 +369,19 @@ export const useScreenRecording = (isDemoMode: boolean = false) => {
         );
 
         try {
-            logger.info("📤 Starting upload process...");
+            logger.info("📤 Starting direct Blob upload...");
+            logger.info("📁 Blob size:", blob.size, "bytes");
 
-            const formData = new FormData();
-            formData.append(
-                "recording",
-                blob,
-                `interview-${interviewSessionId}.mp4`
-            );
+            const filename = `interview-${interviewSessionId}.mp4`;
 
-            logger.info(
-                "📤 Sending upload request to /api/interviews/session/screen-recording"
-            );
-            const uploadResponse = await fetch(
-                "/api/interviews/session/screen-recording",
-                {
-                    method: "POST",
-                    body: formData,
-                }
-            );
+            // Direct client-side upload to Vercel Blob (bypasses API route size limits)
+            const blobResult = await upload(filename, blob, {
+                access: "public",
+                handleUploadUrl: "/api/interviews/session/blob-upload-url",
+            });
 
-            logger.info("📤 Upload response status:", uploadResponse.status);
-
-            if (!uploadResponse.ok) {
-                const errorText = await uploadResponse.text();
-                logger.error("❌ Upload failed:", errorText);
-                throw new Error(
-                    `Failed to upload recording: ${uploadResponse.status}`
-                );
-            }
-
-            const uploadData = await uploadResponse.json();
-            logger.info("✅ Recording uploaded:", uploadData.recordingUrl);
+            const recordingUrl = blobResult.url;
+            logger.info("✅ Recording uploaded to Blob:", recordingUrl);
 
             const updateUrl = isDemoMode 
                 ? `/api/interviews/session/${interviewSessionId}?skip-auth=true`
@@ -426,7 +393,7 @@ export const useScreenRecording = (isDemoMode: boolean = false) => {
                 "isDemoMode:",
                 isDemoMode,
                 "videoUrl:",
-                uploadData.recordingUrl
+                recordingUrl
             );
             const updateResponse = await fetch(
                 updateUrl,
@@ -436,7 +403,7 @@ export const useScreenRecording = (isDemoMode: boolean = false) => {
                         "Content-Type": "application/json",
                     },
                     body: JSON.stringify({
-                        videoUrl: uploadData.recordingUrl,
+                        videoUrl: recordingUrl,
                     }),
                 }
             );
