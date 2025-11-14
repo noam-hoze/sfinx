@@ -7,6 +7,7 @@ type QuestionCardProps = {
   question: string;
   onSubmitAnswer: (answer: string) => void;
   loading: boolean;
+  micStream: MediaStream | null;
 };
 
 /**
@@ -31,6 +32,7 @@ export default function QuestionCard({
   question,
   onSubmitAnswer,
   loading,
+  micStream,
 }: QuestionCardProps) {
   const [answer, setAnswer] = useState("");
   const [inputMode, setInputMode] = useState<"text" | "voice">("text");
@@ -38,7 +40,11 @@ export default function QuestionCard({
   const [isTextExpanded, setIsTextExpanded] = useState(false);
   const [ttsError, setTtsError] = useState<string | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingError, setRecordingError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   // TTS + question change detection
   React.useEffect(() => {
@@ -87,15 +93,18 @@ export default function QuestionCard({
     }
   }, [question, prevQuestion]);
 
-  // Cleanup audio on unmount
+  // Cleanup audio and recording on unmount
   React.useEffect(() => {
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
       }
+      if (mediaRecorderRef.current && isRecording) {
+        mediaRecorderRef.current.stop();
+      }
     };
-  }, []);
+  }, [isRecording]);
 
   const handleSubmit = () => {
     onSubmitAnswer(answer);
@@ -111,6 +120,75 @@ export default function QuestionCard({
 
   const toggleTextInput = () => {
     setIsTextExpanded(!isTextExpanded);
+  };
+
+  const startVoiceRecording = async () => {
+    if (!micStream) {
+      setRecordingError("Microphone not available");
+      return;
+    }
+
+    try {
+      setRecordingError(null);
+      console.log("[QuestionCard] Starting recording with pre-granted mic...");
+      
+      const mimeType = "audio/webm;codecs=opus";
+      const mediaRecorder = new MediaRecorder(micStream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        console.log("[QuestionCard] Recording stopped, transcribing...");
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        
+        try {
+          const formData = new FormData();
+          formData.append("audio", audioBlob, "recording.webm");
+
+          const response = await fetch("/api/transcribe", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error("Transcription failed");
+          }
+
+          const { text } = await response.json();
+          console.log("[QuestionCard] Transcription:", text);
+          setAnswer(text);
+          setIsTextExpanded(true); // Show the text area with transcribed text
+        } catch (error) {
+          console.error("[QuestionCard] Transcription error:", error);
+          setRecordingError(
+            error instanceof Error ? error.message : "Transcription failed"
+          );
+        }
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      console.log("[QuestionCard] Recording started");
+    } catch (error) {
+      console.error("[QuestionCard] Recording start error:", error);
+      setRecordingError(
+        error instanceof Error ? error.message : "Failed to start recording"
+      );
+    }
+  };
+
+  const stopVoiceRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      console.log("[QuestionCard] Stopping recording...");
+    }
   };
 
   return (
@@ -169,9 +247,51 @@ export default function QuestionCard({
                     <span>Audio playback failed: {ttsError}</span>
                   </div>
                 )}
+                {recordingError && (
+                  <div className="mt-4 flex items-center gap-2 text-red-600 text-sm">
+                    <svg
+                      className="w-5 h-5"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <span>Recording failed: {recordingError}</span>
+                  </div>
+                )}
               </>
             )}
           </div>
+
+          {/* Transcribing Indicator - shows while recording */}
+          {isRecording && (
+            <div className="mb-4 flex items-center gap-3 text-gray-600">
+              <svg
+                className="w-5 h-5 animate-spin"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              <span>Transcribing answer...</span>
+            </div>
+          )}
 
           {/* Input Controls */}
           <div className="flex flex-col gap-4">
@@ -201,20 +321,39 @@ export default function QuestionCard({
             <div className="flex items-center justify-start gap-3">
               {/* Answer Button (Microphone) */}
               <button
-                onClick={() => setInputMode("voice")}
+                onClick={isRecording ? stopVoiceRecording : startVoiceRecording}
                 disabled={loading}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-                title="Voice input"
+                className={`px-6 py-3 ${
+                  isRecording
+                    ? "bg-blue-600 hover:bg-blue-700"
+                    : "bg-blue-600 hover:bg-blue-700"
+                } text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2`}
+                title={isRecording ? "Done recording" : "Voice input"}
               >
-                <svg
-                  className="w-5 h-5"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
-                  <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
-                </svg>
-                Answer
+                {isRecording ? (
+                  <>
+                    <svg
+                      className="w-5 h-5"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                    </svg>
+                    Done
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      className="w-5 h-5"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
+                      <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
+                    </svg>
+                    Answer
+                  </>
+                )}
               </button>
 
               {/* Keyboard Toggle Button */}

@@ -45,6 +45,7 @@ export default function BackgroundInterviewPage() {
   const [backgroundTimeSeconds, setBackgroundTimeSeconds] = useState<number | undefined>(undefined);
   const [openaiClient, setOpenaiClient] = useState<OpenAI | null>(null);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
+  const [micStream, setMicStream] = useState<MediaStream | null>(null);
 
   // Initialize OpenAI client
   useEffect(() => {
@@ -84,6 +85,16 @@ export default function BackgroundInterviewPage() {
     }
   }, [machineState]);
 
+  // Cleanup mic stream on unmount
+  useEffect(() => {
+    return () => {
+      if (micStream) {
+        micStream.getTracks().forEach((track) => track.stop());
+        console.log("[bg-interview] Mic stream stopped on cleanup");
+      }
+    };
+  }, [micStream]);
+
   const handleStartInterview = async () => {
     if (!name.trim()) {
       return;
@@ -96,6 +107,18 @@ export default function BackgroundInterviewPage() {
 
     setLoading(true);
     try {
+      // Request microphone permissions upfront
+      console.log("[bg-interview] Requesting microphone permissions...");
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      setMicStream(stream);
+      console.log("[bg-interview] Microphone access granted");
+      
       // Check if jobId and companyId are already in URL (navigated from elsewhere)
       let jobId = searchParams.get("jobId");
       let companyId = searchParams.get("companyId");
@@ -441,11 +464,12 @@ export default function BackgroundInterviewPage() {
 
       {/* Main content area */}
       <div className={`flex-1 flex items-center justify-center p-4 transition-all ${showDebugPanel ? '' : 'pr-0'}`}>
-        <QuestionCard
-          question={currentQuestion}
-          onSubmitAnswer={handleSubmitAnswer}
-          loading={loading}
-        />
+            <QuestionCard
+              question={currentQuestion}
+              onSubmitAnswer={handleSubmitAnswer}
+              loading={loading}
+              micStream={micStream}
+            />
       </div>
 
       {/* Debug panel - fixed on right side */}
