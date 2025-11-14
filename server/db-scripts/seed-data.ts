@@ -121,7 +121,7 @@ Kurtis Weissnat - Telly.Hoeger@billy.biz
 Nicholas Runolfsdottir V - Sherwood@rosamond.me
 Glenna Reichert - Chaim_McDermott@dana.io
 Clementina DuBuque - Rey.Padberg@karina.biz`,
-    backgroundQuestionTimeSeconds: 3 * 60,
+    backgroundQuestionTimeSeconds: 15 * 60,
     codingQuestionTimeSeconds: 7 * 60,
 };
 

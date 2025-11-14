@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useRouter, useSearchParams } from "next/navigation";
 import { store, RootState } from "@/shared/state/store";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import {
@@ -14,6 +15,7 @@ import {
 } from "@/shared/state/slices/interviewMachineSlice";
 import QuestionCard from "./components/QuestionCard";
 import CompletionScreen from "./components/CompletionScreen";
+import BackgroundDebugPanel from "app/shared/components/BackgroundDebugPanel";
 import OpenAI from "openai";
 import { buildOpenAIBackgroundPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
 import {
@@ -24,6 +26,8 @@ import {
 import { stopCheck } from "@/shared/services/weightedMean/scorer";
 
 export default function BackgroundInterviewPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const dispatch = useDispatch();
   const machineState = useSelector(
     (state: RootState) => state.interviewMachine.state
@@ -38,7 +42,9 @@ export default function BackgroundInterviewPage() {
   const [loading, setLoading] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [codingTimeChallenge, setCodingTimeChallenge] = useState<number>(30);
+  const [backgroundTimeSeconds, setBackgroundTimeSeconds] = useState<number | undefined>(undefined);
   const [openaiClient, setOpenaiClient] = useState<OpenAI | null>(null);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
 
   // Initialize OpenAI client
   useEffect(() => {
@@ -90,9 +96,46 @@ export default function BackgroundInterviewPage() {
 
     setLoading(true);
     try {
-      // Use meta-frontend-engineer job (same as demo)
-      const companySlug = "meta";
-      const roleSlug = "frontend-engineer";
+      // Check if jobId and companyId are already in URL (navigated from elsewhere)
+      let jobId = searchParams.get("jobId");
+      let companyId = searchParams.get("companyId");
+      let userId = searchParams.get("userId");
+      
+      // If no params yet, this is a fresh start - need to create demo user and set defaults
+      if (!userId) {
+        // Generate unique user ID for this demo session
+        userId = `demo-candidate-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Create new demo user with the provided name
+        const userResponse = await fetch(`/api/users/demo?skip-auth=true`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            userId,
+            name: name.trim() 
+          }),
+        });
+
+        if (!userResponse.ok) {
+          throw new Error("Failed to create demo user");
+        }
+      }
+      
+      // If jobId/companyId not in URL, use defaults (for testing)
+      if (!jobId) {
+        jobId = "meta-frontend-engineer";
+      }
+      if (!companyId) {
+        companyId = "meta";
+      }
+      
+      // Update URL with params
+      router.replace(`/background-interview?demo=true&jobId=${jobId}&userId=${userId}&companyId=${companyId}`);
+      
+      // Extract company and role from jobId (e.g., "meta-frontend-engineer" -> "meta", "frontend-engineer")
+      const parts = jobId.split("-");
+      const companySlug = parts[0];
+      const roleSlug = parts.slice(1).join("-");
 
       // Fetch interview script
       const scriptResp = await fetch(
@@ -103,10 +146,14 @@ export default function BackgroundInterviewPage() {
       }
       const scriptData = await scriptResp.json();
 
+      // Extract company name from script or capitalize slug
+      const companyNameFromScript = scriptData.companyName || 
+        companySlug.charAt(0).toUpperCase() + companySlug.slice(1);
+
       // Set company context
       dispatch(
         setCompanyContext({
-          companyName: "Meta",
+          companyName: companyNameFromScript,
           companySlug,
           roleSlug,
         })
@@ -126,6 +173,17 @@ export default function BackgroundInterviewPage() {
         setCodingTimeChallenge(Math.round(scriptData.codingQuestionTimeSeconds / 60));
       }
 
+      // Set background time and configure guard
+      if (scriptData.backgroundQuestionTimeSeconds) {
+        setBackgroundTimeSeconds(scriptData.backgroundQuestionTimeSeconds);
+        const timeboxMs = scriptData.backgroundQuestionTimeSeconds * 1000;
+        interviewChatStore.dispatch({ 
+          type: "BG_GUARD_SET_TIMEBOX", 
+          payload: { timeboxMs } 
+        } as any);
+        console.log("[bg-interview] Background timebox set:", timeboxMs, "ms");
+      }
+
       // Initialize state machine - start with candidate name
       const firstName = name.trim().split(' ')[0];
       dispatch(start({ candidateName: firstName }));
@@ -137,7 +195,7 @@ export default function BackgroundInterviewPage() {
       interviewChatStore.dispatch({ type: "BG_GUARD_START_TIMER" } as any);
 
       // Generate and post first background question
-      const persona = buildOpenAIBackgroundPrompt("Meta");
+      const persona = buildOpenAIBackgroundPrompt(companyNameFromScript);
       const instruction = `Ask exactly: "${String(scriptData.backgroundQuestion)}"`;
       const firstQuestion = await generateAssistantReply(
         openaiClient,
@@ -336,20 +394,68 @@ export default function BackgroundInterviewPage() {
 
   if (completed) {
     return (
-      <CompletionScreen
-        codingTimeChallenge={codingTimeChallenge}
-        onStartCoding={handleStartCoding}
-      />
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex relative">
+        {/* Debug Toggle Button */}
+        <button
+          onClick={() => setShowDebugPanel(!showDebugPanel)}
+          className="absolute top-4 right-4 z-50 p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+          title={showDebugPanel ? "Hide Debug Panel" : "Show Debug Panel"}
+        >
+          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </button>
+
+        {/* Main content area */}
+        <div className={`flex-1 flex items-center justify-center p-4 transition-all ${showDebugPanel ? '' : 'pr-0'}`}>
+          <CompletionScreen
+            codingTimeChallenge={codingTimeChallenge}
+            onStartCoding={handleStartCoding}
+          />
+        </div>
+
+        {/* Debug panel - fixed on right side */}
+        {showDebugPanel && (
+          <div className="w-96 p-6 overflow-y-auto">
+            <BackgroundDebugPanel 
+              timeboxMs={backgroundTimeSeconds ? backgroundTimeSeconds * 1000 : undefined}
+            />
+          </div>
+        )}
+      </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center p-4">
-      <QuestionCard
-        question={currentQuestion}
-        onSubmitAnswer={handleSubmitAnswer}
-        loading={loading}
-      />
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex relative">
+      {/* Debug Toggle Button */}
+      <button
+        onClick={() => setShowDebugPanel(!showDebugPanel)}
+        className="absolute top-4 right-4 z-50 p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+        title={showDebugPanel ? "Hide Debug Panel" : "Show Debug Panel"}
+      >
+        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      </button>
+
+      {/* Main content area */}
+      <div className={`flex-1 flex items-center justify-center p-4 transition-all ${showDebugPanel ? '' : 'pr-0'}`}>
+        <QuestionCard
+          question={currentQuestion}
+          onSubmitAnswer={handleSubmitAnswer}
+          loading={loading}
+        />
+      </div>
+
+      {/* Debug panel - fixed on right side */}
+      {showDebugPanel && (
+        <div className="w-96 p-6 overflow-y-auto">
+          <BackgroundDebugPanel 
+            timeboxMs={backgroundTimeSeconds ? backgroundTimeSeconds * 1000 : undefined}
+          />
+        </div>
+      )}
     </div>
   );
 }
