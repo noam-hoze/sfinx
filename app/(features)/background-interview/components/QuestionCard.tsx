@@ -52,6 +52,8 @@ export default function QuestionCard({
       setPrevQuestion(question);
       setTtsError(null);
       setIsAudioPlaying(false);
+      setIsTextExpanded(false); // Reset text input to collapsed state
+      setAnswer(""); // Clear any previous answer
 
       // Generate and play TTS
       (async () => {
