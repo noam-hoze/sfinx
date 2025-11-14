@@ -40,6 +40,7 @@ export default function QuestionCard({
   const [isTextExpanded, setIsTextExpanded] = useState(false);
   const [ttsError, setTtsError] = useState<string | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const [audioFinished, setAudioFinished] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingError, setRecordingError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -52,6 +53,7 @@ export default function QuestionCard({
       setPrevQuestion(question);
       setTtsError(null);
       setIsAudioPlaying(false);
+      setAudioFinished(false);
       setIsTextExpanded(false); // Reset text input to collapsed state
       setAnswer(""); // Clear any previous answer
 
@@ -79,8 +81,10 @@ export default function QuestionCard({
           };
 
           audio.onended = () => {
+            setAudioFinished(true);
             URL.revokeObjectURL(url);
             audioRef.current = null;
+            console.log("[QuestionCard] TTS playback finished");
           };
 
           await audio.play();
@@ -90,6 +94,7 @@ export default function QuestionCard({
             error instanceof Error ? error.message : "TTS generation failed"
           );
           setIsAudioPlaying(true); // Show question even if audio fails
+          setAudioFinished(true); // Skip to finished state if audio fails
         }
       })();
     }
@@ -202,78 +207,12 @@ export default function QuestionCard({
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: -300, opacity: 0 }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="bg-white rounded-2xl shadow-lg p-8"
         >
-          {/* Question Text - only show when audio is ready/playing */}
-          <div className="mb-8">
-            {!isAudioPlaying && !ttsError ? (
-              <div className="flex items-center justify-center py-4">
-                <svg
-                  className="w-8 h-8 text-gray-400 animate-spin"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-              </div>
-            ) : (
-              <>
-                <h2 className="text-2xl text-gray-800 font-normal leading-relaxed">
-                  {question || "Loading question..."}
-                </h2>
-                {ttsError && (
-                  <div className="mt-4 flex items-center gap-2 text-red-600 text-sm">
-                    <svg
-                      className="w-5 h-5"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span>Audio playback failed: {ttsError}</span>
-                  </div>
-                )}
-                {recordingError && (
-                  <div className="mt-4 flex items-center gap-2 text-red-600 text-sm">
-                    <svg
-                      className="w-5 h-5"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                    <span>Recording failed: {recordingError}</span>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Transcribing Indicator - shows while recording */}
-          {isRecording && (
-            <div className="mb-4 flex items-center gap-3 text-gray-600">
+          {/* Loading state - before audio starts */}
+          {!isAudioPlaying && !ttsError ? (
+            <div className="flex items-center justify-center py-8">
               <svg
-                className="w-5 h-5 animate-spin"
+                className="w-8 h-8 text-gray-400 animate-spin"
                 fill="none"
                 viewBox="0 0 24 24"
               >
@@ -291,12 +230,101 @@ export default function QuestionCard({
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                 />
               </svg>
-              <span>Transcribing answer...</span>
             </div>
-          )}
+          ) : (
+            <>
+              {/* Single card with question and controls */}
+              <motion.div
+                initial={{ backgroundColor: "rgba(255, 255, 255, 0)" }}
+                animate={{ 
+                  backgroundColor: audioFinished ? "rgba(255, 255, 255, 1)" : "rgba(255, 255, 255, 0)",
+                  boxShadow: audioFinished ? "0 10px 15px -3px rgb(0 0 0 / 0.1)" : "0 0 0 0 rgb(0 0 0 / 0)"
+                }}
+                transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
+                className="rounded-2xl overflow-hidden border border-gray-200"
+              >
+                {/* Question Section */}
+                <div className="p-8 pb-6">
+                  <h2 className="text-2xl text-gray-800 font-normal leading-relaxed">
+                    {question || "Loading question..."}
+                  </h2>
+                  {ttsError && (
+                    <div className="mt-4 flex items-center gap-2 text-red-600 text-sm">
+                      <svg
+                        className="w-5 h-5"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <span>Audio playback failed: {ttsError}</span>
+                    </div>
+                  )}
+                  {recordingError && (
+                    <div className="mt-4 flex items-center gap-2 text-red-600 text-sm">
+                      <svg
+                        className="w-5 h-5"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      <span>Recording failed: {recordingError}</span>
+                    </div>
+                  )}
+                </div>
 
-          {/* Input Controls */}
-          <div className="flex flex-col gap-4">
+                {/* Divider line and Controls Section - reveal from top when audio finishes */}
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ 
+                    height: audioFinished ? "auto" : 0,
+                    opacity: audioFinished ? 1 : 0
+                  }}
+                  transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
+                  className="overflow-hidden"
+                >
+                  {/* Thin divider */}
+                  <div className="border-t border-gray-200"></div>
+                  
+                  {/* Controls Section */}
+                  <div className="p-8 pt-6">
+                    {/* Transcribing Indicator - shows while recording */}
+                    {isRecording && (
+                      <div className="mb-4 flex items-center gap-3 text-gray-600">
+                        <svg
+                          className="w-5 h-5 animate-spin"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          />
+                        </svg>
+                        <span>Transcribing answer...</span>
+                      </div>
+                    )}
+
+                    {/* Input Controls */}
+                    <div className="flex flex-col gap-4">
             {/* Expandable Text Input */}
             {isTextExpanded && (
               <motion.div
@@ -419,6 +447,11 @@ export default function QuestionCard({
               </button>
             </div>
           </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            </>
+          )}
         </motion.div>
       </AnimatePresence>
     </div>
