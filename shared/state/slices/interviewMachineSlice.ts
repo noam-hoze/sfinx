@@ -23,6 +23,11 @@ export type InterviewMachineState = {
     roleSlug?: string;
     // Interview session ID for persisting conversation data
     sessionId?: string;
+    // Preloaded data for instant interview start
+    userId?: string;
+    applicationId?: string;
+    script?: any;
+    preloadedFirstQuestion?: string;
 };
 
 const initialState: InterviewMachineState = {
@@ -177,6 +182,20 @@ const interviewMachineSlice = createSlice({
             state.state = "in_coding_session";
             logStageTransition(prev, state.state, "forced");
         },
+        setPreloadedData: (
+            state,
+            action: PayloadAction<{
+                userId?: string;
+                applicationId?: string;
+                script?: any;
+                preloadedFirstQuestion?: string;
+            }>
+        ) => {
+            if (action.payload.userId) state.userId = action.payload.userId;
+            if (action.payload.applicationId) state.applicationId = action.payload.applicationId;
+            if (action.payload.script) state.script = action.payload.script;
+            if (action.payload.preloadedFirstQuestion) state.preloadedFirstQuestion = action.payload.preloadedFirstQuestion;
+        },
     },
 });
 
@@ -191,5 +210,6 @@ export const {
     end,
     reset,
     forceCoding,
+    setPreloadedData,
 } = interviewMachineSlice.actions;
 export default interviewMachineSlice.reducer;

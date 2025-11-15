@@ -18,7 +18,7 @@ export default function Header() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const isDemoMode = searchParams.get("demo") === "true" || pathname?.startsWith("/demo");
+    const isDemoMode = searchParams.get("demo") === "true" || pathname?.startsWith("/demo") || pathname?.startsWith("/background-interview");
 
     // Sliding indicator state
     const [indicatorStyle, setIndicatorStyle] = useState({ width: 0, left: 0 });
@@ -79,7 +79,7 @@ export default function Header() {
     // Get current demo stage based on pathname
     const getDemoStage = (): 1 | 2 | 3 | 4 | 5 | null => {
         if (!isDemoMode) return null;
-        if (pathname === "/demo") return 1;
+        if (pathname === "/background-interview") return 1;
         if (pathname === "/interview") return 2;
         if (pathname === "/demo/company-view") return 3;
         if (pathname === "/cps") return 4;
@@ -218,7 +218,7 @@ export default function Header() {
                     {isDemoMode && (
                         <button
                             onClick={() => {
-                                window.location.href = '/demo';
+                                window.location.href = '/background-interview?jobId=meta-frontend-engineer&companyId=meta';
                             }}
                             className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
                         >
