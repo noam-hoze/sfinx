@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter, useSearchParams } from "next/navigation";
+import { motion } from "framer-motion";
 import { store, RootState } from "@/shared/state/store";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import {
@@ -63,6 +64,7 @@ export default function BackgroundInterviewPage() {
   const [name, setName] = useState("");
   
   // Interview flow state
+  const [showHandEmoji, setShowHandEmoji] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [announcementText, setAnnouncementText] = useState("");
   const [currentQuestion, setCurrentQuestion] = useState<string>("");
@@ -292,15 +294,15 @@ export default function BackgroundInterviewPage() {
     }
     
     try {
+      // Show hand emoji immediately
+      setShowHandEmoji(true);
+      
       // Play click sound and show disabled state
       setIsStarting(true);
       const clickSound = new Audio("/sounds/click-button.mp3");
       clickSound.play().catch(err => console.error("Click sound error:", err));
       
-      // Wait a moment for visual/audio feedback
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // Request mic permissions
+      // Request mic permissions (no delay)
       console.log("[bg-interview] Requesting microphone permissions...");
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -451,6 +453,10 @@ export default function BackgroundInterviewPage() {
             } as any);
             console.log("[bg-interview] Follow-up added to store");
 
+            // Clear loading state before showing new question
+            setSubmitting(false);
+            console.log("[bg-interview] Submitting state cleared");
+
             setCurrentQuestion(followUp);
             console.log("[bg-interview] Current question updated");
 
@@ -475,10 +481,7 @@ export default function BackgroundInterviewPage() {
   if (stage === 'loading') {
     return (
       <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex items-center justify-center p-4">
-        <div className="flex flex-col items-center gap-8">
-          <SfinxSpinner size="lg" />
-          <p className="text-gray-600 text-lg font-medium">Preparing your interview...</p>
-        </div>
+        <SfinxSpinner size="lg" />
       </div>
     );
   }
@@ -487,7 +490,12 @@ export default function BackgroundInterviewPage() {
   if (stage === 'welcome') {
     return (
       <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex items-center justify-center p-4">
-        <div className="max-w-2xl w-full">
+        <motion.div 
+          className="max-w-2xl w-full"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: isStarting ? 0 : 1 }}
+          transition={{ duration: 0.5 }}
+        >
           <div className="text-center mb-12">
             <h1 className="text-5xl font-bold text-gray-900 mb-4">
               Sfinx Demo
@@ -552,7 +560,7 @@ export default function BackgroundInterviewPage() {
               Start
             </button>
           </div>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -612,7 +620,11 @@ export default function BackgroundInterviewPage() {
 
       {/* Main content area */}
       <div className="flex-1 flex items-center justify-center p-4">
-        {showAnnouncement ? (
+        {showHandEmoji && !showAnnouncement && !currentQuestion ? (
+          <div className="flex items-start justify-start gap-4 w-full max-w-4xl">
+            <div className="text-5xl flex-shrink-0">👋</div>
+          </div>
+        ) : showAnnouncement ? (
           <AnnouncementScreen
             text={announcementText}
             onComplete={handleAnnouncementComplete}

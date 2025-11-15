@@ -7,7 +7,7 @@ type SfinxSpinnerProps = {
 
 export default function SfinxSpinner({ size = "md", className = "" }: SfinxSpinnerProps) {
   const sizes = {
-    sm: { atom: 150, nucleus: 15, orbit: 85, electron: 6, fontSize: '14px' },
+    sm: { atom: 24, nucleus: 4, orbit: 14, electron: 2, fontSize: '8px' },
     md: { atom: 300, nucleus: 25, orbit: 170, electron: 10, fontSize: '28px' },
     lg: { atom: 450, nucleus: 35, orbit: 255, electron: 14, fontSize: '42px' },
   };

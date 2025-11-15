@@ -2,7 +2,6 @@
 
 import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import SfinxSpinner from "./SfinxSpinner";
 
 type QuestionCardProps = {
   question: string;
@@ -222,30 +221,7 @@ export default function QuestionCard({
           exit={{ x: -300, opacity: 0 }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
         >
-          {/* Loading state - before audio starts */}
-          {!isAudioPlaying && !ttsError ? (
-            <div className="flex items-center justify-center py-8">
-              <svg
-                className="w-8 h-8 text-gray-400 animate-spin"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-            </div>
-          ) : (
+          {isAudioPlaying || ttsError ? (
             <>
               {/* Single card with question and controls */}
               <motion.div
@@ -259,9 +235,9 @@ export default function QuestionCard({
               >
                 {/* Question Section */}
                 <div className="p-8 pb-6">
-                  <h2 className="text-2xl text-gray-800 font-normal leading-relaxed">
+                  <p className="text-2xl text-gray-800 leading-relaxed">
                     {question || "Loading question..."}
-                  </h2>
+                  </p>
                   {ttsError && (
                     <div className="mt-4 flex items-center gap-2 text-red-600 text-sm">
                       <svg
@@ -446,7 +422,25 @@ export default function QuestionCard({
                 title="Submit answer"
               >
                 {loading ? (
-                  <SfinxSpinner size="sm" />
+                  <svg
+                    className="w-6 h-6 animate-spin text-sfinx-purple"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
                 ) : (
                   <svg
                     className="w-6 h-6"
@@ -469,7 +463,7 @@ export default function QuestionCard({
                 </motion.div>
               </motion.div>
             </>
-          )}
+          ) : null}
         </motion.div>
       </AnimatePresence>
     </div>

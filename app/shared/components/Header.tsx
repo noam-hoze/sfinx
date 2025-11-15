@@ -220,7 +220,7 @@ export default function Header() {
                             onClick={() => {
                                 window.location.href = '/background-interview?jobId=meta-frontend-engineer&companyId=meta';
                             }}
-                            className="px-4 py-2 text-sm font-medium text-sfinx-purple hover:opacity-80 border border-sfinx-purple rounded-lg hover:bg-sfinx-purple hover:bg-opacity-10 transition-all"
+                            className="px-4 py-2 text-sm font-medium text-sfinx-purple border border-sfinx-purple rounded-lg hover:bg-sfinx-purple hover:text-white transition-all"
                         >
                             Restart Demo
                         </button>
