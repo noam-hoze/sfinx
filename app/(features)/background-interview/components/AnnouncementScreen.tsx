@@ -34,11 +34,19 @@ export default function AnnouncementScreen({
   const [typingFinished, setTypingFinished] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const words = text.split(" ");
-  const WORDS_PER_SECOND = 2.5;
-  const MS_PER_WORD = 1000 / WORDS_PER_SECOND;
-
   useEffect(() => {
+    // Reset state when text changes
+    setDisplayedWords([]);
+    setAudioFinished(false);
+    setTypingFinished(false);
+
+    const words = text.split(" ");
+    const WORDS_PER_SECOND = 2.5;
+    const MS_PER_WORD = 1000 / WORDS_PER_SECOND;
+
+    console.log("[Announcement] Starting with text:", text);
+    console.log("[Announcement] Words array:", words);
+
     // Generate and play TTS
     (async () => {
       try {
@@ -68,14 +76,22 @@ export default function AnnouncementScreen({
 
     // Start typing animation
     let wordIndex = 0;
+    console.log("[Announcement] Total words to display:", words.length);
+    
     const interval = setInterval(() => {
+      console.log("[Announcement] Interval tick, wordIndex:", wordIndex, "of", words.length);
       if (wordIndex < words.length) {
-        setDisplayedWords((prev) => [...prev, words[wordIndex]]);
+        console.log("[Announcement] Displaying word", wordIndex, ":", words[wordIndex]);
+        setDisplayedWords((prev) => {
+          const newWords = [...prev, words[wordIndex]];
+          console.log("[Announcement] New displayedWords array:", newWords);
+          return newWords;
+        });
         wordIndex++;
       } else {
+        console.log("[Announcement] Typing finished, displayed", wordIndex, "words total");
         setTypingFinished(true);
         clearInterval(interval);
-        console.log("[Announcement] Typing finished");
       }
     }, MS_PER_WORD);
 
@@ -89,12 +105,15 @@ export default function AnnouncementScreen({
   }, [text]);
 
   // Call onComplete when both audio and typing are done
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+
   useEffect(() => {
     if (audioFinished && typingFinished) {
-      console.log("[Announcement] Complete");
-      onComplete();
+      console.log("[Announcement] Complete, total words displayed:", displayedWords.length);
+      onCompleteRef.current();
     }
-  }, [audioFinished, typingFinished, onComplete]);
+  }, [audioFinished, typingFinished, displayedWords.length]);
 
   return (
     <div className="flex items-center justify-center gap-4">

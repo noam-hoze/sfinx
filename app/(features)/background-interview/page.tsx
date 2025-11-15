@@ -282,6 +282,8 @@ export default function BackgroundInterviewPage() {
   }, [stage, openaiClient, searchParams, dispatch]);
 
   // STAGE 2: Handle Start Interview button click
+  const [isStarting, setIsStarting] = useState(false);
+  
   const handleStartInterview = async () => {
     if (!name.trim()) {
       alert("Please enter your name");
@@ -289,9 +291,13 @@ export default function BackgroundInterviewPage() {
     }
     
     try {
-      // Play click sound
+      // Play click sound and show disabled state
+      setIsStarting(true);
       const clickSound = new Audio("/sounds/click-button.mp3");
       clickSound.play().catch(err => console.error("Click sound error:", err));
+      
+      // Wait a moment for visual/audio feedback
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       // Request mic permissions
       console.log("[bg-interview] Requesting microphone permissions...");
@@ -314,6 +320,7 @@ export default function BackgroundInterviewPage() {
       
     } catch (error) {
       console.error("[bg-interview] Failed to start interview:", error);
+      setIsStarting(false);
       alert("Microphone access is required for this interview.");
     }
   };
@@ -331,16 +338,11 @@ export default function BackgroundInterviewPage() {
       interviewChatStore.dispatch({ type: "SET_STAGE", payload: "background" } as any);
       interviewChatStore.dispatch({ type: "BG_GUARD_START_TIMER" } as any);
       
-      // Add first question to chat store
-      const firstQuestion = preloadedFirstQuestion || "";
-      interviewChatStore.dispatch({
-        type: "ADD_MESSAGE",
-        payload: { text: firstQuestion, speaker: "ai" },
-      } as any);
-      
-      setCurrentQuestion(firstQuestion);
+      // Don't add first question to chat store yet - wait for announcement to complete
+      // (otherwise the chat store subscription will trigger and show the question)
       
       // Transition state machine to background mode (skip greeting)
+      const firstQuestion = preloadedFirstQuestion || "";
       dispatch(aiFinal({ text: "greeting" }));
       dispatch(userFinal());
       dispatch(aiFinal({ text: firstQuestion }));
@@ -380,6 +382,13 @@ export default function BackgroundInterviewPage() {
   const handleAnnouncementComplete = () => {
     console.log("[bg-interview] Announcement complete, showing first question");
     setShowAnnouncement(false);
+    
+    // Now add first question to chat store (this will trigger the useEffect and set currentQuestion)
+    const firstQuestion = preloadedFirstQuestion || "";
+    interviewChatStore.dispatch({
+      type: "ADD_MESSAGE",
+      payload: { text: firstQuestion, speaker: "ai" },
+    } as any);
   };
 
   const handleSubmitAnswer = async (answer: string) => {
@@ -498,42 +507,66 @@ export default function BackgroundInterviewPage() {
   // STAGE 2: Welcome/Name Input screen
   if (stage === 'welcome') {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center p-4">
-        <div className="max-w-2xl w-full bg-white rounded-2xl shadow-sm border border-gray-200 p-12">
-          <h1 className="text-4xl font-semibold text-gray-900 mb-6 text-center">
-            Welcome to Your Interview
-          </h1>
-          
-          <p className="text-lg text-gray-700 mb-8 text-center leading-relaxed">
-            You'll be interviewed for a {script?.jobTitle || "Frontend Engineer"} position at {companyName || "Meta"}.
-          </p>
-          
-          <div className="mb-6">
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-              Your Name
-            </label>
-            <input
-              type="text"
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && name.trim()) {
-                  handleStartInterview();
-                }
-              }}
-              placeholder="Enter your full name"
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-            />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-3xl px-4">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12">
+            <h1 className="text-4xl font-semibold text-gray-900 mb-6 text-center">
+              Welcome to Sfinx Demo
+            </h1>
+
+            <p className="text-lg text-gray-700 mb-8 leading-relaxed">
+              Experience our AI-powered interview platform from both perspectives:
+              first as a candidate completing an interview, then as a hiring manager
+              reviewing results and comparing candidates.
+            </p>
+
+            <div className="bg-blue-50 rounded-xl p-6 mb-8">
+              <h2 className="text-xl font-medium text-gray-900 mb-4">
+                What you'll experience:
+              </h2>
+              <ul className="space-y-3 text-gray-700">
+                <li className="flex items-start">
+                  <span className="text-blue-600 mr-3">1.</span>
+                  <span>Complete a technical interview for Frontend Engineer at Meta</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="text-blue-600 mr-3">2.</span>
+                  <span>View your comprehensive interview analysis report</span>
+                </li>
+                <li className="flex items-start">
+                  <span className="text-blue-600 mr-3">3.</span>
+                  <span>See how you rank among other candidates</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="mb-6">
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+                Your Name
+              </label>
+              <input
+                type="text"
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && name.trim()) {
+                    handleStartInterview();
+                  }
+                }}
+                placeholder="Enter your full name"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+              />
+            </div>
+
+            <button
+              onClick={handleStartInterview}
+              disabled={!name.trim() || isStarting}
+              className="w-full bg-blue-600 text-white text-lg font-medium py-4 px-8 rounded-xl hover:bg-blue-700 transition-all duration-300 shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              Start
+            </button>
           </div>
-          
-          <button
-            onClick={handleStartInterview}
-            disabled={!name.trim()}
-            className="w-full bg-blue-600 text-white text-lg font-medium py-4 px-8 rounded-xl hover:bg-blue-700 transition-colors shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            Start Interview
-          </button>
         </div>
       </div>
     );
