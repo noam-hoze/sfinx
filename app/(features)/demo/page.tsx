@@ -38,10 +38,13 @@ export default function DemoWelcomePage() {
                 throw new Error("Failed to create demo user");
             }
 
-            // Navigate to background interview
+            const data = await response.json();
+            console.log("✅ Demo user created:", data);
+
+            // Navigate to background interview with application ID from demo user creation
             const jobId = "meta-frontend-engineer";
             const companyId = "meta";
-            router.push(`/background-interview?demo=true&jobId=${jobId}&userId=${userId}&companyId=${companyId}`);
+            router.push(`/background-interview?demo=true&jobId=${jobId}&userId=${userId}&companyId=${companyId}&applicationId=${data.applicationId}`);
         } catch (error) {
             console.error("Error creating demo user:", error);
             alert("Failed to start demo. Please try again.");

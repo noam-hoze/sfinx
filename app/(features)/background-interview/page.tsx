@@ -11,7 +11,7 @@ import {
   userFinal,
   setExpectedBackgroundQuestion,
   setCompanyContext,
-  setSessionId,
+  setSessionId as setMachineSessionId,
 } from "@/shared/state/slices/interviewMachineSlice";
 import QuestionCard from "./components/QuestionCard";
 import CompletionScreen from "./components/CompletionScreen";
@@ -24,9 +24,8 @@ import {
   generateAssistantReply,
 } from "../interview/components/chat/openAITextConversationHelpers";
 import { stopCheck } from "@/shared/services/weightedMean/scorer";
-import { createApplication } from "../interview/components/services/applicationService";
 import { createInterviewSession } from "../interview/components/services/interviewSessionService";
-import { buildControlContextMessages, CONTROL_CONTEXT_TURNS } from "@/shared/services";
+import { buildControlContextMessages, CONTROL_CONTEXT_TURNS } from "../../shared/services";
 
 export default function BackgroundInterviewPage() {
   const router = useRouter();
@@ -39,10 +38,10 @@ export default function BackgroundInterviewPage() {
     (state: RootState) => state.interviewMachine.companyName
   );
 
-  const [name, setName] = useState("");
   const [initialized, setInitialized] = useState(false);
+  const [autoStarted, setAutoStarted] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<string>("");
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [codingTimeChallenge, setCodingTimeChallenge] = useState<number>(30);
   const [backgroundTimeSeconds, setBackgroundTimeSeconds] = useState<number | undefined>(undefined);
@@ -50,7 +49,7 @@ export default function BackgroundInterviewPage() {
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
   const [applicationId, setApplicationId] = useState<string | null>(null);
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const sessionId = useSelector((state: RootState) => state.interviewMachine.sessionId);
 
   // Initialize OpenAI client
   useEffect(() => {
@@ -100,93 +99,61 @@ export default function BackgroundInterviewPage() {
     };
   }, [micStream]);
 
-  const handleStartInterview = async () => {
-    if (!name.trim()) {
-      return;
-    }
+  // Auto-start interview when component mounts with required params
+  useEffect(() => {
+    if (autoStarted || !openaiClient) return;
 
-    if (!openaiClient) {
-      console.error("OpenAI client not initialized");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Request microphone permissions upfront
-      console.log("[bg-interview] Requesting microphone permissions...");
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
-      setMicStream(stream);
-      console.log("[bg-interview] Microphone access granted");
-      
-      // Check if jobId and companyId are already in URL (navigated from elsewhere)
-      let jobId = searchParams.get("jobId");
-      let companyId = searchParams.get("companyId");
-      let userId = searchParams.get("userId");
-      
-      // If no params yet, this is a fresh start - need to create demo user and set defaults
-      if (!userId) {
-        // Generate unique user ID for this demo session
-        userId = `demo-candidate-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        
-        // Create new demo user with the provided name
-        const userResponse = await fetch(`/api/users/demo?skip-auth=true`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-            userId,
-            name: name.trim() 
-          }),
+    const startInterview = async () => {
+      try {
+        // Request microphone permissions upfront
+        console.log("[bg-interview] Requesting microphone permissions...");
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
         });
-
-        if (!userResponse.ok) {
-          throw new Error("Failed to create demo user");
-        }
-      }
+        setMicStream(stream);
+        console.log("[bg-interview] Microphone access granted");
       
-      // If jobId/companyId not in URL, use defaults (for testing)
-      if (!jobId) {
-        jobId = "meta-frontend-engineer";
-      }
-      if (!companyId) {
-        companyId = "meta";
+      // Get required params from URL (must come from demo page)
+      const jobId = searchParams.get("jobId");
+      const companyId = searchParams.get("companyId");
+      const userId = searchParams.get("userId");
+      const existingAppId = searchParams.get("applicationId");
+      
+      if (!userId || !jobId || !companyId || !existingAppId) {
+        throw new Error("Missing required parameters. Please start from the demo page.");
       }
       
       // Update URL with params
-      router.replace(`/background-interview?demo=true&jobId=${jobId}&userId=${userId}&companyId=${companyId}`);
-      
-      // Create application and session for demo
-      console.log("[bg-interview] Creating application and session...");
-      const application = await createApplication({
-        companyId,
+      const urlParams = new URLSearchParams({
+        demo: "true",
         jobId,
+        userId,
+        companyId,
+      });
+      if (existingAppId) {
+        urlParams.set("applicationId", existingAppId);
+      }
+      router.replace(`/background-interview?${urlParams.toString()}`);
+      
+      console.log("[bg-interview] Using existing application:", existingAppId);
+      setApplicationId(existingAppId);
+      
+      // Create session only (application already exists from demo page)
+      const session = await createInterviewSession({
+        applicationId: existingAppId,
+        companyId,
         userId,
         isDemoMode: true,
       });
       
-      if (application?.application?.id) {
-        const appId = application.application.id;
-        setApplicationId(appId);
-        console.log("[bg-interview] Application created:", appId);
-        
-        const session = await createInterviewSession({
-          applicationId: appId,
-          companyId,
-          userId,
-          isDemoMode: true,
-        });
-        
-        if (session?.interviewSession?.id) {
-          const sessId = session.interviewSession.id;
-          setSessionId(sessId);
-          dispatch(setSessionId({ sessionId: sessId }));
-          console.log("[bg-interview] Session created:", sessId);
-        }
+      if (session?.interviewSession?.id) {
+        const sessId = session.interviewSession.id;
+        dispatch(setMachineSessionId({ sessionId: sessId }));
+        console.log("[bg-interview] Session created:", sessId);
       }
       
       // Extract company and role from jobId (e.g., "meta-frontend-engineer" -> "meta", "frontend-engineer")
@@ -281,12 +248,14 @@ export default function BackgroundInterviewPage() {
       }
 
       setInitialized(true);
+      setAutoStarted(true);
     } catch (error) {
       console.error("Failed to initialize interview:", error);
-    } finally {
-      setLoading(false);
     }
-  };
+    };
+
+    startInterview();
+  }, [openaiClient, autoStarted, searchParams, router, dispatch]);
 
   const handleSubmitAnswer = async (answer: string) => {
     if (!openaiClient || !companyName) {
@@ -298,7 +267,7 @@ export default function BackgroundInterviewPage() {
     }
 
     console.log("[bg-interview] Submit answer:", answer);
-    setLoading(true);
+    setSubmitting(true);
 
     try {
       // Add user message to chat store
@@ -366,79 +335,36 @@ export default function BackgroundInterviewPage() {
     } catch (error) {
       console.error("[bg-interview] Error processing answer:", error);
     } finally {
-      setLoading(false);
-      console.log("[bg-interview] Loading state cleared");
+      setSubmitting(false);
+      console.log("[bg-interview] Submitting state cleared");
     }
   };
 
-  const handleStartCoding = () => {
-    // Placeholder for now
-    console.log("Start coding challenge clicked");
-  };
-
+  // Show loading screen while initializing
   if (!initialized) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-12">
-            <h1 className="text-5xl font-semibold text-gray-900 mb-3 tracking-tight">
-              Background Interview
-            </h1>
-            <p className="text-lg text-gray-500">
-              Tell us about yourself
-            </p>
-          </div>
-
-          <div className="space-y-6">
-            <div>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && name.trim() && !loading && openaiClient) {
-                    handleStartInterview();
-                  }
-                }}
-                placeholder="Your name"
-                disabled={loading}
-                className="w-full px-5 py-4 text-lg text-gray-900 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed transition-all placeholder:text-gray-400"
-              />
-            </div>
-
-            <button
-              onClick={handleStartInterview}
-              disabled={loading || !openaiClient || !name.trim()}
-              className="w-full bg-blue-600 text-white text-lg font-medium py-4 px-8 rounded-xl hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all shadow-sm"
-            >
-              {loading ? (
-                <span className="flex items-center justify-center gap-2">
-                  <svg
-                    className="w-5 h-5 animate-spin"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
-                  Starting...
-                </span>
-              ) : (
-                "Continue"
-              )}
-            </button>
-          </div>
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-4">
+          <svg
+            className="w-12 h-12 text-blue-600 animate-spin"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            />
+          </svg>
+          <p className="text-gray-600 text-lg">Initializing interview...</p>
         </div>
       </div>
     );
@@ -501,7 +427,7 @@ export default function BackgroundInterviewPage() {
             <QuestionCard
               question={currentQuestion}
               onSubmitAnswer={handleSubmitAnswer}
-              loading={loading}
+              loading={submitting}
               micStream={micStream}
             />
       </div>
