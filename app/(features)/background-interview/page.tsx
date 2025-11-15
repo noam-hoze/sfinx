@@ -68,6 +68,7 @@ export default function BackgroundInterviewPage() {
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [announcementText, setAnnouncementText] = useState("");
   const [currentQuestion, setCurrentQuestion] = useState<string>("");
+  const [isFirstQuestion, setIsFirstQuestion] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [codingTimeChallenge, setCodingTimeChallenge] = useState<number>(30);
@@ -355,22 +356,29 @@ export default function BackgroundInterviewPage() {
       // Wait 1 second
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Play start interview sound (don't wait for it to finish)
+      // Play start interview sound and wait for it to finish
       try {
         console.log("[bg-interview] Playing start-interview sound...");
-        const startSound = new Audio("/sounds/start-interview.mp3");
-        startSound.onended = () => {
-          console.log("[bg-interview] Start-interview sound finished");
-        };
-        startSound.onerror = (error) => {
-          console.error("[bg-interview] Start-interview sound error:", error);
-        };
-        startSound.play().catch(err => console.error("[bg-interview] Failed to play start-interview sound:", err));
+        await new Promise<void>((resolve, reject) => {
+          const startSound = new Audio("/sounds/start-interview.mp3");
+          startSound.onended = () => {
+            console.log("[bg-interview] Start-interview sound finished");
+            resolve();
+          };
+          startSound.onerror = (error) => {
+            console.error("[bg-interview] Start-interview sound error:", error);
+            reject(error);
+          };
+          startSound.play().catch(err => {
+            console.error("[bg-interview] Failed to play start-interview sound:", err);
+            reject(err);
+          });
+        });
       } catch (error) {
-        console.error("[bg-interview] Failed to play start-interview sound:", error);
+        console.error("[bg-interview] Start-interview sound failed, continuing anyway:", error);
       }
       
-      // Show announcement immediately (TTS will start as sound is playing)
+      // Show announcement after sound finishes
       setShowAnnouncement(true);
       
     } catch (error) {
@@ -403,6 +411,9 @@ export default function BackgroundInterviewPage() {
     setSubmitting(true);
 
     try {
+      // Mark that we're past the first question
+      setIsFirstQuestion(false);
+      
       // Add user message to chat store
       interviewChatStore.dispatch({
         type: "ADD_MESSAGE",
@@ -496,11 +507,6 @@ export default function BackgroundInterviewPage() {
           animate={{ opacity: isStarting ? 0 : 1 }}
           transition={{ duration: 0.5 }}
         >
-          <div className="text-center mb-12">
-            <h1 className="text-5xl font-bold text-gray-900 mb-4">
-              Sfinx Demo
-            </h1>
-          </div>
 
           {/* Two-stage flow visualization */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
@@ -635,6 +641,7 @@ export default function BackgroundInterviewPage() {
             onSubmitAnswer={handleSubmitAnswer}
             loading={submitting}
             micStream={micStream}
+            isFirstQuestion={isFirstQuestion}
           />
         )}
       </div>

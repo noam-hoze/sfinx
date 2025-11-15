@@ -8,6 +8,7 @@ type QuestionCardProps = {
   onSubmitAnswer: (answer: string) => void;
   loading: boolean;
   micStream: MediaStream | null;
+  isFirstQuestion?: boolean;
 };
 
 /**
@@ -33,6 +34,7 @@ export default function QuestionCard({
   onSubmitAnswer,
   loading,
   micStream,
+  isFirstQuestion = false,
 }: QuestionCardProps) {
   const [answer, setAnswer] = useState("");
   const [inputMode, setInputMode] = useState<"text" | "voice">("text");
@@ -214,17 +216,16 @@ export default function QuestionCard({
   return (
     <div className="w-full max-w-3xl">
       <AnimatePresence mode="wait">
-        <motion.div
-          key={question}
-          initial={{ x: 300, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          exit={{ x: -300, opacity: 0 }}
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-        >
-          {isAudioPlaying || ttsError ? (
-            <>
-              {/* Single card with question and controls */}
-              <motion.div
+        {(isAudioPlaying || ttsError) && (
+          <motion.div
+            key={question}
+            initial={isFirstQuestion ? { x: 0, opacity: 0 } : { x: 300, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: -300, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          >
+            {/* Single card with question and controls */}
+            <motion.div
                 initial={{ backgroundColor: "rgba(255, 255, 255, 0)" }}
                 animate={{ 
                   backgroundColor: audioFinished ? "rgba(255, 255, 255, 1)" : "rgba(255, 255, 255, 0)",
@@ -235,7 +236,7 @@ export default function QuestionCard({
               >
                 {/* Question Section */}
                 <div className="p-8 pb-6">
-                  <p className="text-2xl text-gray-800 leading-relaxed">
+                  <p className="text-2xl text-gray-800 leading-relaxed font-light">
                     {question || "Loading question..."}
                   </p>
                   {ttsError && (
@@ -462,9 +463,8 @@ export default function QuestionCard({
                   </div>
                 </motion.div>
               </motion.div>
-            </>
-          ) : null}
-        </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );
