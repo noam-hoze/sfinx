@@ -331,13 +331,13 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS }: Backgro
                     ))}
                 </div>
 
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {traitCards.map((trait) => (
                         <div
                             key={trait.key}
                             className="rounded-[24px] border border-slate-200/70 bg-white/70 px-5 py-4 shadow-sm shadow-slate-900/10 dark:border-slate-700/50 dark:bg-slate-900/60"
                         >
-                            <div className="flex flex-wrap items-start justify-between gap-4">
+                            <div className="flex flex-col gap-3">
                                 <div className="flex flex-col gap-1">
                                     <span className="text-[11px] uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500">
                                         {trait.label}
@@ -351,7 +351,7 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS }: Backgro
                                         </span>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs text-slate-600 dark:text-slate-300">
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-slate-600 dark:text-slate-300">
                                     <div>
                                         <span className="uppercase tracking-[0.2em] text-[10px] text-slate-400 dark:text-slate-500">
                                             Evidence
@@ -378,7 +378,7 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS }: Backgro
                                     </div>
                                 </div>
                             </div>
-                            <div className="mt-4 text-xs leading-relaxed text-slate-600 whitespace-pre-wrap dark:text-slate-200">
+                            <div className="mt-3 text-xs leading-relaxed text-slate-600 whitespace-pre-wrap dark:text-slate-200 line-clamp-3">
                                 {trait.rationale ? trait.rationale : "Awaiting evidence."}
                             </div>
                         </div>

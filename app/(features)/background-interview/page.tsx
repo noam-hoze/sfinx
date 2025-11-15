@@ -522,7 +522,7 @@ export default function BackgroundInterviewPage() {
 
             <div className="bg-blue-50 rounded-xl p-6 mb-8">
               <h2 className="text-xl font-medium text-gray-900 mb-4">
-                What you'll experience:
+                What you&apos;ll experience:
               </h2>
               <ul className="space-y-3 text-gray-700">
                 <li className="flex items-start">
@@ -575,7 +575,7 @@ export default function BackgroundInterviewPage() {
   // STAGE 3: Interview flow
   if (completed) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex relative">
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex flex-col relative">
         {/* Debug Toggle Button */}
         <button
           onClick={() => setShowDebugPanel(!showDebugPanel)}
@@ -588,7 +588,7 @@ export default function BackgroundInterviewPage() {
         </button>
 
         {/* Main content area */}
-        <div className={`flex-1 flex items-center justify-center p-4 transition-all ${showDebugPanel ? '' : 'pr-0'}`}>
+        <div className="flex-1 flex items-center justify-center p-4">
           <CompletionScreen
             codingTimeChallenge={codingTimeChallenge}
             onStartCoding={() => {}}
@@ -600,9 +600,9 @@ export default function BackgroundInterviewPage() {
           />
         </div>
 
-        {/* Debug panel - fixed on right side */}
+        {/* Debug panel - fixed at bottom, horizontal */}
         {showDebugPanel && (
-          <div className="w-96 p-6 overflow-y-auto">
+          <div className="border-t border-gray-300 bg-white p-4 overflow-x-auto">
             <BackgroundDebugPanel 
               timeboxMs={backgroundTimeSeconds ? backgroundTimeSeconds * 1000 : undefined}
             />
@@ -613,7 +613,7 @@ export default function BackgroundInterviewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex relative">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex flex-col relative">
       {/* Debug Toggle Button */}
       <button
         onClick={() => setShowDebugPanel(!showDebugPanel)}
@@ -626,7 +626,7 @@ export default function BackgroundInterviewPage() {
       </button>
 
       {/* Main content area */}
-      <div className={`flex-1 flex items-center justify-center p-4 transition-all ${showDebugPanel ? '' : 'pr-0'}`}>
+      <div className="flex-1 flex items-center justify-center p-4">
         {showAnnouncement ? (
           <AnnouncementScreen
             text={announcementText}
@@ -642,9 +642,9 @@ export default function BackgroundInterviewPage() {
         )}
       </div>
 
-      {/* Debug panel - fixed on right side */}
+      {/* Debug panel - fixed at bottom, horizontal */}
       {showDebugPanel && (
-        <div className="w-96 p-6 overflow-y-auto">
+        <div className="border-t border-gray-300 bg-white p-4 overflow-x-auto">
           <BackgroundDebugPanel 
             timeboxMs={backgroundTimeSeconds ? backgroundTimeSeconds * 1000 : undefined}
           />

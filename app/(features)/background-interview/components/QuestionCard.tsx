@@ -100,6 +100,19 @@ export default function QuestionCard({
     }
   }, [question, prevQuestion]);
 
+  // Play sound when controls appear (after audio finishes)
+  React.useEffect(() => {
+    if (audioFinished) {
+      try {
+        console.log("[QuestionCard] Playing controls-appear sound");
+        const controlsSound = new Audio("/sounds/controls-appear.mp3");
+        controlsSound.play().catch(err => console.error("Controls-appear sound error:", err));
+      } catch (error) {
+        console.error("[QuestionCard] Failed to play controls-appear sound:", error);
+      }
+    }
+  }, [audioFinished]);
+
   // Cleanup audio and recording on unmount
   React.useEffect(() => {
     return () => {
