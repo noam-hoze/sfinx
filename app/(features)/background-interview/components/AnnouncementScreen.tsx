@@ -41,7 +41,7 @@ export default function AnnouncementScreen({
     setTypingFinished(false);
 
     const words = text.split(" ");
-    const WORDS_PER_SECOND = 5;
+    const WORDS_PER_SECOND = 3;
     const MS_PER_WORD = 1000 / WORDS_PER_SECOND;
 
     console.log("[Announcement] Starting with text:", text);
