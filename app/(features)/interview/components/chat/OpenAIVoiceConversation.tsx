@@ -332,10 +332,11 @@ const OpenAIVoiceConversation = forwardRef<any, OpenAIVoiceConversationProps>(
                             dispatch(machineUserFinal());
                             emitMachineState();
                             postToChat(m.text, m.role);
-                            // Stage: greeting → background on first user reply
+                            // Skip greeting → background transition if already in coding (background handled separately)
                             try {
                                 const s = interviewChatStore.getState();
-                                if (s.stage === "greeting") {
+                                const machineState = store.getState().interviewMachine.state;
+                                if (s.stage === "greeting" && machineState !== "in_coding_session") {
                                     interviewChatStore.dispatch({
                                         type: "SET_STAGE",
                                         payload: "background",
@@ -496,25 +497,33 @@ const OpenAIVoiceConversation = forwardRef<any, OpenAIVoiceConversationProps>(
                     }
                 } catch {}
 
-                // Start: enqueue deterministic greeting (once)
+                // Start: enqueue deterministic greeting (once) - skip if already in coding (background handled separately)
                 if (!didStartRef.current) {
                     const firstName = candidateName.split(' ')[0];
                     dispatch(machineStart({ candidateName: firstName }));
-                    const text = `Say exactly: "Hi ${firstName}, I'm Carrie. I'll be the one interviewing today!"`;
-                    try {
-                        logger.info("[openai][prompt][greeting]\n" + text);
-                    } catch {}
-                    sessionRef.current?.transport?.sendEvent?.({
-                        type: "conversation.item.create",
-                        item: {
-                            type: "message",
-                            role: "system",
-                            content: [{ type: "input_text", text }],
-                        },
-                    });
-                    try {
-                        respond();
-                    } catch {}
+                    
+                    const currentState = store.getState().interviewMachine.state;
+                    if (currentState !== "in_coding_session") {
+                        const text = `Say exactly: "Hi ${firstName}, I'm Carrie. I'll be the one interviewing today!"`;
+                        try {
+                            logger.info("[openai][prompt][greeting]\n" + text);
+                        } catch {}
+                        sessionRef.current?.transport?.sendEvent?.({
+                            type: "conversation.item.create",
+                            item: {
+                                type: "message",
+                                role: "system",
+                                content: [{ type: "input_text", text }],
+                            },
+                        });
+                        try {
+                            respond();
+                        } catch {}
+                    } else {
+                        try {
+                            logger.info("[OpenAIVoiceConversation] Skipping greeting - already in coding stage");
+                        } catch {}
+                    }
                     didStartRef.current = true;
                 }
                 emitMachineState();

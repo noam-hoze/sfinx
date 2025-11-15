@@ -24,6 +24,9 @@ import {
   generateAssistantReply,
 } from "../interview/components/chat/openAITextConversationHelpers";
 import { stopCheck } from "@/shared/services/weightedMean/scorer";
+import { createApplication } from "../interview/components/services/applicationService";
+import { createInterviewSession } from "../interview/components/services/interviewSessionService";
+import { buildControlContextMessages, CONTROL_CONTEXT_TURNS } from "@/shared/services";
 
 export default function BackgroundInterviewPage() {
   const router = useRouter();
@@ -46,6 +49,8 @@ export default function BackgroundInterviewPage() {
   const [openaiClient, setOpenaiClient] = useState<OpenAI | null>(null);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
+  const [applicationId, setApplicationId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   // Initialize OpenAI client
   useEffect(() => {
@@ -154,6 +159,35 @@ export default function BackgroundInterviewPage() {
       
       // Update URL with params
       router.replace(`/background-interview?demo=true&jobId=${jobId}&userId=${userId}&companyId=${companyId}`);
+      
+      // Create application and session for demo
+      console.log("[bg-interview] Creating application and session...");
+      const application = await createApplication({
+        companyId,
+        jobId,
+        userId,
+        isDemoMode: true,
+      });
+      
+      if (application?.application?.id) {
+        const appId = application.application.id;
+        setApplicationId(appId);
+        console.log("[bg-interview] Application created:", appId);
+        
+        const session = await createInterviewSession({
+          applicationId: appId,
+          companyId,
+          userId,
+          isDemoMode: true,
+        });
+        
+        if (session?.interviewSession?.id) {
+          const sessId = session.interviewSession.id;
+          setSessionId(sessId);
+          dispatch(setSessionId({ sessionId: sessId }));
+          console.log("[bg-interview] Session created:", sessId);
+        }
+      }
       
       // Extract company and role from jobId (e.g., "meta-frontend-engineer" -> "meta", "frontend-engineer")
       const parts = jobId.split("-");
@@ -305,13 +339,8 @@ export default function BackgroundInterviewPage() {
           // Ask follow-up question
           console.log("[bg-interview] Generating follow-up question...");
           const persona = buildOpenAIBackgroundPrompt(String(companyName));
-          const followUp = await askViaChatCompletion(openaiClient, persona, [
-            {
-              role: "assistant",
-              content: "Ask one short follow-up about their project.",
-            },
-            { role: "user", content: answer },
-          ]);
+          const historyMessages = buildControlContextMessages(CONTROL_CONTEXT_TURNS);
+          const followUp = await askViaChatCompletion(openaiClient, persona, historyMessages);
           console.log("[bg-interview] Follow-up generated:", followUp);
 
           if (followUp) {
@@ -433,7 +462,12 @@ export default function BackgroundInterviewPage() {
         <div className={`flex-1 flex items-center justify-center p-4 transition-all ${showDebugPanel ? '' : 'pr-0'}`}>
           <CompletionScreen
             codingTimeChallenge={codingTimeChallenge}
-            onStartCoding={handleStartCoding}
+            onStartCoding={() => {}}
+            jobId={searchParams.get("jobId") || "meta-frontend-engineer"}
+            userId={searchParams.get("userId") || ""}
+            companyId={searchParams.get("companyId") || "meta"}
+            applicationId={applicationId || ""}
+            sessionId={sessionId || ""}
           />
         </div>
 

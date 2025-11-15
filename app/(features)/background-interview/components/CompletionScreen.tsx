@@ -2,16 +2,32 @@
 
 import React from "react";
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 
 type CompletionScreenProps = {
   codingTimeChallenge: number;
   onStartCoding: () => void;
+  jobId: string;
+  userId: string;
+  companyId: string;
+  applicationId: string;
+  sessionId: string;
 };
 
 export default function CompletionScreen({
   codingTimeChallenge,
   onStartCoding,
+  jobId,
+  userId,
+  companyId,
+  applicationId,
+  sessionId,
 }: CompletionScreenProps) {
+  const router = useRouter();
+
+  const handleStartCoding = () => {
+    router.push(`/interview?demo=true&jobId=${jobId}&userId=${userId}&companyId=${companyId}&applicationId=${applicationId}&sessionId=${sessionId}`);
+  };
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center p-4">
       <motion.div
@@ -33,7 +49,7 @@ export default function CompletionScreen({
 
         {/* Start Button */}
         <button
-          onClick={onStartCoding}
+          onClick={handleStartCoding}
           className="px-8 py-4 bg-blue-600 text-white rounded-lg font-medium text-lg hover:bg-blue-700 transition-colors"
         >
           Start Coding Challenge

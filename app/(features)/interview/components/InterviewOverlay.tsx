@@ -29,7 +29,6 @@ interface InterviewOverlayProps {
     interviewConcluded?: boolean;
     candidateName?: string;
     hasSubmitted?: boolean;
-    backgroundDurationSeconds?: number;
     codingDurationSeconds?: number;
 }
 
@@ -42,7 +41,6 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
     interviewConcluded = false,
     candidateName = "Candidate",
     hasSubmitted = false,
-    backgroundDurationSeconds,
     codingDurationSeconds,
 }) => {
     const commMethodRaw = (process.env.NEXT_PUBLIC_INTERVIEW_COMM_METHOD || "speech")
@@ -126,10 +124,6 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
         }
     }, [stage, computingMessages.length]);
 
-    const backgroundDurationLabel = useMemo(
-        () => formatDurationLabel(backgroundDurationSeconds),
-        [backgroundDurationSeconds]
-    );
     const codingDurationLabel = useMemo(
         () => formatDurationLabel(codingDurationSeconds),
         [codingDurationSeconds]

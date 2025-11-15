@@ -210,10 +210,11 @@ const RealTimeConversation = forwardRef<any, RealTimeConversationProps>(
                             await handleUserTranscript(messageText);
                         }
 
-                        // If we are currently in greeting, move to background on first user reply
+                        // Skip greeting to background transition if already in coding (background handled separately)
                         try {
                             const s = interviewChatStore.getState();
-                            if (s.stage === "greeting") {
+                            const machineState = store.getState().interviewMachine.state;
+                            if (s.stage === "greeting" && machineState !== "in_coding_session") {
                                 interviewChatStore.dispatch({
                                     type: "SET_STAGE",
                                     payload: "background",

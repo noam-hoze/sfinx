@@ -68,15 +68,8 @@ const InterviewerContent = () => {
     const jobId = searchParams.get("jobId");
     const dispatch = useDispatch();
     const [job, setJob] = useState<any | null>(null);
-    const [backgroundDurationSeconds, setBackgroundDurationSeconds] = useState(
-        DEFAULT_BACKGROUND_DURATION_SECONDS
-    );
     const [codingDurationSeconds, setCodingDurationSeconds] = useState(
         DEFAULT_CODING_DURATION_SECONDS
-    );
-    const backgroundDurationMs = useMemo(
-        () => backgroundDurationSeconds * 1000,
-        [backgroundDurationSeconds]
     );
     const isDemoMode = searchParams.get("demo") === "true";
     const demoUserId = searchParams.get("userId");
@@ -224,35 +217,7 @@ const InterviewerContent = () => {
         }
     }, [isDemoMode, demoUserId]);
 
-    useEffect(() => {
-        if (!Number.isFinite(backgroundDurationMs) || backgroundDurationMs <= 0) {
-            return;
-        }
-        const id = setInterval(() => {
-            if (timeboxFiredRef.current) return;
-            try {
-                const chatState = interviewChatStore.getState();
-                const machineState = store.getState().interviewMachine?.state;
-                const bg = chatState.background || {};
-                const startedAtMs = bg.startedAtMs;
-                if (!startedAtMs) return;
-                if (machineState === "in_coding_session" || chatState.stage === "coding") {
-                    timeboxFiredRef.current = true;
-                    clearInterval(id);
-                    return;
-                }
-                const elapsed = Date.now() - startedAtMs;
-                if (elapsed >= backgroundDurationMs) {
-                    timeboxFiredRef.current = true;
-                    interviewChatStore.dispatch({ type: "BG_GUARD_SET_REASON", payload: { reason: "timebox" } });
-                    store.dispatch(forceCoding());
-                    interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" } as any);
-                    clearInterval(id);
-                }
-            } catch {}
-        }, 500);
-        return () => clearInterval(id);
-    }, [backgroundDurationMs]);
+    // Background timer removed - background phase handled in separate page
 
     /**
      * Sends a hidden signal instructing the agent to deliver its closing line and end.
@@ -445,25 +410,39 @@ const InterviewerContent = () => {
 
             if (!applicationCreated && companyId) {
                 try {
-                    const application = await createApplication({
-                        companyId,
-                        jobId,
-                        userId: isDemoMode ? demoUserId || undefined : undefined,
-                        isDemoMode,
-                    });
-                    setApplicationCreated(true);
+                    // Check if applicationId and sessionId already exist in URL params (from background-interview)
+                    const existingApplicationId = searchParams.get("applicationId");
+                    const existingSessionId = searchParams.get("sessionId");
 
-                    if (application?.application?.id) {
-                        setApplicationId(application.application.id);
-                        const session = await createInterviewSession({
-                            applicationId: application.application.id,
+                    if (existingApplicationId && existingSessionId) {
+                        logger.info(`✅ Using existing application: ${existingApplicationId}`);
+                        logger.info(`✅ Using existing session: ${existingSessionId}`);
+                        setApplicationCreated(true);
+                        setApplicationId(existingApplicationId);
+                        setInterviewSessionId(existingSessionId);
+                        dispatch(setSessionId({ sessionId: existingSessionId }));
+                    } else {
+                        // Create new application and session
+                        const application = await createApplication({
                             companyId,
+                            jobId,
                             userId: isDemoMode ? demoUserId || undefined : undefined,
                             isDemoMode,
                         });
-                        const sessionId = session.interviewSession.id;
-                        setInterviewSessionId(sessionId);
-                        dispatch(setSessionId({ sessionId }));
+                        setApplicationCreated(true);
+
+                        if (application?.application?.id) {
+                            setApplicationId(application.application.id);
+                            const session = await createInterviewSession({
+                                applicationId: application.application.id,
+                                companyId,
+                                userId: isDemoMode ? demoUserId || undefined : undefined,
+                                isDemoMode,
+                            });
+                            const sessionId = session.interviewSession.id;
+                            setInterviewSessionId(sessionId);
+                            dispatch(setSessionId({ sessionId }));
+                        }
                     }
                 } catch (error) {
                     logger.error(
@@ -476,6 +455,12 @@ const InterviewerContent = () => {
             if (isTextMode) {
                 setIsChatInputLocked(true);
             }
+            
+            // Force state machine to coding stage (background handled separately)
+            dispatch(forceCoding());
+            interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" } as any);
+            logger.info("✅ State machine initialized to coding stage");
+            
             updateCurrentCode(getInitialCode());
             window.postMessage({ type: "clear-chat" }, "*");
             await realTimeConversationRef.current?.startConversation();
@@ -496,18 +481,7 @@ const InterviewerContent = () => {
         setIsChatInputLocked,
     ]);
 
-    /**
-     * Auto-start interview when coming from demo page (one-time flag).
-     */
-    useEffect(() => {
-        const shouldAutoStart = sessionStorage.getItem("sfinx-demo-autostart") === "true";
-        if (shouldAutoStart && !autoStartTriggeredRef.current && !isInterviewActive && demoCandidateName) {
-            autoStartTriggeredRef.current = true;
-            sessionStorage.removeItem("sfinx-demo-autostart");
-            logger.info("Auto-starting interview from demo flow");
-            handleInterviewButtonClick();
-        }
-    }, [isInterviewActive, demoCandidateName, handleInterviewButtonClick]);
+    // Auto-start removed - interview now starts from explicit button click
 
     /**
      * Toggles microphone mute state via the real-time conversation ref.
@@ -962,7 +936,6 @@ const InterviewerContent = () => {
                                 interviewConcluded={interviewConcluded}
                                 hasSubmitted={state.hasSubmitted}
                                 candidateName={candidateName}
-                            backgroundDurationSeconds={backgroundDurationSeconds}
                             codingDurationSeconds={codingDurationSeconds}
                                 onStartInterview={handleInterviewButtonClick}
                             />
@@ -982,7 +955,6 @@ const InterviewerContent = () => {
                             handleUserTranscript={handleUserTranscript}
                             updateKBVariables={updateKBVariables}
                             kbVariables={kbVariables}
-                            backgroundDurationSeconds={backgroundDurationSeconds}
                             codingDurationSeconds={codingDurationSeconds}
                             automaticMode={automaticMode}
                             isCodingStarted={isCodingStarted}
