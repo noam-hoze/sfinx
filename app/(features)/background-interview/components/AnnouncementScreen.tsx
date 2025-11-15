@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { motion } from "framer-motion";
 
 type AnnouncementScreenProps = {
   text: string;
@@ -32,6 +33,7 @@ export default function AnnouncementScreen({
   const [displayedWords, setDisplayedWords] = useState<string[]>([]);
   const [audioFinished, setAudioFinished] = useState(false);
   const [typingFinished, setTypingFinished] = useState(false);
+  const [fadingOut, setFadingOut] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -39,9 +41,10 @@ export default function AnnouncementScreen({
     setDisplayedWords([]);
     setAudioFinished(false);
     setTypingFinished(false);
+    setFadingOut(false);
 
     const words = text.split(" ");
-    const WORDS_PER_SECOND = 3;
+    const WORDS_PER_SECOND = 2;
     const MS_PER_WORD = 1000 / WORDS_PER_SECOND;
 
     console.log("[Announcement] Starting with text:", text);
@@ -109,14 +112,25 @@ export default function AnnouncementScreen({
   onCompleteRef.current = onComplete;
 
   useEffect(() => {
-    if (audioFinished && typingFinished) {
-      console.log("[Announcement] Complete, total words displayed:", displayedWords.length);
-      onCompleteRef.current();
+    if (audioFinished && typingFinished && !fadingOut) {
+      console.log("[Announcement] Complete, starting fade out");
+      setFadingOut(true);
+      
+      // Wait for fade animation then call onComplete
+      setTimeout(() => {
+        console.log("[Announcement] Fade complete, calling onComplete");
+        onCompleteRef.current();
+      }, 500); // Match fade duration
     }
-  }, [audioFinished, typingFinished, displayedWords.length]);
+  }, [audioFinished, typingFinished, fadingOut]);
 
   return (
-    <div className="flex items-start justify-start gap-4 w-full max-w-4xl">
+    <motion.div 
+      className="flex items-start justify-start gap-4 w-full max-w-4xl"
+      initial={{ opacity: 1 }}
+      animate={{ opacity: fadingOut ? 0 : 1 }}
+      transition={{ duration: 0.5 }}
+    >
       {/* Waving hand emoji - always visible, stays on left */}
       <div className="text-5xl flex-shrink-0">👋</div>
       
@@ -126,7 +140,7 @@ export default function AnnouncementScreen({
           {displayedWords.join(" ")}
         </p>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
