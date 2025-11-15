@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import SfinxSpinner from "./SfinxSpinner";
 
 type QuestionCardProps = {
   question: string;
@@ -338,6 +339,24 @@ export default function QuestionCard({
 
                     {/* Input Controls */}
                     <div className="flex flex-col gap-4">
+            {/* Collapsed Answer Preview - shows when answer exists and text box is collapsed */}
+            {!isTextExpanded && answer.trim() && (
+              <button
+                onClick={() => setIsTextExpanded(true)}
+                className="w-full flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                  <span className="text-gray-700 font-medium">Your answer</span>
+                </div>
+                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            )}
+
             {/* Expandable Text Input */}
             <AnimatePresence>
               {isTextExpanded && (
@@ -368,12 +387,14 @@ export default function QuestionCard({
               <button
                 onClick={isRecording ? stopVoiceRecording : startVoiceRecording}
                 disabled={loading}
-                className={`px-6 py-3 ${
+                className={`px-6 py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 ${
                   isRecording
-                    ? "bg-sfinx-purple hover:opacity-90"
-                    : "bg-sfinx-purple hover:opacity-90"
-                } text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2`}
-                title={isRecording ? "Done recording" : "Voice input"}
+                    ? "bg-sfinx-purple hover:opacity-90 text-white"
+                    : answer.trim()
+                    ? "border-2 border-blue-500 text-blue-500 bg-white hover:bg-blue-50"
+                    : "bg-sfinx-purple hover:opacity-90 text-white"
+                }`}
+                title={isRecording ? "Done recording" : answer.trim() ? "Record again" : "Voice input"}
               >
                 {isRecording ? (
                   <>
@@ -396,7 +417,7 @@ export default function QuestionCard({
                       <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
                       <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
                     </svg>
-                    Answer
+                    {answer.trim() ? "Redo" : "Answer"}
                   </>
                 )}
               </button>
@@ -425,25 +446,7 @@ export default function QuestionCard({
                 title="Submit answer"
               >
                 {loading ? (
-                  <svg
-                    className="w-6 h-6 animate-spin"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
+                  <SfinxSpinner size="sm" />
                 ) : (
                   <svg
                     className="w-6 h-6"
