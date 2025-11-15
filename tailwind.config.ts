@@ -18,6 +18,7 @@ const config: Config = {
                 "success-green": "#34C759",
                 "warning-yellow": "#FFCC00",
                 "risk-red": "#FF3B30",
+                "sfinx-purple": "var(--sfinx-purple)",
             },
             fontFamily: {
                 sans: ['"SF Pro Display"', "sans-serif"],

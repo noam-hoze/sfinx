@@ -53,9 +53,9 @@ export default function DemoProgressHeader({
                                             flex items-center justify-center rounded-full transition-all
                                             ${
                                                 status === "completed"
-                                                    ? "w-10 h-10 bg-blue-600"
+                                                    ? "w-10 h-10 bg-sfinx-purple"
                                                     : status === "current"
-                                                    ? "w-12 h-12 bg-blue-600"
+                                                    ? "w-12 h-12 bg-sfinx-purple"
                                                     : "w-10 h-10 bg-gray-300"
                                             }
                                         `}
@@ -96,9 +96,9 @@ export default function DemoProgressHeader({
                                             mt-2 text-sm whitespace-nowrap
                                             ${
                                                 status === "current"
-                                                    ? "font-semibold text-blue-600"
+                                                    ? "font-semibold text-sfinx-purple"
                                                     : status === "completed"
-                                                    ? "font-medium text-blue-600"
+                                                    ? "font-medium text-sfinx-purple"
                                                     : "font-normal text-gray-500"
                                             }
                                         `}
@@ -114,7 +114,7 @@ export default function DemoProgressHeader({
                                             flex-1 h-0.5 mx-4 mb-6
                                             ${
                                                 status === "completed"
-                                                    ? "bg-blue-600"
+                                                    ? "bg-sfinx-purple"
                                                     : "bg-gray-300"
                                             }
                                         `}

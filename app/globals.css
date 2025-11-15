@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Sfinx brand purple - base color */
+  --sfinx-purple: #7c3aed;
+  --sfinx-purple-rgb: 124, 58, 237;
+}
+
 /* Debug: Highlight vidstack player */
 media-player {
   outline: 2px solid lime !important;
