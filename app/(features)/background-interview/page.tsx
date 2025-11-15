@@ -352,26 +352,22 @@ export default function BackgroundInterviewPage() {
       // Wait 1 second
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Play start interview sound
+      // Play start interview sound (don't wait for it to finish)
       try {
         console.log("[bg-interview] Playing start-interview sound...");
         const startSound = new Audio("/sounds/start-interview.mp3");
-        await new Promise<void>((resolve, reject) => {
-          startSound.onended = () => {
-            console.log("[bg-interview] Start-interview sound finished");
-            resolve();
-          };
-          startSound.onerror = (error) => {
-            console.error("[bg-interview] Start-interview sound error:", error);
-            reject(error);
-          };
-          startSound.play().catch(reject);
-        });
+        startSound.onended = () => {
+          console.log("[bg-interview] Start-interview sound finished");
+        };
+        startSound.onerror = (error) => {
+          console.error("[bg-interview] Start-interview sound error:", error);
+        };
+        startSound.play().catch(err => console.error("[bg-interview] Failed to play start-interview sound:", err));
       } catch (error) {
         console.error("[bg-interview] Failed to play start-interview sound:", error);
       }
       
-      // Show announcement
+      // Show announcement immediately (TTS will start as sound is playing)
       setShowAnnouncement(true);
       
     } catch (error) {
@@ -507,42 +503,48 @@ export default function BackgroundInterviewPage() {
   // STAGE 2: Welcome/Name Input screen
   if (stage === 'welcome') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="max-w-3xl px-4">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12">
-            <h1 className="text-4xl font-semibold text-gray-900 mb-6 text-center">
-              Welcome to Sfinx Demo
+      <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex items-center justify-center p-4">
+        <div className="max-w-2xl w-full">
+          <div className="text-center mb-12">
+            <h1 className="text-5xl font-bold text-gray-900 mb-4">
+              Sfinx Demo
             </h1>
+          </div>
 
-            <p className="text-lg text-gray-700 mb-8 leading-relaxed">
-              Experience our AI-powered interview platform from both perspectives:
-              first as a candidate completing an interview, then as a hiring manager
-              reviewing results and comparing candidates.
-            </p>
-
-            <div className="bg-blue-50 rounded-xl p-6 mb-8">
-              <h2 className="text-xl font-medium text-gray-900 mb-4">
-                What you&apos;ll experience:
-              </h2>
-              <ul className="space-y-3 text-gray-700">
-                <li className="flex items-start">
-                  <span className="text-blue-600 mr-3">1.</span>
-                  <span>Complete a technical interview for Frontend Engineer at Meta</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-blue-600 mr-3">2.</span>
-                  <span>View your comprehensive interview analysis report</span>
-                </li>
-                <li className="flex items-start">
-                  <span className="text-blue-600 mr-3">3.</span>
-                  <span>See how you rank among other candidates</span>
-                </li>
-              </ul>
+          {/* Two-stage flow visualization */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+            {/* Stage 1: Candidate */}
+            <div className="bg-white rounded-2xl p-8 border-2 border-sfinx-purple shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-sfinx-purple text-white flex items-center justify-center font-bold">
+                  1
+                </div>
+                <h2 className="text-2xl font-semibold text-gray-900">Candidate</h2>
+              </div>
+              <p className="text-gray-600">
+                Complete a technical interview for Frontend Engineer at Meta
+              </p>
             </div>
 
+            {/* Stage 2: Company */}
+            <div className="bg-white rounded-2xl p-8 border-2 border-gray-200 shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center font-bold">
+                  2
+                </div>
+                <h2 className="text-2xl font-semibold text-gray-900">Company</h2>
+              </div>
+              <p className="text-gray-600">
+                Review results, compare candidates, and see detailed analytics
+              </p>
+            </div>
+          </div>
+
+          {/* Name input and start button */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
             <div className="mb-6">
               <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                Your Name
+                Candidate's Name
               </label>
               <input
                 type="text"
@@ -555,14 +557,14 @@ export default function BackgroundInterviewPage() {
                   }
                 }}
                 placeholder="Enter your full name"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-sfinx-purple focus:border-transparent outline-none transition-all"
               />
             </div>
 
             <button
               onClick={handleStartInterview}
               disabled={!name.trim() || isStarting}
-              className="w-full bg-blue-600 text-white text-lg font-medium py-4 px-8 rounded-xl hover:bg-blue-700 transition-all duration-300 shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="w-full bg-sfinx-purple text-white text-lg font-semibold py-4 px-8 rounded-xl hover:opacity-90 transition-all duration-300 shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               Start
             </button>

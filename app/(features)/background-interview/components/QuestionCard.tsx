@@ -339,26 +339,28 @@ export default function QuestionCard({
                     {/* Input Controls */}
                     <div className="flex flex-col gap-4">
             {/* Expandable Text Input */}
-            {isTextExpanded && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="overflow-hidden"
-              >
-                <textarea
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Type your answer here."
-                  disabled={loading}
-                  rows={6}
-                  autoFocus
-                  className="w-full px-4 py-3 text-gray-900 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white disabled:opacity-50 disabled:cursor-not-allowed resize-none placeholder:text-gray-400"
-                />
-              </motion.div>
-            )}
+            <AnimatePresence>
+              {isTextExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <textarea
+                    value={answer}
+                    onChange={(e) => setAnswer(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Type your answer here."
+                    disabled={loading}
+                    rows={6}
+                    autoFocus
+                    className="w-full px-4 py-3 text-gray-900 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-300 focus:bg-white disabled:opacity-50 disabled:cursor-not-allowed resize-none placeholder:text-gray-400"
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Control Buttons Row */}
             <div className="flex items-center justify-start gap-3">
@@ -368,9 +370,9 @@ export default function QuestionCard({
                 disabled={loading}
                 className={`px-6 py-3 ${
                   isRecording
-                    ? "bg-blue-600 hover:bg-blue-700"
-                    : "bg-blue-600 hover:bg-blue-700"
-                } text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2`}
+                    ? "bg-sfinx-purple hover:opacity-90"
+                    : "bg-sfinx-purple hover:opacity-90"
+                } text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2`}
                 title={isRecording ? "Done recording" : "Voice input"}
               >
                 {isRecording ? (
@@ -419,7 +421,7 @@ export default function QuestionCard({
               <button
                 onClick={handleSubmit}
                 disabled={loading}
-                className="ml-auto p-3 bg-white border-2 border-gray-300 text-gray-600 rounded-lg hover:border-blue-600 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                className="ml-auto p-3 bg-white border-2 border-gray-300 text-gray-600 rounded-lg hover:border-sfinx-purple hover:text-sfinx-purple disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                 title="Submit answer"
               >
                 {loading ? (
