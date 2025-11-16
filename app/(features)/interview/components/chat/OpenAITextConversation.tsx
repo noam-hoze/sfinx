@@ -425,15 +425,8 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
               /* eslint-disable no-console */ console.error("[background][persist] Error persisting data:", persistError);
             }
             
-            // Choose intro based solely on transition reason
-            const introMap = {
-              gate: "Great, let's move on to the coding question.",
-              useless_answers: "OK, let's move on to the coding question.",
-              timebox: "Well, actually we will have to move on to next section which is our coding challenge.",
-            };
-            const preface = introMap[reason as keyof typeof introMap] || introMap.timebox;
-            
-            const expectedMessage = `${preface} ${taskText}`;
+            // No transition preface needed - interview page starts directly in coding mode
+            const expectedMessage = taskText;
             codingExpectedMessageRef.current = expectedMessage;
             const instruction = hadPending
               ? `System note (do not say to candidate): Previous background reply was skipped because we transitioned to coding.\n\nSay exactly:\n"""\n${expectedMessage}\n"""`
@@ -1044,41 +1037,17 @@ The candidate is working on this task. Respond to their question while following
             question: String(data.backgroundQuestion),
           })
         );
-      const firstName = candidateName.split(' ')[0];
-      dispatch(machineStart({ candidateName: firstName }));
-      const companyName = store.getState().interviewMachine.companyName;
-      if (!companyName) {
-        throw new Error("Interview machine missing companyName");
-      }
       
-      // Skip greeting if already in coding (background handled separately)
-      const currentState = store.getState().interviewMachine.state;
-      if (currentState !== "in_coding_session") {
-        const persona = buildOpenAIInterviewerPrompt(companyName);
-        const instruction = `Say exactly: "Hi ${firstName}, I'm Sfinx. I'll be the one interviewing today!"`;
-        const greeting = await deliverAssistantPrompt({
-          persona,
-          instruction,
-          pendingReason: "greeting",
-        });
-        if (!greeting) {
-          const fallback = `Hi ${firstName}, I'm Sfinx. I'll be the one interviewing today!`;
-          post(fallback, "ai");
-          dispatch(machineAiFinal({ text: fallback }));
-          try {
-            onGreetingDelivered?.();
-          } catch {}
-        }
-      } else {
-        try {
-          /* eslint-disable no-console */ console.log("[OpenAITextConversation] Skipping greeting - already in coding stage");
-        } catch {}
-      }
+      // Interview page: No greeting, no state machine start
+      // State machine will be forced to coding by InterviewIDE after this completes
+      try {
+        /* eslint-disable no-console */ console.log("[OpenAITextConversation] Script loaded, ready for coding transition");
+      } catch {}
       
       try {
         onStartConversation?.();
       } catch {}
-    }, [candidateName, deliverAssistantPrompt, dispatch, onGreetingDelivered, onStartConversation, post]);
+    }, [dispatch, onStartConversation]);
 
     const sayClosingLine = useCallback(
       async (name?: string) => {
