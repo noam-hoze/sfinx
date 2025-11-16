@@ -480,11 +480,10 @@ export default function BackgroundInterviewPage() {
         });
 
         if (transitionReason) {
-          // Gate satisfied - transition to coding
+          // Gate satisfied - show completion screen (transition to coding happens when interview page loads)
           console.log(`[bg-interview] Gate satisfied (${transitionReason}) - moving to completion`);
           
-          // Transition to completion screen FIRST to unmount QuestionCard and prevent TTS
-          dispatch(aiFinal({ text: "" }));
+          // Show completion screen to unmount QuestionCard and prevent TTS
           setCompleted(true);
           
           // THEN generate final AI response (won't be narrated since QuestionCard is unmounted)
