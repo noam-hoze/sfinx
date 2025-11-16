@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 
 type AnnouncementScreenProps = {
   text: string;
+  preloadedAudioBlob?: Blob | null;
   onComplete: () => void;
 };
 
@@ -28,6 +29,7 @@ async function generateTTS(text: string): Promise<ArrayBuffer> {
 
 export default function AnnouncementScreen({
   text,
+  preloadedAudioBlob,
   onComplete,
 }: AnnouncementScreenProps) {
   const [displayedWords, setDisplayedWords] = useState<string[]>([]);
@@ -44,19 +46,26 @@ export default function AnnouncementScreen({
     setFadingOut(false);
 
     const words = text.split(" ");
-    const WORDS_PER_SECOND = 2;
+    const WORDS_PER_SECOND = 3;
     const MS_PER_WORD = 1000 / WORDS_PER_SECOND;
 
     console.log("[Announcement] Starting with text:", text);
     console.log("[Announcement] Words array:", words);
 
-    // Generate and play TTS
+    // Play TTS (preloaded or generate on-demand)
     (async () => {
       try {
-        console.log("[Announcement] Generating TTS for:", text);
-        const audioBuffer = await generateTTS(text);
+        let blob: Blob;
         
-        const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
+        if (preloadedAudioBlob) {
+          console.log("[Announcement] Using preloaded TTS audio");
+          blob = preloadedAudioBlob;
+        } else {
+          console.log("[Announcement] Generating TTS for:", text);
+          const audioBuffer = await generateTTS(text);
+          blob = new Blob([audioBuffer], { type: "audio/mpeg" });
+        }
+        
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
         audioRef.current = audio;
@@ -105,7 +114,7 @@ export default function AnnouncementScreen({
         audioRef.current = null;
       }
     };
-  }, [text]);
+  }, [text, preloadedAudioBlob]);
 
   // Call onComplete when both audio and typing are done
   const onCompleteRef = useRef(onComplete);

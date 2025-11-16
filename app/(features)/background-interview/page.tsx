@@ -28,6 +28,7 @@ import {
   generateAssistantReply,
 } from "../interview/components/chat/openAITextConversationHelpers";
 import { stopCheck } from "@/shared/services/weightedMean/scorer";
+import { shouldTransition } from "@/shared/services/backgroundSessionGuard";
 import { createInterviewSession } from "../interview/components/services/interviewSessionService";
 import { buildControlContextMessages, CONTROL_CONTEXT_TURNS } from "../../shared/services";
 
@@ -67,6 +68,7 @@ export default function BackgroundInterviewPage() {
   const [showHandEmoji, setShowHandEmoji] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
   const [announcementText, setAnnouncementText] = useState("");
+  const [announcementAudioBlob, setAnnouncementAudioBlob] = useState<Blob | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<string>("");
   const [isFirstQuestion, setIsFirstQuestion] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -266,12 +268,32 @@ export default function BackgroundInterviewPage() {
           } as any);
         }
         
-        // Generate announcement text
+        // Generate announcement text and TTS
         const jobTitle = scriptData.jobTitle || roleSlug.split("-").map(
           (word: string) => word.charAt(0).toUpperCase() + word.slice(1)
         ).join(" ");
         const announcement = `Hi! Welcome to your interview for ${jobTitle} at ${companyNameFromScript}`;
         setAnnouncementText(announcement);
+        
+        // Pre-generate announcement TTS
+        console.log("[bg-interview] Pre-generating announcement TTS...");
+        try {
+          const ttsResp = await fetch("/api/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: announcement }),
+          });
+          if (ttsResp.ok) {
+            const audioBuffer = await ttsResp.arrayBuffer();
+            const audioBlob = new Blob([audioBuffer], { type: "audio/mpeg" });
+            setAnnouncementAudioBlob(audioBlob);
+            console.log("[bg-interview] Announcement TTS pre-generated");
+          } else {
+            console.warn("[bg-interview] Failed to pre-generate announcement TTS");
+          }
+        } catch (err) {
+          console.warn("[bg-interview] Error pre-generating announcement TTS:", err);
+        }
         
         console.log("[bg-interview] Stage 1 complete - transitioning to welcome");
         setStage('welcome');
@@ -432,22 +454,64 @@ export default function BackgroundInterviewPage() {
         await runBackgroundControl(openaiClient);
         console.log("[bg-interview] Control checks complete");
 
-        // Check if gate is satisfied
+        // Check if gate is satisfied (use same logic as state machine)
         const chatState = interviewChatStore.getState();
         const scorer = chatState.background?.scorer;
         const coverage = chatState.background?.coverage;
+        const consecutiveUselessAnswers = chatState.background.consecutiveUselessAnswers;
+        const timeboxMs = chatState.background.timeboxMs;
+        const startedAtMs = chatState.background.startedAtMs;
         const gateReady = !!(scorer && coverage && stopCheck(scorer, coverage));
+        const transitionReason = shouldTransition(
+          {
+            startedAtMs,
+            consecutiveUselessAnswers: consecutiveUselessAnswers ?? 0,
+            timeboxMs,
+          },
+          { gateReady, timeboxMs }
+        );
+        
         console.log("[bg-interview] Gate check:", {
           gateReady,
+          transitionReason,
           scorer: scorer ? "present" : "missing",
           coverage,
+          consecutiveUselessAnswers,
         });
 
-        if (gateReady) {
+        if (transitionReason) {
           // Gate satisfied - transition to coding
-          console.log("[bg-interview] Gate satisfied - moving to completion");
+          console.log(`[bg-interview] Gate satisfied (${transitionReason}) - moving to completion`);
+          
+          // Transition to completion screen FIRST to unmount QuestionCard and prevent TTS
           dispatch(aiFinal({ text: "" }));
           setCompleted(true);
+          
+          // THEN generate final AI response (won't be narrated since QuestionCard is unmounted)
+          try {
+            const persona = buildOpenAIBackgroundPrompt(String(companyName));
+            const firstName = name.trim().split(' ')[0] || "Candidate";
+            const closingInstruction = `Say exactly: "Thank you so much ${firstName}, the next steps will be shared with you shortly."`;
+            const finalResponse = await generateAssistantReply(openaiClient, persona, closingInstruction);
+            console.log("[bg-interview] ✓ Final AI response (NOT NARRATED - transition to coding):", finalResponse);
+            
+            // Add to chat store for history only (QuestionCard already unmounted)
+            interviewChatStore.dispatch({
+              type: "ADD_MESSAGE",
+              payload: { text: finalResponse || "", speaker: "ai" },
+            } as any);
+            
+            // Add system message indicating this response was not delivered/narrated
+            interviewChatStore.dispatch({
+              type: "ADD_MESSAGE",
+              payload: { 
+                text: "[SYSTEM: Previous AI message was generated but not narrated to candidate - background interview ended, transitioning to coding stage]", 
+                speaker: "system" as any 
+              },
+            } as any);
+          } catch (error) {
+            console.error("[bg-interview] Failed to generate final response:", error);
+          }
         } else {
           // Ask follow-up question
           console.log("[bg-interview] Generating follow-up question...");
@@ -633,6 +697,7 @@ export default function BackgroundInterviewPage() {
         ) : showAnnouncement ? (
           <AnnouncementScreen
             text={announcementText}
+            preloadedAudioBlob={announcementAudioBlob}
             onComplete={handleAnnouncementComplete}
           />
         ) : (
