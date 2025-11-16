@@ -26,7 +26,9 @@ export default function CompletionScreen({
   const router = useRouter();
 
   const handleStartCoding = () => {
-    router.push(`/interview?demo=true&jobId=${jobId}&userId=${userId}&companyId=${companyId}&applicationId=${applicationId}&sessionId=${sessionId}`);
+    router.push(
+      `/interview?demo=true&jobId=${jobId}&userId=${userId}&companyId=${companyId}&applicationId=${applicationId}&sessionId=${sessionId}`
+    );
   };
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center p-4">
@@ -53,11 +55,41 @@ export default function CompletionScreen({
               />
             </svg>
           </div>
-          <h1 className="text-4xl font-semibold text-gray-800 mb-4">
-            Background Phase Complete
+          <h1 className="text-4xl font-semibold text-gray-800 mb-6">
+            Great Work!
           </h1>
-          <p className="text-xl text-gray-600 leading-relaxed">
-            Now it&apos;s time to move forward to the coding challenge. Once you click the button below you will have <span className="font-bold text-sfinx-purple">{codingTimeChallenge} minutes</span> to complete it. Are you ready?
+          <p className="text-lg text-gray-600 mb-8 text-center">
+            You&apos;re now moving on to the coding challenge.
+          </p>
+          
+          {/* Instructions */}
+          <div className="space-y-6 mb-10 text-left max-w-xl mx-auto">
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center">
+                <span className="text-sm font-semibold text-sfinx-purple">1</span>
+              </div>
+              <p className="text-gray-700 leading-relaxed pt-0.5">
+                On the next page, you&apos;ll be asked to share your screen — please select <span className="font-medium">Share Entire Screen</span>.
+              </p>
+            </div>
+            
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center">
+                <span className="text-sm font-semibold text-sfinx-purple">2</span>
+              </div>
+              <p className="text-gray-700 leading-relaxed pt-0.5">
+                Once you click the button below, you&apos;ll have{" "}
+                <span className="font-bold text-sfinx-purple">
+                  {codingTimeChallenge} minutes
+                </span>{" "}
+                to complete the challenge.
+              </p>
+            </div>
+          </div>
+          
+          {/* Ready prompt */}
+          <p className="text-lg text-gray-500 mb-8 text-center">
+            Ready when you are!
           </p>
         </div>
 
@@ -72,4 +104,3 @@ export default function CompletionScreen({
     </div>
   );
 }
-
