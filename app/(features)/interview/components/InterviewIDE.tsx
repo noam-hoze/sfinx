@@ -32,12 +32,10 @@ import { createInterviewSession } from "./services/interviewSessionService";
 import { fetchJobById } from "./services/jobService";
 import { useDispatch } from "react-redux";
 import { forceCoding, setCompanyContext, setSessionId } from "@/shared/state/slices/interviewMachineSlice";
-import BackgroundDebugPanel from "../../../shared/components/BackgroundDebugPanel";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import { store } from "@/shared/state/store";
 
 const logger = log;
-const DEFAULT_BACKGROUND_DURATION_SECONDS = 15 * 60;
 const DEFAULT_CODING_DURATION_SECONDS = 30 * 60;
 const DEFAULT_CODE = ``;
 
@@ -146,15 +144,6 @@ const InterviewerContent = () => {
     const [interviewScript, setInterviewScript] = useState<any>(null);
     const [lastEvaluation, setLastEvaluation] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (!Number.isFinite(backgroundDurationMs) || backgroundDurationMs <= 0) {
-            return;
-        }
-        interviewChatStore.dispatch({
-            type: "BG_GUARD_SET_TIMEBOX",
-            payload: { timeboxMs: backgroundDurationMs },
-        } as any);
-    }, [backgroundDurationMs]);
     const realTimeConversationRef = useRef<any>(null);
     const automaticMode = process.env.NEXT_PUBLIC_AUTOMATIC_MODE === "true";
     const commMethodRaw = (process.env.NEXT_PUBLIC_INTERVIEW_COMM_METHOD || "speech")
@@ -520,24 +509,15 @@ const InterviewerContent = () => {
                     try {
                         const interviewContent = data?.job?.interviewContent;
                         if (interviewContent) {
-                            const backgroundSecondsRaw = Number(
-                                interviewContent.backgroundQuestionTimeSeconds
-                            );
                             const codingSecondsRaw = Number(
                                 interviewContent.codingQuestionTimeSeconds
                             );
-                            const backgroundSeconds =
-                                Number.isFinite(backgroundSecondsRaw) && backgroundSecondsRaw > 0
-                                    ? Math.floor(backgroundSecondsRaw)
-                                    : DEFAULT_BACKGROUND_DURATION_SECONDS;
                             const codingSeconds =
                                 Number.isFinite(codingSecondsRaw) && codingSecondsRaw > 0
                                     ? Math.floor(codingSecondsRaw)
                                     : DEFAULT_CODING_DURATION_SECONDS;
-                            setBackgroundDurationSeconds(backgroundSeconds);
                             setCodingDurationSeconds(codingSeconds);
                         } else {
-                            setBackgroundDurationSeconds(DEFAULT_BACKGROUND_DURATION_SECONDS);
                             setCodingDurationSeconds(DEFAULT_CODING_DURATION_SECONDS);
                         }
                         timeboxFiredRef.current = false;
@@ -878,21 +858,6 @@ const InterviewerContent = () => {
                 <PanelGroup direction="horizontal">
                     <Panel defaultSize={70} minSize={50}>
                         <div className="h-full border-r bg-white border-light-gray dark:bg-gray-800 dark:border-gray-700 relative">
-                            {isDebugModeEnabled && (
-                                <div
-                                    className={`absolute top-4 left-1/2 z-30 w-full px-4 sm:px-6 md:px-8 lg:px-12 transform -translate-x-1/2 transition-all duration-300 ease-out ${
-                                        isDebugVisible
-                                            ? "opacity-100 translate-y-0 pointer-events-auto"
-                                            : "opacity-0 -translate-y-2 pointer-events-none"
-                                    }`}
-                                >
-                                    <div className="mx-auto max-w-3xl">
-                                        <div className="debug-panel-scroll scroll-smooth max-h-[calc(100vh-160px)] overflow-y-auto pr-2 pb-2">
-                                            <BackgroundDebugPanel timeboxMs={backgroundDurationMs} />
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
                             <EditorPanel
                                 currentCode={state.currentCode}
                                 onCodeChange={handleCodeChange}
