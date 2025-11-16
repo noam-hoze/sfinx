@@ -445,14 +445,17 @@ const InterviewerContent = () => {
                 setIsChatInputLocked(true);
             }
             
+            updateCurrentCode(getInitialCode());
+            window.postMessage({ type: "clear-chat" }, "*");
+            
+            // Start conversation first to load script, THEN force to coding
+            await realTimeConversationRef.current?.startConversation();
+            
             // Force state machine to coding stage (background handled separately)
             dispatch(forceCoding());
             interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" } as any);
-            logger.info("✅ State machine initialized to coding stage");
+            logger.info("✅ State machine transitioned to coding stage");
             
-            updateCurrentCode(getInitialCode());
-            window.postMessage({ type: "clear-chat" }, "*");
-            await realTimeConversationRef.current?.startConversation();
             setIsInterviewActive(true);
             logger.info("Interview started successfully!");
         } catch (error) {
@@ -470,7 +473,18 @@ const InterviewerContent = () => {
         setIsChatInputLocked,
     ]);
 
-    // Auto-start removed - interview now starts from explicit button click
+    /**
+     * Auto-start interview when coming from demo page (one-time flag).
+     */
+    useEffect(() => {
+        const shouldAutoStart = sessionStorage.getItem("sfinx-demo-autostart") === "true";
+        if (shouldAutoStart && !autoStartTriggeredRef.current && !isInterviewActive && demoCandidateName) {
+            autoStartTriggeredRef.current = true;
+            sessionStorage.removeItem("sfinx-demo-autostart");
+            logger.info("Auto-starting interview from demo flow");
+            void handleInterviewButtonClick();
+        }
+    }, [isInterviewActive, demoCandidateName, handleInterviewButtonClick]);
 
     /**
      * Toggles microphone mute state via the real-time conversation ref.

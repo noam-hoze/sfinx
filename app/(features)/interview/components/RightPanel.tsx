@@ -29,7 +29,6 @@ interface RightPanelProps {
     isTextInputLocked: boolean;
     onCodingPromptReady?: () => void;
     onGreetingDelivered?: () => void;
-    backgroundDurationSeconds: number;
     codingDurationSeconds: number;
     setInputLocked?: (locked: boolean) => void;
 }
@@ -56,7 +55,6 @@ const RightPanel: React.FC<RightPanelProps> = ({
     isTextInputLocked,
     onCodingPromptReady,
     onGreetingDelivered,
-    backgroundDurationSeconds,
     codingDurationSeconds,
     setInputLocked,
 }) => {
@@ -79,18 +77,13 @@ const RightPanel: React.FC<RightPanelProps> = ({
         if (!isElevenLabsFlow) {
             return;
         }
-        if (typeof backgroundDurationSeconds !== "number" || backgroundDurationSeconds <= 0) {
-            return;
-        }
         if (typeof codingDurationSeconds !== "number" || codingDurationSeconds <= 0) {
             return;
         }
         updateKBVariables({
-            background_time_seconds: backgroundDurationSeconds,
             coding_time_seconds: codingDurationSeconds,
         }).catch(() => {});
     }, [
-        backgroundDurationSeconds,
         codingDurationSeconds,
         updateKBVariables,
         isElevenLabsFlow,

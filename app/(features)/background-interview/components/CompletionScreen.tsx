@@ -26,6 +26,9 @@ export default function CompletionScreen({
   const router = useRouter();
 
   const handleStartCoding = () => {
+    // Set sessionStorage flag to auto-start interview on next page
+    sessionStorage.setItem("sfinx-demo-autostart", "true");
+    
     router.push(
       `/interview?demo=true&jobId=${jobId}&userId=${userId}&companyId=${companyId}&applicationId=${applicationId}&sessionId=${sessionId}`
     );
