@@ -335,7 +335,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                 <div className="flex items-center space-x-2">
                     <button
                         onClick={runCode}
-                        className="p-2 text-sm bg-[#2463eb] text-white rounded hover:bg-[#1d4ed8] transition-all duration-200 hover:shadow-sm transform hover:scale-[1.02] flex items-center dark:bg-[#2463eb] dark:hover:bg-[#1d4ed8]"
+                        className="p-2 text-sm bg-sfinx-purple text-white rounded hover:opacity-90 transition-all duration-200 hover:shadow-sm transform hover:scale-[1.02] flex items-center"
                         title="Run Code"
                     >
                         <Play className="w-4 h-4" />
