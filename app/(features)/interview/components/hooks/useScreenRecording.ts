@@ -378,6 +378,7 @@ export const useScreenRecording = (isDemoMode: boolean = false) => {
             const blobResult = await upload(filename, blob, {
                 access: "public",
                 handleUploadUrl: "/api/interviews/session/blob-upload-url",
+                allowOverwrite: true,
             });
 
             const recordingUrl = blobResult.url;
