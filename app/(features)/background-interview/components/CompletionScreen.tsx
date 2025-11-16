@@ -38,19 +38,33 @@ export default function CompletionScreen({
       >
         {/* Completion Message */}
         <div className="mb-8">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-purple-50 to-purple-100 flex items-center justify-center">
+            <svg
+              className="w-10 h-10 text-sfinx-purple"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          </div>
           <h1 className="text-4xl font-semibold text-gray-800 mb-4">
-            Background Phase Complete!
+            Background Phase Complete
           </h1>
-          <p className="text-xl text-gray-600">
-            You have <span className="font-bold text-blue-600">{codingTimeChallenge} minutes</span> to
-            complete your coding task.
+          <p className="text-xl text-gray-600 leading-relaxed">
+            Now it&apos;s time to move forward to the coding challenge. Once you click the button below you will have <span className="font-bold text-sfinx-purple">{codingTimeChallenge} minutes</span> to complete it. Are you ready?
           </p>
         </div>
 
         {/* Start Button */}
         <button
           onClick={handleStartCoding}
-          className="px-8 py-4 bg-blue-600 text-white rounded-lg font-medium text-lg hover:bg-blue-700 transition-colors"
+          className="px-8 py-4 bg-sfinx-purple text-white rounded-lg font-medium text-lg hover:opacity-90 transition-all"
         >
           Start Coding Challenge
         </button>
