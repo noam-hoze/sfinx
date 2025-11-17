@@ -658,7 +658,6 @@ export default function BackgroundInterviewPage() {
             userId={userId || ""}
             companyId={searchParams.get("companyId") || "meta"}
             applicationId={applicationId || ""}
-            sessionId={sessionId || ""}
           />
         </div>
 

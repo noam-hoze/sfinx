@@ -109,11 +109,36 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 interviewSessionId: { in: sessionIds },
             },
             select: {
+                id: true,
                 interviewSessionId: true,
                 timestamp: true,
                 caption: true,
                 evaluation: true,
                 matchPercentage: true,
+            },
+        });
+
+        // Fetch VideoChapters for iterations to get the stored startTime
+        const iterationIds = allIterations.map((iter: any) => iter.id);
+        const iterationVideoChapters = await prisma.videoChapter.findMany({
+            where: {
+                title: {
+                    startsWith: "Iteration",
+                },
+                telemetryData: {
+                    interviewSession: {
+                        id: { in: sessionIds },
+                    },
+                },
+            },
+            select: {
+                title: true,
+                startTime: true,
+                telemetryData: {
+                    select: {
+                        interviewSessionId: true,
+                    },
+                },
             },
         });
 
@@ -206,6 +231,21 @@ export async function GET(request: NextRequest, context: RouteContext) {
             iterationsBySession.get(iter.interviewSessionId)!.push(iter);
         }
 
+        // Group iteration video chapters by session for evidence links
+        const iterationVideoChaptersBySession = new Map<string, any[]>();
+        for (const chapter of iterationVideoChapters) {
+            const sessionId = chapter.telemetryData.interviewSessionId;
+            if (!iterationVideoChaptersBySession.has(sessionId)) {
+                iterationVideoChaptersBySession.set(sessionId, []);
+            }
+            iterationVideoChaptersBySession.get(sessionId)!.push(chapter);
+        }
+        
+        log.info("[Telemetry API] Fetched iteration video chapters:", iterationVideoChapters.length);
+        iterationVideoChapters.forEach((chapter: any) => {
+            log.info(`  - ${chapter.title}: startTime=${chapter.startTime}s, sessionId=${chapter.telemetryData.interviewSessionId}`);
+        });
+
         // Group debug loops by session
         const debugLoopsBySession = new Map<string, any[]>();
         for (const loop of allDebugLoops) {
@@ -236,15 +276,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 const debugLoopsLinks: number[] = [];
                 const aiAssistUsageLinks: number[] = [];
 
-                // Add iteration evidence links (calculate video offset from recordingStartedAt)
-                if (session.recordingStartedAt) {
-                    sessionIterations.forEach((iter: any) => {
-                        const videoOffset = (new Date(iter.timestamp).getTime() - new Date(session.recordingStartedAt).getTime()) / 1000;
-                        if (videoOffset >= 0) {
-                            iterationSpeedLinks.push(videoOffset);
-                        }
-                    });
-                }
+                // Add iteration evidence links using stored VideoChapter.startTime
+                const sessionIterationChapters = iterationVideoChaptersBySession.get(session.id) || [];
+                log.info(`[Telemetry API] Session ${session.id}: Found ${sessionIterationChapters.length} iteration video chapters`);
+                sessionIterationChapters.forEach((chapter: any) => {
+                    log.info(`  - Adding iteration evidence link: ${chapter.title} at ${chapter.startTime}s`);
+                    if (chapter.startTime >= 0) {
+                        iterationSpeedLinks.push(chapter.startTime);
+                    }
+                });
 
                 // Add debug loop evidence links (all resolved loops)
                 const sessionDebugLoops = debugLoopsBySession.get(session.id) || [];

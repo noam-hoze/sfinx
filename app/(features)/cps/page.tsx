@@ -264,6 +264,7 @@ function TelemetryContent() {
     const { gaps, evidence, chapters, workstyle, videoUrl, duration } =
         activeSession;
     console.log("[CPS] Extracted videoUrl:", videoUrl, "duration:", duration);
+    console.log("[CPS] Chapters:", chapters, "Count:", chapters?.length || 0);
     const persistenceFlow = activeSession.persistenceFlow || [];
     const learningToAction = activeSession.learningToAction || [];
     const confidenceCurve = activeSession.confidenceCurve || [];

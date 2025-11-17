@@ -8,6 +8,11 @@
   --sfinx-purple-rgb: 124, 58, 237;
 }
 
+/* Force pointer cursor on all buttons */
+button {
+  cursor: pointer !important;
+}
+
 /* Debug: Highlight vidstack player */
 media-player {
   outline: 2px solid lime !important;

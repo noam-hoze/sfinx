@@ -179,6 +179,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         commMethodRaw === "yes";
     const timeboxFiredRef = useRef(false);
     const autoStartTriggeredRef = useRef(false);
+    const runCodeClickTimeRef = useRef<Date | null>(null);
 
     useThemePreference();
 
@@ -533,38 +534,27 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
             if (!applicationCreated && companyId) {
                 try {
-                    // Check if applicationId and sessionId already exist in URL params (from background-interview)
+                    // Check if applicationId exists in URL params (from background-interview)
                     const existingApplicationId = searchParams.get("applicationId");
-                    const existingSessionId = searchParams.get("sessionId");
 
-                    if (existingApplicationId && existingSessionId) {
+                    if (existingApplicationId) {
                         logger.info(`✅ Using existing application: ${existingApplicationId}`);
-                        logger.info(`✅ Using existing session: ${existingSessionId}`);
-                        
-                        // Update existing session with actual recording start time
-                        const actualStartTime = getActualRecordingStartTime();
-                        if (actualStartTime) {
-                            logger.info("📹 Updating existing session with actual recording start time:", actualStartTime.toISOString());
-                            const updateUrl = isDemoMode 
-                                ? `/api/interviews/session/${existingSessionId}/update-recording-start?skip-auth=true`
-                                : `/api/interviews/session/${existingSessionId}/update-recording-start`;
-                            
-                            try {
-                                await fetch(updateUrl, {
-                                    method: 'PATCH',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({ recordingStartedAt: actualStartTime.toISOString() }),
-                                });
-                                logger.info("✅ Updated existing session with actual recording start time");
-                            } catch (error) {
-                                logger.error("❌ Failed to update session recording start time:", error);
-                            }
-                        }
-                        
                         setApplicationCreated(true);
                         setApplicationId(existingApplicationId);
-                        setInterviewSessionId(existingSessionId);
-                        dispatch(setSessionId({ sessionId: existingSessionId }));
+                        
+                        // Always create a NEW session for the coding phase with fresh recording timestamp
+                        const actualStartTime = getActualRecordingStartTime();
+                        logger.info("📹 Creating NEW coding session with actual recording start time:", actualStartTime?.toISOString());
+                        const session = await createInterviewSession({
+                            applicationId: existingApplicationId,
+                            companyId,
+                            userId: isDemoMode ? demoUserId || undefined : undefined,
+                            isDemoMode,
+                            recordingStartedAt: actualStartTime || undefined,
+                        });
+                        const sessionId = session.interviewSession.id;
+                        setInterviewSessionId(sessionId);
+                        dispatch(setSessionId({ sessionId }));
                     } else {
                         // Create new application and session
                         const application = await createApplication({
@@ -874,8 +864,17 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                     ? `/api/interviews/session/${interviewSessionId}/iterations?skip-auth=true`
                     : `/api/interviews/session/${interviewSessionId}/iterations`;
 
+                // Use the Run Code click timestamp minus 1 second for video evidence
+                const clickTime = runCodeClickTimeRef.current || new Date();
+                const evidenceTimestamp = new Date(clickTime.getTime() - 1000); // 1 second before click
+
+                logger.info("🎯 [ITERATION] Timestamp calculation:");
+                logger.info("  - Run Code clicked at:", clickTime.toISOString());
+                logger.info("  - Evidence timestamp (click - 1s):", evidenceTimestamp.toISOString());
+                logger.info("  - Current time:", new Date().toISOString());
+
                 const body: Record<string, any> = {
-                    timestamp: new Date().toISOString(),
+                    timestamp: evidenceTimestamp.toISOString(),
                     codeSnapshot,
                     actualOutput: result.output,
                     expectedOutput: interviewScript.expectedOutput,
@@ -891,7 +890,8 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
                 logger.info("💾 [ITERATION] Saving to DB:", {
                     url,
-                    timestamp: body.timestamp,
+                    runCodeClickTime: clickTime.toISOString(),
+                    evidenceTimestamp: body.timestamp,
                     codeLength: codeSnapshot.length,
                     actualOutputLength: result.output.length,
                     evaluation: body.evaluation,
@@ -981,14 +981,18 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 logger.error("❌ Error tracking iteration:", error);
             }
         },
-        [interviewSessionId, interviewScript, state.currentCode, lastEvaluation, isDemoMode, demoUserId, consecutiveErrors, debugLoopStartTime]
+        [interviewSessionId, interviewScript, state.currentCode, isDemoMode, demoUserId, consecutiveErrors, debugLoopStartTime]
     );
 
     /**
      * Switches to the preview tab, adding it if not present.
      */
     const handleRunCode = useCallback(() => {
+        const clickTime = new Date();
+        runCodeClickTimeRef.current = clickTime;
+        
         logger.info("🏃 [ITERATION] Run Code button clicked");
+        logger.info("[ITERATION] Click timestamp:", clickTime.toISOString());
         logger.info("[ITERATION] Current code length:", state.currentCode.length);
         logger.info("[ITERATION] Active tab:", activeTab);
         logger.info("[ITERATION] Available tabs:", availableTabs);

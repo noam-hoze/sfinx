@@ -81,6 +81,12 @@ export async function POST(
             const iterationTimestamp = timestamp ? new Date(timestamp) : new Date();
             const videoOffset = Math.floor((iterationTimestamp.getTime() - session.recordingStartedAt.getTime()) / 1000);
             
+            console.log("📹 [Iterations API] VideoChapter calculation:");
+            console.log("  - Recording started at:", session.recordingStartedAt.toISOString());
+            console.log("  - Iteration timestamp:", iterationTimestamp.toISOString());
+            console.log("  - Time difference (ms):", iterationTimestamp.getTime() - session.recordingStartedAt.getTime());
+            console.log("  - Calculated video offset (s):", videoOffset);
+            
             if (videoOffset >= 0) {
                 const videoChapter = await prisma.videoChapter.create({
                     data: {
@@ -93,6 +99,13 @@ export async function POST(
                     },
                 });
 
+                console.log("✅ [Iterations API] VideoChapter created:", {
+                    id: videoChapter.id,
+                    title: videoChapter.title,
+                    startTime: videoChapter.startTime,
+                    endTime: videoChapter.endTime,
+                });
+
                 await prisma.videoCaption.create({
                     data: {
                         videoChapterId: videoChapter.id,
@@ -101,6 +114,8 @@ export async function POST(
                         endTime: videoOffset + 3,
                     },
                 });
+            } else {
+                console.warn("⚠️ [Iterations API] Negative video offset, skipping VideoChapter creation");
             }
         }
 

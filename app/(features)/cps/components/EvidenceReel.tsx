@@ -24,14 +24,19 @@ export default function EvidenceReel({
     chapters = [],
     paused = false,
 }: Props) {
+    console.log("[EvidenceReel] Received chapters:", chapters, "Count:", chapters?.length || 0);
     const playerRef = useRef<any>(null);
 
     useEffect(() => {
         if (playerRef.current && typeof jumpToTime === "number") {
             if (playerRef.current.remote) {
                 playerRef.current.remote.seek(jumpToTime);
+                playerRef.current.remote.play();
             } else if (playerRef.current.currentTime !== undefined) {
                 playerRef.current.currentTime = jumpToTime;
+                if (playerRef.current.play) {
+                    playerRef.current.play();
+                }
             }
         }
     }, [jumpToTime, jumpKey]);

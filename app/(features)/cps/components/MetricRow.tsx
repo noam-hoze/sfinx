@@ -99,11 +99,12 @@ const MetricRow: React.FC<MetricRowProps> = ({
                                 setClickedTimestamp(timestamp);
                                 onVideoJump(timestamp);
                             }}
-                            className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-all duration-200 ${
+                            className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-all duration-200 !cursor-pointer ${
                                 clickedTimestamp === timestamp
                                     ? "text-blue-600 bg-blue-50"
                                     : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
                             }`}
+                            style={{ cursor: 'pointer' }}
                             title={`Jump to ${Math.floor(timestamp / 60)}:${(timestamp % 60)
                                 .toString()
                                 .padStart(2, "0")}`}

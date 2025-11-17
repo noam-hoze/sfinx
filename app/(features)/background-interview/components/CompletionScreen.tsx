@@ -11,7 +11,6 @@ type CompletionScreenProps = {
   userId: string;
   companyId: string;
   applicationId: string;
-  sessionId: string;
 };
 
 export default function CompletionScreen({
@@ -21,7 +20,6 @@ export default function CompletionScreen({
   userId,
   companyId,
   applicationId,
-  sessionId,
 }: CompletionScreenProps) {
   const router = useRouter();
 
@@ -30,7 +28,7 @@ export default function CompletionScreen({
     sessionStorage.setItem("sfinx-demo-autostart", "true");
     
     router.push(
-      `/interview?demo=true&jobId=${jobId}&userId=${userId}&companyId=${companyId}&applicationId=${applicationId}&sessionId=${sessionId}`
+      `/interview?demo=true&jobId=${jobId}&userId=${userId}&companyId=${companyId}&applicationId=${applicationId}`
     );
   };
   return (
