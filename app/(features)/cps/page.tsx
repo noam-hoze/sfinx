@@ -409,32 +409,43 @@ function TelemetryContent() {
                 <div className="max-w-7xl mx-auto px-4 pt-4 pb-2">
                     <div className="grid grid-cols-1 xl:grid-cols-[480px_1fr] gap-3">
                         {/* Left Card: Name and Job Title */}
-                        <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-4 shadow-[0_2px_8px_rgba(0,0,0,0.08)]">
-                            <div className="flex items-center gap-4">
-                                {candidate.image ? (
-                                    <Image
-                                        src={candidate.image}
-                                        alt={`${candidate.name} profile`}
-                                        width={48}
-                                        height={48}
-                                        className="rounded-full object-cover border-2 border-white shadow-sm"
-                                    />
-                                ) : (
-                                    <div className="w-12 h-12 rounded-full bg-gray-300 border-2 border-white shadow-sm" />
-                                )}
-                                <div>
-                                <h1 className="text-lg font-medium text-gray-900">
-                                    {candidate.name || ""}
-                                </h1>
-                                <p className="text-sm text-gray-600">
-                                    {activeSession?.application?.job?.title || "Software Engineer"}
-                                </p>
+                        <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 shadow-[0_2px_8px_rgba(0,0,0,0.08)]">
+                            <div className="flex items-center gap-5 pr-3">
+                                <div className="flex items-center gap-5 flex-1">
+                                    {candidate.image ? (
+                                        <Image
+                                            src={candidate.image}
+                                            alt={`${candidate.name} profile`}
+                                            width={96}
+                                            height={96}
+                                            className="rounded-full object-cover border-3 border-white shadow-md"
+                                        />
+                                    ) : (
+                                        <div className="w-24 h-24 rounded-full bg-gray-300 border-3 border-white shadow-md" />
+                                    )}
+                                    <div>
+                                        <h1 className="text-2xl font-semibold text-gray-900">
+                                            {candidate.name || ""}
+                                        </h1>
+                                        <p className="text-base text-gray-600 mt-1">
+                                            {activeSession?.application?.job?.title || "Software Engineer"}
+                                        </p>
+                                    </div>
                                 </div>
+                                
+                                {/* Overall Score - just the number */}
+                                {calculatedScore !== null && (
+                                    <div className="text-right flex-shrink-0">
+                                        <span className="text-4xl font-bold text-gray-900 tabular-nums">
+                                            {Math.round(calculatedScore)}
+                                        </span>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         
                         {/* Right Card: Candidate Profile Story aligned with video */}
-                        <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-4 shadow-[0_2px_8px_rgba(0,0,0,0.08)]">
+                        <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-4 shadow-[0_2px_8px_rgba(0,0,0,0.08)] relative">
                             <div className="flex items-center justify-between gap-4">
                                 <div className="flex-1">
                                     <h2 className="text-lg font-medium text-gray-900 mb-2">
@@ -444,6 +455,19 @@ function TelemetryContent() {
                                         {longStory}
                                     </p>
                                 </div>
+                                
+                                {/* Debug Panel Toggle Button */}
+                                {process.env.NEXT_PUBLIC_DEBUG_MODE === "true" && (
+                                    <button
+                                        onClick={() => setShowDebugPanel(!showDebugPanel)}
+                                        className="rounded-full bg-purple-600 p-3 text-white shadow-lg hover:bg-purple-700 transition-colors flex-shrink-0"
+                                        title={showDebugPanel ? "Hide Debug Panel" : "Show Debug Panel"}
+                                    >
+                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                                        </svg>
+                                    </button>
+                                )}
                                 
                                 {/* Session Navigation */}
                                 {sessions.length > 1 && (
@@ -489,7 +513,7 @@ function TelemetryContent() {
                         <div className="space-y-3 overflow-y-auto">
                             {/* Score Section */}
                             <CollapsibleSection
-                                title="Match"
+                                title="Breakdown"
                                 score={calculatedScore ?? undefined}
                                 isExpanded={scoreExpanded}
                                 onToggle={() => setScoreExpanded(!scoreExpanded)}
@@ -629,19 +653,6 @@ function TelemetryContent() {
                                                 />
             )}
             
-            {/* Debug Panel Toggle Button */}
-            {process.env.NEXT_PUBLIC_DEBUG_MODE === "true" && (
-                <button
-                    onClick={() => setShowDebugPanel(!showDebugPanel)}
-                    className="fixed top-4 right-4 z-40 rounded-full bg-purple-600 p-3 text-white shadow-lg hover:bg-purple-700 transition-colors"
-                    title={showDebugPanel ? "Hide Debug Panel" : "Show Debug Panel"}
-                >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                    </svg>
-                </button>
-            )}
-
             {/* Debug Panel - fixed at bottom */}
             {showDebugPanel && (
                 <div className="fixed bottom-0 left-0 right-0 z-50 p-4 max-h-[60vh] overflow-y-auto">

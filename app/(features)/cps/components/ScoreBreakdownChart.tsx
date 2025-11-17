@@ -120,9 +120,9 @@ export default function ScoreBreakdownChart({
                             </div>
                         </div>
 
-                        {/* Value - larger for final score */}
+                        {/* Value */}
                         <div className="text-right flex-shrink-0 w-[70px]">
-                            <span className="text-4xl font-bold text-gray-900 tabular-nums">
+                            <span className="text-2xl font-bold text-gray-900 tabular-nums">
                                 {overallScore}
                             </span>
                         </div>
