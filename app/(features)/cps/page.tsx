@@ -11,8 +11,10 @@ import CodingModal from "./components/CodingModal";
 import WorkstyleDashboard from "./components/WorkstyleDashboard";
 import GapAnalysis from "./components/GapAnalysis";
 import ScoreBreakdownChart from "./components/ScoreBreakdownChart";
+import CPSDebugPanel from "./components/CPSDebugPanel";
 import { AuthGuard } from "app/shared/components";
 import { log } from "app/shared/services";
+import { calculateScore, type ScoringConfiguration, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
 
 function TelemetryContent() {
     const searchParams = useSearchParams();
@@ -42,6 +44,15 @@ function TelemetryContent() {
     // Modal state
     const [experienceModalOpen, setExperienceModalOpen] = useState(false);
     const [codingModalOpen, setCodingModalOpen] = useState(false);
+    
+    // Scoring configuration
+    const [scoringConfig, setScoringConfig] = useState<ScoringConfiguration | null>(null);
+    const [calculatedScore, setCalculatedScore] = useState<number | null>(null);
+    const [calculatedExperienceScore, setCalculatedExperienceScore] = useState<number | null>(null);
+    const [calculatedCodingScore, setCalculatedCodingScore] = useState<number | null>(null);
+    
+    // Debug panel
+    const [showDebugPanel, setShowDebugPanel] = useState(false);
 
     useEffect(() => {
         const fetchTelemetryData = async () => {
@@ -174,6 +185,75 @@ function TelemetryContent() {
 
         fetchCodingSummary();
     }, [activeSessionIndex, sessions, activeSession?.id]);
+
+    // Fetch scoring configuration for the job
+    useEffect(() => {
+        const fetchScoringConfig = async () => {
+            const jobId = activeSession?.application?.job?.id;
+            if (!jobId) {
+                setScoringConfig(null);
+                return;
+            }
+
+            try {
+                const url = isDemoMode 
+                    ? `/api/company/jobs/${jobId}/scoring-config?skip-auth=true`
+                    : `/api/company/jobs/${jobId}/scoring-config`;
+                const response = await fetch(url);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.config) {
+                        setScoringConfig(data.config);
+                    }
+                }
+            } catch (error) {
+                log.error("Error fetching scoring configuration:", error);
+                setScoringConfig(null);
+            }
+        };
+
+        fetchScoringConfig();
+    }, [activeSession?.application?.job?.id, isDemoMode]);
+
+    // Calculate score when we have all necessary data
+    useEffect(() => {
+        const sessionWorkstyle = activeSession?.workstyle;
+        if (!backgroundSummary || !codingSummary || !scoringConfig || !sessionWorkstyle) {
+            setCalculatedScore(null);
+            setCalculatedExperienceScore(null);
+            setCalculatedCodingScore(null);
+            return;
+        }
+
+        try {
+            const rawScores: RawScores = {
+                adaptability: backgroundSummary.adaptability?.score ?? 0,
+                creativity: backgroundSummary.creativity?.score ?? 0,
+                reasoning: backgroundSummary.reasoning?.score ?? 0,
+                codeQuality: codingSummary.codeQuality?.score ?? 0,
+                problemSolving: codingSummary.problemSolving?.score ?? 0,
+                independence: codingSummary.independence?.score ?? 0,
+            };
+
+            const workstyleMetrics: WorkstyleMetrics = {
+                iterationSpeed: sessionWorkstyle.iterationSpeed?.value,
+                debugLoopsAvgDepth: sessionWorkstyle.debugLoops?.avgDepth,
+                aiAssistAccountabilityScore: sessionWorkstyle.aiAssistUsage?.avgAccountabilityScore,
+            };
+
+            const result = calculateScore(rawScores, workstyleMetrics, scoringConfig);
+            setCalculatedScore(result.finalScore);
+            setCalculatedExperienceScore(result.experienceScore);
+            setCalculatedCodingScore(result.codingScore);
+            log.info("[CPS] Calculated score:", result);
+        } catch (error) {
+            log.error("Error calculating score:", error);
+            setCalculatedScore(null);
+            setCalculatedExperienceScore(null);
+            setCalculatedCodingScore(null);
+        }
+    }, [backgroundSummary, codingSummary, scoringConfig, activeSession?.workstyle]);
+
     console.log("[CPS] Active session:", activeSession);
     const formatMonthYear = (dateIso?: string) =>
         dateIso
@@ -409,25 +489,17 @@ function TelemetryContent() {
                         <div className="space-y-3 overflow-y-auto">
                             {/* Score Section */}
                             <CollapsibleSection
-                                title="Score"
-                                score={activeMatchScore ?? undefined}
+                                title="Match"
+                                score={calculatedScore ?? undefined}
                                 isExpanded={scoreExpanded}
                                 onToggle={() => setScoreExpanded(!scoreExpanded)}
                             >
-                                {backgroundSummary && codingSummary ? (
+                                {calculatedExperienceScore !== null && calculatedCodingScore !== null && scoringConfig ? (
                                     <ScoreBreakdownChart
-                                        experienceScore={Math.round(
-                                            (backgroundSummary.adaptabilityScore +
-                                                backgroundSummary.creativityScore +
-                                                backgroundSummary.reasoningScore) / 3
-                                        )}
-                                        codingScore={Math.round(
-                                            (codingSummary.codeQualityScore +
-                                                codingSummary.problemSolvingScore +
-                                                codingSummary.independenceScore) / 3
-                                        )}
-                                        experienceWeight={50}
-                                        codingWeight={50}
+                                        experienceScore={calculatedExperienceScore}
+                                        codingScore={calculatedCodingScore}
+                                        experienceWeight={scoringConfig.experienceWeight}
+                                        codingWeight={scoringConfig.codingWeight}
                                     />
                                 ) : (
                                     <p className="text-sm text-gray-600">
@@ -441,7 +513,7 @@ function TelemetryContent() {
                             {/* Experience Section */}
                             <CollapsibleSection
                                 title="Experience"
-                                score={80}
+                                score={calculatedExperienceScore ?? undefined}
                                 isExpanded={experienceExpanded}
                                 onToggle={() => setExperienceExpanded(!experienceExpanded)}
                             >
@@ -469,7 +541,7 @@ function TelemetryContent() {
                             {/* Coding Section */}
                             <CollapsibleSection
                                 title="Coding"
-                                score={50}
+                                score={calculatedCodingScore ?? undefined}
                                 isExpanded={codingExpanded}
                                 onToggle={() => setCodingExpanded(!codingExpanded)}
                             >
@@ -563,6 +635,32 @@ function TelemetryContent() {
                                                         text: codingSummary.independence.text,
                                                     }}
                                                 />
+            )}
+            
+            {/* Debug Panel Toggle Button */}
+            {process.env.NEXT_PUBLIC_DEBUG_MODE === "true" && (
+                <button
+                    onClick={() => setShowDebugPanel(!showDebugPanel)}
+                    className="fixed top-4 right-4 z-40 rounded-full bg-purple-600 p-3 text-white shadow-lg hover:bg-purple-700 transition-colors"
+                    title={showDebugPanel ? "Hide Debug Panel" : "Show Debug Panel"}
+                >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                    </svg>
+                </button>
+            )}
+
+            {/* Debug Panel - fixed at bottom */}
+            {showDebugPanel && (
+                <div className="fixed bottom-0 left-0 right-0 z-50 p-4 max-h-[60vh] overflow-y-auto">
+                    <CPSDebugPanel
+                        backgroundSummary={backgroundSummary}
+                        codingSummary={codingSummary}
+                        workstyle={workstyle}
+                        scoringConfig={scoringConfig}
+                        calculatedScore={calculatedScore}
+                    />
+                </div>
             )}
             
             {/* TODO: Add link to improvement graph in future */}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
+import { calculateScore, type RawScores, type WorkstyleMetrics, type ScoringConfiguration } from "app/shared/utils/calculateScore";
 
 type RouteContext = {
     params: Promise<{ id?: string | string[] }>;
@@ -134,6 +135,53 @@ export async function GET(request: NextRequest, context: RouteContext) {
             },
         });
 
+        // Fetch scoring configurations for all jobs
+        const jobIds = [...new Set(interviewSessions.map((s: any) => s.application?.job?.id).filter(Boolean))];
+        const scoringConfigs = await prisma.scoringConfiguration.findMany({
+            where: {
+                jobId: { in: jobIds },
+            },
+        });
+        const scoringConfigsByJobId = new Map(scoringConfigs.map(c => [c.jobId, c]));
+
+        // Fetch background summaries for all sessions
+        const backgroundSummaries = await prisma.backgroundSummary.findMany({
+            where: {
+                telemetryData: {
+                    interviewSessionId: { in: sessionIds },
+                },
+            },
+            include: {
+                telemetryData: {
+                    select: {
+                        interviewSessionId: true,
+                    },
+                },
+            },
+        });
+        const backgroundSummariesBySessionId = new Map(
+            backgroundSummaries.map(s => [s.telemetryData.interviewSessionId, s])
+        );
+
+        // Fetch coding summaries for all sessions
+        const codingSummaries = await prisma.codingSummary.findMany({
+            where: {
+                telemetryData: {
+                    interviewSessionId: { in: sessionIds },
+                },
+            },
+            include: {
+                telemetryData: {
+                    select: {
+                        interviewSessionId: true,
+                    },
+                },
+            },
+        });
+        const codingSummariesBySessionId = new Map(
+            codingSummaries.map(s => [s.telemetryData.interviewSessionId, s])
+        );
+
         // Fetch external tool usages for all sessions
         const allExternalToolUsages = await prisma.externalToolUsage.findMany({
             where: {
@@ -265,12 +313,58 @@ export async function GET(request: NextRequest, context: RouteContext) {
                     }
                 });
 
+                // Calculate score using scoring configuration
+                let calculatedScore: number | null = null;
+                const jobId = session.application?.job?.id;
+                const scoringConfig = jobId ? scoringConfigsByJobId.get(jobId) : null;
+                const backgroundSummary = backgroundSummariesBySessionId.get(session.id);
+                const codingSummary = codingSummariesBySessionId.get(session.id);
+
+                if (scoringConfig && backgroundSummary && codingSummary && telemetry?.workstyleMetrics) {
+                    try {
+                        const rawScores: RawScores = {
+                            adaptability: backgroundSummary.adaptabilityScore,
+                            creativity: backgroundSummary.creativityScore,
+                            reasoning: backgroundSummary.reasoningScore,
+                            codeQuality: codingSummary.codeQualityScore,
+                            problemSolving: codingSummary.problemSolvingScore,
+                            independence: codingSummary.independenceScore,
+                        };
+
+                        const sessionDebugLoops = debugLoopsBySession.get(session.id) || [];
+                        const loops = sessionDebugLoops.filter((loop: any) => loop.resolved);
+                        const totalLoops = loops.length;
+                        const totalErrors = loops.reduce((sum: number, loop: any) => sum + loop.errorCount, 0);
+                        const avgDepth = totalLoops > 0 ? totalErrors / totalLoops : 0;
+
+                        const sessionExternalTools = externalToolsBySession.get(session.id) || [];
+                        const totalScore = sessionExternalTools.reduce((sum: number, tool: any) => 
+                            sum + (tool.accountabilityScore || 0), 0);
+                        const avgAccountabilityScore = sessionExternalTools.length > 0 
+                            ? Math.round(totalScore / sessionExternalTools.length) 
+                            : 100;
+
+                        const workstyleMetrics: WorkstyleMetrics = {
+                            iterationSpeed: telemetry.workstyleMetrics.iterationSpeed ?? undefined,
+                            debugLoopsAvgDepth: avgDepth,
+                            aiAssistAccountabilityScore: avgAccountabilityScore,
+                        };
+
+                        const result = calculateScore(rawScores, workstyleMetrics, scoringConfig as ScoringConfiguration);
+                        calculatedScore = result.finalScore;
+                        log.info(`[Telemetry API] Calculated score for session ${session.id}:`, calculatedScore);
+                    } catch (error) {
+                        log.error(`[Telemetry API] Error calculating score for session ${session.id}:`, error);
+                    }
+                }
+
                 return {
                     id: session.id,
                     createdAt: session.createdAt,
                     videoUrl: session.videoUrl,
                     duration: session.duration,
                     matchScore: telemetry?.matchScore ?? null,
+                    calculatedScore,
                     confidence: telemetry?.confidence ?? null,
                     story: telemetry?.story ?? null,
                     application: session.application ? {

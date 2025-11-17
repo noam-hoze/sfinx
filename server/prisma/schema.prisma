@@ -101,23 +101,52 @@ model Company {
 }
 
 model Job {
-  id                 String            @id @default(cuid())
-  title              String
-  type               JobType
-  location           String
-  salary             String?
-  description        String?
-  requirements       String?
-  isActive           Boolean           @default(true)
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
-  companyId          String
+  id                   String                   @id @default(cuid())
+  title                String
+  type                 JobType
+  location             String
+  salary               String?
+  description          String?
+  requirements         String?
+  isActive             Boolean                  @default(true)
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  companyId            String
   /// Foreign key linking to shared interview content.
-  interviewContentId String?
+  interviewContentId   String?
   /// Optional interview content assigned to this job.
-  interviewContent   InterviewContent? @relation(fields: [interviewContentId], references: [id], onDelete: SetNull)
-  applications       Application[]
-  company            Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  interviewContent     InterviewContent?        @relation(fields: [interviewContentId], references: [id], onDelete: SetNull)
+  applications         Application[]
+  company              Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  scoringConfiguration ScoringConfiguration?
+}
+
+model ScoringConfiguration {
+  id                               String   @id @default(cuid())
+  jobId                            String   @unique
+  /// Experience dimension weights (sum should equal experienceWeight)
+  adaptabilityWeight               Float    @default(33.33)
+  creativityWeight                 Float    @default(33.33)
+  reasoningWeight                  Float    @default(33.34)
+  /// Coding dimension weights (sum should equal codingWeight)
+  codeQualityWeight                Float    @default(25)
+  problemSolvingWeight             Float    @default(25)
+  independenceWeight               Float    @default(25)
+  /// Workstyle metric weights (part of coding score)
+  iterationSpeedWeight             Float    @default(8.33)
+  debugLoopsWeight                 Float    @default(8.33)
+  aiAssistWeight                   Float    @default(8.34)
+  /// Category weights (should sum to 100)
+  experienceWeight                 Float    @default(50)
+  codingWeight                     Float    @default(50)
+  /// Workstyle benchmarks for normalization
+  iterationSpeedThresholdModerate  Int      @default(5)
+  iterationSpeedThresholdHigh      Int      @default(10)
+  debugLoopsDepthThresholdFast     Float    @default(2)
+  debugLoopsDepthThresholdModerate Float    @default(4)
+  createdAt                        DateTime @default(now())
+  updatedAt                        DateTime @updatedAt
+  job                              Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
 }
 
 /// Interview script content shared across one or more jobs.

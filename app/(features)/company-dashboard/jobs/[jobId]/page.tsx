@@ -47,6 +47,42 @@ interface FormState {
     requirements: string;
 }
 
+interface ScoringConfigState {
+    adaptabilityWeight: number;
+    creativityWeight: number;
+    reasoningWeight: number;
+    codeQualityWeight: number;
+    problemSolvingWeight: number;
+    independenceWeight: number;
+    iterationSpeedWeight: number;
+    debugLoopsWeight: number;
+    aiAssistWeight: number;
+    experienceWeight: number;
+    codingWeight: number;
+    iterationSpeedThresholdModerate: number;
+    iterationSpeedThresholdHigh: number;
+    debugLoopsDepthThresholdFast: number;
+    debugLoopsDepthThresholdModerate: number;
+}
+
+const defaultScoringConfig: ScoringConfigState = {
+    adaptabilityWeight: 33.33,
+    creativityWeight: 33.33,
+    reasoningWeight: 33.34,
+    codeQualityWeight: 25,
+    problemSolvingWeight: 25,
+    independenceWeight: 25,
+    iterationSpeedWeight: 8.33,
+    debugLoopsWeight: 8.33,
+    aiAssistWeight: 8.34,
+    experienceWeight: 50,
+    codingWeight: 50,
+    iterationSpeedThresholdModerate: 5,
+    iterationSpeedThresholdHigh: 10,
+    debugLoopsDepthThresholdFast: 2,
+    debugLoopsDepthThresholdModerate: 4,
+};
+
 function optionalString(value: string | null | undefined): string {
     if (typeof value === "string") {
         return value;
@@ -74,6 +110,9 @@ function CompanyJobDetailContent() {
         useState<InterviewDurationState>(defaultInterviewDurations);
     const [saving, setSaving] = useState(false);
     const [removingInterview, setRemovingInterview] = useState(false);
+    const [scoringConfig, setScoringConfig] = useState<ScoringConfigState>(defaultScoringConfig);
+    const [scoringExpanded, setScoringExpanded] = useState(false);
+    const [savingScoring, setSavingScoring] = useState(false);
 
     useEffect(() => {
         const fetchDetail = async () => {
@@ -144,6 +183,45 @@ function CompanyJobDetailContent() {
             log.error("❌ Unexpected job detail fetch error:", err);
         });
     }, [jobId]);
+
+    useEffect(() => {
+        const fetchScoringConfig = async () => {
+            try {
+                const resp = await fetch(`/api/company/jobs/${jobId}/scoring-config`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data.config) {
+                        setScoringConfig(data.config);
+                    }
+                }
+            } catch (err) {
+                log.error("❌ Failed to load scoring configuration:", err);
+            }
+        };
+        fetchScoringConfig();
+    }, [jobId]);
+
+    const handleScoringConfigSave = async () => {
+        setSavingScoring(true);
+        try {
+            const resp = await fetch(`/api/company/jobs/${jobId}/scoring-config`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(scoringConfig),
+            });
+            if (!resp.ok) {
+                const detail = await readResponseError(resp);
+                throw new Error(`Failed to save scoring configuration: ${resp.status} ${detail}`);
+            }
+            log.info("✅ Scoring configuration saved");
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Unknown error";
+            setError(message);
+            log.error("❌ Failed to save scoring configuration:", err);
+        } finally {
+            setSavingScoring(false);
+        }
+    };
 
     const handleSave = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -463,6 +541,270 @@ function CompanyJobDetailContent() {
                         removing={removingInterview}
                         subtitle="Adjust the background conversation, coding prompt, and timers associated with this job."
                     />
+
+                    {/* Scoring Configuration Section */}
+                    <section className="bg-white/80 backdrop-blur rounded-2xl border border-white/20 p-6 shadow-sm">
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h2 className="text-xl font-semibold text-gray-800">
+                                    Scoring Configuration
+                                </h2>
+                                <p className="text-sm text-gray-600 mt-1">
+                                    Configure weights and benchmarks for candidate evaluation
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setScoringExpanded(!scoringExpanded)}
+                                className="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 transition-colors"
+                            >
+                                {scoringExpanded ? "Collapse" : "Expand"}
+                            </button>
+                        </div>
+
+                        {scoringExpanded && (
+                            <div className="space-y-6">
+                                {/* Category Weights */}
+                                <div className="border-t border-gray-200 pt-4">
+                                    <h3 className="text-lg font-medium text-gray-800 mb-3">
+                                        Category Weights
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <label className="flex flex-col text-sm font-medium text-gray-700">
+                                            Experience Weight (%)
+                                            <input
+                                                type="number"
+                                                value={scoringConfig.experienceWeight}
+                                                onChange={(e) => setScoringConfig({
+                                                    ...scoringConfig,
+                                                    experienceWeight: Number(e.target.value)
+                                                })}
+                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                            />
+                                        </label>
+                                        <label className="flex flex-col text-sm font-medium text-gray-700">
+                                            Coding Weight (%)
+                                            <input
+                                                type="number"
+                                                value={scoringConfig.codingWeight}
+                                                onChange={(e) => setScoringConfig({
+                                                    ...scoringConfig,
+                                                    codingWeight: Number(e.target.value)
+                                                })}
+                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                            />
+                                        </label>
+                                    </div>
+                                    {Math.abs((scoringConfig.experienceWeight + scoringConfig.codingWeight) - 100) > 0.01 && (
+                                        <p className="text-sm text-red-600 mt-2">
+                                            ⚠️ Category weights must sum to 100
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Experience Dimensions */}
+                                <div className="border-t border-gray-200 pt-4">
+                                    <h3 className="text-lg font-medium text-gray-800 mb-3">
+                                        Experience Dimensions
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <label className="flex flex-col text-sm font-medium text-gray-700">
+                                            Adaptability Weight
+                                            <input
+                                                type="number"
+                                                value={scoringConfig.adaptabilityWeight}
+                                                onChange={(e) => setScoringConfig({
+                                                    ...scoringConfig,
+                                                    adaptabilityWeight: Number(e.target.value)
+                                                })}
+                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                            />
+                                        </label>
+                                        <label className="flex flex-col text-sm font-medium text-gray-700">
+                                            Creativity Weight
+                                            <input
+                                                type="number"
+                                                value={scoringConfig.creativityWeight}
+                                                onChange={(e) => setScoringConfig({
+                                                    ...scoringConfig,
+                                                    creativityWeight: Number(e.target.value)
+                                                })}
+                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                            />
+                                        </label>
+                                        <label className="flex flex-col text-sm font-medium text-gray-700">
+                                            Reasoning Weight
+                                            <input
+                                                type="number"
+                                                value={scoringConfig.reasoningWeight}
+                                                onChange={(e) => setScoringConfig({
+                                                    ...scoringConfig,
+                                                    reasoningWeight: Number(e.target.value)
+                                                })}
+                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                            />
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {/* Coding Dimensions */}
+                                <div className="border-t border-gray-200 pt-4">
+                                    <h3 className="text-lg font-medium text-gray-800 mb-3">
+                                        Coding Dimensions
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <label className="flex flex-col text-sm font-medium text-gray-700">
+                                            Code Quality Weight
+                                            <input
+                                                type="number"
+                                                value={scoringConfig.codeQualityWeight}
+                                                onChange={(e) => setScoringConfig({
+                                                    ...scoringConfig,
+                                                    codeQualityWeight: Number(e.target.value)
+                                                })}
+                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                            />
+                                        </label>
+                                        <label className="flex flex-col text-sm font-medium text-gray-700">
+                                            Problem Solving Weight
+                                            <input
+                                                type="number"
+                                                value={scoringConfig.problemSolvingWeight}
+                                                onChange={(e) => setScoringConfig({
+                                                    ...scoringConfig,
+                                                    problemSolvingWeight: Number(e.target.value)
+                                                })}
+                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                            />
+                                        </label>
+                                        <label className="flex flex-col text-sm font-medium text-gray-700">
+                                            Independence Weight
+                                            <input
+                                                type="number"
+                                                value={scoringConfig.independenceWeight}
+                                                onChange={(e) => setScoringConfig({
+                                                    ...scoringConfig,
+                                                    independenceWeight: Number(e.target.value)
+                                                })}
+                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                            />
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {/* Workstyle Metrics */}
+                                <div className="border-t border-gray-200 pt-4">
+                                    <h3 className="text-lg font-medium text-gray-800 mb-3">
+                                        Workstyle Metrics
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                        <label className="flex flex-col text-sm font-medium text-gray-700">
+                                            Iteration Speed Weight
+                                            <input
+                                                type="number"
+                                                value={scoringConfig.iterationSpeedWeight}
+                                                onChange={(e) => setScoringConfig({
+                                                    ...scoringConfig,
+                                                    iterationSpeedWeight: Number(e.target.value)
+                                                })}
+                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                            />
+                                        </label>
+                                        <label className="flex flex-col text-sm font-medium text-gray-700">
+                                            Debug Loops Weight
+                                            <input
+                                                type="number"
+                                                value={scoringConfig.debugLoopsWeight}
+                                                onChange={(e) => setScoringConfig({
+                                                    ...scoringConfig,
+                                                    debugLoopsWeight: Number(e.target.value)
+                                                })}
+                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                            />
+                                        </label>
+                                        <label className="flex flex-col text-sm font-medium text-gray-700">
+                                            AI Assist Weight
+                                            <input
+                                                type="number"
+                                                value={scoringConfig.aiAssistWeight}
+                                                onChange={(e) => setScoringConfig({
+                                                    ...scoringConfig,
+                                                    aiAssistWeight: Number(e.target.value)
+                                                })}
+                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                            />
+                                        </label>
+                                    </div>
+                                    
+                                    <h4 className="text-md font-medium text-gray-700 mb-3">Benchmarks</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <label className="flex flex-col text-sm font-medium text-gray-700">
+                                            Iteration Speed - Moderate Threshold
+                                            <input
+                                                type="number"
+                                                value={scoringConfig.iterationSpeedThresholdModerate}
+                                                onChange={(e) => setScoringConfig({
+                                                    ...scoringConfig,
+                                                    iterationSpeedThresholdModerate: Number(e.target.value)
+                                                })}
+                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                            />
+                                        </label>
+                                        <label className="flex flex-col text-sm font-medium text-gray-700">
+                                            Iteration Speed - High Threshold
+                                            <input
+                                                type="number"
+                                                value={scoringConfig.iterationSpeedThresholdHigh}
+                                                onChange={(e) => setScoringConfig({
+                                                    ...scoringConfig,
+                                                    iterationSpeedThresholdHigh: Number(e.target.value)
+                                                })}
+                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                            />
+                                        </label>
+                                        <label className="flex flex-col text-sm font-medium text-gray-700">
+                                            Debug Loops Depth - Fast Threshold
+                                            <input
+                                                type="number"
+                                                step="0.1"
+                                                value={scoringConfig.debugLoopsDepthThresholdFast}
+                                                onChange={(e) => setScoringConfig({
+                                                    ...scoringConfig,
+                                                    debugLoopsDepthThresholdFast: Number(e.target.value)
+                                                })}
+                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                            />
+                                        </label>
+                                        <label className="flex flex-col text-sm font-medium text-gray-700">
+                                            Debug Loops Depth - Moderate Threshold
+                                            <input
+                                                type="number"
+                                                step="0.1"
+                                                value={scoringConfig.debugLoopsDepthThresholdModerate}
+                                                onChange={(e) => setScoringConfig({
+                                                    ...scoringConfig,
+                                                    debugLoopsDepthThresholdModerate: Number(e.target.value)
+                                                })}
+                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                            />
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {/* Save Button */}
+                                <div className="flex justify-end pt-4 border-t border-gray-200">
+                                    <button
+                                        type="button"
+                                        onClick={handleScoringConfigSave}
+                                        className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
+                                        disabled={savingScoring}
+                                    >
+                                        {savingScoring ? "Saving..." : "Save Scoring Configuration"}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </section>
 
                     <div className="flex justify-end gap-3">
                         <Link
