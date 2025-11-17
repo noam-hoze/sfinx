@@ -547,6 +547,7 @@ function TelemetryContent() {
                                 {workstyle && (
                                     <WorkstyleDashboard
                                         workstyle={workstyle}
+                                        codingSummary={codingSummary}
                                         onVideoJump={onVideoJump}
                                     />
                                 )}
