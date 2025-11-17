@@ -87,7 +87,8 @@ export interface KBVariables {
 export const useElevenLabsStateMachine = (
     onElevenLabsUpdate?: (text: string) => Promise<void>,
     onSendUserMessage?: (message: string) => Promise<boolean>,
-    candidateName: string = "Candidate"
+    candidateName: string = "Candidate",
+    isTextMode: boolean = false
 ) => {
     // KB Variables state
     const [kbVariables, setKBVariables] = useState<KBVariables>({
@@ -129,7 +130,7 @@ export const useElevenLabsStateMachine = (
 
             setKBVariables(sanitizedKB);
 
-            if (onElevenLabsUpdate) {
+            if (onElevenLabsUpdate && !isTextMode) {
                 try {
                     // Exclude has_submitted from outbound payloads
                     const kbForUpdate = {
@@ -147,7 +148,7 @@ export const useElevenLabsStateMachine = (
             }
 
             // After successfully updating KB, send special user message (not shown in chat)
-            if (isUsingAIRisingEdge && onSendUserMessage) {
+            if (isUsingAIRisingEdge && onSendUserMessage && !isTextMode) {
                 try {
                     const addedCode = (updates as any).ai_added_code;
                     if (!addedCode) {

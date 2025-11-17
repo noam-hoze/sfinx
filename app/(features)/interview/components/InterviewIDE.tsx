@@ -22,7 +22,6 @@ import {
     useInterview,
     useJobApplication,
 } from "../../../shared/contexts";
-import { useElevenLabsStateMachine } from "../../../shared/hooks/useElevenLabsStateMachine";
 import { log } from "../../../shared/services";
 import { useCamera } from "./hooks/useCamera";
 import { useScreenRecording } from "./hooks/useScreenRecording";
@@ -78,8 +77,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         updateCurrentCode,
         updateSubmission,
         setCodingStarted,
-        queueContextUpdate,
-        queueUserMessage,
     } = useInterview();
     const { markCompanyApplied } = useJobApplication();
     const searchParams = useSearchParams();
@@ -96,54 +93,20 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     const demoUserId = searchParams.get("userId");
     const [demoCandidateName, setDemoCandidateName] = useState<string | null>(null);
     
+    // Determine communication mode (text vs voice) early - needed for hook initialization
+    const commMethodRaw = (process.env.NEXT_PUBLIC_INTERVIEW_COMM_METHOD || "speech")
+        .toLowerCase()
+        .trim();
+    const isTextMode =
+        commMethodRaw === "text" ||
+        commMethodRaw === "true" ||
+        commMethodRaw === "1" ||
+        commMethodRaw === "yes";
+    
     const candidateName = isDemoMode 
         ? (demoCandidateName || "Candidate")
         : ((session?.user as any)?.name || "Candidate");
 
-    /**
-     * Queues a contextual knowledge-base update for the agent (non-blocking).
-     */
-    const onElevenLabsUpdate = useCallback(
-        async (text: string) => {
-            try {
-                queueContextUpdate(text);
-                logger.info("✅ Queued ElevenLabs KB update:", text);
-            } catch (error) {
-                logger.error("❌ Failed to queue ElevenLabs update:", error);
-                throw error;
-            }
-        },
-        [queueContextUpdate]
-    );
-
-    /**
-     * Queues a user-visible chat message to be sent to the agent.
-     */
-    const onSendUserMessage = useCallback(
-        async (message: string) => {
-            try {
-                queueUserMessage(message);
-                logger.info("✅ Queued user message:", message);
-                return true;
-            } catch (error) {
-                logger.error("❌ Failed to queue user message:", error);
-                return false;
-            }
-        },
-        [queueUserMessage]
-    );
-
-    const {
-        setCodingState,
-        handleSubmission: stateMachineHandleSubmission,
-        kbVariables,
-        handleUserTranscript,
-        updateKBVariables,
-    } = useElevenLabsStateMachine(
-        onElevenLabsUpdate,
-        onSendUserMessage,
-        candidateName
-    );
 
     const [availableTabs, setAvailableTabs] = useState<
         Array<"editor" | "preview">
@@ -169,14 +132,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
     const realTimeConversationRef = useRef<any>(null);
     const automaticMode = process.env.NEXT_PUBLIC_AUTOMATIC_MODE === "true";
-    const commMethodRaw = (process.env.NEXT_PUBLIC_INTERVIEW_COMM_METHOD || "speech")
-        .toLowerCase()
-        .trim();
-    const isTextMode =
-        commMethodRaw === "text" ||
-        commMethodRaw === "true" ||
-        commMethodRaw === "1" ||
-        commMethodRaw === "yes";
     const timeboxFiredRef = useRef(false);
     const autoStartTriggeredRef = useRef(false);
 
@@ -219,23 +174,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
     // Background timer removed - background phase handled in separate page
 
-    /**
-     * Sends a hidden signal instructing the agent to deliver its closing line and end.
-     * Note: This is intended for the mode where ElevenLabs is the interviewer.
-     * When the Human is the interviewer, this should be disabled and not sent.
-     */
-    const sendHiddenDoneMessage = useCallback(async () => {
-        try {
-            queueUserMessage(
-                "I'm done. Please say your closing line and then end the connection."
-            );
-            logger.info("✅ Special 'I'm done' message queued successfully");
-            return true;
-        } catch (error) {
-            logger.error("❌ Error sending 'I'm done' message:", error);
-            return false;
-        }
-    }, [queueUserMessage]);
 
     const { timeLeft, isTimerRunning, startTimer, stopTimer, formatTime } =
         useInterviewTimer({
@@ -245,7 +183,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 updateSubmission(state.currentCode);
                 await stopRecording();
                 await insertRecordingUrl();
-                await stateMachineHandleSubmission(state.currentCode);
                 // OpenAI flow: say closing line and end via response.done
                 try {
                     const ref = realTimeConversationRef.current;
@@ -264,9 +201,8 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     const handleStartCoding = useCallback(async () => {
         setIsCodingStarted(true);
         setCodingStarted(true);
-        await setCodingState(true);
         startTimer();
-    }, [setCodingStarted, setCodingState, startTimer]);
+    }, [setCodingStarted, startTimer]);
 
     useEffect(() => {
         if (!automaticMode || isTextMode) {
@@ -446,7 +382,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             updateSubmission(state.currentCode);
             await stopRecording();
             await insertRecordingUrl();
-            await stateMachineHandleSubmission(state.currentCode);
             
             // Generate coding gaps and summary from session data
             setIsInterviewLoading(true);
@@ -507,14 +442,13 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                     await ref.sayClosingLine(candidateName);
                 }
             } catch {}
-            await setCodingState(false);
             setCodingStarted(false);
             setIsCodingStarted(false);
             stopTimer();
         } catch (error) {
             logger.error("❌ Failed to submit solution:", error);
         }
-    }, [candidateName, insertRecordingUrl, interviewScript, interviewSessionId, setCodingStarted, setCodingState, state.currentCode, stateMachineHandleSubmission, stopRecording, stopTimer, updateSubmission]);
+    }, [candidateName, insertRecordingUrl, interviewScript, interviewSessionId, setCodingStarted, state.currentCode, stopRecording, stopTimer, updateSubmission]);
 
     /**
      * Starts the interview: begins recording, creates application/session, resets code, and connects to the agent.
@@ -1070,8 +1004,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                                 onTabSwitch={handleTabSwitch}
                                 onRunCode={handleRunCode}
                                 readOnly={!isCodingStarted}
-                                onElevenLabsUpdate={onElevenLabsUpdate}
-                                updateKBVariables={updateKBVariables}
                                 onPasteDetected={(pastedCode, timestamp) => {
                                     if (isTextMode) {
                                         try {
@@ -1121,9 +1053,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                         <RightPanel
                             isInterviewActive={isInterviewActive}
                             candidateName={candidateName}
-                            handleUserTranscript={handleUserTranscript}
-                            updateKBVariables={updateKBVariables}
-                            kbVariables={kbVariables}
                             codingDurationSeconds={codingDurationSeconds}
                             automaticMode={automaticMode}
                             isCodingStarted={isCodingStarted}
