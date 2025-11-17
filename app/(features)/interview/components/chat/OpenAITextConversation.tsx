@@ -759,6 +759,125 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
             // Force evaluation if we've reached max answers
             const shouldEvaluate = (control && control.readyToEvaluate) || nextAnswerCount >= MAX_PASTE_EVAL_ANSWERS;
             
+            // Check if AI violated the 3-answer limit (asked a question when it should have acknowledged)
+            const aiViolatedLimit = nextAnswerCount >= MAX_PASTE_EVAL_ANSWERS && !shouldEvaluate;
+            
+            if (aiViolatedLimit) {
+              // DROP the message - don't show it to user
+              try {
+                /* eslint-disable no-console */ console.log("[paste_eval][message_dropped]", {
+                  reason: "violated_3_answer_limit",
+                  droppedMessage: aiText,
+                  nextAnswerCount
+                });
+              } catch {}
+              
+              // Send system correction to OpenAI
+              const correctionPrompt = `SYSTEM CORRECTION: Your last message was dropped because you violated the 3-answer limit for paste evaluation. You asked a 4th question when you should have acknowledged and ended the evaluation. Respond ONLY with "Got it!" to acknowledge.`;
+              
+              const acknowledgment = await askViaChatCompletion(
+                openaiClient,
+                correctionPrompt,
+                []  // No history needed for this correction
+              );
+              
+              if (acknowledgment) {
+                post(acknowledgment, "ai", { isPasteEval: true });
+                dispatch(machineAiFinal({ text: acknowledgment }));
+                
+                try {
+                  /* eslint-disable no-console */ console.log("[paste_eval][correction_acknowledged]", acknowledgment);
+                } catch {}
+              }
+              
+              clearPendingState();
+              
+              // Force evaluation now with the paste conversation history
+              const ms = store.getState().interviewMachine;
+              
+              // Update state for forced evaluation
+              interviewChatStore.dispatch({
+                type: "CODING_UPDATE_PASTE_EVAL",
+                payload: {
+                  confidence: 0,  // Low confidence since AI misbehaved
+                  answerCount: nextAnswerCount,
+                  readyToEvaluate: true,
+                  currentQuestion: acknowledgment,
+                },
+              } as any);
+              
+              // Combine conversation for final evaluation
+              const userAnswers = pasteConversation
+                .filter(m => m.role === "user")
+                .map(m => m.content)
+                .join(" ");
+              const aiQuestions = pasteConversation
+                .filter(m => m.role === "assistant")
+                .map(m => m.content)
+                .join(" ");
+              
+              // Call evaluation API
+              const evalPayload = {
+                pastedContent: activePasteEval.pastedContent,
+                aiQuestion: aiQuestions,
+                userAnswer: userAnswers,
+                codingTask: codingPrompt,
+              };
+              
+              const evalResponse = await fetch("/api/interviews/evaluate-paste-accountability", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(evalPayload),
+              });
+              
+              if (evalResponse.ok) {
+                const evaluation = await evalResponse.json();
+                
+                // Update debug panel with final evaluation
+                interviewChatStore.dispatch({
+                  type: "CODING_UPDATE_PASTE_EVAL",
+                  payload: {
+                    confidence: 0,
+                    answerCount: nextAnswerCount,
+                    readyToEvaluate: true,
+                    currentQuestion: acknowledgment,
+                    evaluationReasoning: evaluation.reasoning,
+                    evaluationCaption: evaluation.caption,
+                    accountabilityScore: evaluation.accountabilityScore,
+                  },
+                } as any);
+                
+                // Save to DB
+                const sessionId = ms.sessionId;
+                if (sessionId && activePasteEval.aiQuestionTimestamp) {
+                  const dbPayload = {
+                    timestamp: activePasteEval.timestamp,
+                    pastedContent: activePasteEval.pastedContent,
+                    characterCount: activePasteEval.pastedContent.length,
+                    aiQuestion: aiQuestions,
+                    aiQuestionTimestamp: activePasteEval.aiQuestionTimestamp,
+                    userAnswer: userAnswers,
+                    userAnswerTimestamp: Date.now(),
+                    understanding: evaluation.understanding,
+                    accountabilityScore: evaluation.accountabilityScore,
+                    reasoning: evaluation.reasoning,
+                    caption: evaluation.caption,
+                  };
+                  
+                  await fetch(`/api/interviews/session/${sessionId}/external-tools`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(dbPayload),
+                  });
+                }
+              }
+              
+              // Don't clear paste evaluation - keep it visible in debug panel
+              
+              setInputLocked?.(false);
+              return;
+            }
+            
             // Post AI response (either follow-up question or acknowledgment)
             if (aiText) {
               post(aiText, "ai", { isPasteEval: true });
@@ -858,6 +977,7 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                       currentQuestion: aiText,
                       evaluationReasoning: evaluation.reasoning,
                       evaluationCaption: evaluation.caption,
+                      accountabilityScore: evaluation.accountabilityScore,
                     },
                   } as any);
                   
@@ -926,16 +1046,7 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                   }
                 }
                 
-                // Wait 2 seconds before clearing (so user can see evaluation in debug panel)
-                setTimeout(() => {
-                  interviewChatStore.dispatch({
-                    type: "CODING_CLEAR_PASTE_EVAL",
-                  } as any);
-                  
-                  try {
-                    /* eslint-disable no-console */ console.log("[paste_eval][cleared] Returning to normal coding flow");
-                  } catch {}
-                }, 2000);
+                // Don't clear paste evaluation - keep it visible in debug panel
               }
             }
             

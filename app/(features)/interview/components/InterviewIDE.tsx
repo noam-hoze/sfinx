@@ -45,11 +45,33 @@ const DEFAULT_CODE = ``;
  */
 const getInitialCode = () => DEFAULT_CODE;
 
+interface InterviewerContentProps {
+    isDebugVisible: boolean;
+    setIsDebugVisible: (visible: boolean) => void;
+    evaluationDebugData: any;
+    setEvaluationDebugData: (data: any) => void;
+    isEvaluationLoading: boolean;
+    setIsEvaluationLoading: (loading: boolean) => void;
+    toggleDebugPanel: () => void;
+    isDebugModeEnabled: boolean;
+    onTestEvaluationReady: (callback: () => void) => void;
+}
+
 /**
  * Main interview container: orchestrates UI state, timers, recording,
  * and the ElevenLabs-driven state machine for conversation and coding flow.
  */
-const InterviewerContent = () => {
+const InterviewerContent: React.FC<InterviewerContentProps> = ({
+    isDebugVisible,
+    setIsDebugVisible,
+    evaluationDebugData,
+    setEvaluationDebugData,
+    isEvaluationLoading,
+    setIsEvaluationLoading,
+    toggleDebugPanel,
+    isDebugModeEnabled,
+    onTestEvaluationReady,
+}) => {
     const {
         state,
         getCurrentTask,
@@ -144,16 +166,6 @@ const InterviewerContent = () => {
     // Store interview script data for iteration tracking
     const [interviewScript, setInterviewScript] = useState<any>(null);
     const [lastEvaluation, setLastEvaluation] = useState<string | null>(null);
-    
-    // Store evaluation debug data
-    const [evaluationDebugData, setEvaluationDebugData] = useState<{
-        gapsRequest?: any;
-        gapsResponse?: any;
-        summaryRequest?: any;
-        summaryResponse?: any;
-        timestamp?: number;
-    } | null>(null);
-    const [isEvaluationLoading, setIsEvaluationLoading] = useState(false);
 
     const realTimeConversationRef = useRef<any>(null);
     const automaticMode = process.env.NEXT_PUBLIC_AUTOMATIC_MODE === "true";
@@ -165,32 +177,8 @@ const InterviewerContent = () => {
         commMethodRaw === "true" ||
         commMethodRaw === "1" ||
         commMethodRaw === "yes";
-    const isDebugModeEnabled = process.env.NEXT_PUBLIC_DEBUG_MODE === "true";
-    const debugPanelVisibleEnv = process.env.NEXT_PUBLIC_DEBUG_PANEL_VISIBLE;
-    const [isDebugVisible, setIsDebugVisible] = useState(() => {
-        if (!isDebugModeEnabled) return false;
-        if (debugPanelVisibleEnv === "true") return true;
-        if (debugPanelVisibleEnv === "false") return false;
-        return true;
-    });
     const timeboxFiredRef = useRef(false);
     const autoStartTriggeredRef = useRef(false);
-
-    const toggleDebugPanel = useCallback(() => {
-        if (!isDebugModeEnabled) return;
-        setIsDebugVisible((prev) => !prev);
-    }, [isDebugModeEnabled]);
-
-    // Close debug panel on Escape key
-    useEffect(() => {
-        const handleEscape = (e: KeyboardEvent) => {
-            if (e.key === "Escape" && isDebugVisible && isDebugModeEnabled) {
-                toggleDebugPanel();
-            }
-        };
-        window.addEventListener("keydown", handleEscape);
-        return () => window.removeEventListener("keydown", handleEscape);
-    }, [isDebugVisible, isDebugModeEnabled, toggleDebugPanel]);
 
     useThemePreference();
 
@@ -331,38 +319,23 @@ const InterviewerContent = () => {
      * Stores request/response data for debug inspection.
      */
     const handleTestEvaluation = useCallback(async () => {
+        logger.info("🧪 [TEST_EVAL] === Test Evaluation Button Clicked ===");
+        logger.info("[TEST_EVAL] Session ID:", interviewSessionId);
+        logger.info("[TEST_EVAL] Interview script present:", !!interviewScript);
+        logger.info("[TEST_EVAL] Current code length:", state.currentCode.length);
+        
         if (!interviewSessionId || !interviewScript) {
-            logger.warn("Cannot test evaluation: missing session or script");
+            logger.warn("⚠️ [TEST_EVAL] Cannot test evaluation: missing session or script");
             return;
         }
 
-        logger.info("Testing OpenAI evaluation...");
+        logger.info("🚀 [TEST_EVAL] Starting OpenAI evaluation tests...");
         setIsEvaluationLoading(true);
         const debugData: any = { timestamp: Date.now() };
 
         try {
-            // Test gaps generation
-            const gapsRequest = {
-                sessionId: interviewSessionId,
-                finalCode: state.currentCode,
-                codingTask: interviewScript.codingPrompt,
-                expectedSolution: interviewScript.codingAnswer,
-            };
-            debugData.gapsRequest = gapsRequest;
-
-            const gapsResponse = await fetch("/api/interviews/generate-coding-gaps", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(gapsRequest),
-            });
-
-            debugData.gapsResponse = {
-                status: gapsResponse.status,
-                statusText: gapsResponse.statusText,
-                data: gapsResponse.ok ? await gapsResponse.json() : await gapsResponse.text(),
-            };
-
             // Test summary generation
+            logger.info("[TEST_EVAL] 📝 Preparing summary generation request...");
             const summaryRequest = {
                 sessionId: interviewSessionId,
                 finalCode: state.currentCode,
@@ -370,7 +343,13 @@ const InterviewerContent = () => {
                 expectedSolution: interviewScript.codingAnswer,
             };
             debugData.summaryRequest = summaryRequest;
+            logger.info("[TEST_EVAL] Summary request:", {
+                sessionId: interviewSessionId,
+                finalCodeLength: state.currentCode.length,
+                codingTaskLength: interviewScript.codingPrompt.length,
+            });
 
+            logger.info("[TEST_EVAL] 🔄 Calling /api/interviews/generate-coding-summary...");
             const summaryResponse = await fetch("/api/interviews/generate-coding-summary", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -382,22 +361,81 @@ const InterviewerContent = () => {
                 statusText: summaryResponse.statusText,
                 data: summaryResponse.ok ? await summaryResponse.json() : await summaryResponse.text(),
             };
+            logger.info("[TEST_EVAL] ✅ Summary response:", {
+                status: summaryResponse.status,
+                ok: summaryResponse.ok,
+                dataPreview: JSON.stringify(debugData.summaryResponse.data).substring(0, 200),
+            });
+
+            // Fetch iterations
+            logger.info("[TEST_EVAL] 📝 Fetching iterations...");
+            const iterationsUrl = isDemoMode
+                ? `/api/interviews/session/${interviewSessionId}/iterations?skip-auth=true`
+                : `/api/interviews/session/${interviewSessionId}/iterations`;
+            
+            const iterationsResponse = await fetch(iterationsUrl);
+            if (iterationsResponse.ok) {
+                const iterationsData = await iterationsResponse.json();
+                // API returns iterations as a direct array, not wrapped in an object
+                debugData.iterations = Array.isArray(iterationsData) ? iterationsData : [];
+                logger.info("[TEST_EVAL] ✅ Iterations fetched:", {
+                    count: debugData.iterations.length,
+                    data: debugData.iterations,
+                });
+            } else {
+                logger.error("[TEST_EVAL] ❌ Failed to fetch iterations:", iterationsResponse.status);
+                debugData.iterations = [];
+            }
+
+            // Fetch debug loops
+            logger.info("[TEST_EVAL] 📝 Fetching debug loops...");
+            const debugLoopsUrl = isDemoMode
+                ? `/api/interviews/session/${interviewSessionId}/debug-loops?skip-auth=true`
+                : `/api/interviews/session/${interviewSessionId}/debug-loops`;
+            
+            const debugLoopsResponse = await fetch(debugLoopsUrl);
+            if (debugLoopsResponse.ok) {
+                const debugLoopsData = await debugLoopsResponse.json();
+                debugData.debugLoops = debugLoopsData.debugLoops || [];
+                logger.info("[TEST_EVAL] ✅ Debug loops fetched:", {
+                    count: debugData.debugLoops.length,
+                    data: debugData.debugLoops,
+                });
+            } else {
+                logger.error("[TEST_EVAL] ❌ Failed to fetch debug loops:", debugLoopsResponse.status);
+                debugData.debugLoops = [];
+            }
 
             setEvaluationDebugData(debugData);
-            logger.info("✅ Test evaluation complete", debugData);
+            logger.info("✅ [TEST_EVAL] Test evaluation complete - all data:", debugData);
+            logger.info("[TEST_EVAL] 📊 Debug panel should now display:", {
+                hasSummaryData: !!debugData.summaryResponse,
+                hasIterations: !!debugData.iterations,
+                hasDebugLoops: !!debugData.debugLoops,
+                summaryStatus: debugData.summaryResponse?.status,
+            });
             
             // Auto-open debug panel if not visible
             if (!isDebugVisible && isDebugModeEnabled) {
                 setIsDebugVisible(true);
+                logger.info("[TEST_EVAL] Debug panel auto-opened");
+            } else {
+                logger.info("[TEST_EVAL] Debug panel already visible or debug mode disabled");
             }
         } catch (error) {
-            logger.error("❌ Test evaluation failed:", error);
+            logger.error("❌ [TEST_EVAL] Test evaluation failed:", error);
             debugData.error = error instanceof Error ? error.message : String(error);
             setEvaluationDebugData(debugData);
         } finally {
             setIsEvaluationLoading(false);
+            logger.info("[TEST_EVAL] Loading state set to false");
         }
-    }, [interviewSessionId, interviewScript, state.currentCode, isDebugVisible, isDebugModeEnabled]);
+    }, [interviewSessionId, interviewScript, state.currentCode, isDebugVisible, isDebugModeEnabled, setIsDebugVisible, setEvaluationDebugData, setIsEvaluationLoading, isDemoMode, demoUserId]);
+
+    // Notify parent of handleTestEvaluation when it changes
+    useEffect(() => {
+        onTestEvaluationReady(handleTestEvaluation);
+    }, [handleTestEvaluation, onTestEvaluationReady]);
 
     /**
      * Submits the current solution, stops recording, exits coding mode, and stops the timer.
@@ -764,13 +802,24 @@ const InterviewerContent = () => {
      */
     const handleExecutionResult = useCallback(
         async (result: { status: "success" | "error"; output: string }) => {
+            logger.info("🔔 [ITERATION] === handleExecutionResult CALLED ===");
+            logger.info("[ITERATION] Result:", {
+                status: result.status,
+                outputLength: result.output.length,
+                outputPreview: result.output.substring(0, 150),
+            });
+            logger.info("[ITERATION] Session ID:", interviewSessionId);
+            logger.info("[ITERATION] Expected output:", interviewScript?.expectedOutput);
+            logger.info("[ITERATION] Consecutive errors:", consecutiveErrors);
+            logger.info("[ITERATION] Debug loop start time:", debugLoopStartTime);
+            
             if (!interviewSessionId || !interviewScript?.expectedOutput) {
-                logger.info("Skipping iteration tracking - missing session ID or expected output");
+                logger.info("⚠️ [ITERATION] Skipping iteration tracking - missing session ID or expected output");
                 return;
             }
 
             try {
-                logger.info("📊 Iteration tracked - evaluating output");
+                logger.info("📊 [ITERATION] Starting iteration tracking - evaluating output");
 
                 // Get current code snapshot
                 const codeSnapshot = state.currentCode;
@@ -793,7 +842,7 @@ const InterviewerContent = () => {
                 }
 
                 const evaluation = await evalResponse.json();
-                logger.info("✅ Evaluation result:", evaluation);
+                logger.info("✅ [ITERATION] Evaluation result:", evaluation);
 
                 // Save iteration to DB (all iterations are evidence-worthy)
                 const url = isDemoMode
@@ -815,17 +864,31 @@ const InterviewerContent = () => {
                     body.userId = demoUserId;
                 }
 
+                logger.info("💾 [ITERATION] Saving to DB:", {
+                    url,
+                    timestamp: body.timestamp,
+                    codeLength: codeSnapshot.length,
+                    actualOutputLength: result.output.length,
+                    evaluation: body.evaluation,
+                    matchPercentage: body.matchPercentage,
+                    caption: body.caption,
+                });
+
                 const saveResponse = await fetch(url, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(body),
                 });
 
+                logger.info("[ITERATION] Save response status:", saveResponse.status);
+                
                 if (saveResponse.ok) {
-                    logger.info("✅ Iteration saved to DB");
+                    const savedData = await saveResponse.json();
+                    logger.info("✅ [ITERATION] Iteration saved to DB:", savedData);
                     setLastEvaluation(evaluation.evaluation);
                 } else {
-                    logger.error("Failed to save iteration");
+                    const errorText = await saveResponse.text();
+                    logger.error("❌ [ITERATION] Failed to save iteration:", errorText);
                 }
                 
                 // Track debug loops
@@ -900,11 +963,18 @@ const InterviewerContent = () => {
      * Switches to the preview tab, adding it if not present.
      */
     const handleRunCode = useCallback(() => {
+        logger.info("🏃 [ITERATION] Run Code button clicked");
+        logger.info("[ITERATION] Current code length:", state.currentCode.length);
+        logger.info("[ITERATION] Active tab:", activeTab);
+        logger.info("[ITERATION] Available tabs:", availableTabs);
+        
         if (!availableTabs.includes("preview")) {
             setAvailableTabs((tabs) => [...tabs, "preview"]);
+            logger.info("[ITERATION] Added preview tab to available tabs");
         }
         setActiveTab("preview");
-    }, [availableTabs]);
+        logger.info("[ITERATION] Switched to preview tab - code will execute");
+    }, [availableTabs, activeTab, state.currentCode]);
 
     /**
      * Switches between editor and preview tabs if the tab exists.
@@ -954,7 +1024,6 @@ const InterviewerContent = () => {
                             isInterviewActive={Boolean(isInterviewActive)}
                             onStartCoding={handleStartCoding}
                             onSubmit={handleSubmit}
-                            onTestEvaluation={isDebugModeEnabled ? handleTestEvaluation : undefined}
                             isDebugModeEnabled={isDebugModeEnabled}
                             isDebugVisible={isDebugVisible}
                             onToggleDebug={toggleDebugPanel}
@@ -968,25 +1037,6 @@ const InterviewerContent = () => {
                 <PanelGroup direction="horizontal">
                     <Panel defaultSize={70} minSize={50}>
                         <div className="h-full border-r bg-white border-light-gray dark:bg-gray-800 dark:border-gray-700 relative">
-                            {/* Debug Panel - full screen modal */}
-                            {isDebugVisible && isDebugModeEnabled && (
-                                <div 
-                                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm"
-                                    onClick={toggleDebugPanel}
-                                >
-                                    <div 
-                                        className="w-full h-full max-w-7xl mx-auto p-8 flex items-center justify-center"
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        <CodingEvaluationDebugPanel 
-                                            evaluationData={evaluationDebugData} 
-                                            isLoading={isEvaluationLoading}
-                                            onClose={toggleDebugPanel}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-                            
                             <EditorPanel
                                 currentCode={state.currentCode}
                                 onCodeChange={handleCodeChange}
@@ -1096,12 +1146,71 @@ const InterviewerContent = () => {
 };
 
 /**
+ * Wrapper component that renders both the main content and debug panel
+ */
+const InterviewIDEWithDebug = () => {
+    const isDebugModeEnabled = process.env.NEXT_PUBLIC_DEBUG_MODE === "true";
+    const debugPanelVisibleEnv = process.env.NEXT_PUBLIC_DEBUG_PANEL_VISIBLE;
+    const [isDebugVisible, setIsDebugVisible] = useState(() => {
+        if (!isDebugModeEnabled) return false;
+        if (debugPanelVisibleEnv === "true") return true;
+        if (debugPanelVisibleEnv === "false") return false;
+        return true;
+    });
+    const [evaluationDebugData, setEvaluationDebugData] = useState<any>(null);
+    const [isEvaluationLoading, setIsEvaluationLoading] = useState(false);
+    const [testEvaluationCallback, setTestEvaluationCallback] = useState<(() => void) | null>(null);
+    
+    const toggleDebugPanel = useCallback(() => {
+        if (!isDebugModeEnabled) return;
+        setIsDebugVisible((prev) => !prev);
+    }, [isDebugModeEnabled]);
+    
+    const onTestEvaluationReady = useCallback((callback: () => void) => {
+        setTestEvaluationCallback(() => callback);
+    }, []);
+    
+    const onTestEvaluation = useCallback(() => {
+        if (testEvaluationCallback) {
+            testEvaluationCallback();
+        }
+    }, [testEvaluationCallback]);
+    
+    return (
+        <div>
+            <InterviewerContent 
+                isDebugVisible={isDebugVisible}
+                setIsDebugVisible={setIsDebugVisible}
+                evaluationDebugData={evaluationDebugData}
+                setEvaluationDebugData={setEvaluationDebugData}
+                isEvaluationLoading={isEvaluationLoading}
+                setIsEvaluationLoading={setIsEvaluationLoading}
+                toggleDebugPanel={toggleDebugPanel}
+                isDebugModeEnabled={isDebugModeEnabled}
+                onTestEvaluationReady={onTestEvaluationReady}
+            />
+            
+            {/* Debug Panel - below IDE in document flow, scroll down to see it */}
+            {isDebugVisible && isDebugModeEnabled && (
+                <div className="w-full p-4">
+                    <CodingEvaluationDebugPanel 
+                        evaluationData={evaluationDebugData} 
+                        isLoading={isEvaluationLoading}
+                        onTestEvaluation={onTestEvaluation}
+                    />
+                </div>
+            )}
+        </div>
+    );
+};
+
+/**
  * Root wrapper that provides interview context and renders the main content.
  */
 const InterviewIDE = () => {
     return (
         <InterviewProvider>
-            <InterviewerContent />
+            <InterviewIDEWithDebug />
         </InterviewProvider>
     );
 };

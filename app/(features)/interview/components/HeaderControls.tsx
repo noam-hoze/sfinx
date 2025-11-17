@@ -14,7 +14,6 @@ interface HeaderControlsProps {
     isInterviewActive: boolean;
     onStartCoding: () => void;
     onSubmit: () => void;
-    onTestEvaluation?: () => void;
     isDebugModeEnabled: boolean;
     isDebugVisible: boolean;
     onToggleDebug: () => void;
@@ -32,7 +31,6 @@ const HeaderControls: React.FC<HeaderControlsProps> = ({
     isInterviewActive,
     onStartCoding,
     onSubmit,
-    onTestEvaluation,
     isDebugModeEnabled,
     isDebugVisible,
     onToggleDebug,
@@ -45,14 +43,12 @@ const HeaderControls: React.FC<HeaderControlsProps> = ({
             {isDebugModeEnabled && (
                 <button
                     onClick={onToggleDebug}
-                    className={`px-3 py-2 rounded-full text-sm font-medium tracking-wide transition-all duration-300 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 ${
-                        isDebugVisible
-                            ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-                            : "bg-gray-50 text-gray-700 hover:bg-gray-100 dark:bg-gray-800/60 dark:text-gray-200 dark:hover:bg-gray-700"
-                    }`}
-                    title={isDebugVisible ? "Hide debug panel" : "Show debug panel"}
+                    className="rounded-full bg-purple-600 p-3 text-white shadow-lg hover:bg-purple-700 transition-colors flex-shrink-0"
+                    title={isDebugVisible ? "Hide Debug Panel" : "Show Debug Panel"}
                 >
-                    Debug
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                    </svg>
                 </button>
             )}
             {/* Camera toggle */}
@@ -83,22 +79,6 @@ const HeaderControls: React.FC<HeaderControlsProps> = ({
                 >
                     {formatTime(timeLeft)}
                 </div>
-            )}
-
-            {/* Test Evaluation Button */}
-            {(isCodingStarted || hasSubmitted) && onTestEvaluation && (
-                <button
-                    onClick={onTestEvaluation}
-                    disabled={!isInterviewActive && !isCodingStarted}
-                    className={`px-4 py-2 text-sm font-medium rounded-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-sm bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/10 dark:text-blue-400 dark:hover:bg-blue-900/20 ${
-                        (!isInterviewActive && !isCodingStarted)
-                            ? "opacity-50 cursor-not-allowed"
-                            : ""
-                    }`}
-                    title="Test OpenAI evaluation (debug only)"
-                >
-                    Test Evaluation
-                </button>
             )}
 
             {/* Coding Control Button */}

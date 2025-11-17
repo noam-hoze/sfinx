@@ -72,6 +72,7 @@ export type InterviewChatState = {
             currentQuestion?: string;
             evaluationReasoning?: string;
             evaluationCaption?: string;
+            accountabilityScore?: number; // 0-100
         };
     };
 };
@@ -125,6 +126,7 @@ type Action =
               currentQuestion?: string;
               evaluationReasoning?: string;
               evaluationCaption?: string;
+              accountabilityScore?: number;
           };
       }
     | { type: "CODING_CLEAR_PASTE_EVAL" };
@@ -281,6 +283,7 @@ function reducer(
                         confidence: 0,
                         answerCount: 0, // Start at 0 - no user answers yet
                         readyToEvaluate: false,
+                        accountabilityScore: 0, // Default to 0 until evaluation completes
                     },
                 },
             };
@@ -300,6 +303,7 @@ function reducer(
                         userAnswerTimestamp: action.payload.userAnswerTimestamp ?? state.coding.activePasteEvaluation.userAnswerTimestamp,
                         evaluationReasoning: action.payload.evaluationReasoning,
                         evaluationCaption: action.payload.evaluationCaption,
+                        accountabilityScore: action.payload.accountabilityScore ?? state.coding.activePasteEvaluation.accountabilityScore,
                     },
                 },
             };

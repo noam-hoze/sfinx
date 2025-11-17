@@ -57,6 +57,11 @@ render(DefaultComponent);
 
     useEffect(() => {
         if (isActive && code) {
+            console.log("🎬 [CodePreview] Code execution starting...");
+            console.log("[CodePreview] Active:", isActive);
+            console.log("[CodePreview] Code length:", code.length);
+            console.log("[CodePreview] Code preview:", code.substring(0, 150));
+            
             setIsExecuting(true);
             setExecutionStatus("idle");
             setErrorMessage("");
@@ -64,6 +69,7 @@ render(DefaultComponent);
             // Simulate execution delay and capture output
             const timer = setTimeout(() => {
                 setIsExecuting(false);
+                console.log("[CodePreview] Execution timer completed, capturing output...");
                 
                 // Try to capture rendered output
                 try {
@@ -75,6 +81,8 @@ render(DefaultComponent);
                         output = previewElement.innerText || previewElement.textContent || "";
                     }
                     
+                    console.log("[CodePreview] Preview element found:", !!previewElement);
+                    console.log("[CodePreview] Captured output length:", output.length);
                     console.log("[CodePreview] Captured output:", output);
                     console.log("[CodePreview] Error message state:", errorMessage);
                     
@@ -94,6 +102,11 @@ render(DefaultComponent);
                         const errorOutput = errorMessage || output;
                         setErrorMessage(errorOutput);
                         setExecutionStatus("error");
+                        console.log("❌ [CodePreview] Calling onExecutionResult with ERROR:", {
+                            status: "error",
+                            outputLength: errorOutput.trim().length,
+                            outputPreview: errorOutput.trim().substring(0, 100),
+                        });
                         onExecutionResult?.({
                             status: "error",
                             output: errorOutput.trim(),
@@ -105,6 +118,11 @@ render(DefaultComponent);
                         }
                         
                         setExecutionStatus("success");
+                        console.log("✅ [CodePreview] Calling onExecutionResult with SUCCESS:", {
+                            status: "success",
+                            outputLength: output.trim().length,
+                            outputPreview: output.trim().substring(0, 100),
+                        });
                         onExecutionResult?.({
                             status: "success",
                             output: output.trim(),
