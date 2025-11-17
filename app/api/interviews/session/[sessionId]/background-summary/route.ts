@@ -74,18 +74,22 @@ export async function GET(request: NextRequest, context: RouteContext) {
             summary: {
                 id: summary.id,
                 executiveSummary: summary.executiveSummary,
+                executiveSummaryOneLiner: summary.executiveSummaryOneLiner,
                 recommendation: summary.recommendation,
                 adaptability: {
                     score: summary.adaptabilityScore,
                     text: summary.adaptabilityText,
+                    oneLiner: summary.adaptabilityOneLiner,
                 },
                 creativity: {
                     score: summary.creativityScore,
                     text: summary.creativityText,
+                    oneLiner: summary.creativityOneLiner,
                 },
                 reasoning: {
                     score: summary.reasoningScore,
                     text: summary.reasoningText,
+                    oneLiner: summary.reasoningOneLiner,
                 },
                 conversationJson: summary.conversationJson,
                 evidenceJson: summary.evidenceJson,
@@ -330,13 +334,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
             data: {
                 telemetryDataId: interviewSession.telemetryData.id,
                 executiveSummary: summaryData.executiveSummary,
+                executiveSummaryOneLiner: summaryData.executiveSummaryOneLiner,
                 recommendation: summaryData.recommendation,
                 adaptabilityScore: summaryData.adaptability.score,
                 adaptabilityText: summaryData.adaptability.assessment,
+                adaptabilityOneLiner: summaryData.adaptability.oneLiner,
                 creativityScore: summaryData.creativity.score,
                 creativityText: summaryData.creativity.assessment,
+                creativityOneLiner: summaryData.creativity.oneLiner,
                 reasoningScore: summaryData.reasoning.score,
                 reasoningText: summaryData.reasoning.assessment,
+                reasoningOneLiner: summaryData.reasoning.oneLiner,
                 conversationJson: messages.map((m) => ({
                     speaker: m.speaker,
                     text: m.text,

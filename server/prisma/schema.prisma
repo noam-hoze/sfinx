@@ -316,22 +316,26 @@ model ConversationMessage {
 }
 
 model BackgroundSummary {
-  id                String        @id @default(cuid())
-  telemetryDataId   String        @unique
-  executiveSummary  String
-  recommendation    String?
-  adaptabilityScore Int
-  adaptabilityText  String
-  creativityScore   Int
-  creativityText    String
-  reasoningScore    Int
-  reasoningText     String
-  conversationJson  Json
-  evidenceJson      Json
-  generatedAt       DateTime      @default(now())
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
-  telemetryData     TelemetryData @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
+  id                        String        @id @default(cuid())
+  telemetryDataId           String        @unique
+  executiveSummary          String
+  executiveSummaryOneLiner  String?
+  recommendation            String?
+  adaptabilityScore         Int
+  adaptabilityText          String
+  adaptabilityOneLiner      String?
+  creativityScore           Int
+  creativityText            String
+  creativityOneLiner        String?
+  reasoningScore            Int
+  reasoningText             String
+  reasoningOneLiner         String?
+  conversationJson          Json
+  evidenceJson              Json
+  generatedAt               DateTime      @default(now())
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
+  telemetryData             TelemetryData @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
 }
 
 model CodingSummary {

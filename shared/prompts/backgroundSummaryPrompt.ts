@@ -31,10 +31,12 @@ export interface SummaryInput {
 
 export interface SummaryOutput {
     executiveSummary: string;
+    executiveSummaryOneLiner: string;
     recommendation: string;
     adaptability: {
         score: number;
         assessment: string;
+        oneLiner: string;
         evidence: Array<{
             question: string;
             answerExcerpt: string;
@@ -44,6 +46,7 @@ export interface SummaryOutput {
     creativity: {
         score: number;
         assessment: string;
+        oneLiner: string;
         evidence: Array<{
             question: string;
             answerExcerpt: string;
@@ -53,6 +56,7 @@ export interface SummaryOutput {
     reasoning: {
         score: number;
         assessment: string;
+        oneLiner: string;
         evidence: Array<{
             question: string;
             answerExcerpt: string;
@@ -89,10 +93,12 @@ Return a JSON object with this exact structure:
 
 {
   "executiveSummary": "2-3 paragraph overview of the candidate's overall performance, key strengths, and any concerns. Written for busy executives.",
+  "executiveSummaryOneLiner": "Single sentence (15-25 words) capturing the most critical insight from the executive summary.",
   "recommendation": "Clear recommendation: 'Strong Hire', 'Hire', 'Maybe', or 'No Hire' with 1 sentence rationale",
   "adaptability": {
     "score": ${scores.adaptability},
     "assessment": "2-3 paragraph detailed assessment of the candidate's adaptability. Explain what the score means in practical terms for the role.",
+    "oneLiner": "Single sentence (15-25 words) capturing the key finding about adaptability.",
     "evidence": [
       {
         "question": "The exact question the interviewer asked",
@@ -104,11 +110,13 @@ Return a JSON object with this exact structure:
   "creativity": {
     "score": ${scores.creativity},
     "assessment": "2-3 paragraph detailed assessment of the candidate's creativity.",
+    "oneLiner": "Single sentence (15-25 words) capturing the key finding about creativity.",
     "evidence": [similar structure]
   },
   "reasoning": {
     "score": ${scores.reasoning},
     "assessment": "2-3 paragraph detailed assessment of the candidate's reasoning ability.",
+    "oneLiner": "Single sentence (15-25 words) capturing the key finding about reasoning.",
     "evidence": [similar structure]
   }
 }

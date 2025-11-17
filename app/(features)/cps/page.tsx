@@ -9,9 +9,9 @@ import CollapsibleSection from "./components/CollapsibleSection";
 import ExperienceModal from "./components/ExperienceModal";
 import CodingModal from "./components/CodingModal";
 import WorkstyleDashboard from "./components/WorkstyleDashboard";
-import GapAnalysis from "./components/GapAnalysis";
 import ScoreBreakdownChart from "./components/ScoreBreakdownChart";
 import CPSDebugPanel from "./components/CPSDebugPanel";
+import ExperienceMetrics from "./components/ExperienceMetrics";
 import { AuthGuard } from "app/shared/components";
 import { log } from "app/shared/services";
 import { calculateScore, type ScoringConfiguration, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
@@ -519,22 +519,21 @@ function TelemetryContent() {
                             >
                                 {summaryLoading ? (
                                     <p className="text-sm text-gray-600">Loading...</p>
-                                ) : backgroundSummary ? (
-                                    <div className="space-y-3">
-                                        <p className="text-sm text-gray-700 leading-relaxed">
-                                            {backgroundSummary.executiveSummary}
-                                        </p>
-                                <button
-                                            onClick={() => setExperienceModalOpen(true)}
-                                            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                                        >
-                                            Read more
-                                </button>
-                            </div>
                                 ) : (
-                                    <p className="text-sm text-gray-600">
-                                        No experience summary available
-                                    </p>
+                                    <div className="space-y-3">
+                                        <ExperienceMetrics
+                                            backgroundSummary={backgroundSummary}
+                                            onVideoJump={onVideoJump}
+                                        />
+                                        {backgroundSummary && (
+                                            <button
+                                                onClick={() => setExperienceModalOpen(true)}
+                                                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                            >
+                                                Read more
+                                            </button>
+                                        )}
+                                    </div>
                                 )}
                             </CollapsibleSection>
                             
@@ -550,14 +549,6 @@ function TelemetryContent() {
                                         workstyle={workstyle}
                                         onVideoJump={onVideoJump}
                                     />
-                                )}
-                                {gaps && (
-                                    <div className="mt-3">
-                                        <GapAnalysis
-                                            gaps={gaps}
-                                            onVideoJump={onVideoJump}
-                                        />
-                                    </div>
                                 )}
                                 {codingSummary && (
                                     <button
