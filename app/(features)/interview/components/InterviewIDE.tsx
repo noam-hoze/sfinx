@@ -16,6 +16,7 @@ import InterviewOverlay from "./InterviewOverlay";
 import CameraPreview from "./CameraPreview";
 import HeaderControls from "./HeaderControls";
 import RightPanel from "./RightPanel";
+import CodingEvaluationDebugPanel from "./debug/CodingEvaluationDebugPanel";
 import {
     InterviewProvider,
     useInterview,
@@ -143,6 +144,16 @@ const InterviewerContent = () => {
     // Store interview script data for iteration tracking
     const [interviewScript, setInterviewScript] = useState<any>(null);
     const [lastEvaluation, setLastEvaluation] = useState<string | null>(null);
+    
+    // Store evaluation debug data
+    const [evaluationDebugData, setEvaluationDebugData] = useState<{
+        gapsRequest?: any;
+        gapsResponse?: any;
+        summaryRequest?: any;
+        summaryResponse?: any;
+        timestamp?: number;
+    } | null>(null);
+    const [isEvaluationLoading, setIsEvaluationLoading] = useState(false);
 
     const realTimeConversationRef = useRef<any>(null);
     const automaticMode = process.env.NEXT_PUBLIC_AUTOMATIC_MODE === "true";
@@ -169,6 +180,17 @@ const InterviewerContent = () => {
         if (!isDebugModeEnabled) return;
         setIsDebugVisible((prev) => !prev);
     }, [isDebugModeEnabled]);
+
+    // Close debug panel on Escape key
+    useEffect(() => {
+        const handleEscape = (e: KeyboardEvent) => {
+            if (e.key === "Escape" && isDebugVisible && isDebugModeEnabled) {
+                toggleDebugPanel();
+            }
+        };
+        window.addEventListener("keydown", handleEscape);
+        return () => window.removeEventListener("keydown", handleEscape);
+    }, [isDebugVisible, isDebugModeEnabled, toggleDebugPanel]);
 
     useThemePreference();
 
@@ -303,6 +325,79 @@ const InterviewerContent = () => {
         },
         []
     );
+
+    /**
+     * Tests OpenAI evaluation without submitting the interview.
+     * Stores request/response data for debug inspection.
+     */
+    const handleTestEvaluation = useCallback(async () => {
+        if (!interviewSessionId || !interviewScript) {
+            logger.warn("Cannot test evaluation: missing session or script");
+            return;
+        }
+
+        logger.info("Testing OpenAI evaluation...");
+        setIsEvaluationLoading(true);
+        const debugData: any = { timestamp: Date.now() };
+
+        try {
+            // Test gaps generation
+            const gapsRequest = {
+                sessionId: interviewSessionId,
+                finalCode: state.currentCode,
+                codingTask: interviewScript.codingPrompt,
+                expectedSolution: interviewScript.codingAnswer,
+            };
+            debugData.gapsRequest = gapsRequest;
+
+            const gapsResponse = await fetch("/api/interviews/generate-coding-gaps", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(gapsRequest),
+            });
+
+            debugData.gapsResponse = {
+                status: gapsResponse.status,
+                statusText: gapsResponse.statusText,
+                data: gapsResponse.ok ? await gapsResponse.json() : await gapsResponse.text(),
+            };
+
+            // Test summary generation
+            const summaryRequest = {
+                sessionId: interviewSessionId,
+                finalCode: state.currentCode,
+                codingTask: interviewScript.codingPrompt,
+                expectedSolution: interviewScript.codingAnswer,
+            };
+            debugData.summaryRequest = summaryRequest;
+
+            const summaryResponse = await fetch("/api/interviews/generate-coding-summary", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(summaryRequest),
+            });
+
+            debugData.summaryResponse = {
+                status: summaryResponse.status,
+                statusText: summaryResponse.statusText,
+                data: summaryResponse.ok ? await summaryResponse.json() : await summaryResponse.text(),
+            };
+
+            setEvaluationDebugData(debugData);
+            logger.info("✅ Test evaluation complete", debugData);
+            
+            // Auto-open debug panel if not visible
+            if (!isDebugVisible && isDebugModeEnabled) {
+                setIsDebugVisible(true);
+            }
+        } catch (error) {
+            logger.error("❌ Test evaluation failed:", error);
+            debugData.error = error instanceof Error ? error.message : String(error);
+            setEvaluationDebugData(debugData);
+        } finally {
+            setIsEvaluationLoading(false);
+        }
+    }, [interviewSessionId, interviewScript, state.currentCode, isDebugVisible, isDebugModeEnabled]);
 
     /**
      * Submits the current solution, stops recording, exits coding mode, and stops the timer.
@@ -859,6 +954,7 @@ const InterviewerContent = () => {
                             isInterviewActive={Boolean(isInterviewActive)}
                             onStartCoding={handleStartCoding}
                             onSubmit={handleSubmit}
+                            onTestEvaluation={isDebugModeEnabled ? handleTestEvaluation : undefined}
                             isDebugModeEnabled={isDebugModeEnabled}
                             isDebugVisible={isDebugVisible}
                             onToggleDebug={toggleDebugPanel}
@@ -872,6 +968,25 @@ const InterviewerContent = () => {
                 <PanelGroup direction="horizontal">
                     <Panel defaultSize={70} minSize={50}>
                         <div className="h-full border-r bg-white border-light-gray dark:bg-gray-800 dark:border-gray-700 relative">
+                            {/* Debug Panel - full screen modal */}
+                            {isDebugVisible && isDebugModeEnabled && (
+                                <div 
+                                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm"
+                                    onClick={toggleDebugPanel}
+                                >
+                                    <div 
+                                        className="w-full h-full max-w-7xl mx-auto p-8 flex items-center justify-center"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <CodingEvaluationDebugPanel 
+                                            evaluationData={evaluationDebugData} 
+                                            isLoading={isEvaluationLoading}
+                                            onClose={toggleDebugPanel}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                            
                             <EditorPanel
                                 currentCode={state.currentCode}
                                 onCodeChange={handleCodeChange}

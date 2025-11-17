@@ -11,10 +11,6 @@ interface CodingSummary {
         score: number;
         text: string;
     };
-    independence?: {
-        score: number;
-        text: string;
-    };
 }
 
 interface WorkstyleDashboardProps {
@@ -86,13 +82,6 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                 label="Code Quality"
                 description="Adherence to best practices and maintainable code"
                 value={codingSummary?.codeQuality?.score ?? 0}
-                benchmarkLow={0}
-                benchmarkHigh={100}
-            />
-            <MetricRow
-                label="Independence"
-                description="Self-sufficiency and autonomous problem resolution"
-                value={codingSummary?.independence?.score ?? 0}
                 benchmarkLow={0}
                 benchmarkHigh={100}
             />

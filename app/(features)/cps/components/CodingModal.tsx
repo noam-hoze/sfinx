@@ -15,10 +15,6 @@ interface CodingModalProps {
         score: number;
         text: string;
     };
-    independence: {
-        score: number;
-        text: string;
-    };
 }
 
 export default function CodingModal({
@@ -28,7 +24,6 @@ export default function CodingModal({
     recommendation,
     codeQuality,
     problemSolving,
-    independence,
 }: CodingModalProps) {
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Coding Summary">
@@ -37,7 +32,6 @@ export default function CodingModal({
                 recommendation={recommendation}
                 codeQuality={codeQuality}
                 problemSolving={problemSolving}
-                independence={independence}
             />
         </Modal>
     );

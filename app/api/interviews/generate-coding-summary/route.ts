@@ -110,10 +110,9 @@ export async function POST(request: NextRequest) {
         // OpenAI prompt for summary generation
         const systemPrompt = `You are a technical interviewer analyzing a candidate's coding session performance.
 
-Based on the candidate's coding session data, provide a comprehensive summary with scores across three dimensions:
+Based on the candidate's coding session data, provide a comprehensive summary with scores across two dimensions:
 1. Code Quality (structure, best practices, readability)
 2. Problem Solving (approach, iterations, debugging)
-3. Independence (self-sufficiency vs external tool reliance)
 
 Return a JSON response with this exact structure:
 {
@@ -126,18 +125,19 @@ Return a JSON response with this exact structure:
   "problemSolving": {
     "score": 0-100,
     "text": "string (analysis of problem-solving approach, iterations, and debugging)"
-  },
-  "independence": {
-    "score": 0-100,
-    "text": "string (assessment of self-sufficiency vs external tool reliance)"
   }
 }
 
-Guidelines:
-- Executive summary should be narrative and specific to this candidate's performance
-- Scores should reflect observed behavior (0-100 scale)
-- Text assessments should be detailed and reference specific patterns from the metrics
-- Recommendation should be based on overall performance across all dimensions`;
+CRITICAL SCORING GUIDELINES:
+- **ALWAYS examine the final code carefully** - if it contains ONLY comments, boilerplate, or no functional implementation, scores MUST be 0 or very low
+- **Code Quality score = 0** if there is no actual working code, only comments/structure/placeholders
+- **Problem Solving score = 0** if there were no iterations, no attempts to solve the problem, or no functional code produced
+- If total iterations = 0 AND final code is empty/non-functional, ALL scores should be 0-10 maximum
+- A candidate who writes nothing should NOT receive scores above 10 in any category
+- "Not doing anything" is NOT the same as "doing something well"
+- Be harsh but fair - empty submissions deserve empty scores
+- Recommendation should be "NO HIRE" if no meaningful code was produced
+- Executive summary should explicitly state when no functional implementation was delivered`;
 
         const userPrompt = `Analyze this coding session:
 
@@ -213,8 +213,8 @@ Provide a comprehensive summary and scores for this candidate's coding performan
                 codeQualityText: parsed.codeQuality.text,
                 problemSolvingScore: parsed.problemSolving.score,
                 problemSolvingText: parsed.problemSolving.text,
-                independenceScore: parsed.independence.score,
-                independenceText: parsed.independence.text,
+                independenceScore: 0,
+                independenceText: "Independence metric removed from evaluation",
             },
         });
 

@@ -12,7 +12,6 @@ interface CodingSummaryOverlayProps {
     recommendation?: string;
     codeQuality: MetricSummary;
     problemSolving: MetricSummary;
-    independence: MetricSummary;
 }
 
 const getScoreColor = (score: number): string => {
@@ -34,17 +33,15 @@ const CodingSummaryOverlay: React.FC<CodingSummaryOverlayProps> = ({
     recommendation,
     codeQuality,
     problemSolving,
-    independence,
 }) => {
     const [currentSlide, setCurrentSlide] = useState(0);
 
     const metrics = [
         { name: "Code Quality", key: "codeQuality", data: codeQuality },
         { name: "Problem Solving", key: "problemSolving", data: problemSolving },
-        { name: "Independence", key: "independence", data: independence },
     ];
 
-    const totalSlides = 4; // 1 executive + 3 metrics
+    const totalSlides = 3; // 1 executive + 2 metrics
 
     const nextSlide = () => {
         setCurrentSlide((prev) => Math.min(prev + 1, totalSlides - 1));
@@ -127,7 +124,6 @@ const CodingSummaryOverlay: React.FC<CodingSummaryOverlayProps> = ({
                     {currentSlide === 0 && renderExecutiveSummary()}
                     {currentSlide === 1 && renderMetricSlide(metrics[0])}
                     {currentSlide === 2 && renderMetricSlide(metrics[1])}
-                    {currentSlide === 3 && renderMetricSlide(metrics[2])}
                 </div>
 
                 {/* Navigation Controls */}

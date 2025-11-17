@@ -10,7 +10,6 @@ export interface ScoringConfiguration {
     // Coding dimension weights
     codeQualityWeight: number;
     problemSolvingWeight: number;
-    independenceWeight: number;
     // Workstyle metric weights
     iterationSpeedWeight: number;
     debugLoopsWeight: number;
@@ -33,7 +32,6 @@ export interface RawScores {
     // Coding scores (0-100)
     codeQuality: number;
     problemSolving: number;
-    independence: number;
 }
 
 export interface WorkstyleMetrics {
@@ -156,11 +154,10 @@ export function calculateScore(
         (rawScores.reasoning * config.reasoningWeight)
     ) / totalExperienceWeight;
 
-    // Calculate coding score (weighted average of 3 coding dimensions + 3 workstyle metrics)
+    // Calculate coding score (weighted average of 2 coding dimensions + 3 workstyle metrics)
     const totalCodingWeight = 
         config.codeQualityWeight + 
         config.problemSolvingWeight + 
-        config.independenceWeight +
         config.iterationSpeedWeight +
         config.debugLoopsWeight +
         config.aiAssistWeight;
@@ -168,7 +165,6 @@ export function calculateScore(
     const codingScore = (
         (rawScores.codeQuality * config.codeQualityWeight) +
         (rawScores.problemSolving * config.problemSolvingWeight) +
-        (rawScores.independence * config.independenceWeight) +
         (normalizedIterationSpeed * config.iterationSpeedWeight) +
         (normalizedDebugLoops * config.debugLoopsWeight) +
         (normalizedAiAssist * config.aiAssistWeight)

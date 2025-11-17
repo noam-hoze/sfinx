@@ -123,12 +123,15 @@ Return a JSON response with this exact structure:
   ]
 }
 
-Guidelines:
-- Major gaps: Critical skill deficiencies (e.g., multiple failed attempts, heavy reliance on external tools with poor understanding, unable to debug effectively)
-- Minor gaps: Areas for improvement (e.g., slower than average, could benefit from better planning)
+CRITICAL GUIDELINES:
+- **ALWAYS examine the final code** - if it's empty, only comments, or non-functional, this is a MAJOR gap
+- **No implementation = Major Gap**: If the candidate submitted no functional code, this MUST be identified as "Complete Lack of Implementation" or "No Working Code Delivered"
+- Major gaps: Critical skill deficiencies (e.g., no code written, multiple failed attempts, heavy reliance on external tools with poor understanding, unable to debug effectively, no problem-solving attempts)
+- Minor gaps: Areas for improvement (e.g., slower than average, could benefit from better planning, suboptimal code structure)
 - Be specific and actionable
 - Focus on patterns, not isolated incidents
-- If performance is strong across all metrics, return an empty gaps array`;
+- If candidate wrote NO functional code, there should be at least one major gap describing this
+- If performance is strong across all metrics AND actual working code exists, return an empty gaps array`;
 
         const userPrompt = `Analyze this coding session:
 

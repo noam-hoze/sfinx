@@ -29,7 +29,6 @@ export default function CPSDebugPanel({
     const reasoning = backgroundSummary?.reasoning?.score ?? null;
     const codeQuality = codingSummary?.codeQuality?.score ?? null;
     const problemSolving = codingSummary?.problemSolving?.score ?? null;
-    const independence = codingSummary?.independence?.score ?? null;
 
     // Extract workstyle raw values
     const iterationSpeed = workstyle?.iterationSpeed?.value ?? null;
@@ -40,8 +39,8 @@ export default function CPSDebugPanel({
     const experienceAvg = adaptability !== null && creativity !== null && reasoning !== null
         ? Math.round((adaptability + creativity + reasoning) / 3)
         : null;
-    const codingAvg = codeQuality !== null && problemSolving !== null && independence !== null
-        ? Math.round((codeQuality + problemSolving + independence) / 3)
+    const codingAvg = codeQuality !== null && problemSolving !== null
+        ? Math.round((codeQuality + problemSolving) / 2)
         : null;
 
     return (
@@ -100,7 +99,6 @@ export default function CPSDebugPanel({
                         <div className="space-y-2 text-sm">
                             <ScoreRow label="Code Quality" value={codeQuality} />
                             <ScoreRow label="Problem Solving" value={problemSolving} />
-                            <ScoreRow label="Independence" value={independence} />
                         </div>
                     </div>
                 </div>
@@ -159,7 +157,6 @@ export default function CPSDebugPanel({
                                 <div className="space-y-1">
                                     <div>Code Quality: <span className="font-mono">{scoringConfig.codeQualityWeight}</span></div>
                                     <div>Problem Solving: <span className="font-mono">{scoringConfig.problemSolvingWeight}</span></div>
-                                    <div>Independence: <span className="font-mono">{scoringConfig.independenceWeight}</span></div>
                                 </div>
                             </div>
                             <div>

@@ -232,7 +232,6 @@ function TelemetryContent() {
                 reasoning: backgroundSummary.reasoning?.score ?? 0,
                 codeQuality: codingSummary.codeQuality?.score ?? 0,
                 problemSolving: codingSummary.problemSolving?.score ?? 0,
-                independence: codingSummary.independence?.score ?? 0,
             };
 
             const workstyleMetrics: WorkstyleMetrics = {
@@ -645,10 +644,6 @@ function TelemetryContent() {
                                                     problemSolving={{
                                                         score: codingSummary.problemSolving.score,
                                                         text: codingSummary.problemSolving.text,
-                                                    }}
-                                                    independence={{
-                                                        score: codingSummary.independence.score,
-                                                        text: codingSummary.independence.text,
                                                     }}
                                                 />
             )}

@@ -14,6 +14,7 @@ interface HeaderControlsProps {
     isInterviewActive: boolean;
     onStartCoding: () => void;
     onSubmit: () => void;
+    onTestEvaluation?: () => void;
     isDebugModeEnabled: boolean;
     isDebugVisible: boolean;
     onToggleDebug: () => void;
@@ -31,6 +32,7 @@ const HeaderControls: React.FC<HeaderControlsProps> = ({
     isInterviewActive,
     onStartCoding,
     onSubmit,
+    onTestEvaluation,
     isDebugModeEnabled,
     isDebugVisible,
     onToggleDebug,
@@ -81,6 +83,22 @@ const HeaderControls: React.FC<HeaderControlsProps> = ({
                 >
                     {formatTime(timeLeft)}
                 </div>
+            )}
+
+            {/* Test Evaluation Button */}
+            {(isCodingStarted || hasSubmitted) && onTestEvaluation && (
+                <button
+                    onClick={onTestEvaluation}
+                    disabled={!isInterviewActive && !isCodingStarted}
+                    className={`px-4 py-2 text-sm font-medium rounded-full transition-all duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] hover:shadow-sm bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/10 dark:text-blue-400 dark:hover:bg-blue-900/20 ${
+                        (!isInterviewActive && !isCodingStarted)
+                            ? "opacity-50 cursor-not-allowed"
+                            : ""
+                    }`}
+                    title="Test OpenAI evaluation (debug only)"
+                >
+                    Test Evaluation
+                </button>
             )}
 
             {/* Coding Control Button */}
