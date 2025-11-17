@@ -10,6 +10,7 @@ import ExperienceModal from "./components/ExperienceModal";
 import CodingModal from "./components/CodingModal";
 import WorkstyleDashboard from "./components/WorkstyleDashboard";
 import GapAnalysis from "./components/GapAnalysis";
+import ScoreBreakdownChart from "./components/ScoreBreakdownChart";
 import { AuthGuard } from "app/shared/components";
 import { log } from "app/shared/services";
 
@@ -413,9 +414,28 @@ function TelemetryContent() {
                                 isExpanded={scoreExpanded}
                                 onToggle={() => setScoreExpanded(!scoreExpanded)}
                             >
-                                <p className="text-sm text-gray-600">
-                                    Breakdown chart coming soon
-                                </p>
+                                {backgroundSummary && codingSummary ? (
+                                    <ScoreBreakdownChart
+                                        experienceScore={Math.round(
+                                            (backgroundSummary.adaptabilityScore +
+                                                backgroundSummary.creativityScore +
+                                                backgroundSummary.reasoningScore) / 3
+                                        )}
+                                        codingScore={Math.round(
+                                            (codingSummary.codeQualityScore +
+                                                codingSummary.problemSolvingScore +
+                                                codingSummary.independenceScore) / 3
+                                        )}
+                                        experienceWeight={50}
+                                        codingWeight={50}
+                                    />
+                                ) : (
+                                    <p className="text-sm text-gray-600">
+                                        {summaryLoading || codingSummaryLoading
+                                            ? "Loading score breakdown..."
+                                            : "Score breakdown not available"}
+                                    </p>
+                                )}
                             </CollapsibleSection>
                             
                             {/* Experience Section */}
