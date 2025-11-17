@@ -38,8 +38,8 @@ function TelemetryContent() {
     
     // Collapsible sections state
     const [scoreExpanded, setScoreExpanded] = useState(true);
-    const [experienceExpanded, setExperienceExpanded] = useState(false);
-    const [codingExpanded, setCodingExpanded] = useState(false);
+    const [experienceExpanded, setExperienceExpanded] = useState(true);
+    const [codingExpanded, setCodingExpanded] = useState(true);
     
     // Modal state
     const [experienceModalOpen, setExperienceModalOpen] = useState(false);
@@ -407,7 +407,7 @@ function TelemetryContent() {
             {/* Fixed Header */}
             <div className="bg-gray-50">
                 <div className="max-w-7xl mx-auto px-4 pt-4 pb-2">
-                    <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-3">
+                    <div className="grid grid-cols-1 xl:grid-cols-[480px_1fr] gap-3">
                         {/* Left Card: Name and Job Title */}
                         <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-4 shadow-[0_2px_8px_rgba(0,0,0,0.08)]">
                             <div className="flex items-center gap-4">
@@ -484,7 +484,7 @@ function TelemetryContent() {
             {/* Main Content Area */}
             <div className="flex-1 overflow-hidden">
                 <div className="max-w-7xl mx-auto h-full px-3 pb-4 pt-2">
-                    <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-3 h-full">
+                    <div className="grid grid-cols-1 xl:grid-cols-[480px_1fr] gap-3 h-full">
                         {/* Left Sidebar - Scrollable */}
                         <div className="space-y-3 overflow-y-auto">
                             {/* Score Section */}
