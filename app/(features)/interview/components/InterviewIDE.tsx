@@ -189,6 +189,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         insertRecordingUrl,
         interviewSessionId,
         setInterviewSessionId,
+        getActualRecordingStartTime,
     } = useScreenRecording(isDemoMode);
     const [applicationId, setApplicationId] = useState<string | null>(null);
 
@@ -539,6 +540,27 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                     if (existingApplicationId && existingSessionId) {
                         logger.info(`✅ Using existing application: ${existingApplicationId}`);
                         logger.info(`✅ Using existing session: ${existingSessionId}`);
+                        
+                        // Update existing session with actual recording start time
+                        const actualStartTime = getActualRecordingStartTime();
+                        if (actualStartTime) {
+                            logger.info("📹 Updating existing session with actual recording start time:", actualStartTime.toISOString());
+                            const updateUrl = isDemoMode 
+                                ? `/api/interviews/session/${existingSessionId}/update-recording-start?skip-auth=true`
+                                : `/api/interviews/session/${existingSessionId}/update-recording-start`;
+                            
+                            try {
+                                await fetch(updateUrl, {
+                                    method: 'PATCH',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ recordingStartedAt: actualStartTime.toISOString() }),
+                                });
+                                logger.info("✅ Updated existing session with actual recording start time");
+                            } catch (error) {
+                                logger.error("❌ Failed to update session recording start time:", error);
+                            }
+                        }
+                        
                         setApplicationCreated(true);
                         setApplicationId(existingApplicationId);
                         setInterviewSessionId(existingSessionId);
@@ -555,11 +577,14 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
                         if (application?.application?.id) {
                             setApplicationId(application.application.id);
+                            const actualStartTime = getActualRecordingStartTime();
+                            logger.info("📹 Creating session with actual recording start time:", actualStartTime?.toISOString());
                             const session = await createInterviewSession({
                                 applicationId: application.application.id,
                                 companyId,
                                 userId: isDemoMode ? demoUserId || undefined : undefined,
                                 isDemoMode,
+                                recordingStartedAt: actualStartTime || undefined,
                             });
                             const sessionId = session.interviewSession.id;
                             setInterviewSessionId(sessionId);
@@ -1137,6 +1162,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                             onCodingPromptReady={handleCodingPromptReady}
                             onGreetingDelivered={() => setIsChatInputLocked(false)}
                             setInputLocked={setIsChatInputLocked}
+                            interviewSessionId={interviewSessionId}
                         />
                     </Panel>
                 </PanelGroup>

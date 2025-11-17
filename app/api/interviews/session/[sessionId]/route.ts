@@ -15,6 +15,72 @@ function normalizeSessionId(sessionId: string | string[] | undefined) {
     return sessionId ?? "";
 }
 
+export async function GET(request: NextRequest, context: RouteContext) {
+    try {
+        log.info("[Session GET] === FETCH REQUEST RECEIVED ===");
+        
+        const skipAuth = request.nextUrl.searchParams.get("skip-auth") === "true";
+        const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+        const shouldSkipAuth = skipAuth || isDemoMode;
+        
+        log.info("[Session GET] Skip auth:", skipAuth);
+
+        const session = await getServerSession(authOptions);
+        const { sessionId: rawSessionId } = await context.params;
+        const sessionId = normalizeSessionId(rawSessionId);
+
+        if (!sessionId) {
+            log.error("[Session GET] ❌ No session ID provided");
+            return NextResponse.json(
+                { error: "Interview session id is required" },
+                { status: 400 }
+            );
+        }
+
+        log.info("[Session GET] Session ID:", sessionId);
+
+        const userId = shouldSkipAuth ? null : (session?.user as any)?.id;
+        
+        if (!shouldSkipAuth && !userId) {
+            log.error("[Session GET] ❌ No user ID found and not in skip-auth/demo mode");
+            return NextResponse.json(
+                { error: "Unauthorized" },
+                { status: 401 }
+            );
+        }
+        
+        const interviewSession = await prisma.interviewSession.findFirst({
+            where: {
+                id: sessionId,
+                ...(shouldSkipAuth ? {} : { candidateId: userId }),
+            },
+        });
+
+        if (!interviewSession) {
+            log.error("[Session GET] ❌ Interview session not found");
+            return NextResponse.json(
+                { error: "Interview session not found" },
+                { status: 404 }
+            );
+        }
+
+        log.info("[Session GET] ✅ Session found:", {
+            id: interviewSession.id,
+            recordingStartedAt: interviewSession.recordingStartedAt,
+        });
+
+        return NextResponse.json({
+            interviewSession,
+        });
+    } catch (error) {
+        log.error("[Session GET] ❌ ERROR:", error);
+        return NextResponse.json(
+            { error: "Failed to fetch interview session" },
+            { status: 500 }
+        );
+    }
+}
+
 export async function PATCH(request: NextRequest, context: RouteContext) {
     try {
         log.info("[Session PATCH] === UPDATE REQUEST RECEIVED ===");

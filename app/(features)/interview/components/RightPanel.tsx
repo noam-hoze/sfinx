@@ -31,6 +31,7 @@ interface RightPanelProps {
     onGreetingDelivered?: () => void;
     codingDurationSeconds: number;
     setInputLocked?: (locked: boolean) => void;
+    interviewSessionId?: string | null;
 }
 
 const RightPanel: React.FC<RightPanelProps> = ({
@@ -57,6 +58,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
     onGreetingDelivered,
     codingDurationSeconds,
     setInputLocked,
+    interviewSessionId,
 }) => {
     const commMethodRaw = (process.env.NEXT_PUBLIC_INTERVIEW_COMM_METHOD || "speech")
         .toLowerCase()
@@ -115,6 +117,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
                             } catch {}
                         }}
                         setInputLocked={setInputLocked}
+                        interviewSessionId={interviewSessionId}
                     />
                 </div>
             )}

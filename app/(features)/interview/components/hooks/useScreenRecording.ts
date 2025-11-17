@@ -19,6 +19,7 @@ export const useScreenRecording = (isDemoMode: boolean = false) => {
     const recordedChunksRef = useRef<Blob[]>([]);
     const selectedMimeTypeRef = useRef<string>("");
     const interviewSessionIdRef = useRef<string | null>(null);
+    const actualRecordingStartTimeRef = useRef<Date | null>(null);
 
     const setInterviewSessionId = useCallback((sessionId: string | null) => {
         setInterviewSessionIdState(sessionId);
@@ -295,9 +296,11 @@ export const useScreenRecording = (isDemoMode: boolean = false) => {
 
         if (mediaRecorderRef.current && !isRecording) {
             recordedChunksRef.current = [];
+            const startTime = new Date();
+            actualRecordingStartTimeRef.current = startTime;
             mediaRecorderRef.current.start();
             setIsRecording(true);
-            logger.info("✅ Screen recording started");
+            logger.info("✅ Screen recording started at:", startTime.toISOString());
             return true;
         }
 
@@ -428,6 +431,10 @@ export const useScreenRecording = (isDemoMode: boolean = false) => {
         }
     }, [interviewSessionId, recordingUploaded, recordingUrl]);
 
+    const getActualRecordingStartTime = useCallback(() => {
+        return actualRecordingStartTimeRef.current;
+    }, []);
+
     return {
         isRecording,
         recordingPermissionGranted,
@@ -444,5 +451,6 @@ export const useScreenRecording = (isDemoMode: boolean = false) => {
         setMicPermissionGranted,
         setRecordingUploaded,
         mediaRecorderRef,
+        getActualRecordingStartTime,
     };
 };

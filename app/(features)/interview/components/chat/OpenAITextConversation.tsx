@@ -50,6 +50,7 @@ type Props = {
   onInterviewConcluded?: (delayMs?: number) => void;
   setInputLocked?: (locked: boolean) => void;
   onPasteDetected?: (pastedCode: string) => void;
+  interviewSessionId?: string | null;
 };
 
 const OpenAITextConversation = forwardRef<any, Props>(
@@ -62,6 +63,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
     onInterviewConcluded,
     setInputLocked,
     onPasteDetected,
+    interviewSessionId,
   }, ref) => {
     if (!candidateName) {
       throw new Error("OpenAITextConversation requires a candidateName");
@@ -227,6 +229,50 @@ const OpenAITextConversation = forwardRef<any, Props>(
           });
         } catch {}
         
+        // IMMEDIATE DEBUG LOGGING - Calculate video offset right now
+        if (interviewSessionId) {
+          try {
+            const url = isDemoMode 
+              ? `/api/interviews/session/${interviewSessionId}?skip-auth=true` 
+              : `/api/interviews/session/${interviewSessionId}`;
+            const sessionResponse = await fetch(url);
+            const sessionData = await sessionResponse.json();
+            
+            if (sessionData?.interviewSession?.recordingStartedAt) {
+              const recordingStartTime = new Date(sessionData.interviewSession.recordingStartedAt);
+              const pasteTime = new Date(timestamp);
+              const offsetMs = pasteTime.getTime() - recordingStartTime.getTime();
+              const offsetSeconds = Math.floor(offsetMs / 1000);
+              
+              // Format timestamps in EST with readable format
+              const formatEST = (date: Date) => {
+                return date.toLocaleString('en-US', {
+                  timeZone: 'America/New_York',
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: true
+                });
+              };
+              
+              /* eslint-disable no-console */ console.log("🎬 ========================================");
+              /* eslint-disable no-console */ console.log("🎬 [PASTE DETECTED - VIDEO OFFSET DEBUG]");
+              /* eslint-disable no-console */ console.log("🎬 ========================================");
+              /* eslint-disable no-console */ console.log("📹 Recording started at:", formatEST(recordingStartTime), "EST");
+              /* eslint-disable no-console */ console.log("📋 Paste occurred at:   ", formatEST(pasteTime), "EST");
+              /* eslint-disable no-console */ console.log("⏱️  Time difference:     ", offsetMs, "ms");
+              /* eslint-disable no-console */ console.log("🎯 Video offset:         ", offsetSeconds, "seconds");
+              /* eslint-disable no-console */ console.log("🎯 Expected link time:   ", Math.floor(offsetSeconds / 60) + ":" + String(offsetSeconds % 60).padStart(2, "0"));
+              /* eslint-disable no-console */ console.log("🎬 ========================================");
+            }
+          } catch (error) {
+            /* eslint-disable no-console */ console.error("❌ Failed to fetch session for debug logging:", error);
+          }
+        }
+        
         // Update debug panel - start evaluation
         interviewChatStore.dispatch({
           type: "CODING_START_PASTE_EVAL",
@@ -283,7 +329,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
           } catch {}
         }
       },
-      [dispatch, openaiClient, post]
+      [dispatch, openaiClient, post, interviewSessionId, isDemoMode]
     );
 
     /** Injects the coding prompt once the guard advances into the coding session. */

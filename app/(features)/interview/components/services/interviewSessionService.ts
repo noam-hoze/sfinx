@@ -3,6 +3,7 @@ interface CreateInterviewSessionParams {
     companyId: string;
     userId?: string;
     isDemoMode?: boolean;
+    recordingStartedAt?: Date;
 }
 
 export const createInterviewSession = async ({
@@ -10,6 +11,7 @@ export const createInterviewSession = async ({
     companyId,
     userId,
     isDemoMode = false,
+    recordingStartedAt,
 }: CreateInterviewSessionParams) => {
     const url = isDemoMode
         ? "/api/interviews/session?skip-auth=true"
@@ -22,6 +24,10 @@ export const createInterviewSession = async ({
 
     if (isDemoMode && userId) {
         body.userId = userId;
+    }
+
+    if (recordingStartedAt) {
+        body.recordingStartedAt = recordingStartedAt.toISOString();
     }
 
     const response = await fetch(url, {

@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
         log.info("🔍 Skip auth:", skipAuth);
 
         const body = await request.json();
-        const { applicationId, companyId, userId: requestUserId } = body;
+        const { applicationId, companyId, userId: requestUserId, recordingStartedAt } = body;
 
         let userId: string;
 
@@ -81,12 +81,14 @@ export async function POST(request: NextRequest) {
         try {
             const txResult = await prisma.$transaction(async (tx) => {
                 log.info("🧾 [TX] Creating InterviewSession...");
+                const actualRecordingStartTime = recordingStartedAt ? new Date(recordingStartedAt) : new Date();
+                log.info("📹 Using recording start time:", actualRecordingStartTime.toISOString(), recordingStartedAt ? "(from client)" : "(fallback)");
                 const interviewSession = await tx.interviewSession.create({
                     data: {
                         candidateId: userId,
                         applicationId: applicationId,
                         status: "IN_PROGRESS",
-                        recordingStartedAt: new Date(), // Set recording start time for video offset calculation
+                        recordingStartedAt: actualRecordingStartTime, // Use actual MediaRecorder start time
                     },
                 });
                 log.info("✅ [TX] InterviewSession created", {

@@ -268,11 +268,23 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 let totalScore = 0;
                 
                 if (session.recordingStartedAt && sessionExternalTools.length > 0) {
-                    sessionExternalTools.forEach((tool: any) => {
-                        // Use aiQuestionTimestamp (when paste was first detected)
-                        const videoOffset = (new Date(tool.aiQuestionTimestamp).getTime() - new Date(session.recordingStartedAt).getTime()) / 1000;
+                    log.info("🎬 [TELEMETRY EXTERNAL TOOLS OFFSET DEBUG] ============");
+                    log.info("📹 Recording started at:", new Date(session.recordingStartedAt).toISOString());
+                    log.info("📋 Processing", sessionExternalTools.length, "external tool events");
+                    
+                    sessionExternalTools.forEach((tool: any, index: number) => {
+                        // Use timestamp (when paste actually happened)
+                        const pasteTime = new Date(tool.timestamp);
+                        const recordingStartTime = new Date(session.recordingStartedAt);
+                        const videoOffset = (pasteTime.getTime() - recordingStartTime.getTime()) / 1000;
+                        
+                        log.info(`  [${index + 1}] Paste at:`, pasteTime.toISOString());
+                        log.info(`  [${index + 1}] Offset:`, videoOffset, "seconds");
+                        
                         if (videoOffset >= 0) {
                             aiAssistUsageLinks.push(videoOffset);
+                        } else {
+                            log.warn(`  [${index + 1}] ⚠️ NEGATIVE OFFSET - skipping!`);
                         }
                         
                         // Count understanding levels
@@ -283,6 +295,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         // Sum accountability scores
                         totalScore += tool.accountabilityScore || 0;
                     });
+                    
+                    log.info("🎯 Total evidence links for External Tools:", aiAssistUsageLinks.length);
+                    log.info("📍 Links:", aiAssistUsageLinks);
+                    log.info("================================================");
                 }
                 
                 const avgAccountabilityScore = sessionExternalTools.length > 0 

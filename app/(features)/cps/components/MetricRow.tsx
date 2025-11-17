@@ -8,6 +8,8 @@ interface MetricRowProps {
     benchmarkLow?: number;
     benchmarkHigh?: number;
     inverse?: boolean; // For metrics where lower is better (iteration speed, debug loops)
+    evidenceLinks?: number[]; // Video timestamps for evidence
+    onVideoJump?: (timestamp: number) => void;
 }
 
 const MetricRow: React.FC<MetricRowProps> = ({
@@ -18,7 +20,10 @@ const MetricRow: React.FC<MetricRowProps> = ({
     benchmarkLow = 0,
     benchmarkHigh = 100,
     inverse = false,
+    evidenceLinks = [],
+    onVideoJump,
 }) => {
+    const [clickedTimestamp, setClickedTimestamp] = React.useState<number | null>(null);
     // Calculate position on scale (0-100%)
     const range = benchmarkHigh - benchmarkLow;
     const position = Math.max(0, Math.min(100, ((value - benchmarkLow) / range) * 100));
@@ -83,6 +88,31 @@ const MetricRow: React.FC<MetricRowProps> = ({
                     </div>
                 </div>
             </div>
+
+            {/* Evidence Links */}
+            {evidenceLinks && evidenceLinks.length > 0 && onVideoJump && (
+                <div className="mt-2 flex gap-1 pl-[196px]">
+                    {evidenceLinks.map((timestamp, index) => (
+                        <button
+                            key={index}
+                            onClick={() => {
+                                setClickedTimestamp(timestamp);
+                                onVideoJump(timestamp);
+                            }}
+                            className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-all duration-200 ${
+                                clickedTimestamp === timestamp
+                                    ? "text-blue-600 bg-blue-50"
+                                    : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                            }`}
+                            title={`Jump to ${Math.floor(timestamp / 60)}:${(timestamp % 60)
+                                .toString()
+                                .padStart(2, "0")}`}
+                        >
+                            {index + 1}
+                        </button>
+                    ))}
+                </div>
+            )}
         </div>
     );
 };

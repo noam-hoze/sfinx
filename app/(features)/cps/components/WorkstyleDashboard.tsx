@@ -91,6 +91,8 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                 value={iterationSpeedValue}
                 benchmarkLow={0}
                 benchmarkHigh={100}
+                evidenceLinks={workstyle.iterationSpeed?.evidenceLinks}
+                onVideoJump={onVideoJump}
             />
             <MetricRow
                 label="Debug Loops"
@@ -98,6 +100,8 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                 value={debugLoopsValue}
                 benchmarkLow={0}
                 benchmarkHigh={100}
+                evidenceLinks={workstyle.debugLoops?.evidenceLinks}
+                onVideoJump={onVideoJump}
             />
             <MetricRow
                 label="External Tools Usage"
@@ -106,6 +110,8 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                 benchmarkLow={0}
                 benchmarkHigh={100}
                 inverse={false}
+                evidenceLinks={workstyle.aiAssistUsage?.evidenceLinks}
+                onVideoJump={onVideoJump}
             />
         </div>
     );
