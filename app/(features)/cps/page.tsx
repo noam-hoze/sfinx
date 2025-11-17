@@ -5,12 +5,11 @@ import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import EvidenceReel from "./components/EvidenceReel";
-import GapAnalysis from "./components/GapAnalysis";
+import CollapsibleSection from "./components/CollapsibleSection";
+import ExperienceModal from "./components/ExperienceModal";
+import CodingModal from "./components/CodingModal";
 import WorkstyleDashboard from "./components/WorkstyleDashboard";
-import ImprovementChart from "./components/ImprovementChart";
-import TextSummary from "./components/TextSummary";
-import SummaryOverlay from "./components/SummaryOverlay";
-import CodingSummaryOverlay from "./components/CodingSummaryOverlay";
+import GapAnalysis from "./components/GapAnalysis";
 import { AuthGuard } from "app/shared/components";
 import { log } from "app/shared/services";
 
@@ -28,26 +27,20 @@ function TelemetryContent() {
     const [error, setError] = useState<string | null>(null);
     const [currentVideoTime, setCurrentVideoTime] = React.useState(0);
     const [jumpKey, setJumpKey] = React.useState(0);
-    const [activeTab, setActiveTab] = useState<
-        "benchmarks" | "gaps"
-    >("benchmarks");
-    const [editMode, setEditMode] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [validationErrors, setValidationErrors] = useState<string[]>([]);
-    const [saveSuccess, setSaveSuccess] = useState(false);
-    const [storyExpanded, setStoryExpanded] = useState(false);
-    const [mainContentTab, setMainContentTab] = useState<"summary" | "evidence" | "improvement" | "coding">("evidence");
-    const [seriesVisible, setSeriesVisible] = useState({
-        match: true,
-        iter: false,
-        debug: false,
-        ai: false,
-    });
     const [backgroundSummary, setBackgroundSummary] = useState<any>(null);
     const [codingSummary, setCodingSummary] = useState<any>(null);
     const [summaryLoading, setSummaryLoading] = useState(false);
     const [codingSummaryLoading, setCodingSummaryLoading] = useState(false);
     const [isNavigating, setIsNavigating] = useState(false);
+    
+    // Collapsible sections state
+    const [scoreExpanded, setScoreExpanded] = useState(true);
+    const [experienceExpanded, setExperienceExpanded] = useState(false);
+    const [codingExpanded, setCodingExpanded] = useState(false);
+    
+    // Modal state
+    const [experienceModalOpen, setExperienceModalOpen] = useState(false);
+    const [codingModalOpen, setCodingModalOpen] = useState(false);
 
     useEffect(() => {
         const fetchTelemetryData = async () => {
@@ -112,7 +105,10 @@ function TelemetryContent() {
         };
 
         fetchTelemetryData();
-    }, [candidateId]);
+    }, [candidateId, applicationId]);
+
+    const { candidate } = telemetryData || {};
+    const activeSession = sessions[activeSessionIndex] || {};
 
     // Fetch background summary for active session
     useEffect(() => {
@@ -144,7 +140,7 @@ function TelemetryContent() {
         };
 
         fetchBackgroundSummary();
-    }, [activeSessionIndex, sessions]);
+    }, [activeSessionIndex, sessions, activeSession?.id]);
 
     // Fetch coding summary for active session
     useEffect(() => {
@@ -176,10 +172,7 @@ function TelemetryContent() {
         };
 
         fetchCodingSummary();
-    }, [activeSessionIndex, sessions]);
-
-    const { candidate } = telemetryData || {};
-    const activeSession = sessions[activeSessionIndex] || {};
+    }, [activeSessionIndex, sessions, activeSession?.id]);
     console.log("[CPS] Active session:", activeSession);
     const formatMonthYear = (dateIso?: string) =>
         dateIso
@@ -277,93 +270,6 @@ function TelemetryContent() {
         setJumpKey((k) => k + 1);
     };
 
-    const validateData = () => {
-        const errors: string[] = [];
-
-        if (!telemetryData.candidate.name.trim()) {
-            errors.push("Candidate name is required");
-        }
-
-        if (
-            telemetryData.candidate.matchScore < 0 ||
-            telemetryData.candidate.matchScore > 100
-        ) {
-            errors.push("Match score must be between 0 and 100");
-        }
-
-        if (telemetryData.workstyle) {
-            const workstyleKeys = [
-                "iterationSpeed",
-                "debugLoops",
-                "aiAssistUsage",
-            ];
-            workstyleKeys.forEach((key) => {
-                const value = telemetryData.workstyle[key]?.value;
-                if (value !== undefined && (value < 0 || value > 100)) {
-                    errors.push(`${key} must be between 0 and 100`);
-                }
-            });
-        }
-
-        if (telemetryData.gaps?.gaps) {
-            telemetryData.gaps.gaps.forEach((gap: any, index: number) => {
-                if (!gap.description.trim()) {
-                    errors.push(`Gap ${index + 1} description is required`);
-                }
-            });
-        }
-
-        return errors;
-    };
-
-    const handleSave = async () => {
-        if (!candidateId || !telemetryData) return;
-
-        const errors = validateData();
-        if (errors.length > 0) {
-            setValidationErrors(errors);
-            return;
-        }
-
-        setValidationErrors([]);
-        setSaveSuccess(false);
-        setSaving(true);
-        try {
-            const response = await fetch(
-                `/api/candidates/${candidateId}/telemetry`,
-                {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify(telemetryData),
-                }
-            );
-
-            if (response.ok) {
-                setEditMode(false);
-                setSaveSuccess(true);
-                // Clear success message after 3 seconds
-                setTimeout(() => setSaveSuccess(false), 3000);
-                // Refresh data after save
-                const fetchResponse = await fetch(
-                    `/api/candidates/${candidateId}/telemetry`
-                );
-                if (fetchResponse.ok) {
-                    const updatedData = await fetchResponse.json();
-                    setTelemetryData(updatedData);
-                }
-            } else {
-                throw new Error("Failed to save changes");
-            }
-        } catch (error) {
-            log.error("Error saving telemetry data:", error);
-            setError("Failed to save changes");
-        } finally {
-            setSaving(false);
-        }
-    };
-
     if (loading) {
         return (
             <div className="h-screen bg-gray-50 overflow-hidden flex items-center justify-center">
@@ -416,431 +322,188 @@ function TelemetryContent() {
     }
 
     return (
-        <div className="bg-gray-50 h-screen overflow-hidden">
-            <div className="max-w-7xl mx-auto p-4 h-full">
-                {isDemoMode && (
-                    <div className="mb-4 flex justify-end">
-                        <button
-                            onClick={() => {
-                                setIsNavigating(true);
-                                router.push(`/demo/ranked-candidates?candidateId=${candidateId}&applicationId=${applicationId}`);
-                            }}
-                            disabled={isNavigating}
-                            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-                        >
-                            {isNavigating ? "Loading..." : "View All Candidates"}
-                        </button>
-                    </div>
-                )}
-                {/* 2x2 Grid Layout */}
-                <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] xl:grid-rows-[auto_1fr] gap-4 xl:gap-6 h-[calc(100vh-2rem)]">
-                    {/* Cell 0 - Empty (top-left) */}
-                    <div className="xl:block">
-                        {/* Candidate Profile - Minimal Apple Style */}
-                        <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-4 shadow-sm">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-4">
-                                    {candidate.image ? (
-                                        <Image
-                                            src={candidate.image}
-                                            alt={`${candidate.name} profile`}
-                                            width={48}
-                                            height={48}
-                                            className="rounded-full object-cover border-2 border-white shadow-sm"
-                                        />
-                                    ) : (
-                                        <div className="w-12 h-12 rounded-full bg-gray-300 border-2 border-white shadow-sm" />
-                                    )}
-                                    <div>
-                                        {editMode ? (
-                                            <input
-                                                type="text"
-                                                value={candidate.name}
-                                                onChange={(e) => {
-                                                    setTelemetryData({
-                                                        ...telemetryData,
-                                                        candidate: {
-                                                            ...candidate,
-                                                            name: e.target.value,
-                                                        },
-                                                    });
-                                                }}
-                                                className="text-lg font-medium text-gray-900 bg-white/50 border border-gray-300 rounded px-2 py-1 w-full"
-                                                placeholder="Candidate name"
-                                            />
-                                        ) : (
-                                            <h2 className="text-lg font-medium text-gray-900">
-                                                {candidate.name || ""}
-                                            </h2>
-                                        )}
-                                        <p className="text-sm text-gray-600">
-                                            Software Engineer
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="text-right">
-                                    {editMode ? (
-                                        <div>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                max="100"
-                                                value={candidate.matchScore}
-                                                onChange={(e) => {
-                                                    setTelemetryData({
-                                                        ...telemetryData,
-                                                        candidate: {
-                                                            ...candidate,
-                                                            matchScore:
-                                                                parseInt(
-                                                                    e.target.value
-                                                                ) || 0,
-                                                        },
-                                                    });
-                                                }}
-                                                className="text-2xl font-semibold text-blue-600 bg-white/50 border border-gray-300 rounded px-2 py-1 w-16 text-center"
-                                            />
-                                            <div className="text-xs text-gray-500 font-medium mt-1">
-                                                Match Score
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <div>
-                                            <div className="text-2xl font-semibold text-blue-600">
-                                                {activeMatchScore}%
-                                            </div>
-                                            <div className="text-xs text-gray-500 font-medium">
-                                                Match Score
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Cell 1 - Candidate Telemetry (top-right) */}
-                    <div className="flex items-center justify-between w-full gap-3">
-                        <div className="w-3/4 flex tracking-tight">
-                            {/* Candidate Story - concise summary with expander */}
-                            <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-4 shadow-sm xl:sticky xl:top-2 w-full">
-                                <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-sm font-semibold text-gray-900">
-                                        Candidate Profile Story
-                                    </h3>
-                                    <button
-                                        onClick={() => setStoryExpanded((v) => !v)}
-                                        className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                                    ></button>
-                                </div>
-                                <p className="text-sm text-gray-700 leading-relaxed">
-                                    {longStory}
-                                </p>
-                            </div>
-                        </div>
-                        {/* Session navigation */}
-                        {
-                            <div className="w-1/4 flex items-center gap-2 justify-end">
-                                <button
-                                    className="px-3 py-1 rounded-lg bg-white/60 border border-white/40 text-gray-700 disabled:opacity-40"
-                                    onClick={() =>
-                                        setActiveSessionIndex((i) => Math.max(0, i - 1))
-                                    }
-                                    disabled={activeSessionIndex === 0}
-                                    aria-label="Previous session"
-                                >
-                                    ◀
-                                </button>
-                                <div className="text-sm text-gray-700">
-                                    Session {activeSessionIndex + 1} / {sessions.length}
-                                </div>
-                                <button
-                                    className="px-3 py-1 rounded-lg bg-white/60 border border-white/40 text-gray-700 disabled:opacity-40"
-                                    onClick={() =>
-                                        setActiveSessionIndex((i) =>
-                                            Math.min(sessions.length - 1, i + 1)
-                                        )
-                                    }
-                                    disabled={activeSessionIndex === sessions.length - 1}
-                                    aria-label="Next session"
-                                >
-                                    ▶
-                                </button>
-                            </div>
-                        }
-                    </div>
-
-                    {/* Success Message */}
-                    {saveSuccess && (
-                        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                            <div className="flex items-center gap-2 text-green-800">
-                                <svg
-                                    className="w-5 h-5"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M5 13l4 4L19 7"
+        <div className="bg-gray-50 h-screen overflow-hidden flex flex-col">
+            {/* Fixed Header */}
+            <div className="bg-gray-50">
+                <div className="max-w-7xl mx-auto px-4 pt-4 pb-2">
+                    <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-3">
+                        {/* Left Card: Name and Job Title */}
+                        <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-4 shadow-[0_2px_8px_rgba(0,0,0,0.08)]">
+                            <div className="flex items-center gap-4">
+                                {candidate.image ? (
+                                    <Image
+                                        src={candidate.image}
+                                        alt={`${candidate.name} profile`}
+                                        width={48}
+                                        height={48}
+                                        className="rounded-full object-cover border-2 border-white shadow-sm"
                                     />
-                                </svg>
-                                <span className="font-medium">Changes saved successfully!</span>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Validation Errors */}
-                    {validationErrors.length > 0 && (
-                        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                            <h4 className="text-red-800 font-medium mb-2">
-                                Please fix the following errors:
-                            </h4>
-                            <ul className="list-disc list-inside text-red-700 text-sm">
-                                {validationErrors.map((error, index) => (
-                                    <li key={index}>{error}</li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-
-                    {/* Cell 2 - Left Panel (bottom-left) */}
-                    <div className="w-full xl:w-auto">
-                        {/* Apple-Style Tabs */}
-                        <div className="bg-white/40 backdrop-blur-sm rounded-2xl border border-white/20 p-1 shadow-sm mb-2">
-                            <div className="flex">
-                                <button
-                                    onClick={() => setActiveTab("benchmarks")}
-                                    className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ease-out ${
-                                        activeTab === "benchmarks"
-                                            ? "bg-blue-500 text-white shadow-md"
-                                            : "text-gray-600 hover:text-gray-900 hover:bg-white/40"
-                                    }`}
-                                >
-                                    Benchmarks
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab("gaps")}
-                                    className={`flex-1 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-300 ease-out ${
-                                        activeTab === "gaps"
-                                            ? "bg-blue-500 text-white shadow-md"
-                                            : "text-gray-600 hover:text-gray-900 hover:bg-white/40"
-                                    }`}
-                                >
-                                    Gaps
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Tab Content */}
-                        <div
-                            className="space-y-3 max-h-[calc(100vh-18rem)] overflow-y-auto border-t border-l border-r border-white/40 border-b-2 border-b-white/60 rounded-2xl bg-white/20 backdrop-blur-sm p-3 shadow-sm"
-                        >
-                            {activeTab === "benchmarks" && (
-                                <div className="space-y-3 animate-in slide-in-from-right-2 duration-300">
-                                    {workstyle && (
-                                        <WorkstyleDashboard
-                                            workstyle={workstyle}
-                                            onVideoJump={onVideoJump}
-                                            editMode={editMode}
-                                            onUpdateWorkstyle={(updatedWorkstyle) => {
-                                                // Update UI source of truth (sessions)
-                                                setSessions((prev) => {
-                                                    const next = [...prev];
-                                                    if (next[activeSessionIndex]) {
-                                                        next[activeSessionIndex] = {
-                                                            ...next[activeSessionIndex],
-                                                            workstyle: updatedWorkstyle,
-                                                        };
-                                                    }
-                                                    return next;
-                                                });
-                                                // Keep payload for saving in telemetryData
-                                                setTelemetryData((prev: any) => ({
-                                                    ...prev,
-                                                    workstyle: updatedWorkstyle,
-                                                }));
-                                            }}
-                                        />
-                                    )}
+                                ) : (
+                                    <div className="w-12 h-12 rounded-full bg-gray-300 border-2 border-white shadow-sm" />
+                                )}
+                                <div>
+                                <h1 className="text-lg font-medium text-gray-900">
+                                    {candidate.name || ""}
+                                </h1>
+                                <p className="text-sm text-gray-600">
+                                    {activeSession?.application?.job?.title || "Software Engineer"}
+                                </p>
                                 </div>
-                            )}
-
-                            {activeTab === "gaps" && (
-                                <div className="space-y-3 animate-in slide-in-from-left-2 duration-300">
-                                    {gaps && (
+                            </div>
+                        </div>
+                        
+                        {/* Right Card: Candidate Profile Story aligned with video */}
+                        <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-4 shadow-[0_2px_8px_rgba(0,0,0,0.08)]">
+                            <div className="flex items-center justify-between gap-4">
+                                <div className="flex-1">
+                                    <h2 className="text-lg font-medium text-gray-900 mb-2">
+                                        Candidate Profile Story
+                                    </h2>
+                                    <p className="text-sm text-gray-700 leading-relaxed">
+                                        {longStory}
+                                    </p>
+                                </div>
+                                
+                                {/* Session Navigation */}
+                                {sessions.length > 1 && (
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <button
+                                            className="px-3 py-1 rounded-lg bg-white/60 border border-white/40 text-gray-700 disabled:opacity-40"
+                                            onClick={() =>
+                                                setActiveSessionIndex((i) => Math.max(0, i - 1))
+                                            }
+                                            disabled={activeSessionIndex === 0}
+                                            aria-label="Previous session"
+                                        >
+                                            ◀
+                                        </button>
+                                        <div className="text-sm text-gray-700">
+                                            {activeSessionIndex + 1} / {sessions.length}
+                                        </div>
+                                        <button
+                                            className="px-3 py-1 rounded-lg bg-white/60 border border-white/40 text-gray-700 disabled:opacity-40"
+                                            onClick={() =>
+                                                setActiveSessionIndex((i) =>
+                                                    Math.min(sessions.length - 1, i + 1)
+                                                )
+                                            }
+                                            disabled={activeSessionIndex === sessions.length - 1}
+                                            aria-label="Next session"
+                                        >
+                                            ▶
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            {/* Main Content Area */}
+            <div className="flex-1 overflow-hidden">
+                <div className="max-w-7xl mx-auto h-full px-3 pb-4 pt-2">
+                    <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-3 h-full">
+                        {/* Left Sidebar - Scrollable */}
+                        <div className="space-y-3 overflow-y-auto">
+                            {/* Score Section */}
+                            <CollapsibleSection
+                                title="Score"
+                                score={activeMatchScore ?? undefined}
+                                isExpanded={scoreExpanded}
+                                onToggle={() => setScoreExpanded(!scoreExpanded)}
+                            >
+                                <p className="text-sm text-gray-600">
+                                    Breakdown chart coming soon
+                                </p>
+                            </CollapsibleSection>
+                            
+                            {/* Experience Section */}
+                            <CollapsibleSection
+                                title="Experience"
+                                score={80}
+                                isExpanded={experienceExpanded}
+                                onToggle={() => setExperienceExpanded(!experienceExpanded)}
+                            >
+                                {summaryLoading ? (
+                                    <p className="text-sm text-gray-600">Loading...</p>
+                                ) : backgroundSummary ? (
+                                    <div className="space-y-3">
+                                        <p className="text-sm text-gray-700 leading-relaxed">
+                                            {backgroundSummary.executiveSummary}
+                                        </p>
+                                <button
+                                            onClick={() => setExperienceModalOpen(true)}
+                                            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                        >
+                                            Read more
+                                </button>
+                            </div>
+                                ) : (
+                                    <p className="text-sm text-gray-600">
+                                        No experience summary available
+                                    </p>
+                                )}
+                            </CollapsibleSection>
+                            
+                            {/* Coding Section */}
+                            <CollapsibleSection
+                                title="Coding"
+                                score={50}
+                                isExpanded={codingExpanded}
+                                onToggle={() => setCodingExpanded(!codingExpanded)}
+                            >
+                                {workstyle && (
+                                    <WorkstyleDashboard
+                                        workstyle={workstyle}
+                                        onVideoJump={onVideoJump}
+                                    />
+                                )}
+                                {gaps && (
+                                    <div className="mt-3">
                                         <GapAnalysis
                                             gaps={gaps}
                                             onVideoJump={onVideoJump}
-                                            editMode={editMode}
-                                            onUpdateGaps={(updatedGaps) => {
-                                                // Update UI source of truth (sessions)
-                                                setSessions((prev) => {
-                                                    const next = [...prev];
-                                                    if (next[activeSessionIndex]) {
-                                                        next[activeSessionIndex] = {
-                                                            ...next[activeSessionIndex],
-                                                            gaps: updatedGaps,
-                                                        };
-                                                    }
-                                                    return next;
-                                                });
-                                                // Keep payload for saving in telemetryData
-                                                setTelemetryData((prev: any) => ({
-                                                    ...prev,
-                                                    gaps: updatedGaps,
-                                                }));
-                                            }}
                                         />
-                                    )}
+                                    </div>
+                                )}
+                                {codingSummary && (
+                                    <button
+                                        onClick={() => setCodingModalOpen(true)}
+                                        className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                    >
+                                        Read more
+                                    </button>
+                                )}
+                            </CollapsibleSection>
+                        </div>
+                        
+                        {/* Right Panel - Video */}
+                        <div className="w-full h-full">
+                            {videoUrl ? (
+                                <EvidenceReel
+                                    jumpToTime={currentVideoTime}
+                                    jumpKey={jumpKey}
+                                    videoUrl={videoUrl}
+                                    duration={duration}
+                                    chapters={chapters}
+                                    paused={false}
+                                />
+                            ) : (
+                                <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                                    <p className="text-gray-600">No video available</p>
                                 </div>
                             )}
                         </div>
                     </div>
-
-                    {/* Cell 3 - Video / Improvement / Summary (bottom-right) */}
-                    <div className="w-full xl:w-auto flex flex-col gap-2 h-full">
-                        <div className="flex items-center justify-between">
-                            {mainContentTab === "improvement" ? (
-                                <div className="flex gap-2 text-xs">
-                                    {[
-                                        { key: "match", label: "Match", color: "#3b82f6" },
-                                        { key: "iter", label: "Iteration", color: "#a78bfa" },
-                                        { key: "debug", label: "Debug", color: "#f97316" },
-                                        { key: "ai", label: "AI", color: "#64748b" },
-                                    ].map((s: any) => (
-                                        <button
-                                            key={s.key}
-                                            onClick={() =>
-                                                setSeriesVisible((prev) => ({
-                                                    ...prev,
-                                                    [s.key]: !prev[s.key as keyof typeof prev],
-                                                }))
-                                            }
-                                            className="px-2 py-1 rounded-md border"
-                                            style={{
-                                                borderColor: s.color,
-                                                color: seriesVisible[s.key as keyof typeof seriesVisible]
-                                                    ? "#111827"
-                                                    : "#9ca3af",
-                                                backgroundColor: seriesVisible[s.key as keyof typeof seriesVisible]
-                                                    ? `${s.color}20`
-                                                    : "transparent",
-                                            }}
-                                        >
-                                            {s.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div />
-                            )}
-                            <div className="bg-white/60 border border-white/40 rounded-lg p-1 text-xs">
-                                <button
-                                    onClick={() => setMainContentTab("evidence")}
-                                    className={`${
-                                        mainContentTab === "evidence" ? "bg-blue-500 text-white" : "text-gray-700"
-                                    } px-2 py-1 rounded`}
-                                >
-                                    Reel
-                                </button>
-                                <button
-                                    onClick={() => setMainContentTab("summary")}
-                                    className={`${
-                                        mainContentTab === "summary" ? "bg-blue-500 text-white" : "text-gray-700"
-                                    } px-2 py-1 rounded ml-1`}
-                                >
-                                    Experience
-                                </button>
-                                <button
-                                    onClick={() => setMainContentTab("coding")}
-                                    className={`${
-                                        mainContentTab === "coding" ? "bg-blue-500 text-white" : "text-gray-700"
-                                    } px-2 py-1 rounded ml-1`}
-                                >
-                                    Coding
-                                </button>
-                                <button
-                                    onClick={() => setMainContentTab("improvement")}
-                                    className={`${
-                                        mainContentTab === "improvement" ? "bg-blue-500 text-white" : "text-gray-700"
-                                    } px-2 py-1 rounded ml-1`}
-                                >
-                                    Improvement
-                                </button>
-                            </div>
-                        </div>
-                        <div className="flex-1">
-                            {mainContentTab === "improvement" ? (
-                                <div className="w-full h-full bg-white rounded-xl border border-gray-200 p-2 overflow-hidden">
-                                    <ImprovementChart
-                                        data={[...sessions]
-                                            .map((s, i) => ({ s, i }))
-                                            .sort((a, b) => {
-                                                const at = new Date(a.s.createdAt || 0).getTime();
-                                                const bt = new Date(b.s.createdAt || 0).getTime();
-                                                return at - bt;
-                                            })
-                                            .map(({ s, i }, pos) => ({
-                                                label: formatMonthYear(s.createdAt),
-                                                index: pos,
-                                                sessionIndex: i,
-                                                match: typeof s.matchScore === "number" ? s.matchScore : null,
-                                                iter: s.workstyle?.iterationSpeed?.value ?? null,
-                                                debug:
-                                                    s.workstyle?.debugLoops?.value != null
-                                                        ? 100 - s.workstyle.debugLoops.value
-                                                        : null,
-                                                ai:
-                                                    s.workstyle?.aiAssistUsage?.value != null
-                                                        ? 100 - s.workstyle.aiAssistUsage.value
-                                                        : null,
-                                                matchTs: (s.evidence || []).find(
-                                                    (e: any) => e.startTime !== null && e.startTime !== undefined
-                                                )?.startTime,
-                                                iterTs: (s.evidence || []).find(
-                                                    (e: any) =>
-                                                        (e.title || "").includes("Iteration") &&
-                                                        e.startTime !== null &&
-                                                        e.startTime !== undefined
-                                                )?.startTime,
-                                                debugTs: (s.evidence || []).find(
-                                                    (e: any) => (e.title || "").includes("Debug") && e.startTime !== null && e.startTime !== undefined
-                                                )?.startTime,
-                                                aiTs: (s.evidence || []).find(
-                                                    (e: any) => (e.title || "").includes("AI") && e.startTime !== null && e.startTime !== undefined
-                                                )?.startTime,
-                                            }))}
-                                        activeIndex={activeSessionIndex}
-                                        onSelect={(index: number, ts?: number) => {
-                                            setActiveSessionIndex(index);
-                                            if (typeof ts === "number") {
-                                                onVideoJump(ts);
-                                            }
-                                        }}
-                                        show={seriesVisible}
-                                    />
-                                </div>
-                            ) : videoUrl ? (
-                                <div className="relative w-full h-full">
-                                    <EvidenceReel
-                                        jumpToTime={currentVideoTime}
-                                        jumpKey={jumpKey}
-                                        videoUrl={videoUrl}
-                                        duration={duration}
-                                        chapters={chapters}
-                                        paused={mainContentTab === "summary" || mainContentTab === "coding"}
-                                    />
-                                    {mainContentTab === "summary" && (
-                                        <>
-                                            {summaryLoading ? (
-                                                <div className="absolute inset-0 bg-white z-10 flex items-center justify-center">
-                                                    <p className="text-gray-600">Loading background summary...</p>
+                </div>
                                                 </div>
-                                            ) : backgroundSummary ? (
-                                                <SummaryOverlay
+            
+            {/* Modals */}
+            {backgroundSummary && (
+                <ExperienceModal
+                    isOpen={experienceModalOpen}
+                    onClose={() => setExperienceModalOpen(false)}
                                                     executiveSummary={backgroundSummary.executiveSummary}
                                                     recommendation={backgroundSummary.recommendation}
                                                     adaptability={{
@@ -859,21 +522,12 @@ function TelemetryContent() {
                                                         evidence: backgroundSummary.evidenceJson?.reasoning || [],
                                                     }}
                                                 />
-                                            ) : (
-                                                <div className="absolute inset-0 bg-white z-10 flex items-center justify-center">
-                                                    <p className="text-gray-600">No background summary available for this session.</p>
-                                                </div>
-                                            )}
-                                        </>
-                                    )}
-                                    {mainContentTab === "coding" && (
-                                        <>
-                                            {codingSummaryLoading ? (
-                                                <div className="absolute inset-0 bg-white z-10 flex items-center justify-center">
-                                                    <p className="text-gray-600">Loading coding summary...</p>
-                                                </div>
-                                            ) : codingSummary ? (
-                                                <CodingSummaryOverlay
+            )}
+            
+            {codingSummary && (
+                <CodingModal
+                    isOpen={codingModalOpen}
+                    onClose={() => setCodingModalOpen(false)}
                                                     executiveSummary={codingSummary.executiveSummary}
                                                     recommendation={codingSummary.recommendation}
                                                     codeQuality={{
@@ -889,21 +543,10 @@ function TelemetryContent() {
                                                         text: codingSummary.independence.text,
                                                     }}
                                                 />
-                                            ) : (
-                                                <div className="absolute inset-0 bg-white z-10 flex items-center justify-center">
-                                                    <p className="text-gray-600">No coding summary available for this session.</p>
-                                                </div>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="aspect-video bg-gray-200 rounded-xl" />
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>
+            )}
+            
+            {/* TODO: Add link to improvement graph in future */}
+            {/* ImprovementChart code preserved for future use */}
         </div>
     );
 }

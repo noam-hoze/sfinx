@@ -98,7 +98,7 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
     const metrics = [
         {
             key: "iterationSpeed" as keyof WorkstyleMetrics,
-            label: "# Iterations",
+            label: "Number of Iterations",
             data: workstyle.iterationSpeed,
         },
         {

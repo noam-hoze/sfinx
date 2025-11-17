@@ -57,6 +57,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         candidateProfile: true,
                     },
                 },
+                application: {
+                    include: {
+                        job: true,
+                    },
+                },
             },
             orderBy: {
                 createdAt: "desc",
@@ -268,6 +273,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
                     matchScore: telemetry?.matchScore ?? null,
                     confidence: telemetry?.confidence ?? null,
                     story: telemetry?.story ?? null,
+                    application: session.application ? {
+                        id: session.application.id,
+                        job: session.application.job ? {
+                            id: session.application.job.id,
+                            title: session.application.job.title,
+                        } : null,
+                    } : null,
                     gaps: {
                         gaps:
                             telemetry?.gapAnalysis?.gaps.map((gap: any) => ({
