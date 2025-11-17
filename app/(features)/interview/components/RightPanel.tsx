@@ -10,6 +10,9 @@ import ChatPanel from "./chat/ChatPanel";
 interface RightPanelProps {
     isInterviewActive: boolean;
     candidateName: string;
+    handleUserTranscript: (transcript: string) => Promise<void>;
+    updateKBVariables: (updates: any) => Promise<void>;
+    kbVariables: any;
     automaticMode: boolean;
     isCodingStarted: boolean;
     onAutoStartCoding: () => void;
@@ -34,6 +37,9 @@ interface RightPanelProps {
 const RightPanel: React.FC<RightPanelProps> = ({
     isInterviewActive,
     candidateName,
+    handleUserTranscript,
+    updateKBVariables,
+    kbVariables,
     automaticMode,
     isCodingStarted,
     onAutoStartCoding,
@@ -67,6 +73,24 @@ const RightPanel: React.FC<RightPanelProps> = ({
     )
         .toLowerCase()
         .trim();
+    const isElevenLabsFlow = !isTextMode && voiceEngine !== "openai";
+
+    useEffect(() => {
+        if (!isElevenLabsFlow) {
+            return;
+        }
+        if (typeof codingDurationSeconds !== "number" || codingDurationSeconds <= 0) {
+            return;
+        }
+        updateKBVariables({
+            coding_time_seconds: codingDurationSeconds,
+        }).catch(() => {});
+    }, [
+        codingDurationSeconds,
+        updateKBVariables,
+        isElevenLabsFlow,
+    ]);
+
     return (
         <div className="h-full flex flex-col border-t">
             {/* Text mode - hidden conversation component for state management */}
@@ -106,6 +130,9 @@ const RightPanel: React.FC<RightPanelProps> = ({
                             ref={realTimeConversationRef}
                             isInterviewActive={isInterviewActive}
                             candidateName={candidateName}
+                            handleUserTranscript={handleUserTranscript}
+                            updateKBVariables={updateKBVariables}
+                            kbVariables={kbVariables}
                             automaticMode={automaticMode}
                             onAutoStartCoding={onAutoStartCoding}
                             onStartConversation={() => {
@@ -131,6 +158,9 @@ const RightPanel: React.FC<RightPanelProps> = ({
                             ref={realTimeConversationRef}
                             isInterviewActive={isInterviewActive}
                             candidateName={candidateName}
+                            handleUserTranscript={handleUserTranscript}
+                            updateKBVariables={updateKBVariables}
+                            kbVariables={kbVariables}
                             automaticMode={automaticMode}
                             onAutoStartCoding={onAutoStartCoding}
                             onStartConversation={() => {
