@@ -76,7 +76,6 @@ const SeedSchema = z.object({
     workstyleMetrics: z.object({
         id: z.string(),
         iterationSpeed: z.number().nullable().optional(),
-        debugLoops: z.number().nullable().optional(),
         refactorCleanups: z.number().nullable().optional(),
         aiAssistUsage: z.number().nullable().optional(),
     }),

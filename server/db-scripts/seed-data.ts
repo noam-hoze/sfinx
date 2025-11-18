@@ -7,12 +7,6 @@ import bcrypt from "bcryptjs";
 import { log } from "app/shared/services";
 
 // Import seed functions
-import { seedGal } from "./seed-candidate/seed-gal";
-import { seedGalSession2 } from "./seed-candidate/seed-gal-session2";
-import { seedGalSession3 } from "./seed-candidate/seed-gal-session3";
-import { seedGalSession4 } from "./seed-candidate/seed-gal-session4";
-import { seedGalSession5 } from "./seed-candidate/seed-gal-session5";
-import { seedMark } from "./seed-candidate/seed-mark";
 import { seedDemoCandidate } from "./seed-candidate/seed-demo-candidate";
 
 const prisma = new PrismaClient();
@@ -268,13 +262,7 @@ async function resetDatabase() {
 
         log.info("Database reset and seeded successfully!");
 
-        // Create additional candidates using existing seed scripts
-        await seedGal();
-        await seedGalSession2();
-        await seedGalSession3();
-        await seedGalSession4();
-        await seedGalSession5();
-        await seedMark();
+        // Create demo candidate
         await seedDemoCandidate();
 
         // Print summary

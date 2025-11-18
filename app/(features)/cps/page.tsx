@@ -236,7 +236,6 @@ function TelemetryContent() {
 
             const workstyleMetrics: WorkstyleMetrics = {
                 iterationSpeed: sessionWorkstyle.iterationSpeed?.value,
-                debugLoopsAvgDepth: sessionWorkstyle.debugLoops?.avgDepth,
                 aiAssistAccountabilityScore: sessionWorkstyle.aiAssistUsage?.avgAccountabilityScore,
             };
 
@@ -279,7 +278,6 @@ function TelemetryContent() {
         if (!workstyle) return null;
         const metricKeys = [
             "iterationSpeed",
-            "debugLoops",
             "aiAssistUsage",
         ] as const;
         let bestKey: (typeof metricKeys)[number] | null = null;
@@ -296,7 +294,6 @@ function TelemetryContent() {
 
     const topMetricLabelMap: Record<string, string> = {
         iterationSpeed: "Iteration Speed",
-        debugLoops: "Debug Loops",
         aiAssistUsage: "External Tool Usage",
     };
     const topMetricLabel = topMetricKey

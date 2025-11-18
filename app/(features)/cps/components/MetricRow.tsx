@@ -7,7 +7,7 @@ interface MetricRowProps {
     unit?: string;
     benchmarkLow?: number;
     benchmarkHigh?: number;
-    inverse?: boolean; // For metrics where lower is better (iteration speed, debug loops)
+    inverse?: boolean; // For metrics where lower is better (iteration speed)
     evidenceLinks?: number[]; // Video timestamps for evidence
     onVideoJump?: (timestamp: number) => void;
 }
@@ -31,7 +31,7 @@ const MetricRow: React.FC<MetricRowProps> = ({
     // Determine color and status based on position and inverse flag
     const getStatus = () => {
         if (inverse) {
-            // Lower is better (iteration speed, debug loops)
+            // Lower is better (iteration speed)
             if (value <= benchmarkLow * 1.5) return { color: "bg-emerald-500", text: "Excellent", gradient: "from-emerald-50 via-yellow-50 to-red-50" };
             if (value >= benchmarkHigh * 0.8) return { color: "bg-red-500", text: "Needs Improvement", gradient: "from-emerald-50 via-yellow-50 to-red-50" };
             return { color: "bg-amber-500", text: "Good", gradient: "from-emerald-50 via-yellow-50 to-red-50" };

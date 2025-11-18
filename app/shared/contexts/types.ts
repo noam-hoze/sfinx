@@ -116,14 +116,6 @@ export interface WorkstyleMetrics {
         tpe?: number;
         evidenceLinks?: number[]; // Array of video timestamps
     };
-    debugLoops: {
-        value: number; // 0-100
-        level: "Fast" | "Moderate" | "Slow";
-        color: "blue" | "yellow" | "red";
-        // Lower is better for debug loops. Benchmark of TPE (0-100).
-        tpe?: number;
-        evidenceLinks?: number[];
-    };
     refactorCleanups: {
         value: number; // 0-100
         level: "Strong" | "Moderate" | "Weak";

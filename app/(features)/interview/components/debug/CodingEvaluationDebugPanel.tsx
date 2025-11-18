@@ -8,7 +8,6 @@ interface CodingEvaluationDebugPanelProps {
         summaryRequest?: any;
         summaryResponse?: any;
         iterations?: any[];
-        debugLoops?: any[];
         timestamp?: number;
         error?: string;
     } | null;
@@ -17,7 +16,7 @@ interface CodingEvaluationDebugPanelProps {
 }
 
 export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, onTestEvaluation }: CodingEvaluationDebugPanelProps) {
-    const [activeTab, setActiveTab] = useState<"summary" | "codeQuality" | "problemSolving" | "external" | "iterations" | "debugLoops">("summary");
+    const [activeTab, setActiveTab] = useState<"summary" | "codeQuality" | "problemSolving" | "external" | "iterations">("summary");
     
     // Subscribe to paste evaluation state
     const [chatState, setChatState] = useState(() => interviewChatStore.getState());
@@ -140,16 +139,6 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                         }`}
                     >
                         Iteration Loops
-                    </button>
-                    <button
-                        onClick={() => setActiveTab("debugLoops")}
-                        className={`px-4 py-2 text-sm font-medium transition-colors ${
-                            activeTab === "debugLoops"
-                                ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400"
-                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-                        }`}
-                    >
-                        Debug Loops
                     </button>
                 </div>
 
@@ -323,7 +312,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                                 </>
                             ) : (
                                 <div className="text-base text-slate-600 dark:text-slate-300 py-8 text-center">
-                                    No summary data yet. Click "Test Evaluation" to generate.
+                                    No summary data yet. Click &quot;Test Evaluation&quot; to generate.
                                 </div>
                             )}
                         </div>
@@ -367,7 +356,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                                 </div>
                             ) : (
                                 <div className="text-base text-slate-600 dark:text-slate-300 py-8 text-center">
-                                    No code quality data yet. Click "Test Evaluation" to generate.
+                                    No code quality data yet. Click &quot;Test Evaluation&quot; to generate.
                                 </div>
                             )}
                         </div>
@@ -397,7 +386,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                                 </div>
                             ) : (
                                 <div className="text-base text-slate-600 dark:text-slate-300 py-8 text-center">
-                                    No problem solving data yet. Click "Test Evaluation" to generate.
+                                    No problem solving data yet. Click &quot;Test Evaluation&quot; to generate.
                                 </div>
                             )}
                         </div>
@@ -420,7 +409,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                                         >
                                             <div className="flex items-center justify-between mb-3">
                                                 <div className="text-base font-semibold text-slate-800 dark:text-slate-200">
-                                                    Iteration #{evaluationData.iterations.length - idx}
+                                                    Iteration #{(evaluationData.iterations?.length ?? 0) - idx}
                                                 </div>
                                                 <div className="text-sm text-slate-500 dark:text-slate-400">
                                                     {new Date(iteration.timestamp).toLocaleString()}
@@ -495,91 +484,6 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                             ) : (
                                 <div className="text-base text-slate-600 dark:text-slate-300 py-8 text-center">
                                     No iteration data yet. Run your code to start tracking iterations.
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* Debug Loops Tab */}
-                {activeTab === "debugLoops" && (
-                    <div className="flex flex-col gap-4">
-                        <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4">
-                            <div className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">
-                                Debug Loop Analysis
-                            </div>
-                            {evaluationData?.debugLoops && evaluationData.debugLoops.length > 0 ? (
-                                <div className="space-y-4">
-                                    {evaluationData.debugLoops.map((loop: any, idx: number) => (
-                                        <div
-                                            key={loop.id || idx}
-                                            className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 bg-slate-50 dark:bg-slate-800/50"
-                                        >
-                                            <div className="flex items-center justify-between mb-3">
-                                                <div className="text-base font-semibold text-slate-800 dark:text-slate-200">
-                                                    Debug Loop #{evaluationData.debugLoops.length - idx}
-                                                </div>
-                                                <div className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                                                    loop.resolved
-                                                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                                                        : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                                                }`}>
-                                                    {loop.resolved ? "Resolved" : "Unresolved"}
-                                                </div>
-                                            </div>
-                                            
-                                            <div className="grid grid-cols-2 gap-4 mb-3">
-                                                <div>
-                                                    <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                                                        Start Time
-                                                    </div>
-                                                    <div className="text-sm text-slate-700 dark:text-slate-300">
-                                                        {new Date(loop.startTimestamp).toLocaleString()}
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                                                        End Time
-                                                    </div>
-                                                    <div className="text-sm text-slate-700 dark:text-slate-300">
-                                                        {new Date(loop.endTimestamp).toLocaleString()}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div className="grid grid-cols-2 gap-4 mb-3">
-                                                <div>
-                                                    <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                                                        Error Count
-                                                    </div>
-                                                    <div className="text-base font-semibold text-red-600 dark:text-red-400">
-                                                        {loop.errorCount} error{loop.errorCount !== 1 ? "s" : ""}
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                                                        Duration
-                                                    </div>
-                                                    <div className="text-base font-semibold text-slate-800 dark:text-slate-200">
-                                                        {Math.round((new Date(loop.endTimestamp).getTime() - new Date(loop.startTimestamp).getTime()) / 1000)}s
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div className="mb-3">
-                                                <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                                                    Caption
-                                                </div>
-                                                <div className="text-base text-slate-700 dark:text-slate-300">
-                                                    {loop.caption}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-base text-slate-600 dark:text-slate-300 py-8 text-center">
-                                    No debug loop data yet. Debug loops will be tracked automatically when errors occur.
                                 </div>
                             )}
                         </div>

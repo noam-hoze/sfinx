@@ -142,24 +142,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
             },
         });
 
-        // Fetch debug loops for all sessions
-        const allDebugLoops = await prisma.debugLoop.findMany({
-            where: {
-                interviewSessionId: { in: sessionIds },
-            },
-            select: {
-                interviewSessionId: true,
-                startTimestamp: true,
-                endTimestamp: true,
-                errorCount: true,
-                resolved: true,
-                caption: true,
-            },
-            orderBy: {
-                errorCount: "desc", // Order by error count for selecting longest loops
-            },
-        });
-
         // Fetch scoring configurations for all jobs
         const jobIds = [...new Set(interviewSessions.map((s: any) => s.application?.job?.id).filter(Boolean))];
         const scoringConfigs = await prisma.scoringConfiguration.findMany({
@@ -246,15 +228,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
             log.info(`  - ${chapter.title}: startTime=${chapter.startTime}s, sessionId=${chapter.telemetryData.interviewSessionId}`);
         });
 
-        // Group debug loops by session
-        const debugLoopsBySession = new Map<string, any[]>();
-        for (const loop of allDebugLoops) {
-            if (!debugLoopsBySession.has(loop.interviewSessionId)) {
-                debugLoopsBySession.set(loop.interviewSessionId, []);
-            }
-            debugLoopsBySession.get(loop.interviewSessionId)!.push(loop);
-        }
-
         // Group external tool usages by session
         const externalToolsBySession = new Map<string, any[]>();
         for (const tool of allExternalToolUsages) {
@@ -273,7 +246,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 const sessionIterations = iterationsBySession.get(session.id) || [];
 
                 const iterationSpeedLinks: number[] = [];
-                const debugLoopsLinks: number[] = [];
                 const aiAssistUsageLinks: number[] = [];
 
                 // Add iteration evidence links using stored VideoChapter.startTime
@@ -285,20 +257,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         iterationSpeedLinks.push(chapter.startTime);
                     }
                 });
-
-                // Add debug loop evidence links (all resolved loops)
-                const sessionDebugLoops = debugLoopsBySession.get(session.id) || [];
-                if (session.recordingStartedAt && sessionDebugLoops.length > 0) {
-                    sessionDebugLoops
-                        .filter((loop: any) => loop.resolved)
-                        .forEach((loop: any) => {
-                            // Use endTimestamp (resolution moment) for video evidence
-                            const videoOffset = (new Date(loop.endTimestamp).getTime() - new Date(session.recordingStartedAt).getTime()) / 1000;
-                            if (videoOffset >= 0) {
-                                debugLoopsLinks.push(videoOffset);
-                            }
-                        });
-                }
 
                 // Add external tool usage evidence links and calculate breakdown
                 const sessionExternalTools = externalToolsBySession.get(session.id) || [];
@@ -356,12 +314,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         iterationSpeedLinks.push(clip.startTime);
                     }
                     if (
-                        clip.category === "DEBUG_LOOP" ||
-                        clip.title.includes("Debug Loop")
-                    ) {
-                        debugLoopsLinks.push(clip.startTime);
-                    }
-                    if (
                         clip.category === "AI_ASSIST_USAGE" ||
                         clip.title.includes("AI Assist")
                     ) {
@@ -384,14 +336,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                             reasoning: backgroundSummary.reasoningScore,
                             codeQuality: codingSummary.codeQualityScore,
                             problemSolving: codingSummary.problemSolvingScore,
-                            independence: codingSummary.independenceScore,
                         };
-
-                        const sessionDebugLoops = debugLoopsBySession.get(session.id) || [];
-                        const loops = sessionDebugLoops.filter((loop: any) => loop.resolved);
-                        const totalLoops = loops.length;
-                        const totalErrors = loops.reduce((sum: number, loop: any) => sum + loop.errorCount, 0);
-                        const avgDepth = totalLoops > 0 ? totalErrors / totalLoops : 0;
 
                         const sessionExternalTools = externalToolsBySession.get(session.id) || [];
                         const totalScore = sessionExternalTools.reduce((sum: number, tool: any) => 
@@ -402,7 +347,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
                         const workstyleMetrics: WorkstyleMetrics = {
                             iterationSpeed: telemetry.workstyleMetrics.iterationSpeed ?? undefined,
-                            debugLoopsAvgDepth: avgDepth,
                             aiAssistAccountabilityScore: avgAccountabilityScore,
                         };
 
@@ -479,26 +423,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
                                   evidenceLinks: iterationSpeedLinks,
                                   tpe: telemetry.workstyleMetrics.iterationSpeed ?? 0,
                               },
-                              debugLoops: (() => {
-                                  const loops = sessionDebugLoops.filter((loop: any) => loop.resolved);
-                                  const totalLoops = loops.length;
-                                  const totalErrors = loops.reduce((sum: number, loop: any) => sum + loop.errorCount, 0);
-                                  const avgDepth = totalLoops > 0 ? totalErrors / totalLoops : 0;
-                                  const longestLoop = loops.length > 0 
-                                      ? Math.max(...loops.map((loop: any) => loop.errorCount))
-                                      : 0;
-                                  
-                                  return {
-                                      value: totalLoops,
-                                      level: avgDepth < 2 ? "Fast" : avgDepth <= 4 ? "Moderate" : "Slow",
-                                      color: avgDepth < 2 ? "blue" : avgDepth <= 4 ? "yellow" : "red",
-                                      evidenceLinks: debugLoopsLinks,
-                                      tpe: totalLoops,
-                                      avgDepth: Math.round(avgDepth * 10) / 10, // Round to 1 decimal
-                                      longestLoop,
-                                      unresolved: sessionDebugLoops.filter((loop: any) => !loop.resolved).length,
-                                  };
-                              })(),
                               aiAssistUsage: {
                                   value: telemetry.workstyleMetrics.externalToolUsage ?? 0,
                                   level:
@@ -640,9 +564,6 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             if (body.workstyle.iterationSpeed?.value !== undefined) {
                 workstyleData.iterationSpeed = body.workstyle.iterationSpeed.value;
             }
-            if (body.workstyle.debugLoops?.value !== undefined) {
-                workstyleData.debugLoops = body.workstyle.debugLoops.value;
-            }
             if (body.workstyle.aiAssistUsage?.value !== undefined) {
                 workstyleData.externalToolUsage = body.workstyle.aiAssistUsage.value;
             }
@@ -670,7 +591,6 @@ export async function PUT(request: NextRequest, context: RouteContext) {
                     title: "Iteration Speed",
                     data: body.workstyle.iterationSpeed,
                 },
-                { title: "Debug Loop", data: body.workstyle.debugLoops },
                 {
                     title: "AI Assist Usage",
                     data: body.workstyle.aiAssistUsage,
@@ -682,7 +602,6 @@ export async function PUT(request: NextRequest, context: RouteContext) {
                     for (const timestamp of metric.data.evidenceLinks) {
                         const categoryMap: Record<string, string> = {
                             "Iteration Speed": "ITERATION_SPEED",
-                            "Debug Loop": "DEBUG_LOOP",
                             "AI Assist Usage": "AI_ASSIST_USAGE",
                         };
                         const category = categoryMap[metric.title];

@@ -20,7 +20,7 @@ async function syncSchemaAndSeed() {
 
         // 2. Push the new schema to the database (apply DDL)
         log.info("🚀 Pushing new schema to database...");
-        execSync("pnpm prisma db push --schema server/prisma/schema.prisma", {
+        execSync("pnpm prisma db push --schema server/prisma/schema.prisma --accept-data-loss", {
             stdio: "inherit",
         });
 

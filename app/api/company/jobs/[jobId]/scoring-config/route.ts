@@ -150,7 +150,6 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             'problemSolvingWeight',
             'independenceWeight',
             'iterationSpeedWeight',
-            'debugLoopsWeight',
             'aiAssistWeight',
             'experienceWeight',
             'codingWeight',
@@ -194,28 +193,12 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             }
         }
 
-        if (
-            body.debugLoopsDepthThresholdFast !== undefined &&
-            body.debugLoopsDepthThresholdModerate !== undefined
-        ) {
-            const fast = Number(body.debugLoopsDepthThresholdFast);
-            const moderate = Number(body.debugLoopsDepthThresholdModerate);
-            if (fast >= moderate) {
-                return NextResponse.json(
-                    { error: "Debug loops fast threshold must be less than moderate threshold" },
-                    { status: 400 }
-                );
-            }
-        }
-
         // Build update data
         const updates: any = {};
         const updateableFields = [
             ...weightFields,
             'iterationSpeedThresholdModerate',
             'iterationSpeedThresholdHigh',
-            'debugLoopsDepthThresholdFast',
-            'debugLoopsDepthThresholdModerate',
         ];
 
         for (const field of updateableFields) {

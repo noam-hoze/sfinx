@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
         log.info("[Generate Coding Gaps] Starting gap generation for session:", sessionId);
 
         // Fetch all coding session metrics
-        const [iterations, debugLoops, externalToolUsages] = await Promise.all([
+        const [iterations, externalToolUsages] = await Promise.all([
             prisma.iteration.findMany({
                 where: { interviewSessionId: sessionId },
                 select: {
@@ -39,13 +39,6 @@ export async function POST(request: NextRequest) {
                     reasoning: true,
                 },
                 orderBy: { timestamp: "asc" },
-            }),
-            prisma.debugLoop.findMany({
-                where: { interviewSessionId: sessionId },
-                select: {
-                    errorCount: true,
-                    resolved: true,
-                },
             }),
             prisma.externalToolUsage.findMany({
                 where: { interviewSessionId: sessionId },
@@ -59,7 +52,6 @@ export async function POST(request: NextRequest) {
 
         log.info("[Generate Coding Gaps] Metrics gathered:", {
             iterations: iterations.length,
-            debugLoops: debugLoops.length,
             externalToolUsages: externalToolUsages.length,
         });
 
@@ -69,12 +61,6 @@ export async function POST(request: NextRequest) {
         const successRate = totalIterations > 0 ? (correctIterations / totalIterations) * 100 : 0;
         const firstCorrectIteration = iterations.findIndex((i) => i.evaluation === "CORRECT");
         const timeToSolution = firstCorrectIteration >= 0 ? firstCorrectIteration + 1 : null;
-
-        const totalDebugLoops = debugLoops.length;
-        const resolvedDebugLoops = debugLoops.filter((l) => l.resolved).length;
-        const avgErrorsPerLoop = totalDebugLoops > 0
-            ? debugLoops.reduce((sum, l) => sum + l.errorCount, 0) / totalDebugLoops
-            : 0;
 
         const totalPastes = externalToolUsages.length;
         const avgAccountabilityScore = totalPastes > 0
@@ -94,11 +80,6 @@ export async function POST(request: NextRequest) {
                     matchPercentage: i.matchPercentage,
                     reasoning: i.reasoning,
                 })),
-            },
-            debugLoops: {
-                total: totalDebugLoops,
-                resolved: resolvedDebugLoops,
-                avgErrorsPerLoop: Math.round(avgErrorsPerLoop * 10) / 10,
             },
             externalToolUsage: {
                 total: totalPastes,

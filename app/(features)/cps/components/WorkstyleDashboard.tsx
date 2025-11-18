@@ -30,7 +30,6 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
 }) => {
     // Extract raw values
     const rawIterationSpeed = workstyle.iterationSpeed?.value ?? 0;
-    const rawDebugLoops = (workstyle.debugLoops as any)?.avgDepth ?? workstyle.debugLoops?.value ?? 0;
     const aiAssistValue = (workstyle.aiAssistUsage as any)?.avgAccountabilityScore ?? 100;
 
     // Use same normalization as calculateScore.ts
@@ -50,24 +49,7 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
         return 50 - (position * 50);
     };
 
-    // Debug Loops normalization (configurable thresholds: 2, 4)
-    const normalizeDebugLoops = (avgDepth: number, fast = 2, moderate = 4): number => {
-        if (avgDepth === 0) return 100;
-        if (avgDepth <= fast) return 100 - ((avgDepth / fast) * 10);
-        if (avgDepth <= moderate) {
-            const range = moderate - fast;
-            const position = (avgDepth - fast) / range;
-            return 90 - (position * 20);
-        }
-        const maxBad = moderate * 2;
-        if (avgDepth >= maxBad) return 0;
-        const range = maxBad - moderate;
-        const position = (avgDepth - moderate) / range;
-        return 70 - (position * 70);
-    };
-
     const iterationSpeedValue = Math.round(normalizeIterationSpeed(rawIterationSpeed));
-    const debugLoopsValue = Math.round(normalizeDebugLoops(rawDebugLoops));
 
     return (
         <div className="divide-y divide-gray-100">
@@ -92,15 +74,6 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                 benchmarkLow={0}
                 benchmarkHigh={100}
                 evidenceLinks={workstyle.iterationSpeed?.evidenceLinks}
-                onVideoJump={onVideoJump}
-            />
-            <MetricRow
-                label="Debug Loops"
-                description="Number of error cycles until successful resolution"
-                value={debugLoopsValue}
-                benchmarkLow={0}
-                benchmarkHigh={100}
-                evidenceLinks={workstyle.debugLoops?.evidenceLinks}
                 onVideoJump={onVideoJump}
             />
             <MetricRow

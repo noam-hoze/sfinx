@@ -159,10 +159,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     const [isChatInputLocked, setIsChatInputLocked] = useState(true);
     const [redirectDelayMs, setRedirectDelayMs] = useState<number>(4000);
     
-    // Debug loop tracking
-    const [consecutiveErrors, setConsecutiveErrors] = useState(0);
-    const [debugLoopStartTime, setDebugLoopStartTime] = useState<Date | null>(null);
-    
     // Store interview script data for iteration tracking
     const [interviewScript, setInterviewScript] = useState<any>(null);
     const [lastEvaluation, setLastEvaluation] = useState<string | null>(null);
@@ -389,31 +385,11 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 debugData.iterations = [];
             }
 
-            // Fetch debug loops
-            logger.info("[TEST_EVAL] 📝 Fetching debug loops...");
-            const debugLoopsUrl = isDemoMode
-                ? `/api/interviews/session/${interviewSessionId}/debug-loops?skip-auth=true`
-                : `/api/interviews/session/${interviewSessionId}/debug-loops`;
-            
-            const debugLoopsResponse = await fetch(debugLoopsUrl);
-            if (debugLoopsResponse.ok) {
-                const debugLoopsData = await debugLoopsResponse.json();
-                debugData.debugLoops = debugLoopsData.debugLoops || [];
-                logger.info("[TEST_EVAL] ✅ Debug loops fetched:", {
-                    count: debugData.debugLoops.length,
-                    data: debugData.debugLoops,
-                });
-            } else {
-                logger.error("[TEST_EVAL] ❌ Failed to fetch debug loops:", debugLoopsResponse.status);
-                debugData.debugLoops = [];
-            }
-
             setEvaluationDebugData(debugData);
             logger.info("✅ [TEST_EVAL] Test evaluation complete - all data:", debugData);
             logger.info("[TEST_EVAL] 📊 Debug panel should now display:", {
                 hasSummaryData: !!debugData.summaryResponse,
                 hasIterations: !!debugData.iterations,
-                hasDebugLoops: !!debugData.debugLoops,
                 summaryStatus: debugData.summaryResponse?.status,
             });
             
@@ -779,7 +755,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                         const destination = isDemoMode
                             ? `/demo/company-view?candidateId=${searchParams.get("userId")}&applicationId=${applicationId}`
                             : "/job-search";
-                        router.push(destination);
+                        router.push(destination as any);
                     }
                 }, delay);
             }
@@ -825,8 +801,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             });
             logger.info("[ITERATION] Session ID:", interviewSessionId);
             logger.info("[ITERATION] Expected output:", interviewScript?.expectedOutput);
-            logger.info("[ITERATION] Consecutive errors:", consecutiveErrors);
-            logger.info("[ITERATION] Debug loop start time:", debugLoopStartTime);
             
             if (!interviewSessionId || !interviewScript?.expectedOutput) {
                 logger.info("⚠️ [ITERATION] Skipping iteration tracking - missing session ID or expected output");
@@ -915,73 +889,11 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                     const errorText = await saveResponse.text();
                     logger.error("❌ [ITERATION] Failed to save iteration:", errorText);
                 }
-                
-                // Track debug loops
-                logger.info(`[DEBUG LOOP] Result status: ${result.status}, consecutiveErrors: ${consecutiveErrors}`);
-                
-                if (result.status === "error") {
-                    // Start or continue debug loop
-                    if (consecutiveErrors === 0) {
-                        const startTime = new Date();
-                        setDebugLoopStartTime(startTime);
-                        logger.info(`🔴 [DEBUG LOOP] Loop started at ${startTime.toISOString()}`);
-                    }
-                    setConsecutiveErrors((prev) => prev + 1);
-                    logger.info(`🔴 [DEBUG LOOP] Consecutive errors now: ${consecutiveErrors + 1}`);
-                } else if (result.status === "success" && consecutiveErrors > 0) {
-                    // Debug loop resolved
-                    const endTime = new Date();
-                    const caption = `Resolved ${consecutiveErrors} consecutive runtime error${consecutiveErrors > 1 ? "s" : ""}`;
-                    
-                    logger.info(`✅ [DEBUG LOOP] Loop resolved - ${caption}`);
-                    logger.info(`[DEBUG LOOP] Start time: ${debugLoopStartTime?.toISOString()}, End time: ${endTime.toISOString()}`);
-                    
-                    const debugLoopUrl = isDemoMode
-                        ? `/api/interviews/session/${interviewSessionId}/debug-loops?skip-auth=true`
-                        : `/api/interviews/session/${interviewSessionId}/debug-loops`;
-                    
-                    const debugLoopBody: Record<string, any> = {
-                        startTimestamp: debugLoopStartTime!.toISOString(),
-                        endTimestamp: endTime.toISOString(),
-                        errorCount: consecutiveErrors,
-                        resolved: true,
-                        caption,
-                    };
-                    
-                    if (isDemoMode && demoUserId) {
-                        debugLoopBody.userId = demoUserId;
-                    }
-                    
-                    logger.info(`[DEBUG LOOP] Sending POST to: ${debugLoopUrl}`);
-                    logger.info(`[DEBUG LOOP] Request body:`, debugLoopBody);
-                    
-                    const debugLoopResponse = await fetch(debugLoopUrl, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(debugLoopBody),
-                    });
-                    
-                    logger.info(`[DEBUG LOOP] Response status: ${debugLoopResponse.status}`);
-                    
-                    if (debugLoopResponse.ok) {
-                        const responseData = await debugLoopResponse.json();
-                        logger.info("✅ [DEBUG LOOP] Saved to DB:", responseData);
-                    } else {
-                        const errorText = await debugLoopResponse.text();
-                        logger.error(`❌ [DEBUG LOOP] Failed to save:`, errorText);
-                    }
-                    
-                    // Reset tracking
-                    setConsecutiveErrors(0);
-                    setDebugLoopStartTime(null);
-                } else if (result.status === "success" && consecutiveErrors === 0) {
-                    logger.info(`[DEBUG LOOP] Success with no prior errors - no loop to save`);
-                }
             } catch (error) {
                 logger.error("❌ Error tracking iteration:", error);
             }
         },
-        [interviewSessionId, interviewScript, state.currentCode, isDemoMode, demoUserId, consecutiveErrors, debugLoopStartTime]
+        [interviewSessionId, interviewScript, isDemoMode, demoUserId]
     );
 
     /**

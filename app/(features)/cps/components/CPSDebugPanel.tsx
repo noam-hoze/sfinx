@@ -32,7 +32,6 @@ export default function CPSDebugPanel({
 
     // Extract workstyle raw values
     const iterationSpeed = workstyle?.iterationSpeed?.value ?? null;
-    const debugLoopsAvgDepth = workstyle?.debugLoops?.avgDepth ?? null;
     const aiAssistAccountability = workstyle?.aiAssistUsage?.avgAccountabilityScore ?? null;
 
     // Calculate experience and coding averages
@@ -116,12 +115,6 @@ export default function CPSDebugPanel({
                             </span>
                         </div>
                         <div>
-                            <span className="text-slate-600 dark:text-slate-300">Debug Loops Avg Depth:</span>
-                            <span className="ml-2 font-mono font-semibold text-slate-900 dark:text-white">
-                                {debugLoopsAvgDepth !== null ? debugLoopsAvgDepth.toFixed(2) : "N/A"}
-                            </span>
-                        </div>
-                        <div>
                             <span className="text-slate-600 dark:text-slate-300">AI Assist Accountability:</span>
                             <span className="ml-2 font-mono font-semibold text-slate-900 dark:text-white">
                                 {aiAssistAccountability !== null ? aiAssistAccountability : "N/A"}
@@ -163,7 +156,6 @@ export default function CPSDebugPanel({
                                 <div className="font-semibold text-slate-700 dark:text-slate-200 mb-2">Workstyle</div>
                                 <div className="space-y-1">
                                     <div>Iteration Speed: <span className="font-mono">{scoringConfig.iterationSpeedWeight}</span></div>
-                                    <div>Debug Loops: <span className="font-mono">{scoringConfig.debugLoopsWeight}</span></div>
                                     <div>AI Assist: <span className="font-mono">{scoringConfig.aiAssistWeight}</span></div>
                                 </div>
                             </div>
@@ -172,8 +164,6 @@ export default function CPSDebugPanel({
                                 <div className="space-y-1">
                                     <div>Iter Moderate: <span className="font-mono">{scoringConfig.iterationSpeedThresholdModerate}</span></div>
                                     <div>Iter High: <span className="font-mono">{scoringConfig.iterationSpeedThresholdHigh}</span></div>
-                                    <div>Debug Fast: <span className="font-mono">{scoringConfig.debugLoopsDepthThresholdFast}</span></div>
-                                    <div>Debug Moderate: <span className="font-mono">{scoringConfig.debugLoopsDepthThresholdModerate}</span></div>
                                 </div>
                             </div>
                         </div>

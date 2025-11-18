@@ -12,7 +12,6 @@ export interface ScoringConfiguration {
     problemSolvingWeight: number;
     // Workstyle metric weights
     iterationSpeedWeight: number;
-    debugLoopsWeight: number;
     aiAssistWeight: number;
     // Category weights
     experienceWeight: number;
@@ -20,8 +19,6 @@ export interface ScoringConfiguration {
     // Workstyle benchmarks
     iterationSpeedThresholdModerate: number;
     iterationSpeedThresholdHigh: number;
-    debugLoopsDepthThresholdFast: number;
-    debugLoopsDepthThresholdModerate: number;
 }
 
 export interface RawScores {
@@ -36,7 +33,6 @@ export interface RawScores {
 
 export interface WorkstyleMetrics {
     iterationSpeed?: number; // Raw count
-    debugLoopsAvgDepth?: number; // Average depth
     aiAssistAccountabilityScore?: number; // Already 0-100
 }
 
@@ -46,7 +42,6 @@ export interface CalculatedScore {
     codingScore: number; // 0-100 weighted average including workstyle
     normalizedWorkstyle: {
         iterationSpeed: number; // 0-100
-        debugLoops: number; // 0-100
         aiAssist: number; // 0-100
     };
 }
@@ -84,38 +79,6 @@ function normalizeIterationSpeed(
 }
 
 /**
- * Normalize debug loops avg depth to 0-100 scale (inverse - lower is better)
- * 0 depth = 100 score
- * thresholdFast = 90 score
- * thresholdModerate = 70 score
- * > thresholdModerate = decreasing toward 0
- */
-function normalizeDebugLoops(
-    avgDepth: number,
-    thresholdFast: number,
-    thresholdModerate: number
-): number {
-    if (avgDepth === 0) return 100;
-    if (avgDepth <= thresholdFast) {
-        // Linear interpolation from 100 to 90
-        return 100 - ((avgDepth / thresholdFast) * 10);
-    }
-    if (avgDepth <= thresholdModerate) {
-        // Linear interpolation from 90 to 70
-        const range = thresholdModerate - thresholdFast;
-        const position = (avgDepth - thresholdFast) / range;
-        return 90 - (position * 20);
-    }
-    // Beyond thresholdModerate, decrease toward 0
-    // Cap at 2x threshold for 0 score
-    const maxBad = thresholdModerate * 2;
-    if (avgDepth >= maxBad) return 0;
-    const range = maxBad - thresholdModerate;
-    const position = (avgDepth - thresholdModerate) / range;
-    return 70 - (position * 70);
-}
-
-/**
  * Calculate final candidate score based on configuration
  */
 export function calculateScore(
@@ -129,14 +92,6 @@ export function calculateScore(
             workstyleMetrics.iterationSpeed,
             config.iterationSpeedThresholdModerate,
             config.iterationSpeedThresholdHigh
-        )
-        : 100; // Default to perfect if no data
-
-    const normalizedDebugLoops = workstyleMetrics.debugLoopsAvgDepth !== undefined
-        ? normalizeDebugLoops(
-            workstyleMetrics.debugLoopsAvgDepth,
-            config.debugLoopsDepthThresholdFast,
-            config.debugLoopsDepthThresholdModerate
         )
         : 100; // Default to perfect if no data
 
@@ -154,19 +109,17 @@ export function calculateScore(
         (rawScores.reasoning * config.reasoningWeight)
     ) / totalExperienceWeight;
 
-    // Calculate coding score (weighted average of 2 coding dimensions + 3 workstyle metrics)
+    // Calculate coding score (weighted average of 2 coding dimensions + 2 workstyle metrics)
     const totalCodingWeight = 
         config.codeQualityWeight + 
         config.problemSolvingWeight + 
         config.iterationSpeedWeight +
-        config.debugLoopsWeight +
         config.aiAssistWeight;
     
     const codingScore = (
         (rawScores.codeQuality * config.codeQualityWeight) +
         (rawScores.problemSolving * config.problemSolvingWeight) +
         (normalizedIterationSpeed * config.iterationSpeedWeight) +
-        (normalizedDebugLoops * config.debugLoopsWeight) +
         (normalizedAiAssist * config.aiAssistWeight)
     ) / totalCodingWeight;
 
@@ -183,7 +136,6 @@ export function calculateScore(
         codingScore: Math.round(codingScore),
         normalizedWorkstyle: {
             iterationSpeed: Math.round(normalizedIterationSpeed),
-            debugLoops: Math.round(normalizedDebugLoops),
             aiAssist: Math.round(normalizedAiAssist),
         },
     };

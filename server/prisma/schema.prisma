@@ -133,17 +133,14 @@ model ScoringConfiguration {
   problemSolvingWeight             Float    @default(25)
   independenceWeight               Float    @default(25)
   /// Workstyle metric weights (part of coding score)
-  iterationSpeedWeight             Float    @default(8.33)
-  debugLoopsWeight                 Float    @default(8.33)
-  aiAssistWeight                   Float    @default(8.34)
+  iterationSpeedWeight             Float    @default(12.5)
+  aiAssistWeight                   Float    @default(12.5)
   /// Category weights (should sum to 100)
   experienceWeight                 Float    @default(50)
   codingWeight                     Float    @default(50)
   /// Workstyle benchmarks for normalization
   iterationSpeedThresholdModerate  Int      @default(5)
   iterationSpeedThresholdHigh      Int      @default(10)
-  debugLoopsDepthThresholdFast     Float    @default(2)
-  debugLoopsDepthThresholdModerate Float    @default(4)
   createdAt                        DateTime @default(now())
   updatedAt                        DateTime @updatedAt
   job                              Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
@@ -203,7 +200,6 @@ model InterviewSession {
   telemetryData      TelemetryData?
   messages           ConversationMessage[]
   iterations         Iteration[]
-  debugLoops         DebugLoop[]
   externalToolUsages ExternalToolUsage[]
 }
 
@@ -233,7 +229,6 @@ model WorkstyleMetrics {
   id                String        @id @default(cuid())
   telemetryDataId   String        @unique
   iterationSpeed    Int?
-  debugLoops        Int?
   refactorCleanups  Int?
   aiAssistUsage     Int?
   externalToolUsage Int?
@@ -402,26 +397,6 @@ model Iteration {
   @@index([interviewSessionId])
 }
 
-model DebugLoop {
-  id                 String           @id @default(cuid())
-  interviewSessionId String
-  /// Timestamp when the debug loop started (first error).
-  startTimestamp     DateTime
-  /// Timestamp when the loop ended (first success after errors).
-  endTimestamp       DateTime
-  /// Number of consecutive errors before resolution.
-  errorCount         Int
-  /// Whether the loop was resolved (true) or still failing (false).
-  resolved           Boolean
-  /// Caption for video evidence.
-  caption            String
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
-  interviewSession   InterviewSession @relation(fields: [interviewSessionId], references: [id], onDelete: Cascade)
-
-  @@index([interviewSessionId])
-}
-
 /// Tracks external tool usage (pasted code from AI, Stack Overflow, etc.).
 model ExternalToolUsage {
   id                    String            @id @default(cuid())
@@ -477,7 +452,6 @@ enum ApplicationStatus {
 
 enum EvidenceCategory {
   ITERATION_SPEED
-  DEBUG_LOOP
   REFACTOR_CLEANUPS
   AI_ASSIST_USAGE
   EXTERNAL_TOOL_USAGE

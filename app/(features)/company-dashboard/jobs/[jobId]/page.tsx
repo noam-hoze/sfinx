@@ -55,14 +55,11 @@ interface ScoringConfigState {
     problemSolvingWeight: number;
     independenceWeight: number;
     iterationSpeedWeight: number;
-    debugLoopsWeight: number;
     aiAssistWeight: number;
     experienceWeight: number;
     codingWeight: number;
     iterationSpeedThresholdModerate: number;
     iterationSpeedThresholdHigh: number;
-    debugLoopsDepthThresholdFast: number;
-    debugLoopsDepthThresholdModerate: number;
 }
 
 const defaultScoringConfig: ScoringConfigState = {
@@ -72,15 +69,12 @@ const defaultScoringConfig: ScoringConfigState = {
     codeQualityWeight: 25,
     problemSolvingWeight: 25,
     independenceWeight: 25,
-    iterationSpeedWeight: 8.33,
-    debugLoopsWeight: 8.33,
-    aiAssistWeight: 8.34,
+    iterationSpeedWeight: 12.5,
+    aiAssistWeight: 12.5,
     experienceWeight: 50,
     codingWeight: 50,
     iterationSpeedThresholdModerate: 5,
     iterationSpeedThresholdHigh: 10,
-    debugLoopsDepthThresholdFast: 2,
-    debugLoopsDepthThresholdModerate: 4,
 };
 
 function optionalString(value: string | null | undefined): string {
@@ -711,18 +705,6 @@ function CompanyJobDetailContent() {
                                             />
                                         </label>
                                         <label className="flex flex-col text-sm font-medium text-gray-700">
-                                            Debug Loops Weight
-                                            <input
-                                                type="number"
-                                                value={scoringConfig.debugLoopsWeight}
-                                                onChange={(e) => setScoringConfig({
-                                                    ...scoringConfig,
-                                                    debugLoopsWeight: Number(e.target.value)
-                                                })}
-                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                            />
-                                        </label>
-                                        <label className="flex flex-col text-sm font-medium text-gray-700">
                                             AI Assist Weight
                                             <input
                                                 type="number"
@@ -758,32 +740,6 @@ function CompanyJobDetailContent() {
                                                 onChange={(e) => setScoringConfig({
                                                     ...scoringConfig,
                                                     iterationSpeedThresholdHigh: Number(e.target.value)
-                                                })}
-                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                            />
-                                        </label>
-                                        <label className="flex flex-col text-sm font-medium text-gray-700">
-                                            Debug Loops Depth - Fast Threshold
-                                            <input
-                                                type="number"
-                                                step="0.1"
-                                                value={scoringConfig.debugLoopsDepthThresholdFast}
-                                                onChange={(e) => setScoringConfig({
-                                                    ...scoringConfig,
-                                                    debugLoopsDepthThresholdFast: Number(e.target.value)
-                                                })}
-                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                            />
-                                        </label>
-                                        <label className="flex flex-col text-sm font-medium text-gray-700">
-                                            Debug Loops Depth - Moderate Threshold
-                                            <input
-                                                type="number"
-                                                step="0.1"
-                                                value={scoringConfig.debugLoopsDepthThresholdModerate}
-                                                onChange={(e) => setScoringConfig({
-                                                    ...scoringConfig,
-                                                    debugLoopsDepthThresholdModerate: Number(e.target.value)
                                                 })}
                                                 className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
                                             />

@@ -141,7 +141,7 @@ render(DefaultComponent);
 
             return () => clearTimeout(timer);
         }
-    }, [isActive, code, onExecutionResult]);
+    }, [isActive, code]);
 
     if (!isActive) return null;
 
