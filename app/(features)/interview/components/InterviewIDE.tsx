@@ -39,6 +39,7 @@ import { store } from "@/shared/state/store";
 const logger = log;
 const DEFAULT_CODING_DURATION_SECONDS = 30 * 60;
 const DEFAULT_CODE = ``;
+const VIDEO_EVIDENCE_OFFSET_MS = 1000; // Show video 1 second before iteration for context
 
 /**
  * Returns the initial code template displayed in the editor when the interview starts.
@@ -175,7 +176,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         commMethodRaw === "yes";
     const timeboxFiredRef = useRef(false);
     const autoStartTriggeredRef = useRef(false);
-    const runCodeClickTimeRef = useRef<Date | null>(null);
+    const runCodeClickTimeRef = useRef<Date>(new Date());
 
     useThemePreference();
 
@@ -838,14 +839,14 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                     ? `/api/interviews/session/${interviewSessionId}/iterations?skip-auth=true`
                     : `/api/interviews/session/${interviewSessionId}/iterations`;
 
-                // Use the Run Code click timestamp minus 1 second for video evidence
-                const clickTime = runCodeClickTimeRef.current || new Date();
-                const evidenceTimestamp = new Date(clickTime.getTime() - 1000); // 1 second before click
+                // Use the Run button click time for accurate video timing
+                const clickTime = runCodeClickTimeRef.current;
+                const evidenceTimestamp = new Date(clickTime.getTime() - VIDEO_EVIDENCE_OFFSET_MS);
 
                 logger.info("🎯 [ITERATION] Timestamp calculation:");
-                logger.info("  - Run Code clicked at:", clickTime.toISOString());
+                logger.info("  - Run button clicked at:", clickTime.toISOString());
                 logger.info("  - Evidence timestamp (click - 1s):", evidenceTimestamp.toISOString());
-                logger.info("  - Current time:", new Date().toISOString());
+                logger.info("  - Evaluation completed at:", new Date().toISOString());
 
                 const body: Record<string, any> = {
                     timestamp: evidenceTimestamp.toISOString(),
@@ -864,7 +865,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
                 logger.info("💾 [ITERATION] Saving to DB:", {
                     url,
-                    runCodeClickTime: clickTime.toISOString(),
+                    clickTime: clickTime.toISOString(),
                     evidenceTimestamp: body.timestamp,
                     codeLength: codeSnapshot.length,
                     actualOutputLength: result.output.length,

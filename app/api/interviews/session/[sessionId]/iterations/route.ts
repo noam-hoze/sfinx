@@ -84,16 +84,53 @@ export async function POST(
             console.log("📹 [Iterations API] VideoChapter calculation:");
             console.log("  - Recording started at:", session.recordingStartedAt.toISOString());
             console.log("  - Iteration timestamp:", iterationTimestamp.toISOString());
-            console.log("  - Time difference (ms):", iterationTimestamp.getTime() - session.recordingStartedAt.getTime());
             console.log("  - Calculated video offset (s):", videoOffset);
+            console.log("  - Iteration count:", iterationCount);
             
             if (videoOffset >= 0) {
+                // If first iteration, create "Problem Presentation" chapter
+                if (iterationCount === 1) {
+                    const problemPresentationChapter = await prisma.videoChapter.create({
+                        data: {
+                            telemetryDataId: session.telemetryData.id,
+                            title: "Problem Presentation",
+                            startTime: 0,
+                            endTime: videoOffset,
+                            description: "Initial problem setup and understanding",
+                            thumbnailUrl: null,
+                        },
+                    });
+                    console.log("✅ [Iterations API] Problem Presentation chapter created:", {
+                        id: problemPresentationChapter.id,
+                        title: problemPresentationChapter.title,
+                        startTime: problemPresentationChapter.startTime,
+                        endTime: problemPresentationChapter.endTime,
+                    });
+                } else {
+                    // Update previous iteration's endTime to current startTime
+                    const previousIterationChapter = await prisma.videoChapter.findFirst({
+                        where: {
+                            telemetryDataId: session.telemetryData.id,
+                            title: `Iteration ${iterationCount - 1}`,
+                        },
+                    });
+                    
+                    if (previousIterationChapter) {
+                        await prisma.videoChapter.update({
+                            where: { id: previousIterationChapter.id },
+                            data: { endTime: videoOffset },
+                        });
+                        console.log(`✅ [Iterations API] Updated Iteration ${iterationCount - 1} endTime to:`, videoOffset);
+                    }
+                }
+
+                // Create current iteration chapter (endTime will be updated by next iteration or left as large number)
                 const videoChapter = await prisma.videoChapter.create({
                     data: {
                         telemetryDataId: session.telemetryData.id,
                         title: `Iteration ${iterationCount}`,
                         startTime: videoOffset,
-                        endTime: videoOffset + 3,
+                        endTime: 999999, // Placeholder, will be updated by next iteration or video end
                         description: `Code execution: ${evaluation}`,
                         thumbnailUrl: null,
                     },
@@ -111,9 +148,20 @@ export async function POST(
                         videoChapterId: videoChapter.id,
                         text: caption,
                         startTime: videoOffset,
-                        endTime: videoOffset + 3,
+                        endTime: 999999, // Same placeholder
                     },
                 });
+
+                // Log all chapters to debug race conditions
+                const allChapters = await prisma.videoChapter.findMany({
+                    where: { telemetryDataId: session.telemetryData.id },
+                    orderBy: { startTime: 'asc' }
+                });
+                console.log("📋 [Iterations API] All chapters after creation:", allChapters.map(c => ({ 
+                    title: c.title, 
+                    start: c.startTime, 
+                    end: c.endTime 
+                })));
             } else {
                 console.warn("⚠️ [Iterations API] Negative video offset, skipping VideoChapter creation");
             }

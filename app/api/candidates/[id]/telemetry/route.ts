@@ -391,19 +391,26 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         description: clip.description,
                         startTime: clip.startTime,
                     })) || [],
-                    chapters: telemetry?.videoChapters?.map((chapter: any) => ({
-                        id: chapter.id,
-                        title: chapter.title,
-                        startTime: chapter.startTime,
-                        endTime: chapter.endTime,
-                        description: chapter.description,
-                        thumbnailUrl: chapter.thumbnailUrl,
-                        captions: chapter.captions?.map((caption: any) => ({
-                            text: caption.text,
-                            startTime: caption.startTime,
-                            endTime: caption.endTime,
-                        })) || [],
-                    })) || [],
+                    chapters: (() => {
+                        log.info(`[Telemetry API] Session ${session.id} chapters:`, {
+                            totalCount: telemetry?.videoChapters?.length || 0,
+                            titles: telemetry?.videoChapters?.map((c: any) => c.title) || [],
+                            startTimes: telemetry?.videoChapters?.map((c: any) => c.startTime) || []
+                        });
+                        return telemetry?.videoChapters?.map((chapter: any) => ({
+                            id: chapter.id,
+                            title: chapter.title,
+                            startTime: chapter.startTime,
+                            endTime: chapter.endTime,
+                            description: chapter.description,
+                            thumbnailUrl: chapter.thumbnailUrl,
+                            captions: chapter.captions?.map((caption: any) => ({
+                                text: caption.text,
+                                startTime: caption.startTime,
+                                endTime: caption.endTime,
+                            })) || [],
+                        })) || [];
+                    })(),
                     workstyle: telemetry?.workstyleMetrics
                         ? {
                               iterationSpeed: {
