@@ -8,16 +8,15 @@
 import React from "react";
 
 interface DemoProgressHeaderProps {
-    currentStage: 1 | 2 | 3 | 4 | 5 | 6;
+    currentStage: 1 | 2 | 3 | 4 | 5;
 }
 
 const stages = [
     { number: 1, name: "Welcome" },
     { number: 2, name: "Background" },
-    { number: 3, name: "Interview" },
+    { number: 3, name: "Coding" },
     { number: 4, name: "Company View" },
     { number: 5, name: "Report" },
-    { number: 6, name: "Candidates" },
 ];
 
 /**

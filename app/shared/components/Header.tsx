@@ -79,7 +79,7 @@ export default function Header() {
     const settingsPath = role === "COMPANY" ? "/company-dashboard/settings" : "/settings";
 
     // Get current demo stage based on pathname
-    const getDemoStage = (): 1 | 2 | 3 | 4 | 5 | 6 | null => {
+    const getDemoStage = (): 1 | 2 | 3 | 4 | 5 | null => {
         if (!isDemoMode) return null;
         if (pathname === "/background-interview") {
             // Check if we're on the welcome screen or in the interview
@@ -90,7 +90,6 @@ export default function Header() {
         if (pathname === "/interview") return 3;
         if (pathname === "/demo/company-view") return 4;
         if (pathname === "/cps") return 5;
-        if (pathname === "/demo/ranked-candidates") return 6;
         return null;
     };
 
