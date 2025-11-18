@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
+import { useMute } from "app/shared/contexts";
 
 type AnnouncementScreenProps = {
   text: string;
@@ -32,6 +33,7 @@ export default function AnnouncementScreen({
   preloadedAudioBlob,
   onComplete,
 }: AnnouncementScreenProps) {
+  const { isMuted } = useMute();
   const [displayedWords, setDisplayedWords] = useState<string[]>([]);
   const [audioFinished, setAudioFinished] = useState(false);
   const [typingFinished, setTypingFinished] = useState(false);
@@ -69,6 +71,9 @@ export default function AnnouncementScreen({
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
         audioRef.current = audio;
+
+        // Set initial volume based on mute state
+        audio.volume = isMuted ? 0 : 1;
 
         audio.onended = () => {
           setAudioFinished(true);
@@ -115,6 +120,14 @@ export default function AnnouncementScreen({
       }
     };
   }, [text, preloadedAudioBlob]);
+
+  // Handle mute toggle - only change volume, don't stop playback
+  React.useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = isMuted ? 0 : 1;
+      console.log("[Announcement] Volume changed:", isMuted ? "muted" : "unmuted");
+    }
+  }, [isMuted]);
 
   // Call onComplete when both audio and typing are done
   const onCompleteRef = useRef(onComplete);

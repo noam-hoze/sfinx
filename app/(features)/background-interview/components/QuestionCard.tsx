@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useMute } from "app/shared/contexts";
 
 type QuestionCardProps = {
   question: string;
@@ -36,6 +37,7 @@ export default function QuestionCard({
   micStream,
   isFirstQuestion = false,
 }: QuestionCardProps) {
+  const { isMuted } = useMute();
   const [answer, setAnswer] = useState("");
   const [inputMode, setInputMode] = useState<"text" | "voice">("text");
   const [prevQuestion, setPrevQuestion] = useState("");
@@ -59,6 +61,14 @@ export default function QuestionCard({
       setIsTextExpanded(false); // Reset text input to collapsed state
       setAnswer(""); // Clear any previous answer
 
+      // If muted, skip TTS and show controls immediately
+      if (isMuted) {
+        console.log("[QuestionCard] Muted - skipping TTS, showing controls immediately");
+        setIsAudioPlaying(true);
+        setAudioFinished(true);
+        return;
+      }
+
       // Generate and play TTS
       (async () => {
         try {
@@ -76,6 +86,9 @@ export default function QuestionCard({
           const url = URL.createObjectURL(blob);
           const audio = new Audio(url);
           audioRef.current = audio;
+
+          // Set initial volume based on mute state
+          audio.volume = isMuted ? 0 : 1;
 
           audio.onplay = () => {
             setIsAudioPlaying(true);
@@ -100,7 +113,23 @@ export default function QuestionCard({
         }
       })();
     }
-  }, [question, prevQuestion]);
+  }, [question, prevQuestion, isMuted]);
+
+  // Handle mute toggle during playback - special behavior for QuestionCard
+  React.useEffect(() => {
+    if (audioRef.current) {
+      if (isMuted && !audioFinished) {
+        // Special "read mode" behavior: stop audio and show controls immediately
+        console.log("[QuestionCard] Mute toggled ON - stopping audio and showing controls (read mode)");
+        audioRef.current.pause();
+        audioRef.current = null;
+        setAudioFinished(true);
+      } else if (!isMuted) {
+        // Unmuted: ensure volume is on
+        audioRef.current.volume = 1;
+      }
+    }
+  }, [isMuted, audioFinished]);
 
   // Play sound when controls appear (after audio finishes)
   React.useEffect(() => {
@@ -108,6 +137,7 @@ export default function QuestionCard({
       try {
         console.log("[QuestionCard] Playing controls-appear sound");
         const controlsSound = new Audio("/sounds/controls-appear.mp3");
+        controlsSound.volume = isMuted ? 0 : 1;
         controlsSound.play().catch(err => console.error("Controls-appear sound error:", err));
       } catch (error) {
         console.error("[QuestionCard] Failed to play controls-appear sound:", error);

@@ -21,6 +21,7 @@ import BackgroundDebugPanel from "app/shared/components/BackgroundDebugPanel";
 import AnnouncementScreen from "./components/AnnouncementScreen";
 import SfinxSpinner from "./components/SfinxSpinner";
 import InterviewStageScreen from "app/shared/components/InterviewStageScreen";
+import { useMute } from "app/shared/contexts";
 import OpenAI from "openai";
 import { buildOpenAIBackgroundPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
 import {
@@ -38,6 +39,7 @@ type Stage = 'loading' | 'welcome' | 'interview';
 export default function BackgroundInterviewPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isMuted } = useMute();
   const dispatch = useDispatch();
   const machineState = useSelector(
     (state: RootState) => state.interviewMachine.state
@@ -324,6 +326,7 @@ export default function BackgroundInterviewPage() {
       // Play click sound and show disabled state
       setIsStarting(true);
       const clickSound = new Audio("/sounds/click-button.mp3");
+      clickSound.volume = isMuted ? 0 : 1;
       clickSound.play().catch(err => console.error("Click sound error:", err));
       
       // Request mic permissions (no delay)
@@ -389,6 +392,7 @@ export default function BackgroundInterviewPage() {
         console.log("[bg-interview] Playing start-interview sound...");
         await new Promise<void>((resolve, reject) => {
           const startSound = new Audio("/sounds/start-interview.mp3");
+          startSound.volume = isMuted ? 0 : 1;
           startSound.onended = () => {
             console.log("[bg-interview] Start-interview sound finished");
             resolve();

@@ -10,6 +10,7 @@ import { Menu } from "@headlessui/react";
 import { log } from "../services";
 import SfinxLogo from "./SfinxLogo";
 import DemoProgressHeader from "../../../app/(features)/demo/components/DemoProgressHeader";
+import { useMute } from "../contexts";
 
 const logger = log;
 
@@ -19,6 +20,7 @@ export default function Header() {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const isDemoMode = searchParams.get("demo") === "true" || pathname?.startsWith("/demo") || pathname?.startsWith("/background-interview");
+    const { isMuted, toggleMute } = useMute();
 
     // Sliding indicator state
     const [indicatorStyle, setIndicatorStyle] = useState({ width: 0, left: 0 });
@@ -221,14 +223,32 @@ export default function Header() {
                 {/* User Avatar and Menu / Demo Restart Button */}
                 <div className="flex items-center justify-end gap-4">
                     {isDemoMode && (
-                        <button
-                            onClick={() => {
-                                window.location.href = '/background-interview?jobId=meta-frontend-engineer&companyId=meta';
-                            }}
-                            className="px-4 py-2 text-sm font-medium text-sfinx-purple border border-sfinx-purple rounded-lg hover:bg-sfinx-purple hover:text-white transition-all"
-                        >
-                            Restart Demo
-                        </button>
+                        <>
+                            <button
+                                onClick={toggleMute}
+                                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                                title={isMuted ? "Unmute" : "Mute"}
+                            >
+                                {isMuted ? (
+                                    <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clipRule="evenodd" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                                    </svg>
+                                ) : (
+                                    <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                                    </svg>
+                                )}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    window.location.href = '/background-interview?jobId=meta-frontend-engineer&companyId=meta';
+                                }}
+                                className="px-4 py-2 text-sm font-medium text-sfinx-purple border border-sfinx-purple rounded-lg hover:bg-sfinx-purple hover:text-white transition-all"
+                            >
+                                Restart Demo
+                            </button>
+                        </>
                     )}
                     {session?.user && (
                         <Menu as="div" className="relative">
