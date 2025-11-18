@@ -107,11 +107,14 @@ export async function POST(
                         endTime: problemPresentationChapter.endTime,
                     });
                 } else {
-                    // Update previous iteration's endTime to current startTime
+                    // Update previous iteration's chapter and caption endTime to current startTime
                     const previousIterationChapter = await prisma.videoChapter.findFirst({
                         where: {
                             telemetryDataId: session.telemetryData.id,
                             title: `Iteration ${iterationCount - 1}`,
+                        },
+                        include: {
+                            captions: true,
                         },
                     });
                     
@@ -120,7 +123,16 @@ export async function POST(
                             where: { id: previousIterationChapter.id },
                             data: { endTime: videoOffset },
                         });
-                        console.log(`✅ [Iterations API] Updated Iteration ${iterationCount - 1} endTime to:`, videoOffset);
+                        console.log(`✅ [Iterations API] Updated Iteration ${iterationCount - 1} chapter endTime to:`, videoOffset);
+                        
+                        // Update all captions in the previous chapter
+                        if (previousIterationChapter.captions.length > 0) {
+                            await prisma.videoCaption.updateMany({
+                                where: { videoChapterId: previousIterationChapter.id },
+                                data: { endTime: videoOffset },
+                            });
+                            console.log(`✅ [Iterations API] Updated Iteration ${iterationCount - 1} caption(s) endTime to:`, videoOffset);
+                        }
                     }
                 }
 

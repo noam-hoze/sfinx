@@ -176,7 +176,13 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         commMethodRaw === "yes";
     const timeboxFiredRef = useRef(false);
     const autoStartTriggeredRef = useRef(false);
-    const runCodeClickTimeRef = useRef<Date>(new Date());
+    const [runCodeClickTime, setRunCodeClickTime] = useState<Date>(new Date());
+    const runCodeClickTimeRef = useRef<Date>(runCodeClickTime);
+
+    // Keep ref in sync with state
+    useEffect(() => {
+        runCodeClickTimeRef.current = runCodeClickTime;
+    }, [runCodeClickTime]);
 
     useThemePreference();
 
@@ -894,7 +900,9 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 logger.error("❌ Error tracking iteration:", error);
             }
         },
+        // eslint-disable-next-line react-hooks/exhaustive-deps
         [interviewSessionId, interviewScript, isDemoMode, demoUserId]
+        // Note: runCodeClickTime intentionally omitted to prevent re-execution on state change
     );
 
     /**
@@ -902,7 +910,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
      */
     const handleRunCode = useCallback(() => {
         const clickTime = new Date();
-        runCodeClickTimeRef.current = clickTime;
+        setRunCodeClickTime(clickTime);
         
         logger.info("🏃 [ITERATION] Run Code button clicked");
         logger.info("[ITERATION] Click timestamp:", clickTime.toISOString());
