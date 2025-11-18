@@ -50,6 +50,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
                             include: {
                                 captions: true,
                             },
+                            orderBy: {
+                                startTime: "asc",
+                            },
                         },
                     },
                 },

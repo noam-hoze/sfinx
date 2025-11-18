@@ -229,47 +229,25 @@ const OpenAITextConversation = forwardRef<any, Props>(
           });
         } catch {}
         
-        // IMMEDIATE DEBUG LOGGING - Calculate video offset right now
+        // Create video chapter IMMEDIATELY at paste detection
         if (interviewSessionId) {
           try {
-            const url = isDemoMode 
-              ? `/api/interviews/session/${interviewSessionId}?skip-auth=true` 
-              : `/api/interviews/session/${interviewSessionId}`;
-            const sessionResponse = await fetch(url);
-            const sessionData = await sessionResponse.json();
+            const chapterUrl = isDemoMode
+              ? `/api/interviews/session/${interviewSessionId}/paste-chapter?skip-auth=true`
+              : `/api/interviews/session/${interviewSessionId}/paste-chapter`;
             
-            if (sessionData?.interviewSession?.recordingStartedAt) {
-              const recordingStartTime = new Date(sessionData.interviewSession.recordingStartedAt);
-              const pasteTime = new Date(timestamp);
-              const offsetMs = pasteTime.getTime() - recordingStartTime.getTime();
-              const offsetSeconds = Math.floor(offsetMs / 1000);
-              
-              // Format timestamps in EST with readable format
-              const formatEST = (date: Date) => {
-                return date.toLocaleString('en-US', {
-                  timeZone: 'America/New_York',
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric',
-                  hour: 'numeric',
-                  minute: '2-digit',
-                  second: '2-digit',
-                  hour12: true
-                });
-              };
-              
-              /* eslint-disable no-console */ console.log("🎬 ========================================");
-              /* eslint-disable no-console */ console.log("🎬 [PASTE DETECTED - VIDEO OFFSET DEBUG]");
-              /* eslint-disable no-console */ console.log("🎬 ========================================");
-              /* eslint-disable no-console */ console.log("📹 Recording started at:", formatEST(recordingStartTime), "EST");
-              /* eslint-disable no-console */ console.log("📋 Paste occurred at:   ", formatEST(pasteTime), "EST");
-              /* eslint-disable no-console */ console.log("⏱️  Time difference:     ", offsetMs, "ms");
-              /* eslint-disable no-console */ console.log("🎯 Video offset:         ", offsetSeconds, "seconds");
-              /* eslint-disable no-console */ console.log("🎯 Expected link time:   ", Math.floor(offsetSeconds / 60) + ":" + String(offsetSeconds % 60).padStart(2, "0"));
-              /* eslint-disable no-console */ console.log("🎬 ========================================");
-            }
+            await fetch(chapterUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                timestamp,
+                caption: "External tool usage detected",
+              }),
+            });
+            
+            /* eslint-disable no-console */ console.log("✅ [paste_eval] Chapter created at paste detection");
           } catch (error) {
-            /* eslint-disable no-console */ console.error("❌ Failed to fetch session for debug logging:", error);
+            /* eslint-disable no-console */ console.error("❌ Failed to create paste chapter:", error);
           }
         }
         

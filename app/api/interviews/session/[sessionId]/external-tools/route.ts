@@ -127,46 +127,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             log.info("[External Tools API] WorkstyleMetrics.externalToolUsage incremented");
         }
 
-        // Create VideoChapter + VideoCaption for this paste event
-        if (session?.recordingStartedAt && session?.telemetryData?.id && caption) {
-            const pasteTimestamp = new Date(timestamp);
-            const recordingStartTime = session.recordingStartedAt;
-            const videoOffset = Math.floor((pasteTimestamp.getTime() - recordingStartTime.getTime()) / 1000);
-            
-            log.info("🎬 [EXTERNAL TOOLS VIDEO OFFSET DEBUG] ============");
-            log.info("📹 Recording started at:", recordingStartTime.toISOString());
-            log.info("📋 Paste occurred at:   ", pasteTimestamp.toISOString());
-            log.info("⏱️  Time difference (ms):", pasteTimestamp.getTime() - recordingStartTime.getTime());
-            log.info("🎯 Calculated offset (seconds):", videoOffset);
-            log.info("✅ Storing in DB: VideoChapter.startTime =", videoOffset);
-            log.info("================================================");
-            
-            if (videoOffset >= 0) {
-                log.info("[External Tools API] Creating VideoChapter and VideoCaption at offset:", videoOffset);
-                
-                const videoChapter = await prisma.videoChapter.create({
-                    data: {
-                        telemetryDataId: session.telemetryData.id,
-                        title: `External Tool Usage`,
-                        startTime: videoOffset,
-                        endTime: videoOffset + 3,
-                        description: `Code pasted (${characterCount} characters)`,
-                        thumbnailUrl: null,
-                    },
-                });
-
-                await prisma.videoCaption.create({
-                    data: {
-                        videoChapterId: videoChapter.id,
-                        text: caption,
-                        startTime: videoOffset,
-                        endTime: videoOffset + 3,
-                    },
-                });
-                
-                log.info("[External Tools API] VideoCaption created");
-            }
-        }
+        // Note: VideoChapter creation moved to /paste-chapter endpoint (called at paste detection)
 
         return NextResponse.json({
             message: "External tool usage recorded successfully",

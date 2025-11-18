@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "app/shared/services/prisma";
+import { CHAPTER_TYPES } from "../../../shared/chapterTypes";
+import { createVideoChapter } from "../../../shared/createVideoChapter";
 
 type RouteContext = {
     params: Promise<{ sessionId: string }>;
@@ -88,92 +90,13 @@ export async function POST(
             console.log("  - Iteration count:", iterationCount);
             
             if (videoOffset >= 0) {
-                // If first iteration, create "Problem Presentation" chapter
-                if (iterationCount === 1) {
-                    const problemPresentationChapter = await prisma.videoChapter.create({
-                        data: {
-                            telemetryDataId: session.telemetryData.id,
-                            title: "Problem Presentation",
-                            startTime: 0,
-                            endTime: videoOffset,
-                            description: "Initial problem setup and understanding",
-                            thumbnailUrl: null,
-                        },
-                    });
-                    console.log("✅ [Iterations API] Problem Presentation chapter created:", {
-                        id: problemPresentationChapter.id,
-                        title: problemPresentationChapter.title,
-                        startTime: problemPresentationChapter.startTime,
-                        endTime: problemPresentationChapter.endTime,
-                    });
-                } else {
-                    // Update previous iteration's chapter and caption endTime to current startTime
-                    const previousIterationChapter = await prisma.videoChapter.findFirst({
-                        where: {
-                            telemetryDataId: session.telemetryData.id,
-                            title: `Iteration ${iterationCount - 1}`,
-                        },
-                        include: {
-                            captions: true,
-                        },
-                    });
-                    
-                    if (previousIterationChapter) {
-                        await prisma.videoChapter.update({
-                            where: { id: previousIterationChapter.id },
-                            data: { endTime: videoOffset },
-                        });
-                        console.log(`✅ [Iterations API] Updated Iteration ${iterationCount - 1} chapter endTime to:`, videoOffset);
-                        
-                        // Update all captions in the previous chapter
-                        if (previousIterationChapter.captions.length > 0) {
-                            await prisma.videoCaption.updateMany({
-                                where: { videoChapterId: previousIterationChapter.id },
-                                data: { endTime: videoOffset },
-                            });
-                            console.log(`✅ [Iterations API] Updated Iteration ${iterationCount - 1} caption(s) endTime to:`, videoOffset);
-                        }
-                    }
-                }
-
-                // Create current iteration chapter (endTime will be updated by next iteration or left as large number)
-                const videoChapter = await prisma.videoChapter.create({
-                    data: {
-                        telemetryDataId: session.telemetryData.id,
-                        title: `Iteration ${iterationCount}`,
-                        startTime: videoOffset,
-                        endTime: 999999, // Placeholder, will be updated by next iteration or video end
-                        description: `Code execution: ${evaluation}`,
-                        thumbnailUrl: null,
-                    },
+                await createVideoChapter({
+                    telemetryDataId: session.telemetryData.id,
+                    title: `${CHAPTER_TYPES.ITERATION} ${iterationCount}`,
+                    startTime: videoOffset,
+                    description: `Code execution: ${evaluation}`,
+                    caption: caption,
                 });
-
-                console.log("✅ [Iterations API] VideoChapter created:", {
-                    id: videoChapter.id,
-                    title: videoChapter.title,
-                    startTime: videoChapter.startTime,
-                    endTime: videoChapter.endTime,
-                });
-
-                await prisma.videoCaption.create({
-                    data: {
-                        videoChapterId: videoChapter.id,
-                        text: caption,
-                        startTime: videoOffset,
-                        endTime: 999999, // Same placeholder
-                    },
-                });
-
-                // Log all chapters to debug race conditions
-                const allChapters = await prisma.videoChapter.findMany({
-                    where: { telemetryDataId: session.telemetryData.id },
-                    orderBy: { startTime: 'asc' }
-                });
-                console.log("📋 [Iterations API] All chapters after creation:", allChapters.map(c => ({ 
-                    title: c.title, 
-                    start: c.startTime, 
-                    end: c.endTime 
-                })));
             } else {
                 console.warn("⚠️ [Iterations API] Negative video offset, skipping VideoChapter creation");
             }
