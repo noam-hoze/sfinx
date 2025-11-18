@@ -417,7 +417,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                     workstyle: telemetry?.workstyleMetrics
                         ? {
                               iterationSpeed: {
-                                  value: telemetry.workstyleMetrics.iterationSpeed ?? 0,
+                                  value: telemetry.workstyleMetrics.iterationSpeed ?? null,
                                   level:
                                       (telemetry.workstyleMetrics.iterationSpeed ?? 0) >= 10
                                           ? "High"
@@ -431,7 +431,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                                           ? "yellow"
                                           : "red",
                                   evidenceLinks: iterationSpeedLinks,
-                                  tpe: telemetry.workstyleMetrics.iterationSpeed ?? 0,
+                                  tpe: telemetry.workstyleMetrics.iterationSpeed ?? null,
                               },
                               aiAssistUsage: {
                                   value: telemetry.workstyleMetrics.externalToolUsage ?? 0,

@@ -72,10 +72,17 @@ export async function POST(
         });
 
         if (session?.telemetryData?.workstyleMetrics) {
-            await prisma.workstyleMetrics.update({
-                where: { id: session.telemetryData.workstyleMetrics.id },
-                data: { iterationSpeed: iterationCount },
-            });
+            // Only update iterationSpeed on first CORRECT iteration (iterations until success)
+            const currentIterationSpeed = session.telemetryData.workstyleMetrics.iterationSpeed;
+            
+            if (currentIterationSpeed === null && evaluationEnum === "CORRECT") {
+                // First correct solution - record how many iterations it took
+                await prisma.workstyleMetrics.update({
+                    where: { id: session.telemetryData.workstyleMetrics.id },
+                    data: { iterationSpeed: iterationCount },
+                });
+                console.log(`✅ [Iterations API] First CORRECT solution at iteration ${iterationCount}`);
+            }
         }
 
         // Create VideoChapter + VideoCaption for this iteration

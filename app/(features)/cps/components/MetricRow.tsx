@@ -3,7 +3,7 @@ import React from "react";
 interface MetricRowProps {
     label: string;
     description: string;
-    value: number;
+    value: number | null;
     unit?: string;
     benchmarkLow?: number;
     benchmarkHigh?: number;
@@ -24,12 +24,19 @@ const MetricRow: React.FC<MetricRowProps> = ({
     onVideoJump,
 }) => {
     const [clickedTimestamp, setClickedTimestamp] = React.useState<number | null>(null);
+    
+    // Handle N/A case when value is null
+    const isNA = value === null;
+    
     // Calculate position on scale (0-100%)
     const range = benchmarkHigh - benchmarkLow;
-    const position = Math.max(0, Math.min(100, ((value - benchmarkLow) / range) * 100));
+    const position = isNA ? 0 : Math.max(0, Math.min(100, ((value - benchmarkLow) / range) * 100));
 
     // Determine color and status based on position and inverse flag
     const getStatus = () => {
+        if (isNA) {
+            return { color: "bg-gray-400", text: "N/A", gradient: "from-gray-50 to-gray-50" };
+        }
         if (inverse) {
             // Lower is better (iteration speed)
             if (value <= benchmarkLow * 1.5) return { color: "bg-emerald-500", text: "Excellent", gradient: "from-emerald-50 via-yellow-50 to-red-50" };
@@ -82,9 +89,9 @@ const MetricRow: React.FC<MetricRowProps> = ({
                     {/* Value */}
                     <div className="text-right flex-shrink-0 w-[70px]">
                         <span className="text-2xl font-bold text-gray-900 tabular-nums">
-                            {value}
+                            {isNA ? "N/A" : value}
                         </span>
-                        {unit && <span className="text-sm text-gray-500 ml-1">{unit}</span>}
+                        {!isNA && unit && <span className="text-sm text-gray-500 ml-1">{unit}</span>}
                     </div>
                 </div>
             </div>

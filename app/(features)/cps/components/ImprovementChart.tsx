@@ -168,7 +168,7 @@ export default function ImprovementChart({
                             name === "match"
                                 ? "Match"
                                 : name === "iter"
-                                ? "Iteration Speed"
+                                ? "Iterations to Success"
                                 : name === "refactor"
                                 ? "Refactor & Cleanups"
                                 : name === "debug"

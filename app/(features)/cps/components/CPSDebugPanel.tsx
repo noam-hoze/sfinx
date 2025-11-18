@@ -109,7 +109,7 @@ export default function CPSDebugPanel({
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                         <div>
-                            <span className="text-slate-600 dark:text-slate-300">Iteration Speed:</span>
+                            <span className="text-slate-600 dark:text-slate-300">Iterations to Success:</span>
                             <span className="ml-2 font-mono font-semibold text-slate-900 dark:text-white">
                                 {iterationSpeed !== null ? iterationSpeed : "N/A"}
                             </span>
@@ -155,7 +155,7 @@ export default function CPSDebugPanel({
                             <div>
                                 <div className="font-semibold text-slate-700 dark:text-slate-200 mb-2">Workstyle</div>
                                 <div className="space-y-1">
-                                    <div>Iteration Speed: <span className="font-mono">{scoringConfig.iterationSpeedWeight}</span></div>
+                                    <div>Iterations to Success: <span className="font-mono">{scoringConfig.iterationSpeedWeight}</span></div>
                                     <div>AI Assist: <span className="font-mono">{scoringConfig.aiAssistWeight}</span></div>
                                 </div>
                             </div>

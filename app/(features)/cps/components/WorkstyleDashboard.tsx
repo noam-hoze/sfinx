@@ -29,13 +29,14 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
     onUpdateWorkstyle,
 }) => {
     // Extract raw values
-    const rawIterationSpeed = workstyle.iterationSpeed?.value ?? 0;
+    const rawIterationSpeed = workstyle.iterationSpeed?.value;
     const aiAssistValue = (workstyle.aiAssistUsage as any)?.avgAccountabilityScore ?? 100;
 
     // Use same normalization as calculateScore.ts
-    // Iteration Speed normalization (configurable thresholds: 5, 10)
+    // Iterations to Success normalization (configurable thresholds: 5, 10)
+    // Note: value represents "iterations until first CORRECT solution" - lower is better
     const normalizeIterationSpeed = (value: number, moderate = 5, high = 10): number => {
-        if (value === 0) return 100;
+        if (value <= 1) return 100; // Perfect: got it right on first try
         if (value <= moderate) return 100 - ((value / moderate) * 25);
         if (value <= high) {
             const range = high - moderate;
@@ -49,7 +50,9 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
         return 50 - (position * 50);
     };
 
-    const iterationSpeedValue = Math.round(normalizeIterationSpeed(rawIterationSpeed));
+    const iterationSpeedValue = rawIterationSpeed !== undefined && rawIterationSpeed !== null
+        ? Math.round(normalizeIterationSpeed(rawIterationSpeed))
+        : null;
 
     return (
         <div className="divide-y divide-gray-100">
@@ -68,8 +71,8 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                 benchmarkHigh={100}
             />
             <MetricRow
-                label="Iteration Speed"
-                description="Number of meaningful code iterations completed"
+                label="Iterations to Success"
+                description="Attempts needed to reach correct solution (lower is better)"
                 value={iterationSpeedValue}
                 benchmarkLow={0}
                 benchmarkHigh={100}

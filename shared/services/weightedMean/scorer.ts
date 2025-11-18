@@ -12,7 +12,7 @@ export const DefaultConfig: Config = {
   wMax: 1.0,
   c: 2,
   tau: 0.75,
-  initialScore: 0.5,
+  initialScore: 0,
   numericTolerance: 1e-12,
 };
 

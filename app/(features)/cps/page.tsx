@@ -293,7 +293,7 @@ function TelemetryContent() {
     })();
 
     const topMetricLabelMap: Record<string, string> = {
-        iterationSpeed: "Iteration Speed",
+        iterationSpeed: "Iterations to Success",
         aiAssistUsage: "External Tool Usage",
     };
     const topMetricLabel = topMetricKey

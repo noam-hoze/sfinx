@@ -28,16 +28,15 @@ function CompanyViewContent() {
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex items-center justify-center p-4">
-            <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.5, ease: "easeOut" }}
-                className="bg-white rounded-3xl shadow-2xl border border-gray-200 p-12 max-w-2xl w-full flex flex-col items-center"
+            <motion.div 
+                className="max-w-2xl w-full"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: isLoading ? 0 : 1 }}
+                transition={{ duration: 0.5 }}
             >
-                {/* Content */}
+                {/* Title Section */}
                 <div className="flex flex-col items-center mb-8">
-                    {/* Checkmark with gradient background - matching Background Complete screen */}
-                    <div className="relative mb-8">
+                    <div className="relative mb-6">
                         <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center shadow-lg">
                             <svg
                                 className="w-10 h-10 text-white"
@@ -54,33 +53,48 @@ function CompanyViewContent() {
                             </svg>
                         </div>
                     </div>
-                    
-                    <h1 className="text-4xl font-semibold text-gray-800 mb-6">
+                    <h1 className="text-4xl font-semibold text-gray-800 mb-4">
                         Interview Complete
                     </h1>
-                    
-                    <p className="text-lg text-gray-600 mb-8 text-center">
+                    <p className="text-lg text-gray-600 text-center">
                         Great job! Now let&apos;s switch perspectives.
                     </p>
                 </div>
 
-                {/* Instructions */}
-                <div className="bg-gray-50 rounded-xl p-6 mb-8 w-full">
-                    <h2 className="text-xl font-medium text-gray-900 mb-4">
-                        View as Hiring Manager
-                    </h2>
-                    <p className="text-gray-700 leading-relaxed">
-                        You&apos;ll now see the comprehensive interview report that hiring
-                        managers receive. This includes detailed analysis of your
-                        performance, technical skills assessment, and behavioral insights.
-                    </p>
+                {/* Two-stage flow visualization */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    {/* Stage 1: Candidate */}
+                    <div className="bg-white rounded-2xl p-8 border-2 border-gray-200 shadow-sm">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center font-bold">
+                                1
+                            </div>
+                            <h2 className="text-2xl font-semibold text-gray-900">Candidate</h2>
+                        </div>
+                        <p className="text-gray-600">
+                            Complete a technical interview for Frontend Engineer at Meta
+                        </p>
+                    </div>
+
+                    {/* Stage 2: Company */}
+                    <div className="bg-white rounded-2xl p-8 border-2 border-sfinx-purple shadow-sm">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-10 h-10 rounded-full bg-sfinx-purple text-white flex items-center justify-center font-bold">
+                                2
+                            </div>
+                            <h2 className="text-2xl font-semibold text-gray-900">Company</h2>
+                        </div>
+                        <p className="text-gray-600">
+                            Review results, compare candidates, and see detailed analytics
+                        </p>
+                    </div>
                 </div>
 
-                {/* Button */}
+                {/* CTA Button */}
                 <button
                     onClick={handleViewReport}
                     disabled={isLoading}
-                    className="px-8 py-4 bg-sfinx-purple text-white rounded-lg font-medium text-lg hover:opacity-90 transition-all disabled:bg-gray-400 disabled:cursor-not-allowed disabled:hover:opacity-100"
+                    className="w-full px-8 py-4 bg-sfinx-purple text-white rounded-lg font-medium text-lg hover:opacity-90 transition-all disabled:bg-gray-400 disabled:cursor-not-allowed disabled:hover:opacity-100"
                 >
                     {isLoading ? "Loading..." : "View Interview Report"}
                 </button>
