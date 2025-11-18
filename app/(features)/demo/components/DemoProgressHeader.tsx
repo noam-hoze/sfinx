@@ -8,15 +8,16 @@
 import React from "react";
 
 interface DemoProgressHeaderProps {
-    currentStage: 1 | 2 | 3 | 4 | 5;
+    currentStage: 1 | 2 | 3 | 4 | 5 | 6;
 }
 
 const stages = [
     { number: 1, name: "Welcome" },
-    { number: 2, name: "Interview" },
-    { number: 3, name: "Company View" },
-    { number: 4, name: "Report" },
-    { number: 5, name: "Candidates" },
+    { number: 2, name: "Background" },
+    { number: 3, name: "Interview" },
+    { number: 4, name: "Company View" },
+    { number: 5, name: "Report" },
+    { number: 6, name: "Candidates" },
 ];
 
 /**
@@ -36,7 +37,7 @@ export default function DemoProgressHeader({
 }: DemoProgressHeaderProps) {
     return (
         <div className="w-full">
-            <div className="flex items-center">
+            <div className="flex items-center justify-between">
                     {stages.map((stage, index) => {
                         const status = getStageStatus(
                             stage.number,
@@ -55,7 +56,7 @@ export default function DemoProgressHeader({
                                                 status === "completed"
                                                     ? "w-10 h-10 bg-sfinx-purple"
                                                     : status === "current"
-                                                    ? "w-12 h-12 bg-sfinx-purple"
+                                                    ? "w-12 h-12 border-2 border-sfinx-purple bg-white"
                                                     : "w-10 h-10 bg-gray-300"
                                             }
                                         `}
@@ -80,7 +81,7 @@ export default function DemoProgressHeader({
                                                     text-sm font-semibold
                                                     ${
                                                         status === "current"
-                                                            ? "text-white"
+                                                            ? "text-sfinx-purple"
                                                             : "text-gray-500"
                                                     }
                                                 `}
@@ -106,20 +107,6 @@ export default function DemoProgressHeader({
                                         {stage.name}
                                     </span>
                                 </div>
-
-                                {/* Connecting Line */}
-                                {!isLast && (
-                                    <div
-                                        className={`
-                                            flex-1 h-0.5 mx-4 mb-6
-                                            ${
-                                                status === "completed"
-                                                    ? "bg-sfinx-purple"
-                                                    : "bg-gray-300"
-                                            }
-                                        `}
-                                    />
-                                )}
                             </React.Fragment>
                         );
                     })}

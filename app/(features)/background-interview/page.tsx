@@ -20,6 +20,7 @@ import CompletionScreen from "./components/CompletionScreen";
 import BackgroundDebugPanel from "app/shared/components/BackgroundDebugPanel";
 import AnnouncementScreen from "./components/AnnouncementScreen";
 import SfinxSpinner from "./components/SfinxSpinner";
+import InterviewStageScreen from "app/shared/components/InterviewStageScreen";
 import OpenAI from "openai";
 import { buildOpenAIBackgroundPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
 import {
@@ -341,6 +342,11 @@ export default function BackgroundInterviewPage() {
       console.log("[bg-interview] Stage 2 complete - transitioning to interview");
       setStage('interview');
       
+      // Update URL to reflect stage change
+      const url = new URL(window.location.href);
+      url.searchParams.set('stage', 'interview');
+      window.history.pushState({}, '', url);
+      
       // Start interview flow after transition
       await startInterviewFlow();
       
@@ -563,74 +569,62 @@ export default function BackgroundInterviewPage() {
   // STAGE 2: Welcome/Name Input screen
   if (stage === 'welcome') {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex items-center justify-center p-4">
-        <motion.div 
-          className="max-w-2xl w-full"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: isStarting ? 0 : 1 }}
-          transition={{ duration: 0.5 }}
-        >
-
-          {/* Two-stage flow visualization */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-            {/* Stage 1: Candidate */}
-            <div className="bg-white rounded-2xl p-8 border-2 border-sfinx-purple shadow-sm">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-sfinx-purple text-white flex items-center justify-center font-bold">
-                  1
-                </div>
-                <h2 className="text-2xl font-semibold text-gray-900">Candidate</h2>
+      <InterviewStageScreen
+        onSubmit={handleStartInterview}
+        ctaText="Start"
+        ctaDisabled={!name.trim()}
+      >
+        {/* Two-stage flow visualization */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+          {/* Stage 1: Candidate */}
+          <div className="bg-white rounded-2xl p-8 border-2 border-sfinx-purple shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-sfinx-purple text-white flex items-center justify-center font-bold">
+                1
               </div>
-              <p className="text-gray-600">
-                Complete a technical interview for Frontend Engineer at Meta
-              </p>
+              <h2 className="text-2xl font-semibold text-gray-900">Candidate</h2>
             </div>
-
-            {/* Stage 2: Company */}
-            <div className="bg-white rounded-2xl p-8 border-2 border-gray-200 shadow-sm">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center font-bold">
-                  2
-                </div>
-                <h2 className="text-2xl font-semibold text-gray-900">Company</h2>
-              </div>
-              <p className="text-gray-600">
-                Review results, compare candidates, and see detailed analytics
-              </p>
-            </div>
+            <p className="text-gray-600">
+              Complete a technical interview for Frontend Engineer at Meta
+            </p>
           </div>
 
-          {/* Name input and start button */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-            <div className="mb-6">
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                Candidate&apos;s Name
-              </label>
-              <input
-                type="text"
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && name.trim()) {
-                    handleStartInterview();
-                  }
-                }}
-                placeholder="Enter your full name"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-sfinx-purple focus:border-transparent outline-none transition-all"
-              />
+          {/* Stage 2: Company */}
+          <div className="bg-white rounded-2xl p-8 border-2 border-gray-200 shadow-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center font-bold">
+                2
+              </div>
+              <h2 className="text-2xl font-semibold text-gray-900">Company</h2>
             </div>
-
-            <button
-              onClick={handleStartInterview}
-              disabled={!name.trim() || isStarting}
-              className="w-full bg-sfinx-purple text-white text-lg font-semibold py-4 px-8 rounded-xl hover:opacity-90 transition-all duration-300 shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              Start
-            </button>
+            <p className="text-gray-600">
+              Review results, compare candidates, and see detailed analytics
+            </p>
           </div>
-        </motion.div>
-      </div>
+        </div>
+
+        {/* Name input */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-6">
+          <div className="mb-6">
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+              Candidate&apos;s Name
+            </label>
+            <input
+              type="text"
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && name.trim()) {
+                  handleStartInterview();
+                }
+              }}
+              placeholder="Enter your full name"
+              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-sfinx-purple focus:border-transparent outline-none transition-all"
+            />
+          </div>
+        </div>
+      </InterviewStageScreen>
     );
   }
 
