@@ -50,6 +50,21 @@ export default function QuestionCard({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const controlsSoundRef = useRef<HTMLAudioElement | null>(null);
+  const submitSoundRef = useRef<HTMLAudioElement | null>(null);
+
+  // Preload sounds on mount
+  React.useEffect(() => {
+    controlsSoundRef.current = new Audio("/sounds/controls-appear.mp3");
+    controlsSoundRef.current.preload = "auto";
+    controlsSoundRef.current.load();
+    
+    submitSoundRef.current = new Audio("/sounds/submit-question.mp3");
+    submitSoundRef.current.preload = "auto";
+    submitSoundRef.current.load();
+    
+    console.log("[QuestionCard] Sounds preloaded");
+  }, []);
 
   // TTS + question change detection
   React.useEffect(() => {
@@ -133,12 +148,12 @@ export default function QuestionCard({
 
   // Play sound when controls appear (after audio finishes)
   React.useEffect(() => {
-    if (audioFinished) {
+    if (audioFinished && controlsSoundRef.current) {
       try {
         console.log("[QuestionCard] Playing controls-appear sound");
-        const controlsSound = new Audio("/sounds/controls-appear.mp3");
-        controlsSound.volume = isMuted ? 0 : 1;
-        controlsSound.play().catch(err => console.error("Controls-appear sound error:", err));
+        controlsSoundRef.current.volume = isMuted ? 0 : 1;
+        controlsSoundRef.current.currentTime = 0; // Reset to start
+        controlsSoundRef.current.play().catch(err => console.error("Controls-appear sound error:", err));
       } catch (error) {
         console.error("[QuestionCard] Failed to play controls-appear sound:", error);
       }
@@ -159,6 +174,13 @@ export default function QuestionCard({
   }, [isRecording]);
 
   const handleSubmit = () => {
+    // Play submit sound
+    if (submitSoundRef.current) {
+      submitSoundRef.current.volume = isMuted ? 0 : 1;
+      submitSoundRef.current.currentTime = 0;
+      submitSoundRef.current.play().catch(err => console.error("Submit sound error:", err));
+    }
+    
     onSubmitAnswer(answer);
     setAnswer("");
   };

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -81,6 +81,23 @@ export default function BackgroundInterviewPage() {
   const [openaiClient, setOpenaiClient] = useState<OpenAI | null>(null);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
+
+  // Preloaded sounds
+  const clickSoundRef = useRef<HTMLAudioElement | null>(null);
+  const startSoundRef = useRef<HTMLAudioElement | null>(null);
+
+  // Preload sounds on mount
+  useEffect(() => {
+    clickSoundRef.current = new Audio("/sounds/click-button.mp3");
+    clickSoundRef.current.preload = "auto";
+    clickSoundRef.current.load();
+    
+    startSoundRef.current = new Audio("/sounds/start-interview.mp3");
+    startSoundRef.current.preload = "auto";
+    startSoundRef.current.load();
+    
+    console.log("[bg-interview] Sounds preloaded");
+  }, []);
 
   // Initialize OpenAI client
   useEffect(() => {
@@ -325,9 +342,11 @@ export default function BackgroundInterviewPage() {
       
       // Play click sound and show disabled state
       setIsStarting(true);
-      const clickSound = new Audio("/sounds/click-button.mp3");
-      clickSound.volume = isMuted ? 0 : 1;
-      clickSound.play().catch(err => console.error("Click sound error:", err));
+      if (clickSoundRef.current) {
+        clickSoundRef.current.volume = isMuted ? 0 : 1;
+        clickSoundRef.current.currentTime = 0; // Reset to start
+        clickSoundRef.current.play().catch(err => console.error("Click sound error:", err));
+      }
       
       // Request mic permissions (no delay)
       console.log("[bg-interview] Requesting microphone permissions...");
@@ -388,26 +407,29 @@ export default function BackgroundInterviewPage() {
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Play start interview sound and wait for it to finish
-      try {
-        console.log("[bg-interview] Playing start-interview sound...");
-        await new Promise<void>((resolve, reject) => {
-          const startSound = new Audio("/sounds/start-interview.mp3");
-          startSound.volume = isMuted ? 0 : 1;
-          startSound.onended = () => {
-            console.log("[bg-interview] Start-interview sound finished");
-            resolve();
-          };
-          startSound.onerror = (error) => {
-            console.error("[bg-interview] Start-interview sound error:", error);
-            reject(error);
-          };
-          startSound.play().catch(err => {
-            console.error("[bg-interview] Failed to play start-interview sound:", err);
-            reject(err);
+      if (startSoundRef.current) {
+        try {
+          console.log("[bg-interview] Playing start-interview sound...");
+          await new Promise<void>((resolve, reject) => {
+            const startSound = startSoundRef.current!;
+            startSound.volume = isMuted ? 0 : 1;
+            startSound.currentTime = 0; // Reset to start
+            startSound.onended = () => {
+              console.log("[bg-interview] Start-interview sound finished");
+              resolve();
+            };
+            startSound.onerror = (error) => {
+              console.error("[bg-interview] Start-interview sound error:", error);
+              reject(error);
+            };
+            startSound.play().catch(err => {
+              console.error("[bg-interview] Failed to play start-interview sound:", err);
+              reject(err);
+            });
           });
-        });
-      } catch (error) {
-        console.error("[bg-interview] Start-interview sound failed, continuing anyway:", error);
+        } catch (error) {
+          console.error("[bg-interview] Start-interview sound failed, continuing anyway:", error);
+        }
       }
       
       // Show announcement after sound finishes
