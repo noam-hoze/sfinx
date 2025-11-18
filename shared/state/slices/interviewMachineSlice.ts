@@ -28,10 +28,13 @@ export type InterviewMachineState = {
     applicationId?: string;
     script?: any;
     preloadedFirstQuestion?: string;
+    // Page loading state for background interview
+    isPageLoading?: boolean;
 };
 
 const initialState: InterviewMachineState = {
     state: "idle",
+    isPageLoading: false,
 };
 
 const logStageTransition = (
@@ -175,6 +178,7 @@ const interviewMachineSlice = createSlice({
             state.companyName = undefined;
             state.companySlug = undefined;
             state.roleSlug = undefined;
+            state.isPageLoading = true;
             logStageTransition(prev, state.state, "reset");
         },
         forceCoding: (state) => {
@@ -196,6 +200,9 @@ const interviewMachineSlice = createSlice({
             if (action.payload.script) state.script = action.payload.script;
             if (action.payload.preloadedFirstQuestion) state.preloadedFirstQuestion = action.payload.preloadedFirstQuestion;
         },
+        setPageLoading: (state, action: PayloadAction<{ isLoading: boolean }>) => {
+            state.isPageLoading = action.payload.isLoading;
+        },
     },
 });
 
@@ -211,5 +218,6 @@ export const {
     reset,
     forceCoding,
     setPreloadedData,
+    setPageLoading,
 } = interviewMachineSlice.actions;
 export default interviewMachineSlice.reducer;

@@ -14,6 +14,8 @@ import {
   setCompanyContext,
   setSessionId as setMachineSessionId,
   setPreloadedData,
+  reset,
+  setPageLoading,
 } from "@/shared/state/slices/interviewMachineSlice";
 import QuestionCard from "./components/QuestionCard";
 import CompletionScreen from "./components/CompletionScreen";
@@ -61,6 +63,9 @@ export default function BackgroundInterviewPage() {
   );
   const script = useSelector(
     (state: RootState) => state.interviewMachine.script
+  );
+  const isPageLoading = useSelector(
+    (state: RootState) => state.interviewMachine.isPageLoading
   );
 
   // UI stage management
@@ -147,9 +152,33 @@ export default function BackgroundInterviewPage() {
     };
   }, [micStream]);
 
+  // Reset handler from URL param
+  useEffect(() => {
+    const resetParam = searchParams.get('_reset');
+    if (resetParam) {
+      console.log("[bg-interview] Reset detected - clearing all state");
+      dispatch(reset()); // This sets isPageLoading to true
+      interviewChatStore.dispatch({ type: 'RESET_ALL' } as any);
+      // Clear local state
+      setStage('loading');
+      setName("");
+      setShowHandEmoji(false);
+      setShowAnnouncement(false);
+      setAnnouncementText("");
+      setAnnouncementAudioBlob(null);
+      setCurrentQuestion("");
+      setIsFirstQuestion(true);
+      setSubmitting(false);
+      setCompleted(false);
+    }
+  }, [searchParams, dispatch]);
+
   // STAGE 1: Pre-loading on mount
   useEffect(() => {
     if (stage !== 'loading' || !openaiClient) return;
+
+    // Set loading state in Redux
+    dispatch(setPageLoading({ isLoading: true }));
 
     const preloadData = async () => {
       try {
@@ -317,9 +346,11 @@ export default function BackgroundInterviewPage() {
         
         console.log("[bg-interview] Stage 1 complete - transitioning to welcome");
         setStage('welcome');
+        dispatch(setPageLoading({ isLoading: false }));
         
       } catch (error) {
         console.error("[bg-interview] Stage 1 failed:", error);
+        dispatch(setPageLoading({ isLoading: false }));
         alert("Failed to initialize interview. Please refresh and try again.");
       }
     };

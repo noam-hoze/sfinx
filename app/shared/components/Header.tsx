@@ -7,6 +7,7 @@ import Image from "next/image";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Menu } from "@headlessui/react";
+import { useSelector } from "react-redux";
 import { log } from "../services";
 import SfinxLogo from "./SfinxLogo";
 import DemoProgressHeader from "../../../app/(features)/demo/components/DemoProgressHeader";
@@ -21,6 +22,9 @@ export default function Header() {
     const searchParams = useSearchParams();
     const isDemoMode = searchParams.get("demo") === "true" || pathname?.startsWith("/demo") || pathname?.startsWith("/background-interview");
     const { isMuted, toggleMute } = useMute();
+    
+    // Get Redux state for page loading
+    const isPageLoading = useSelector((state: any) => state.interviewMachine?.isPageLoading || false);
 
     // Sliding indicator state
     const [indicatorStyle, setIndicatorStyle] = useState({ width: 0, left: 0 });
@@ -241,9 +245,10 @@ export default function Header() {
                             </button>
                             <button
                                 onClick={() => {
-                                    window.location.href = '/background-interview?jobId=meta-frontend-engineer&companyId=meta';
+                                    router.push(`/background-interview?jobId=meta-frontend-engineer&companyId=meta&_reset=${Date.now()}`);
                                 }}
-                                className="px-4 py-2 text-sm font-medium text-sfinx-purple border border-sfinx-purple rounded-lg hover:bg-sfinx-purple hover:text-white transition-all"
+                                disabled={isPageLoading}
+                                className={`px-4 py-2 text-sm font-medium text-sfinx-purple border border-sfinx-purple rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${!isPageLoading ? 'hover:bg-sfinx-purple hover:text-white' : ''}`}
                             >
                                 Restart Demo
                             </button>

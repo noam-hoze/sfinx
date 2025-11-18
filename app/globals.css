@@ -8,9 +8,33 @@
   --sfinx-purple-rgb: 124, 58, 237;
 }
 
-/* Force pointer cursor on all buttons */
-button {
+/* Force pointer cursor on all buttons, except disabled */
+button:not(:disabled) {
   cursor: pointer !important;
+}
+
+button:disabled {
+  cursor: not-allowed !important;
+}
+
+/* Disable ALL hover effects on disabled buttons - AGGRESSIVE */
+button:disabled:hover,
+button[disabled]:hover,
+button:disabled:hover *,
+button[disabled]:hover * {
+  background-color: transparent !important;
+  background: transparent !important;
+  color: rgb(124, 58, 237) !important;
+  border-color: rgb(124, 58, 237) !important;
+  transform: none !important;
+  filter: none !important;
+  scale: 1 !important;
+  box-shadow: none !important;
+}
+
+button:disabled,
+button[disabled] {
+  opacity: 0.5 !important;
 }
 
 /* Debug: Highlight vidstack player */
