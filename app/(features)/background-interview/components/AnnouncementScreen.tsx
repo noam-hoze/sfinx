@@ -92,16 +92,13 @@ export default function AnnouncementScreen({
       }
     })();
 
-    // Start typing animation - use ref to avoid closure issues during re-renders
-    const wordIndexRef = { current: 0 };
-    const wordsRef = { current: words };
+    // Start typing animation - use index to avoid any state/closure issues
+    let currentIndex = 0;
     
     const interval = setInterval(() => {
-      const idx = wordIndexRef.current;
-      const wordsArray = wordsRef.current;
-      
-      if (idx < wordsArray.length) {
-        const wordToAdd = wordsArray[idx];
+      if (currentIndex < words.length) {
+        const wordToAdd = words[currentIndex];
+        currentIndex++;
         
         setDisplayedWords((prev) => {
           // Prevent duplicates when component re-renders during mute toggle
@@ -110,7 +107,6 @@ export default function AnnouncementScreen({
           }
           return [...prev, wordToAdd];
         });
-        wordIndexRef.current++;
       } else {
         setTypingFinished(true);
         clearInterval(interval);
