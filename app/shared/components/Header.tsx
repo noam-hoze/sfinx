@@ -7,9 +7,8 @@ import Image from "next/image";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Menu } from "@headlessui/react";
-import { useSelector, useDispatch } from "react-redux";
-import { triggerReset } from "@/shared/state/slices/interviewMachineSlice";
-import { RootState } from "@/shared/state/store";
+import { useSelector } from "react-redux";
+import type { RootState } from "@/shared/state/store";
 import { log } from "../services";
 import SfinxLogo from "./SfinxLogo";
 import DemoProgressHeader from "../../../app/(features)/demo/components/DemoProgressHeader";
@@ -20,7 +19,6 @@ const logger = log;
 export default function Header() {
     const { data: session } = useSession();
     const router = useRouter();
-    const dispatch = useDispatch();
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const isDemoMode = searchParams.get("demo") === "true" || pathname?.startsWith("/demo") || pathname?.startsWith("/background-interview");
@@ -262,11 +260,8 @@ export default function Header() {
                             </button>
                             <button
                                 onClick={() => {
-                                    dispatch(triggerReset());
-                                    // Only navigate if not already on background-interview page
-                                    if (!pathname?.startsWith('/background-interview')) {
-                                        router.push('/background-interview?jobId=meta-frontend-engineer&companyId=meta');
-                                    }
+                                    // Full page refresh to background-interview (cleanest reset)
+                                    window.location.href = '/background-interview?jobId=meta-frontend-engineer&companyId=meta';
                                 }}
                                 disabled={isPageLoading}
                                 className={`px-4 py-2 text-sm font-medium text-sfinx-purple border border-sfinx-purple rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${!isPageLoading ? 'hover:bg-sfinx-purple hover:text-white' : ''}`}
