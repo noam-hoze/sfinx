@@ -67,7 +67,6 @@ export type InterviewChatState = {
             timestamp: number;
             videoChapterId?: string;
             aiQuestionTimestamp?: number;
-            userAnswerTimestamp?: number;
             confidence: number; // 0-100
             answerCount: number; // 0-3 (number of user answers)
             readyToEvaluate: boolean;
@@ -130,7 +129,6 @@ type Action =
               currentQuestion?: string;
               videoChapterId?: string;
               aiQuestionTimestamp?: number;
-              userAnswerTimestamp?: number;
               evaluationReasoning?: string;
               evaluationCaption?: string;
               accountabilityScore?: number;
@@ -338,7 +336,6 @@ function reducer(
                         currentQuestion: action.payload.currentQuestion,
                         videoChapterId: action.payload.videoChapterId ?? state.coding.activePasteEvaluation.videoChapterId,
                         aiQuestionTimestamp: action.payload.aiQuestionTimestamp ?? state.coding.activePasteEvaluation.aiQuestionTimestamp,
-                        userAnswerTimestamp: action.payload.userAnswerTimestamp ?? state.coding.activePasteEvaluation.userAnswerTimestamp,
                         evaluationReasoning: action.payload.evaluationReasoning,
                         evaluationCaption: action.payload.evaluationCaption,
                         accountabilityScore: action.payload.accountabilityScore ?? state.coding.activePasteEvaluation.accountabilityScore,

@@ -906,7 +906,6 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                     aiQuestion: aiQuestions,
                     aiQuestionTimestamp: activePasteEval.aiQuestionTimestamp,
                     userAnswer: userAnswers,
-                    userAnswerTimestamp: Date.now(),
                     understanding: evaluation.understanding,
                     accountabilityScore: evaluation.accountabilityScore,
                     reasoning: evaluation.reasoning,
@@ -990,7 +989,6 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
             
             // Update debug panel with confidence (use our calculated answer count, not OpenAI's)
             if (control) {
-              const userAnswerTimestamp = Date.now();
               interviewChatStore.dispatch({
                 type: "CODING_UPDATE_PASTE_EVAL",
                 payload: {
@@ -998,7 +996,6 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                   answerCount: nextAnswerCount,
                   readyToEvaluate: shouldEvaluate,
                   currentQuestion: !shouldEvaluate ? aiText : undefined,
-                  userAnswerTimestamp,
                 },
               } as any);
               
@@ -1067,7 +1064,7 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                   
                   // Save to DB
                   const sessionId = ms.sessionId;
-                  if (sessionId && activePasteEval.aiQuestionTimestamp && activePasteEval.userAnswerTimestamp) {
+                  if (sessionId && activePasteEval.aiQuestionTimestamp) {
                     const dbPayload = {
                       timestamp: activePasteEval.timestamp,
                       pastedContent: activePasteEval.pastedContent,
@@ -1075,7 +1072,6 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                       aiQuestion: aiQuestions,
                       aiQuestionTimestamp: activePasteEval.aiQuestionTimestamp,
                       userAnswer: userAnswers,
-                      userAnswerTimestamp: activePasteEval.userAnswerTimestamp,
                       understanding: evaluation.understanding,
                       accountabilityScore: evaluation.accountabilityScore,
                       reasoning: evaluation.reasoning,
@@ -1123,8 +1119,7 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                     try {
                       /* eslint-disable no-console */ console.error("[paste_eval][missing_data]", {
                         hasSessionId: !!sessionId,
-                        hasAiTimestamp: !!activePasteEval.aiQuestionTimestamp,
-                        hasUserTimestamp: !!activePasteEval.userAnswerTimestamp
+                        hasAiTimestamp: !!activePasteEval.aiQuestionTimestamp
                       });
                     } catch {}
                   }

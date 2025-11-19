@@ -12,14 +12,16 @@ const MuteContext = createContext<MuteContextType | undefined>(undefined);
 const MUTE_STORAGE_KEY = "sfinx-mute-state";
 
 export function MuteProvider({ children }: { children: React.ReactNode }) {
-  // Initialize from localStorage
-  const [isMuted, setIsMuted] = useState(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem(MUTE_STORAGE_KEY);
-      return stored === "true";
+  // Always start with false for server and initial client render (prevents hydration mismatch)
+  const [isMuted, setIsMuted] = useState(false);
+
+  // Sync with localStorage after hydration
+  useEffect(() => {
+    const stored = localStorage.getItem(MUTE_STORAGE_KEY);
+    if (stored === "true") {
+      setIsMuted(true);
     }
-    return false;
-  });
+  }, []);
 
   // Persist to localStorage whenever it changes
   useEffect(() => {

@@ -39,7 +39,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
             aiQuestion,
             aiQuestionTimestamp,
             userAnswer,
-            userAnswerTimestamp,
             understanding,
             accountabilityScore,
             reasoning,
@@ -54,7 +53,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
             !aiQuestion ||
             !aiQuestionTimestamp ||
             !userAnswer ||
-            !userAnswerTimestamp ||
             !understanding ||
             typeof accountabilityScore !== "number" ||
             !reasoning ||
@@ -93,7 +91,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 aiQuestion,
                 aiQuestionTimestamp: new Date(aiQuestionTimestamp),
                 userAnswer,
-                userAnswerTimestamp: new Date(userAnswerTimestamp),
                 understanding: understandingLevel,
                 accountabilityScore,
                 reasoning,

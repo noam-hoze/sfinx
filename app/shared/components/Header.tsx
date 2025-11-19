@@ -261,7 +261,7 @@ export default function Header() {
                             <button
                                 onClick={() => {
                                     // Full page refresh to background-interview (cleanest reset)
-                                    window.location.href = '/background-interview?jobId=meta-frontend-engineer&companyId=meta';
+                                    window.location.href = '/background-interview';
                                 }}
                                 disabled={isPageLoading}
                                 className={`px-4 py-2 text-sm font-medium text-sfinx-purple border border-sfinx-purple rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${!isPageLoading ? 'hover:bg-sfinx-purple hover:text-white' : ''}`}

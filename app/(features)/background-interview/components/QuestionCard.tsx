@@ -3,6 +3,7 @@
 import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMute } from "app/shared/contexts";
+import { loadAndCacheSoundEffect } from "@/shared/utils/audioCache";
 
 type QuestionCardProps = {
   question: string;
@@ -53,20 +54,13 @@ export default function QuestionCard({
   const audioChunksRef = useRef<Blob[]>([]);
   const controlsSoundRef = useRef<HTMLAudioElement | null>(null);
 
-  // Preload sounds on mount - wait for them to be fully ready
+  // Preload sounds on mount - wait for them to be fully ready (with caching)
   React.useEffect(() => {
-    const controlsSound = new Audio("/sounds/controls-appear.mp3");
-    controlsSound.preload = "auto";
-    
-    // Wait for sound to be ready to play without delay
-    const loadPromise = new Promise(resolve => {
-      controlsSound.addEventListener('canplaythrough', resolve, { once: true });
-      controlsSound.load();
-    });
-    
-    loadPromise.then(() => {
+    loadAndCacheSoundEffect("/sounds/controls-appear.mp3", "controls-appear").then(controlsSound => {
       controlsSoundRef.current = controlsSound;
-      console.log("[QuestionCard] Sounds fully loaded and ready");
+      console.log("[QuestionCard] Controls sound loaded (with cache)");
+    }).catch(err => {
+      console.error("[QuestionCard] Failed to load controls sound:", err);
     });
   }, []);
 

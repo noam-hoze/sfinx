@@ -413,8 +413,6 @@ model ExternalToolUsage {
   aiQuestionTimestamp   DateTime
   /// User's answer to AI's question.
   userAnswer            String
-  /// Timestamp when user answered.
-  userAnswerTimestamp   DateTime
   /// OpenAI evaluation of understanding.
   understanding         UnderstandingLevel
   /// Accountability score (0-100).

@@ -36,6 +36,7 @@ import { stopCheck } from "@/shared/services/weightedMean/scorer";
 import { shouldTransition } from "@/shared/services/backgroundSessionGuard";
 import { createInterviewSession } from "../interview/components/services/interviewSessionService";
 import { buildControlContextMessages, CONTROL_CONTEXT_TURNS } from "../../shared/services";
+import { loadAndCacheSoundEffect, getCachedBlob, cacheBlob } from "@/shared/utils/audioCache";
 
 type Stage = 'loading' | 'welcome' | 'interview';
 
@@ -107,7 +108,7 @@ export default function BackgroundInterviewPage() {
     setStage('loading');
   }, [dispatch]);
 
-  // Preload sounds on mount - wait for them to be fully ready
+  // Preload sounds on mount - wait for them to be fully ready (with caching)
   useEffect(() => {
     // Skip if sounds are already loaded
     if (clickSoundRef.current && startSoundRef.current) {
@@ -116,27 +117,16 @@ export default function BackgroundInterviewPage() {
       return;
     }
     
-    const clickSound = new Audio("/sounds/click-button.mp3");
-    const startSound = new Audio("/sounds/start-interview.mp3");
-    
-    clickSound.preload = "auto";
-    startSound.preload = "auto";
-    
-    // Wait for both to be ready to play without delay
     Promise.all([
-      new Promise(resolve => {
-        clickSound.addEventListener('canplaythrough', resolve, { once: true });
-        clickSound.load();
-      }),
-      new Promise(resolve => {
-        startSound.addEventListener('canplaythrough', resolve, { once: true });
-        startSound.load();
-      })
-    ]).then(() => {
+      loadAndCacheSoundEffect("/sounds/click-button.mp3", "click-button"),
+      loadAndCacheSoundEffect("/sounds/start-interview.mp3", "start-interview")
+    ]).then(([clickSound, startSound]) => {
       clickSoundRef.current = clickSound;
       startSoundRef.current = startSound;
       setSoundsReady(true);
-      console.log("[bg-interview] Sounds fully loaded and ready");
+      console.log("[bg-interview] Sounds fully loaded and ready (with cache)");
+    }).catch(err => {
+      console.error("[bg-interview] Failed to load sounds:", err);
     });
   }, []);
 
@@ -277,11 +267,11 @@ export default function BackgroundInterviewPage() {
         console.log("[bg-interview] Session created:", sessId);
         
         // Step 3: Fetch interview script (check cache first)
-        const cacheKey = `interview-script-${jobId}`;
+        const scriptCacheKey = `interview-script-${jobId}`;
         let scriptData: any = null;
         
         try {
-          const cached = localStorage.getItem(cacheKey);
+          const cached = localStorage.getItem(scriptCacheKey);
           if (cached) {
             scriptData = JSON.parse(cached);
             console.log("[bg-interview] Script loaded from cache");
@@ -302,7 +292,7 @@ export default function BackgroundInterviewPage() {
           
           // Cache the script
           try {
-            localStorage.setItem(cacheKey, JSON.stringify(scriptData));
+            localStorage.setItem(scriptCacheKey, JSON.stringify(scriptData));
             console.log("[bg-interview] Script cached");
           } catch (err) {
             console.warn("[bg-interview] Failed to cache script:", err);
@@ -371,24 +361,40 @@ export default function BackgroundInterviewPage() {
         const announcement = `Hi! Welcome to your interview for ${jobTitle} at ${companyNameFromScript}`;
         setAnnouncementText(announcement);
         
-        // Pre-generate announcement TTS
-        console.log("[bg-interview] Pre-generating announcement TTS...");
-        try {
-          const ttsResp = await fetch("/api/tts", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: announcement }),
-          });
-          if (ttsResp.ok) {
-            const audioBuffer = await ttsResp.arrayBuffer();
-            const audioBlob = new Blob([audioBuffer], { type: "audio/mpeg" });
-            setAnnouncementAudioBlob(audioBlob);
-            console.log("[bg-interview] Announcement TTS pre-generated");
-          } else {
-            console.warn("[bg-interview] Failed to pre-generate announcement TTS");
+        // Cache key based on the text content (simple hash)
+        const textHash = announcement.split('').reduce((acc, char) => {
+          return ((acc << 5) - acc) + char.charCodeAt(0) | 0;
+        }, 0).toString(36);
+        const announcementCacheKey = `announcement-${textHash}`;
+        
+        // Check if we have cached audio for this exact text
+        const cachedBlob = getCachedBlob(announcementCacheKey);
+        
+        if (cachedBlob) {
+          console.log("[bg-interview] Using cached announcement TTS");
+          setAnnouncementAudioBlob(cachedBlob);
+        } else {
+          // Generate new TTS and cache it
+          console.log("[bg-interview] Generating announcement TTS...");
+          try {
+            const ttsResp = await fetch("/api/tts", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text: announcement }),
+            });
+            if (ttsResp.ok) {
+              const audioBuffer = await ttsResp.arrayBuffer();
+              const audioBlob = new Blob([audioBuffer], { type: "audio/mpeg" });
+              setAnnouncementAudioBlob(audioBlob);
+              // Cache the audio
+              await cacheBlob(announcementCacheKey, audioBlob);
+              console.log("[bg-interview] Announcement TTS generated and cached");
+            } else {
+              console.warn("[bg-interview] Failed to generate announcement TTS");
+            }
+          } catch (err) {
+            console.warn("[bg-interview] Error generating announcement TTS:", err);
           }
-        } catch (err) {
-          console.warn("[bg-interview] Error pre-generating announcement TTS:", err);
         }
         
         console.log("[bg-interview] Stage 1 complete - transitioning to welcome");
