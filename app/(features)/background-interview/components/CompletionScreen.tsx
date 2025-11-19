@@ -36,7 +36,7 @@ export default function CompletionScreen({
     <InterviewStageScreen
       onSubmit={handleStartCoding}
       ctaText="Start Coding Challenge"
-      bgGradient="from-blue-50 to-white"
+      bgGradient="from-purple-50 to-white"
     >
       {/* Completion Message */}
       <div className="flex flex-col items-center mb-4">

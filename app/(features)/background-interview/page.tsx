@@ -238,7 +238,7 @@ export default function BackgroundInterviewPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
             userId: demoUserId,
-            name: "Demo User"
+            name: `Guest-${Date.now()}`
           }),
         });
         
@@ -431,6 +431,19 @@ export default function BackgroundInterviewPage() {
         clickSoundRef.current.currentTime = 0; // Reset to start
         clickSoundRef.current.play().catch(err => console.error("Click sound error:", err));
       }
+      
+      // Update user name in DB
+      console.log("[bg-interview] Updating user name...");
+      const updateResp = await fetch(`/api/users/${userId}/name?skip-auth=true`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim() }),
+      });
+      
+      if (!updateResp.ok) {
+        throw new Error("Failed to update user name");
+      }
+      console.log("[bg-interview] User name updated successfully");
       
       // Request mic permissions (no delay)
       console.log("[bg-interview] Requesting microphone permissions...");

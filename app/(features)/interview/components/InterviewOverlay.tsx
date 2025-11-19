@@ -157,20 +157,8 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
                 {stage === "submitted" ? (
                     <div className="px-6">
                         <div className="mb-8">
-                            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-                                <svg
-                                    className="w-12 h-12 text-blue-600"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={1.5}
-                                        d="M5 13l4 4L19 7"
-                                    />
-                                </svg>
+                            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center text-5xl">
+                                👏
                             </div>
                         </div>
                         <h2 className="text-3xl font-light text-gray-900 mb-2 tracking-tight dark:text-white">

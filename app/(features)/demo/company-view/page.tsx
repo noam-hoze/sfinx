@@ -6,14 +6,16 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import InterviewStageScreen from "app/shared/components/InterviewStageScreen";
+import SfinxSpinner from "app/(features)/background-interview/components/SfinxSpinner";
 
 function CompanyViewContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const candidateId = searchParams.get("candidateId");
     const applicationId = searchParams.get("applicationId");
+    const [isNavigating, setIsNavigating] = useState(false);
 
     // Prefetch CPS page in background for instant navigation
     useEffect(() => {
@@ -21,8 +23,17 @@ function CompanyViewContent() {
     }, [router, candidateId, applicationId]);
 
     const handleViewReport = () => {
+        setIsNavigating(true);
         router.push(`/cps?demo=true&candidateId=${candidateId}&applicationId=${applicationId}`);
     };
+
+    if (isNavigating) {
+        return (
+            <div className="min-h-screen bg-white flex items-center justify-center">
+                <SfinxSpinner size="lg" />
+            </div>
+        );
+    }
 
     return (
         <InterviewStageScreen
