@@ -230,13 +230,14 @@ const OpenAITextConversation = forwardRef<any, Props>(
         } catch {}
         
         // Create video chapter IMMEDIATELY at paste detection
+        let videoChapterId: string | undefined;
         if (interviewSessionId) {
           try {
             const chapterUrl = isDemoMode
               ? `/api/interviews/session/${interviewSessionId}/paste-chapter?skip-auth=true`
               : `/api/interviews/session/${interviewSessionId}/paste-chapter`;
             
-            await fetch(chapterUrl, {
+            const response = await fetch(chapterUrl, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -245,7 +246,11 @@ const OpenAITextConversation = forwardRef<any, Props>(
               }),
             });
             
-            /* eslint-disable no-console */ console.log("✅ [paste_eval] Chapter created at paste detection");
+            if (response.ok) {
+              const data = await response.json();
+              videoChapterId = data.chapterId;
+              /* eslint-disable no-console */ console.log("✅ [paste_eval] Chapter created at paste detection", { videoChapterId });
+            }
           } catch (error) {
             /* eslint-disable no-console */ console.error("❌ Failed to create paste chapter:", error);
           }
@@ -258,6 +263,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
             pasteEvaluationId,
             pastedContent: pastedCode,
             timestamp,
+            videoChapterId,
           },
         } as any);
         
@@ -893,6 +899,20 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(dbPayload),
                   });
+                  
+                  // Update VideoCaption with accountability evaluation
+                  if (activePasteEval.videoChapterId) {
+                    try {
+                      await fetch(`/api/interviews/video-chapter/${activePasteEval.videoChapterId}/caption`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ caption: evaluation.caption }),
+                      });
+                      /* eslint-disable no-console */ console.log("✅ [paste_eval] VideoCaption updated with evaluation");
+                    } catch (error) {
+                      /* eslint-disable no-console */ console.error("❌ Failed to update VideoCaption:", error);
+                    }
+                  }
                 }
               }
               
@@ -1036,6 +1056,20 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                       try {
                         /* eslint-disable no-console */ console.log("[paste_eval][saved_to_db]");
                       } catch {}
+                      
+                      // Update VideoCaption with accountability evaluation
+                      if (activePasteEval.videoChapterId) {
+                        try {
+                          await fetch(`/api/interviews/video-chapter/${activePasteEval.videoChapterId}/caption`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ caption: evaluation.caption }),
+                          });
+                          /* eslint-disable no-console */ console.log("✅ [paste_eval] VideoCaption updated with evaluation");
+                        } catch (error) {
+                          /* eslint-disable no-console */ console.error("❌ Failed to update VideoCaption:", error);
+                        }
+                      }
                     } else {
                       try {
                         const errorData = await dbResponse.json();

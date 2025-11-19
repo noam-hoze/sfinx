@@ -64,6 +64,7 @@ export type InterviewChatState = {
             pasteEvaluationId: string;
             pastedContent: string;
             timestamp: number;
+            videoChapterId?: string;
             aiQuestionTimestamp?: number;
             userAnswerTimestamp?: number;
             confidence: number; // 0-100
@@ -116,6 +117,7 @@ type Action =
               pasteEvaluationId: string;
               pastedContent: string;
               timestamp: number;
+              videoChapterId?: string;
           };
       }
     | {
@@ -125,6 +127,9 @@ type Action =
               answerCount: number;
               readyToEvaluate: boolean;
               currentQuestion?: string;
+              videoChapterId?: string;
+              aiQuestionTimestamp?: number;
+              userAnswerTimestamp?: number;
               evaluationReasoning?: string;
               evaluationCaption?: string;
               accountabilityScore?: number;
@@ -309,6 +314,7 @@ function reducer(
                         pasteEvaluationId: action.payload.pasteEvaluationId,
                         pastedContent: action.payload.pastedContent,
                         timestamp: action.payload.timestamp,
+                        videoChapterId: action.payload.videoChapterId,
                         confidence: 0,
                         answerCount: 0, // Start at 0 - no user answers yet
                         readyToEvaluate: false,
@@ -328,6 +334,7 @@ function reducer(
                         answerCount: action.payload.answerCount,
                         readyToEvaluate: action.payload.readyToEvaluate,
                         currentQuestion: action.payload.currentQuestion,
+                        videoChapterId: action.payload.videoChapterId ?? state.coding.activePasteEvaluation.videoChapterId,
                         aiQuestionTimestamp: action.payload.aiQuestionTimestamp ?? state.coding.activePasteEvaluation.aiQuestionTimestamp,
                         userAnswerTimestamp: action.payload.userAnswerTimestamp ?? state.coding.activePasteEvaluation.userAnswerTimestamp,
                         evaluationReasoning: action.payload.evaluationReasoning,
