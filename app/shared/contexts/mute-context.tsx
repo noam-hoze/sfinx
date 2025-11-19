@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 
 interface MuteContextType {
   isMuted: boolean;
@@ -9,8 +9,22 @@ interface MuteContextType {
 
 const MuteContext = createContext<MuteContextType | undefined>(undefined);
 
+const MUTE_STORAGE_KEY = "sfinx-mute-state";
+
 export function MuteProvider({ children }: { children: React.ReactNode }) {
-  const [isMuted, setIsMuted] = useState(false);
+  // Initialize from localStorage
+  const [isMuted, setIsMuted] = useState(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(MUTE_STORAGE_KEY);
+      return stored === "true";
+    }
+    return false;
+  });
+
+  // Persist to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem(MUTE_STORAGE_KEY, String(isMuted));
+  }, [isMuted]);
 
   const toggleMute = () => {
     setIsMuted((prev) => !prev);
