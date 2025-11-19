@@ -12,6 +12,7 @@ interface TranscriptionMessage {
     text: string;
     speaker: "user" | "ai";
     timestamp: Date;
+    pasteEvaluationId?: string;
 }
 
 interface ChatPanelProps {
@@ -30,20 +31,33 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
         text: m.text,
         speaker: m.speaker,
         timestamp: new Date(m.timestamp),
+        pasteEvaluationId: m.pasteEvaluationId,
     }));
     const isRecording = chat.isRecording;
     const [isPendingReply, setIsPendingReply] = useState(false);
+    const [activePasteEvalId, setActivePasteEvalId] = useState<string | undefined>();
+    const [showQuickReply, setShowQuickReply] = useState(false);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // Subscribe to interviewChatStore for pendingReply state
+    // Subscribe to interviewChatStore for pendingReply state and active paste evaluation
     useEffect(() => {
-        const updatePendingState = () => {
+        const updateState = () => {
             const state = interviewChatStore.getState();
             setIsPendingReply(state.pendingReply);
+            
+            const activePasteEval = state.coding?.activePasteEvaluation;
+            setActivePasteEvalId(activePasteEval?.pasteEvaluationId);
+            
+            // Show quick reply if there's an active paste eval and user hasn't answered yet
+            setShowQuickReply(
+                !!activePasteEval && 
+                activePasteEval.answerCount === 0 && 
+                !!activePasteEval.currentQuestion
+            );
         };
-        updatePendingState();
-        const unsubscribe = interviewChatStore.subscribe(updatePendingState);
+        updateState();
+        const unsubscribe = interviewChatStore.subscribe(updateState);
         return unsubscribe;
     }, []);
 
@@ -149,7 +163,11 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
                                 >
                                     <div
                                         className={`max-w-xs lg:max-w-md px-3 py-2 rounded-lg text-sm ${
-                                            message.speaker === "user"
+                                            message.pasteEvaluationId
+                                                ? message.speaker === "user"
+                                                    ? "bg-green-100 text-gray-900 dark:bg-green-900 dark:text-white"
+                                                    : "bg-green-50 text-gray-900 dark:bg-green-950 dark:text-white"
+                                                : message.speaker === "user"
                                                 ? "bg-blue-600 text-white"
                                                 : "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white"
                                         }`}
@@ -168,6 +186,20 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
                                     </div>
                                 </div>
                             ))}
+                            {showQuickReply && activePasteEvalId && (
+                                <div className="flex justify-center my-2">
+                                    <button
+                                        onClick={async () => {
+                                            if (onSendText) {
+                                                await onSendText("I don't know");
+                                            }
+                                        }}
+                                        className="px-4 py-2 bg-green-100 hover:bg-green-200 dark:bg-green-900 dark:hover:bg-green-800 text-gray-900 dark:text-white rounded-lg text-sm font-medium transition-colors border border-green-300 dark:border-green-700"
+                                    >
+                                        I don't know
+                                    </button>
+                                </div>
+                            )}
                             {isPendingReply && <TypingIndicator />}
                         </>
                     )}

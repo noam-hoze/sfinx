@@ -91,13 +91,18 @@ const OpenAITextConversation = forwardRef<any, Props>(
     const codingExpectedMessageRef = useRef<string | null>(null);
 
     const post = useCallback(
-      (text: string, speaker: "user" | "ai", metadata?: { isPasteEval?: boolean }) => {
+      (text: string, speaker: "user" | "ai", metadata?: { isPasteEval?: boolean; pasteEvaluationId?: string }) => {
         if (!text) return;
         dispatch(addMessage({ text, speaker }));
         try {
           interviewChatStore.dispatch({
             type: "ADD_MESSAGE",
-            payload: { text, speaker, isPasteEval: metadata?.isPasteEval },
+            payload: { 
+              text, 
+              speaker, 
+              isPasteEval: metadata?.isPasteEval,
+              pasteEvaluationId: metadata?.pasteEvaluationId,
+            },
           } as any);
         } catch {}
       },
@@ -293,7 +298,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
         
         if (question) {
           const aiQuestionTimestamp = Date.now();
-          post(question, "ai", { isPasteEval: true });
+          post(question, "ai", { isPasteEval: true, pasteEvaluationId });
           dispatch(machineAiFinal({ text: question }));
           
           // Update debug panel with question (answerCount still 0 - no answers yet)
@@ -522,9 +527,13 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
         
         // Check if we're in active paste evaluation to tag message
         const chatState = interviewChatStore.getState();
-        const isPasteEvalActive = !!chatState.coding?.activePasteEvaluation;
+        const activePasteEval = chatState.coding?.activePasteEvaluation;
+        const isPasteEvalActive = !!activePasteEval;
         
-        post(text, "user", { isPasteEval: isPasteEvalActive });
+        post(text, "user", { 
+          isPasteEval: isPasteEvalActive,
+          pasteEvaluationId: activePasteEval?.pasteEvaluationId,
+        });
         // Lock input when user sends message
         setInputLocked?.(true);
         dispatch(machineUserFinal());
@@ -812,7 +821,7 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
               );
               
               if (acknowledgment) {
-                post(acknowledgment, "ai", { isPasteEval: true });
+                post(acknowledgment, "ai", { isPasteEval: true, pasteEvaluationId: activePasteEval.pasteEvaluationId });
                 dispatch(machineAiFinal({ text: acknowledgment }));
                 
                 try {
@@ -924,7 +933,7 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
             
             // Post AI response (either follow-up question or acknowledgment)
             if (aiText) {
-              post(aiText, "ai", { isPasteEval: true });
+              post(aiText, "ai", { isPasteEval: true, pasteEvaluationId: activePasteEval.pasteEvaluationId });
               dispatch(machineAiFinal({ text: aiText }));
               clearPendingState();
               

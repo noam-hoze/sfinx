@@ -10,6 +10,7 @@ export type ChatMessage = {
     speaker: ChatSpeaker;
     timestamp: number;
     isPasteEval?: boolean;  // Tag for paste evaluation messages
+    pasteEvaluationId?: string;  // ID linking messages to specific paste conversation
 };
 
 export type InterviewStage =
@@ -79,7 +80,7 @@ export type InterviewChatState = {
 };
 
 type Action =
-    | { type: "ADD_MESSAGE"; payload: { text: string; speaker: ChatSpeaker; isPasteEval?: boolean } }
+    | { type: "ADD_MESSAGE"; payload: { text: string; speaker: ChatSpeaker; isPasteEval?: boolean; pasteEvaluationId?: string } }
     | { type: "CLEAR" }
     | { type: "RESET_ALL" }
     | { type: "SET_RECORDING"; payload: boolean }
@@ -152,6 +153,7 @@ function reducer(
                 speaker: action.payload.speaker,
                 timestamp: Date.now(),
                 isPasteEval: action.payload.isPasteEval,
+                pasteEvaluationId: action.payload.pasteEvaluationId,
             };
             return { ...state, messages: [...state.messages, msg] };
         }
