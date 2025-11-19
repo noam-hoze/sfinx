@@ -37,6 +37,7 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
     const [isPendingReply, setIsPendingReply] = useState(false);
     const [activePasteEvalId, setActivePasteEvalId] = useState<string | undefined>();
     const [showQuickReply, setShowQuickReply] = useState(false);
+    const [buttonClicked, setButtonClicked] = useState(false);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -47,19 +48,26 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
             setIsPendingReply(state.pendingReply);
             
             const activePasteEval = state.coding?.activePasteEvaluation;
-            setActivePasteEvalId(activePasteEval?.pasteEvaluationId);
+            const newActivePasteEvalId = activePasteEval?.pasteEvaluationId;
             
-            // Show quick reply if there's an active paste eval and user hasn't answered yet
+            // Reset buttonClicked if paste eval ID changed (new paste)
+            if (newActivePasteEvalId !== activePasteEvalId) {
+                setButtonClicked(false);
+            }
+            setActivePasteEvalId(newActivePasteEvalId);
+            
+            // Show quick reply if there's an active paste eval, user hasn't answered yet, and button wasn't clicked
             setShowQuickReply(
                 !!activePasteEval && 
                 activePasteEval.answerCount === 0 && 
-                !!activePasteEval.currentQuestion
+                !!activePasteEval.currentQuestion &&
+                !buttonClicked
             );
         };
         updateState();
         const unsubscribe = interviewChatStore.subscribe(updateState);
         return unsubscribe;
-    }, []);
+    }, [activePasteEvalId, buttonClicked]);
 
     useEffect(() => {}, [transcriptions, isRecording]);
 
@@ -190,6 +198,7 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
                                 <div className="flex justify-center my-2">
                                     <button
                                         onClick={async () => {
+                                            setButtonClicked(true);
                                             if (onSendText) {
                                                 await onSendText("I don't know");
                                             }

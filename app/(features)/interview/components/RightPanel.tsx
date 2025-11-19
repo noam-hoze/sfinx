@@ -31,6 +31,7 @@ interface RightPanelProps {
     onGreetingDelivered?: () => void;
     codingDurationSeconds: number;
     setInputLocked?: (locked: boolean) => void;
+    onHighlightPastedCode?: (pastedCode: string) => void;
     interviewSessionId?: string | null;
 }
 
@@ -38,6 +39,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
     isInterviewActive,
     candidateName,
     handleUserTranscript,
+    onHighlightPastedCode,
     updateKBVariables,
     kbVariables,
     automaticMode,
@@ -117,6 +119,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
                             } catch {}
                         }}
                         setInputLocked={setInputLocked}
+                        onHighlightPastedCode={onHighlightPastedCode}
                         interviewSessionId={interviewSessionId}
                     />
                 </div>

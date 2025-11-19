@@ -1,0 +1,8 @@
+# Cursor AI Rules
+
+## Git Workflow
+- **NEVER commit changes automatically**
+- **NEVER run git commit unless explicitly asked by the user**
+- Only stage changes (git add) when user explicitly requests commit
+- Wait for explicit user confirmation before any git operations
+

@@ -1007,6 +1007,11 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                                         } catch {}
                                     }
                                 }}
+                                onHighlightPastedCode={(pastedCode) => {
+                                    if ((window as any).__highlightPastedCode) {
+                                        (window as any).__highlightPastedCode(pastedCode);
+                                    }
+                                }}
                                 onAskFollowup={(payload) => {
                                     try {
                                         const ref =
@@ -1087,6 +1092,11 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                             onCodingPromptReady={handleCodingPromptReady}
                             onGreetingDelivered={() => setIsChatInputLocked(false)}
                             setInputLocked={setIsChatInputLocked}
+                            onHighlightPastedCode={(pastedCode) => {
+                                if ((window as any).__highlightPastedCode) {
+                                    (window as any).__highlightPastedCode(pastedCode);
+                                }
+                            }}
                             interviewSessionId={interviewSessionId}
                         />
                     </Panel>

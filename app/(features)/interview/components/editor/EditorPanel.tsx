@@ -58,6 +58,7 @@ interface EditorPanelProps {
     onElevenLabsUpdate?: (text: string) => Promise<void>;
     updateKBVariables?: (updates: any) => Promise<void>;
     onPasteDetected?: (pastedCode: string, timestamp: number) => void;
+    onHighlightPastedCode?: (pastedCode: string) => void;
     onAskFollowup?: (payload: {
         added: string;
         removed: string;
@@ -87,6 +88,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     onElevenLabsUpdate,
     updateKBVariables,
     onPasteDetected,
+    onHighlightPastedCode,
     onAskFollowup,
     onExecutionResult,
 }) => {
@@ -129,6 +131,62 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
 
     const editorRef = useRef<any>(null);
     const followupBaselineRef = useRef<string>(propCurrentCode);
+    const pasteDecorationsRef = useRef<string[]>([]);
+    const highlightRequestRef = useRef<string | null>(null);
+    
+    // Function to highlight pasted code in editor
+    const highlightPastedCode = useCallback((pastedCode: string) => {
+        if (editorRef.current && pastedCode) {
+            try {
+                const editor = editorRef.current;
+                const model = editor.getModel();
+                const currentValue = model?.getValue();
+                
+                if (model && currentValue) {
+                    // Find position of pasted code in current editor
+                    const insertIndex = currentValue.indexOf(pastedCode);
+                    if (insertIndex !== -1) {
+                        const startPos = model.getPositionAt(insertIndex);
+                        const endPos = model.getPositionAt(insertIndex + pastedCode.length);
+                        
+                        // Create decoration with fade-in animation
+                        const newDecorations = editor.deltaDecorations(
+                            [],
+                            [
+                                {
+                                    range: new (window as any).monaco.Range(
+                                        startPos.lineNumber,
+                                        startPos.column,
+                                        endPos.lineNumber,
+                                        endPos.column
+                                    ),
+                                    options: {
+                                        className: 'paste-highlight paste-highlight-fadein',
+                                        isWholeLine: false,
+                                        glyphMarginClassName: 'paste-glyph-margin',
+                                    }
+                                }
+                            ]
+                        );
+                        
+                        // Store decoration IDs
+                        pasteDecorationsRef.current.push(...newDecorations);
+                        log.info("✅ Pasted code highlighted in editor");
+                    }
+                }
+            } catch (error) {
+                log.error("Failed to highlight pasted code:", error);
+            }
+        }
+    }, []);
+    
+    // Expose highlight function via callback
+    useEffect(() => {
+        if (onHighlightPastedCode) {
+            // Replace the callback with our local function
+            (window as any).__highlightPastedCode = highlightPastedCode;
+        }
+    }, [onHighlightPastedCode, highlightPastedCode]);
 
     // Watch for dark mode changes and update Monaco theme
     useEffect(() => {
@@ -214,6 +272,9 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                         "🚨 Burst insert detected - external tool usage",
                         { insertedLength: charactersAdded, timestamp: now }
                     );
+                    
+                    // Don't highlight immediately - wait for AI question
+                    // Highlighting will be triggered by onHighlightPastedCode callback
                     
                     // Voice mode: update KB variables
                     updateKBVariables?.({

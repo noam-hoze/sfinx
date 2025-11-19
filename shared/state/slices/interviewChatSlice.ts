@@ -7,6 +7,7 @@ export type ChatMessage = {
     text: string;
     speaker: ChatSpeaker;
     timestamp: number;
+    pasteEvaluationId?: string;
 };
 
 export type InterviewChatState = {
@@ -25,7 +26,7 @@ const interviewChatSlice = createSlice({
     reducers: {
         addMessage: (
             state,
-            action: PayloadAction<{ text: string; speaker: ChatSpeaker }>
+            action: PayloadAction<{ text: string; speaker: ChatSpeaker; pasteEvaluationId?: string }>
         ) => {
             const msg: ChatMessage = {
                 id:
@@ -35,6 +36,7 @@ const interviewChatSlice = createSlice({
                 text: action.payload.text,
                 speaker: action.payload.speaker,
                 timestamp: Date.now(),
+                pasteEvaluationId: action.payload.pasteEvaluationId,
             };
             state.messages.push(msg);
         },

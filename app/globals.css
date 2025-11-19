@@ -79,3 +79,50 @@ media-player {
   background: linear-gradient(180deg, rgba(165, 180, 252, 0.45), rgba(59, 130, 246, 0.6));
   border: 2px solid rgba(30, 41, 59, 0.7);
 }
+
+/* Monaco Editor - Paste Highlight */
+.paste-highlight {
+  background-color: rgba(134, 239, 172, 0.2) !important;
+  border-left: 3px solid rgba(34, 197, 94, 0.6) !important;
+}
+
+.dark .paste-highlight {
+  background-color: rgba(34, 197, 94, 0.15) !important;
+  border-left: 3px solid rgba(34, 197, 94, 0.5) !important;
+}
+
+.paste-glyph-margin {
+  background-color: rgba(34, 197, 94, 0.3) !important;
+  width: 3px !important;
+}
+
+/* Fade-in animation for paste highlight */
+.paste-highlight-fadein {
+  animation: paste-fadein 0.8s ease-in;
+}
+
+@keyframes paste-fadein {
+  from {
+    background-color: transparent !important;
+    border-left-color: transparent !important;
+  }
+  to {
+    background-color: rgba(134, 239, 172, 0.2) !important;
+    border-left-color: rgba(34, 197, 94, 0.6) !important;
+  }
+}
+
+.dark .paste-highlight-fadein {
+  animation: paste-fadein-dark 0.8s ease-in;
+}
+
+@keyframes paste-fadein-dark {
+  from {
+    background-color: transparent !important;
+    border-left-color: transparent !important;
+  }
+  to {
+    background-color: rgba(34, 197, 94, 0.15) !important;
+    border-left-color: rgba(34, 197, 94, 0.5) !important;
+  }
+}

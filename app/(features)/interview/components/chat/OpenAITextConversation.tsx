@@ -50,6 +50,7 @@ type Props = {
   onInterviewConcluded?: (delayMs?: number) => void;
   setInputLocked?: (locked: boolean) => void;
   onPasteDetected?: (pastedCode: string) => void;
+  onHighlightPastedCode?: (pastedCode: string) => void;
   interviewSessionId?: string | null;
 };
 
@@ -63,6 +64,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
     onInterviewConcluded,
     setInputLocked,
     onPasteDetected,
+    onHighlightPastedCode,
     interviewSessionId,
   }, ref) => {
     if (!candidateName) {
@@ -93,7 +95,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
     const post = useCallback(
       (text: string, speaker: "user" | "ai", metadata?: { isPasteEval?: boolean; pasteEvaluationId?: string }) => {
         if (!text) return;
-        dispatch(addMessage({ text, speaker }));
+        dispatch(addMessage({ text, speaker, pasteEvaluationId: metadata?.pasteEvaluationId }));
         try {
           interviewChatStore.dispatch({
             type: "ADD_MESSAGE",
@@ -301,6 +303,9 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
           post(question, "ai", { isPasteEval: true, pasteEvaluationId });
           dispatch(machineAiFinal({ text: question }));
           
+          // Trigger editor highlight now that AI question is posted
+          onHighlightPastedCode?.(pastedCode);
+          
           // Update debug panel with question (answerCount still 0 - no answers yet)
           interviewChatStore.dispatch({
             type: "CODING_UPDATE_PASTE_EVAL",
@@ -318,7 +323,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
           } catch {}
         }
       },
-      [dispatch, openaiClient, post, interviewSessionId, isDemoMode]
+      [dispatch, openaiClient, post, interviewSessionId, isDemoMode, onHighlightPastedCode]
     );
 
     /** Injects the coding prompt once the guard advances into the coding session. */
