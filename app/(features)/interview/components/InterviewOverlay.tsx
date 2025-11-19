@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
+import SfinxSpinner from "../../background-interview/components/SfinxSpinner";
 
 function shouldHideStartButton(): boolean {
     if (typeof window === "undefined") return false;
@@ -131,9 +132,9 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
 
     // Replaced ellipsis with smooth spinner
 
-    // Fade overlay out when coding starts (cross-fade timing aligned with stage fade)
+    // Fade overlay out when coding starts or interview is active (cross-fade timing aligned with stage fade)
     // But show it again when computing insights or when submitted
-    const containerVisibility = isCodingStarted && stage !== "computing" && stage !== "submitted"
+    const containerVisibility = (isCodingStarted || (isInterviewActive && isAgentConnected)) && stage !== "computing" && stage !== "submitted"
         ? "opacity-0 pointer-events-none"
         : "opacity-100";
 
@@ -179,15 +180,6 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
                             Good luck!
                         </p>
                     </div>
-                ) : stage === "started" ? (
-                    <>
-                        <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
-                            Interview Started!
-                        </h2>
-                        <p className="mt-2 text-base md:text-lg text-gray-600 dark:text-gray-300">
-                            {isTextMode ? "Use the chatbox on the right to talk with Sfinx, your AI interviewer 💬" : "just speak naturally 😎"}
-                        </p>
-                    </>
                 ) : stage === "wrapping" ? (
                     <>
                         <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
@@ -199,11 +191,14 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
                         </p>
                     </>
                 ) : stage === "computing" ? (
-                    <>
-                        <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                    <div className="-mt-32">
+                        <div className="mb-8">
+                            <SfinxSpinner size="lg" />
+                        </div>
+                        <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white mb-4">
                             Computing interview insights
                         </h2>
-                        <p className="mt-2 text-base md:text-lg text-gray-600 dark:text-gray-300 flex items-center justify-center gap-2">
+                        <p className="text-base md:text-lg text-gray-600 dark:text-gray-300">
                             <span 
                                 key={computingMessageIndex} 
                                 className="transition-opacity duration-[2000ms] opacity-0"
@@ -211,29 +206,33 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
                             >
                                 {computingMessages[computingMessageIndex]}
                             </span>
-                            <Loader2 className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
                         </p>
-                    </>
+                    </div>
                 ) : (
                     <>
-                        <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
-                            Welcome to your interview session
-                        </h2>
-                        <p
-                            className={`mt-2 text-base md:text-lg text-gray-600 dark:text-gray-300 transition-opacity duration-300 ${
-                                subtitleVisible ? "opacity-100" : "opacity-0"
-                            }`}
-                        >
-                            {stage === "loading" ? (
-                                <span className="inline-flex items-center gap-2">
-                                    <span>Getting things started</span>
-                                    <Loader2 className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
-                                </span>
-                            ) : (
-                                hideStartButton ? "Getting ready..." : "Click Start Interview and wait for instructions"
-                            )}
-                        </p>
-                        {!hideStartButton && (
+                        {stage === "loading" || hideStartButton ? (
+                            <div className="-mt-32">
+                                <div className="mb-8">
+                                    <SfinxSpinner size="lg" />
+                                </div>
+                                <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white mb-4">
+                                    Welcome to your interview session
+                                </h2>
+                                <p className="text-base md:text-lg text-gray-600 dark:text-gray-300">
+                                    Getting things started
+                                </p>
+                            </div>
+                        ) : (
+                            <>
+                                <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                                    Welcome to your interview session
+                                </h2>
+                                <p className="mt-2 text-base md:text-lg text-gray-600 dark:text-gray-300">
+                                    Click Start Interview and wait for instructions
+                                </p>
+                            </>
+                        )}
+                        {!hideStartButton && stage !== "loading" && (
                             <div className="mt-6 flex flex-col items-center">
                                 <button
                                     onClick={onStartInterview}

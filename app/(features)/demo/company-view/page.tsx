@@ -28,6 +28,7 @@ function CompanyViewContent() {
         <InterviewStageScreen
             onSubmit={handleViewReport}
             ctaText="View Interview Report"
+            bgGradient="from-gray-50 to-white"
         >
             {/* Title Section */}
             <div className="flex flex-col items-center mb-8">

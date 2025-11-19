@@ -735,7 +735,7 @@ export default function BackgroundInterviewPage() {
   // STAGE 3: Interview flow
   if (completed) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex flex-col relative">
+      <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex flex-col relative">
         {/* Debug Toggle Button */}
         <button
           onClick={() => setShowDebugPanel(!showDebugPanel)}
@@ -772,7 +772,7 @@ export default function BackgroundInterviewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex flex-col relative">
+    <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex flex-col relative">
       {/* Debug Toggle Button */}
       <button
         onClick={() => setShowDebugPanel(!showDebugPanel)}

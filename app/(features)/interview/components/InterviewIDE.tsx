@@ -963,7 +963,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     const companyLogo = useMemo(() => job?.company?.logo, [job]);
 
     return (
-        <div className="h-screen flex flex-col bg-soft-white text-deep-slate dark:bg-gray-900 dark:text-white">
+        <div className="h-screen flex flex-col bg-soft-white text-deep-slate dark:bg-gray-900 dark:text-white relative">
             <header className="border-b border-gray-200/30 dark:border-gray-700/30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl px-3 py-1">
                 <div className="grid grid-cols-3 items-center max-w-8xl mx-auto">
                     <div className="flex items-center">
@@ -1049,17 +1049,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                                 }}
                                 onExecutionResult={handleExecutionResult}
                             />
-                            <InterviewOverlay
-                                isCodingStarted={isCodingStarted}
-                                isInterviewActive={isInterviewActive}
-                                isInterviewLoading={isInterviewLoading}
-                                isAgentConnected={isAgentConnected}
-                                interviewConcluded={interviewConcluded}
-                                hasSubmitted={state.hasSubmitted}
-                                candidateName={candidateName}
-                            codingDurationSeconds={codingDurationSeconds}
-                                onStartInterview={handleInterviewButtonClick}
-                            />
                             <CameraPreview
                                 isCameraOn={isCameraOn}
                                 videoRef={selfVideoRef}
@@ -1124,6 +1113,17 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                     </Panel>
                 </PanelGroup>
             </div>
+            <InterviewOverlay
+                isCodingStarted={isCodingStarted}
+                isInterviewActive={isInterviewActive}
+                isInterviewLoading={isInterviewLoading}
+                isAgentConnected={isAgentConnected}
+                interviewConcluded={interviewConcluded}
+                hasSubmitted={state.hasSubmitted}
+                candidateName={candidateName}
+                codingDurationSeconds={codingDurationSeconds}
+                onStartInterview={handleInterviewButtonClick}
+            />
         </div>
     );
 };
