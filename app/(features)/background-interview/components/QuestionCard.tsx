@@ -46,6 +46,7 @@ export default function QuestionCard({
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [audioFinished, setAudioFinished] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [recordingError, setRecordingError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -75,6 +76,7 @@ export default function QuestionCard({
       setAudioFinished(false);
       setIsTextExpanded(false); // Reset text input to collapsed state
       setAnswer(""); // Clear any previous answer
+      setIsTranscribing(false); // Reset transcription state
 
       // If muted, skip TTS and show controls immediately
       if (isMuted) {
@@ -219,6 +221,7 @@ export default function QuestionCard({
 
       mediaRecorder.onstop = async () => {
         console.log("[QuestionCard] Recording stopped, transcribing...");
+        setIsTranscribing(true);
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         
         try {
@@ -243,6 +246,8 @@ export default function QuestionCard({
           setRecordingError(
             error instanceof Error ? error.message : "Transcription failed"
           );
+        } finally {
+          setIsTranscribing(false);
         }
       };
 
@@ -340,8 +345,8 @@ export default function QuestionCard({
                   
                   {/* Controls Section */}
                   <div className="p-8 pt-6">
-                    {/* Transcribing Indicator - shows while recording */}
-                    {isRecording && (
+                    {/* Transcribing Indicator - shows while recording or transcribing */}
+                    {(isRecording || isTranscribing) && (
                       <div className="mb-4 flex items-center gap-3 text-gray-600">
                         <svg
                           className="w-5 h-5 animate-spin"
@@ -470,7 +475,7 @@ export default function QuestionCard({
               {/* Submit Button (Right Arrow) - always visible */}
               <button
                 onClick={handleSubmit}
-                disabled={loading}
+                disabled={loading || isRecording || isTranscribing}
                 className="ml-auto p-3 bg-white border-2 border-gray-300 text-gray-600 rounded-lg hover:border-sfinx-purple hover:text-sfinx-purple disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                 title="Submit answer"
               >

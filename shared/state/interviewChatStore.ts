@@ -80,6 +80,7 @@ export type InterviewChatState = {
 type Action =
     | { type: "ADD_MESSAGE"; payload: { text: string; speaker: ChatSpeaker; isPasteEval?: boolean } }
     | { type: "CLEAR" }
+    | { type: "RESET_ALL" }
     | { type: "SET_RECORDING"; payload: boolean }
     | { type: "SET_STAGE"; payload: InterviewStage }
     | { type: "BG_SET_CONFIDENCE"; payload: number }
@@ -151,6 +152,34 @@ function reducer(
         }
         case "CLEAR":
             return { ...state, messages: [] };
+        case "RESET_ALL":
+            return {
+                messages: [],
+                isRecording: false,
+                stage: null as unknown as InterviewStage,
+                pendingReply: false,
+                pendingReplyContext: undefined,
+                background: {
+                    confidence: 0,
+                    pillars: undefined,
+                    rationales: undefined,
+                    aggPillars: undefined,
+                    aggConfidence: undefined,
+                    samples: undefined,
+                    questionsAsked: 0,
+                    transitioned: false,
+                    transitionedAt: undefined,
+                    scorer: undefined,
+                    coverage: undefined,
+                    startedAtMs: undefined,
+                    consecutiveUselessAnswers: undefined,
+                    reason: undefined,
+                    timeboxMs: undefined,
+                },
+                coding: {
+                    activePasteEvaluation: undefined,
+                },
+            };
         case "SET_RECORDING":
             return { ...state, isRecording: action.payload };
         case "SET_STAGE":
