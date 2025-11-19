@@ -543,6 +543,8 @@ function TelemetryContent() {
                                         workstyle={workstyle}
                                         codingSummary={codingSummary}
                                         onVideoJump={onVideoJump}
+                                        sessionId={activeSession?.id}
+                                        isDemoMode={isDemoMode}
                                     />
                                 )}
                                 {codingSummary && (

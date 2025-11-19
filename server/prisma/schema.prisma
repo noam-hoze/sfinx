@@ -334,20 +334,22 @@ model BackgroundSummary {
 }
 
 model CodingSummary {
-  id                  String        @id @default(cuid())
-  telemetryDataId     String        @unique
-  executiveSummary    String
-  recommendation      String?
-  codeQualityScore    Int
-  codeQualityText     String
-  problemSolvingScore Int
-  problemSolvingText  String
-  independenceScore   Int
-  independenceText    String
-  generatedAt         DateTime      @default(now())
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  telemetryData       TelemetryData @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
+  id                     String        @id @default(cuid())
+  telemetryDataId        String        @unique
+  executiveSummary       String
+  recommendation         String?
+  codeQualityScore       Int
+  codeQualityText        String
+  problemSolvingScore    Int
+  problemSolvingText     String
+  independenceScore      Int
+  independenceText       String
+  finalCode              String?
+  codeQualityAnalysis    Json?
+  generatedAt            DateTime      @default(now())
+  createdAt              DateTime      @default(now())
+  updatedAt              DateTime      @updatedAt
+  telemetryData          TelemetryData @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
 }
 
 enum UserRole {

@@ -234,6 +234,7 @@ Provide a comprehensive summary and scores for this candidate's coding performan
                 problemSolvingText: parsed.problemSolving.text,
                 independenceScore: 0,
                 independenceText: "Independence metric removed from evaluation",
+                finalCode: finalCode || null,
             },
         });
 

@@ -481,6 +481,28 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 } catch (summaryError) {
                     logger.error("Error generating coding summary:", summaryError);
                 }
+
+                // Generate code quality analysis
+                logger.info("Generating code quality analysis for session:", interviewSessionId);
+                try {
+                    const url = isDemoMode
+                        ? `/api/interviews/session/${interviewSessionId}/code-quality-analysis?skip-auth=true`
+                        : `/api/interviews/session/${interviewSessionId}/code-quality-analysis`;
+                    
+                    const analysisResponse = await fetch(url, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                    });
+                    
+                    if (analysisResponse.ok) {
+                        const analysisData = await analysisResponse.json();
+                        logger.info("✅ Code quality analysis generated");
+                    } else {
+                        logger.error("Failed to generate code quality analysis:", analysisResponse.status);
+                    }
+                } catch (analysisError) {
+                    logger.error("Error generating code quality analysis:", analysisError);
+                }
             }
             setIsInterviewLoading(false);
             
