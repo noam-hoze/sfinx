@@ -964,25 +964,14 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
     return (
         <div className="h-screen flex flex-col bg-soft-white text-deep-slate dark:bg-gray-900 dark:text-white relative">
-            <header className="border-b border-gray-200/30 dark:border-gray-700/30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl px-3 py-1">
+            <header className="border-b border-gray-200/30 dark:border-gray-700/30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl px-3 py-3">
                 <div className="grid grid-cols-3 items-center max-w-8xl mx-auto">
-                    <div className="flex items-center">
-                        <h1 className="text-xl font-medium text-gray-900 dark:text-white tracking-tight">
-                            Front-end Developer Interview
-                        </h1>
+                    <div className="flex flex-col items-start">
+                        <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                            {job?.title || "Position"}
+                        </p>
                     </div>
                     <div className="flex justify-center items-center justify-self-center">
-                        {companyLogo ? (
-                            <div className="relative h-20 w-20">
-                                <Image
-                                    src={companyLogo}
-                                    alt="Company Logo"
-                                    fill
-                                    sizes="80px"
-                                    className="object-contain scale-125"
-                                />
-                            </div>
-                        ) : null}
                     </div>
                     <div className="justify-self-end">
                         <HeaderControls
@@ -1005,7 +994,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 </div>
             </header>
 
-            <div className="flex-1 overflow-hidden mt-6">
+            <div className="flex-1 overflow-hidden">
                 <PanelGroup direction="horizontal">
                     <Panel defaultSize={70} minSize={50}>
                         <div className="h-full border-r bg-white border-light-gray dark:bg-gray-800 dark:border-gray-700 relative">

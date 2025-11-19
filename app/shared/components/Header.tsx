@@ -244,7 +244,7 @@ export default function Header() {
                         <>
                             <button
                                 onClick={toggleMute}
-                                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                                className="p-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
                                 title={isMuted ? "Unmute" : "Mute"}
                             >
                                 {isMuted ? (
@@ -264,7 +264,7 @@ export default function Header() {
                                     window.location.href = '/background-interview';
                                 }}
                                 disabled={isPageLoading}
-                                className={`px-4 py-2 text-sm font-medium text-sfinx-purple border border-sfinx-purple rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${!isPageLoading ? 'hover:bg-sfinx-purple hover:text-white' : ''}`}
+                                className={`px-4 py-2 text-sm font-medium text-sfinx-purple border border-sfinx-purple rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${!isPageLoading ? 'hover:bg-sfinx-purple hover:text-white cursor-pointer' : ''}`}
                             >
                                 Restart Demo
                             </button>
@@ -272,7 +272,7 @@ export default function Header() {
                     )}
                     {session?.user && (
                         <Menu as="div" className="relative">
-                            <Menu.Button className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden relative">
+                            <Menu.Button className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden relative cursor-pointer">
                                 {session.user.image ? (
                                     <Image
                                         key={session.user.image} // Force re-render when image changes
@@ -315,7 +315,7 @@ export default function Header() {
                                                 onClick={handleSignOut}
                                                 className={`${
                                                     active ? "bg-gray-100" : ""
-                                                } text-gray-900 group flex w-full items-center rounded-md px-2 py-2 text-sm`}
+                                                } text-gray-900 group flex w-full items-center rounded-md px-2 py-2 text-sm cursor-pointer`}
                                             >
                                                 Sign out
                                             </button>

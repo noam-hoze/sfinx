@@ -8,24 +8,38 @@
   --sfinx-purple-rgb: 124, 58, 237;
 }
 
-/* Force pointer cursor on all buttons, except disabled */
-button:not(:disabled) {
+/* Force pointer cursor on all buttons, except disabled - ULTRA AGGRESSIVE */
+button:not(:disabled),
+button:not([disabled]),
+[role="button"]:not(:disabled),
+[role="button"]:not([disabled]),
+.button:not(:disabled),
+.button:not([disabled]) {
   cursor: pointer !important;
 }
 
-button:disabled {
+button:disabled,
+button[disabled],
+[role="button"]:disabled,
+[role="button"][disabled] {
   cursor: not-allowed !important;
 }
 
-/* Disable ALL hover effects on disabled buttons - AGGRESSIVE */
+/* Override Tailwind and any other library trying to set cursor */
+button:not(:disabled):hover,
+button:not([disabled]):hover {
+  cursor: pointer !important;
+}
+
+/* Force inline styled buttons to maintain their color on hover */
+button[style*="background-color"]:hover:not(:disabled) {
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+/* Disable hover transform/scale effects on disabled buttons */
 button:disabled:hover,
-button[disabled]:hover,
-button:disabled:hover *,
-button[disabled]:hover * {
-  background-color: transparent !important;
-  background: transparent !important;
-  color: rgb(124, 58, 237) !important;
-  border-color: rgb(124, 58, 237) !important;
+button[disabled]:hover {
   transform: none !important;
   filter: none !important;
   scale: 1 !important;

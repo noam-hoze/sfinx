@@ -36,10 +36,34 @@ export default function InterviewStageScreen({
         {children}
 
         {/* CTA Button */}
+        <style jsx>{`
+          .start-button {
+            background-color: rgb(124, 58, 237) !important;
+            color: white !important;
+          }
+          .start-button:hover:not(:disabled) {
+            background-color: rgb(124, 58, 237) !important;
+            color: white !important;
+            opacity: 1 !important;
+            filter: none !important;
+            transform: none !important;
+          }
+          .start-button:disabled,
+          .start-button:disabled:hover,
+          .start-button:disabled:active,
+          .start-button:disabled:focus {
+            background-color: rgb(156, 163, 175) !important;
+            background: rgb(156, 163, 175) !important;
+            color: white !important;
+            opacity: 1 !important;
+            filter: none !important;
+            transform: none !important;
+          }
+        `}</style>
         <button
           onClick={handleSubmit}
           disabled={ctaDisabled || isLoading}
-          className="w-full px-8 py-4 bg-sfinx-purple text-white rounded-lg font-medium text-lg hover:opacity-90 transition-all disabled:bg-gray-400 disabled:cursor-not-allowed disabled:hover:opacity-100"
+          className="start-button w-full px-8 py-4 text-white rounded-lg font-medium text-lg disabled:cursor-not-allowed cursor-pointer"
         >
           {isLoading ? "Loading..." : ctaText}
         </button>
