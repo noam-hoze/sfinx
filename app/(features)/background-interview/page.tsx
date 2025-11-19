@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -472,7 +472,7 @@ export default function BackgroundInterviewPage() {
     }
   };
 
-  const handleAnnouncementComplete = () => {
+  const handleAnnouncementComplete = useCallback(() => {
     console.log("[bg-interview] Announcement complete, showing first question");
     setShowAnnouncement(false);
     setAllowQuestionDisplay(true); // Now allow questions to be displayed
@@ -490,7 +490,7 @@ export default function BackgroundInterviewPage() {
       type: "ADD_MESSAGE",
       payload: { text: firstQuestion, speaker: "ai" },
     } as any);
-  };
+  }, [preloadedFirstQuestion, dispatch]);
 
   const handleSubmitAnswer = async (answer: string) => {
     if (!openaiClient || !companyName) {
@@ -754,6 +754,7 @@ export default function BackgroundInterviewPage() {
           </div>
         ) : showAnnouncement ? (
           <AnnouncementScreen
+            key={announcementText}
             text={announcementText}
             preloadedAudioBlob={announcementAudioBlob}
             onComplete={handleAnnouncementComplete}

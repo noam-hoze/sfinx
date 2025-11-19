@@ -39,8 +39,16 @@ export default function AnnouncementScreen({
   const [typingFinished, setTypingFinished] = useState(false);
   const [fadingOut, setFadingOut] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const hasStartedRef = useRef(false);
 
   useEffect(() => {
+    // Prevent multiple executions of the same announcement
+    if (hasStartedRef.current) {
+      return;
+    }
+    
+    hasStartedRef.current = true;
+    
     // Reset state when text changes
     setDisplayedWords([]);
     setAudioFinished(false);
@@ -51,19 +59,14 @@ export default function AnnouncementScreen({
     const WORDS_PER_SECOND = 3;
     const MS_PER_WORD = 1000 / WORDS_PER_SECOND;
 
-    console.log("[Announcement] Starting with text:", text);
-    console.log("[Announcement] Words array:", words);
-
     // Play TTS (preloaded or generate on-demand)
     (async () => {
       try {
         let blob: Blob;
         
         if (preloadedAudioBlob) {
-          console.log("[Announcement] Using preloaded TTS audio");
           blob = preloadedAudioBlob;
         } else {
-          console.log("[Announcement] Generating TTS for:", text);
           const audioBuffer = await generateTTS(text);
           blob = new Blob([audioBuffer], { type: "audio/mpeg" });
         }
@@ -79,11 +82,9 @@ export default function AnnouncementScreen({
           setAudioFinished(true);
           URL.revokeObjectURL(url);
           audioRef.current = null;
-          console.log("[Announcement] Audio finished");
         };
 
         await audio.play();
-        console.log("[Announcement] Audio started");
       } catch (error) {
         console.error("[Announcement] TTS failed:", error);
         // Even if audio fails, continue with typing animation
@@ -91,22 +92,26 @@ export default function AnnouncementScreen({
       }
     })();
 
-    // Start typing animation
-    let wordIndex = 0;
-    console.log("[Announcement] Total words to display:", words.length);
+    // Start typing animation - use ref to avoid closure issues during re-renders
+    const wordIndexRef = { current: 0 };
+    const wordsRef = { current: words };
     
     const interval = setInterval(() => {
-      console.log("[Announcement] Interval tick, wordIndex:", wordIndex, "of", words.length);
-      if (wordIndex < words.length) {
-        console.log("[Announcement] Displaying word", wordIndex, ":", words[wordIndex]);
+      const idx = wordIndexRef.current;
+      const wordsArray = wordsRef.current;
+      
+      if (idx < wordsArray.length) {
+        const wordToAdd = wordsArray[idx];
+        
         setDisplayedWords((prev) => {
-          const newWords = [...prev, words[wordIndex]];
-          console.log("[Announcement] New displayedWords array:", newWords);
-          return newWords;
+          // Prevent duplicates when component re-renders during mute toggle
+          if (prev.length > 0 && prev[prev.length - 1] === wordToAdd) {
+            return prev;
+          }
+          return [...prev, wordToAdd];
         });
-        wordIndex++;
+        wordIndexRef.current++;
       } else {
-        console.log("[Announcement] Typing finished, displayed", wordIndex, "words total");
         setTypingFinished(true);
         clearInterval(interval);
       }
@@ -125,7 +130,6 @@ export default function AnnouncementScreen({
   React.useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = isMuted ? 0 : 1;
-      console.log("[Announcement] Volume changed:", isMuted ? "muted" : "unmuted");
     }
   }, [isMuted]);
 
@@ -135,12 +139,10 @@ export default function AnnouncementScreen({
 
   useEffect(() => {
     if (audioFinished && typingFinished && !fadingOut) {
-      console.log("[Announcement] Complete, starting fade out");
       setFadingOut(true);
       
       // Wait for fade animation then call onComplete
       setTimeout(() => {
-        console.log("[Announcement] Fade complete, calling onComplete");
         onCompleteRef.current();
       }, 500); // Match fade duration
     }
