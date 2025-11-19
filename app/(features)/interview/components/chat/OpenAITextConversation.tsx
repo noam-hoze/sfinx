@@ -679,7 +679,8 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
             try {
               /* eslint-disable no-console */ console.log("[paste_eval][user_answer]", { 
                 id: activePasteEval.pasteEvaluationId,
-                answerCount: nextAnswerCount 
+                answerCount: nextAnswerCount,
+                userText: text
               });
             } catch {}
             
@@ -731,13 +732,17 @@ You are evaluating whether a candidate understands code they pasted.
 
 **Your Job:**
 1. Evaluate their understanding (confidence 0-100)
-2. If confidence < ${MIN_CONFIDENCE_TO_EVALUATE}% AND answerCount < ${MAX_PASTE_EVAL_ANSWERS}: Ask ONE short follow-up question (1-2 sentences)
-3. If confidence >= ${MIN_CONFIDENCE_TO_EVALUATE}% OR answerCount >= ${MAX_PASTE_EVAL_ANSWERS}: Set readyToEvaluate=true AND send a brief acknowledgment like "Thank you for explaining. Let's continue with the task."
+2. If confidence < ${MIN_CONFIDENCE_TO_EVALUATE}% AND answerCount < ${MAX_PASTE_EVAL_ANSWERS} AND candidate did NOT say "I don't know": Ask ONE short follow-up question (1-2 sentences)
+3. If confidence >= ${MIN_CONFIDENCE_TO_EVALUATE}% OR answerCount >= ${MAX_PASTE_EVAL_ANSWERS} OR candidate said "I don't know": Set readyToEvaluate=true AND send a brief acknowledgment
 
-**CRITICAL: If answerCount = ${MAX_PASTE_EVAL_ANSWERS}, you MUST:**
-- Set readyToEvaluate=true
-- Send ONLY an acknowledgment message (NOT another question)
-- Example: "Thank you for explaining. Let's continue with the task."
+**EVALUATION GATES (set readyToEvaluate=true when ANY of these conditions is met):**
+- answerCount = ${MAX_PASTE_EVAL_ANSWERS} (reached question limit)
+- confidence >= ${MIN_CONFIDENCE_TO_EVALUATE}% (high confidence in understanding)
+- Candidate answered "I don't know" (honest admission of not understanding)
+
+**Acknowledgment examples:**
+- For "I don't know": "Thank you for your honesty. Let's continue with the task."
+- For other cases: "Thank you for explaining. Let's continue with the task."
 
 **Example Responses:**
 
@@ -930,7 +935,15 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                 }
               }
               
-              // Don't clear paste evaluation - keep it visible in debug panel
+              // Clear paste evaluation now that it's complete
+              interviewChatStore.dispatch({
+                type: "CODING_CLEAR_PASTE_EVAL",
+              } as any);
+              
+              // Clear editor highlighting
+              if ((window as any).__clearPasteHighlight) {
+                (window as any).__clearPasteHighlight();
+              }
               
               setInputLocked?.(false);
               return;
@@ -938,18 +951,31 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
             
             // Post AI response (either follow-up question or acknowledgment)
             if (aiText) {
-              post(aiText, "ai", { isPasteEval: true, pasteEvaluationId: activePasteEval.pasteEvaluationId });
-              dispatch(machineAiFinal({ text: aiText }));
-              clearPendingState();
-              
+              // If evaluation complete (acknowledgment), post without green highlighting
               if (shouldEvaluate) {
+                post(aiText, "ai");  // No paste eval ID - normal styling
+                
+                // Clear paste evaluation and highlighting immediately when acknowledgment is posted
+                interviewChatStore.dispatch({
+                  type: "CODING_CLEAR_PASTE_EVAL",
+                } as any);
+                
+                if ((window as any).__clearPasteHighlight) {
+                  (window as any).__clearPasteHighlight();
+                }
+                
                 try {
                   /* eslint-disable no-console */ console.log("[paste_eval][acknowledgment_sent]", {
                     text: aiText,
                     reason: "evaluation_complete"
                   });
                 } catch {}
+              } else {
+                // Follow-up question - keep green highlighting
+                post(aiText, "ai", { isPasteEval: true, pasteEvaluationId: activePasteEval.pasteEvaluationId });
               }
+              dispatch(machineAiFinal({ text: aiText }));
+              clearPendingState();
             }
             
             if (shouldEvaluate) {
@@ -1118,7 +1144,7 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                   }
                 }
                 
-                // Don't clear paste evaluation - keep it visible in debug panel
+                // Note: Paste evaluation and highlighting already cleared when acknowledgment was posted
               }
             }
             

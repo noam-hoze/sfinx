@@ -145,6 +145,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                 if (model && currentValue) {
                     // Find position of pasted code in current editor
                     const insertIndex = currentValue.indexOf(pastedCode);
+                    
                     if (insertIndex !== -1) {
                         const startPos = model.getPositionAt(insertIndex);
                         const endPos = model.getPositionAt(insertIndex + pastedCode.length);
@@ -180,13 +181,30 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
         }
     }, []);
     
-    // Expose highlight function via callback
-    useEffect(() => {
-        if (onHighlightPastedCode) {
-            // Replace the callback with our local function
-            (window as any).__highlightPastedCode = highlightPastedCode;
+    // Function to clear paste highlighting
+    const clearPasteHighlight = useCallback(() => {
+        if (editorRef.current && pasteDecorationsRef.current.length > 0) {
+            try {
+                const editor = editorRef.current;
+                // Remove all paste decorations
+                editor.deltaDecorations(pasteDecorationsRef.current, []);
+                pasteDecorationsRef.current = [];
+            } catch (error) {
+                log.error("Failed to clear paste highlights:", error);
+            }
         }
-    }, [onHighlightPastedCode, highlightPastedCode]);
+    }, []);
+    
+    // Expose highlight and clear functions on window for global access
+    useEffect(() => {
+        (window as any).__highlightPastedCode = highlightPastedCode;
+        (window as any).__clearPasteHighlight = clearPasteHighlight;
+        
+        return () => {
+            delete (window as any).__highlightPastedCode;
+            delete (window as any).__clearPasteHighlight;
+        };
+    }, [highlightPastedCode, clearPasteHighlight]);
 
     // Watch for dark mode changes and update Monaco theme
     useEffect(() => {
@@ -218,6 +236,35 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
         // Initialize timestamps when editor is ready
         lastChangeTimeRef.current = Date.now();
         pasteStartTimeRef.current = Date.now();
+
+        // Listen for native paste events in Monaco
+        editor.onDidPaste((e: any) => {
+            const model = editor.getModel();
+            if (!model) return;
+            
+            // Get the range that was pasted
+            const range = e.range;
+            const pastedText = model.getValueInRange(range);
+            
+            // Only process if paste is substantial (>= 80 chars)
+            if (pastedText.length >= 80) {
+                const now = Date.now();
+                
+                log.info(
+                    "🚨 Paste detected via native event - external tool usage",
+                    { pastedLength: pastedText.length, timestamp: now }
+                );
+                
+                // Voice mode: update KB variables
+                updateKBVariables?.({
+                    using_ai: true,
+                    ai_added_code: pastedText,
+                });
+                
+                // Text mode: direct callback with timestamp
+                onPasteDetected?.(pastedText, now);
+            }
+        });
 
         // Configure Monaco editor themes
         monaco.editor.defineTheme("sfinx-light", {
@@ -252,39 +299,8 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                 // Calculate the change
                 const charactersAdded = value.length - previousCode.length;
 
-                // Update timestamp BEFORE calculating time since last change
-                const previousTime = lastChangeTimeRef.current;
-                const timeSinceLastChange = now - previousTime;
-
-                // Track ALL burst inserts (>=80 chars) - no one-time limit
-                if (charactersAdded >= 80) {
-                    // Compute simple inserted segment between previousCode -> value
-                    const insertedSegment = computeInsertedSegment(
-                        previousCode,
-                        value
-                    );
-                    log.debug(
-                        "Inserted segment:",
-                        insertedSegment
-                    );
-
-                    log.info(
-                        "🚨 Burst insert detected - external tool usage",
-                        { insertedLength: charactersAdded, timestamp: now }
-                    );
-                    
-                    // Don't highlight immediately - wait for AI question
-                    // Highlighting will be triggered by onHighlightPastedCode callback
-                    
-                    // Voice mode: update KB variables
-                    updateKBVariables?.({
-                        using_ai: true,
-                        ai_added_code: insertedSegment,
-                    });
-                    
-                    // Text mode: direct callback with timestamp
-                    onPasteDetected?.(insertedSegment, now);
-                }
+                // NOTE: Paste detection now handled by native Monaco onDidPaste event
+                // This onChange handler just updates refs for other purposes
 
                 // Update refs
                 previousCodeRef.current = value;
