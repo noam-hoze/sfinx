@@ -6,7 +6,6 @@ import { shouldTransition } from "@/shared/services/backgroundSessionGuard";
 export type InterviewState =
     | "idle"
     | "greeting_said_by_ai"
-    | "greeting_responded_by_user"
     | "background_asked_by_ai"
     | "background_answered_by_user"
     | "in_coding_session"
@@ -30,11 +29,14 @@ export type InterviewMachineState = {
     preloadedFirstQuestion?: string;
     // Page loading state for background interview
     isPageLoading?: boolean;
+    // Reset trigger flag
+    shouldReset?: boolean;
 };
 
 const initialState: InterviewMachineState = {
     state: "idle",
     isPageLoading: false,
+    shouldReset: false,
 };
 
 const logStageTransition = (
@@ -77,23 +79,17 @@ const interviewMachineSlice = createSlice({
                 const prev = state.state;
                 state.state = "greeting_said_by_ai";
                 logStageTransition(prev, state.state, "ai greeting (no guard)");
-            } else if (state.state === "greeting_responded_by_user") {
-                const expectedQ = state.expectedBackgroundQuestion?.trim();
-                if (
-                    expectedQ &&
-                    action.payload.text &&
-                    action.payload.text.trim() === expectedQ
-                ) {
-                    const prev = state.state;
-                    state.state = "background_asked_by_ai";
-                    logStageTransition(prev, state.state, "expected background question matched");
-                    try {
-                        const s = interviewChatStore.getState();
-                        if (!s.background.startedAtMs) {
-                            interviewChatStore.dispatch({ type: "BG_GUARD_START_TIMER" });
-                        }
-                    } catch {}
-                }
+            } else if (state.state === "greeting_said_by_ai") {
+                // Transition from greeting to background questions
+                const prev = state.state;
+                state.state = "background_asked_by_ai";
+                logStageTransition(prev, state.state, "first background question");
+                try {
+                    const s = interviewChatStore.getState();
+                    if (!s.background.startedAtMs) {
+                        interviewChatStore.dispatch({ type: "BG_GUARD_START_TIMER" });
+                    }
+                } catch {}
             } else if (state.state === "background_answered_by_user") {
                 // Evaluate guard: timebox/consecutive useless answers/stopCheck
                 try {
@@ -139,11 +135,7 @@ const interviewMachineSlice = createSlice({
             }
         },
         userFinal: (state) => {
-            if (state.state === "greeting_said_by_ai") {
-                const prev = state.state;
-                state.state = "greeting_responded_by_user";
-                logStageTransition(prev, state.state, "user replied");
-            } else if (state.state === "background_asked_by_ai") {
+            if (state.state === "background_asked_by_ai") {
                 const prev = state.state;
                 state.state = "background_answered_by_user";
                 logStageTransition(prev, state.state, "user answered background question");
@@ -179,7 +171,11 @@ const interviewMachineSlice = createSlice({
             state.companySlug = undefined;
             state.roleSlug = undefined;
             state.isPageLoading = true;
+            state.shouldReset = false; // Clear the flag after reset
             logStageTransition(prev, state.state, "reset");
+        },
+        triggerReset: (state) => {
+            state.shouldReset = true;
         },
         forceCoding: (state) => {
             const prev = state.state;
@@ -216,6 +212,7 @@ export const {
     setSessionId,
     end,
     reset,
+    triggerReset,
     forceCoding,
     setPreloadedData,
     setPageLoading,

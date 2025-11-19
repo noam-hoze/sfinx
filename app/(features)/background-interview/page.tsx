@@ -16,6 +16,7 @@ import {
   setPreloadedData,
   reset,
   setPageLoading,
+  triggerReset,
 } from "@/shared/state/slices/interviewMachineSlice";
 import QuestionCard from "./components/QuestionCard";
 import CompletionScreen from "./components/CompletionScreen";
@@ -67,6 +68,9 @@ export default function BackgroundInterviewPage() {
   const isPageLoading = useSelector(
     (state: RootState) => state.interviewMachine.isPageLoading
   );
+  const shouldReset = useSelector(
+    (state: RootState) => state.interviewMachine.shouldReset
+  );
 
   // UI stage management
   const [stage, setStage] = useState<Stage>('loading');
@@ -86,6 +90,7 @@ export default function BackgroundInterviewPage() {
   const [openaiClient, setOpenaiClient] = useState<OpenAI | null>(null);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
+  const [allowQuestionDisplay, setAllowQuestionDisplay] = useState(false);
 
   // Preloaded sounds
   const clickSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -120,20 +125,28 @@ export default function BackgroundInterviewPage() {
   }, []);
 
   // Subscribe to chat store for messages
+  // IMPORTANT: Only update currentQuestion when we're past the announcement phase
   useEffect(() => {
     const unsubscribe = interviewChatStore.subscribe(() => {
+      // Don't update currentQuestion until announcement is complete
+      if (!allowQuestionDisplay) {
+        console.log("[bg-interview] Blocking question display - waiting for announcement");
+        return;
+      }
+      
       const chatState = interviewChatStore.getState();
       const messages = chatState.messages;
       if (messages.length > 0) {
         const lastMessage = messages[messages.length - 1];
         if (lastMessage.speaker === "ai") {
+          console.log("[bg-interview] Chat store update - AI message:", lastMessage.text.substring(0, 50));
           setCurrentQuestion(lastMessage.text);
         }
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [allowQuestionDisplay]);
 
   // Monitor machine state for completion
   useEffect(() => {
@@ -152,26 +165,28 @@ export default function BackgroundInterviewPage() {
     };
   }, [micStream]);
 
-  // Reset handler from URL param
+  // Watch for reset trigger from Redux (triggered by Header's Restart Demo button)
   useEffect(() => {
-    const resetParam = searchParams.get('_reset');
-    if (resetParam) {
-      console.log("[bg-interview] Reset detected - clearing all state");
-      dispatch(reset()); // This sets isPageLoading to true
+    if (shouldReset) {
+      console.log("[bg-interview] Reset triggered - clearing all state");
+      // IMPORTANT: Clear chat store FIRST to prevent stale messages from triggering subscription
       interviewChatStore.dispatch({ type: 'RESET_ALL' } as any);
-      // Clear local state
-      setStage('loading');
-      setName("");
+      // Clear local state immediately
+      setCurrentQuestion(""); // Clear this BEFORE other state
       setShowHandEmoji(false);
       setShowAnnouncement(false);
       setAnnouncementText("");
       setAnnouncementAudioBlob(null);
-      setCurrentQuestion("");
       setIsFirstQuestion(true);
       setSubmitting(false);
       setCompleted(false);
+      setName("");
+      setAllowQuestionDisplay(false);
+      // Then dispatch Redux reset and set stage to loading
+      dispatch(reset()); // This clears shouldReset flag and sets isPageLoading to true
+      setStage('loading');
     }
-  }, [searchParams, dispatch]);
+  }, [shouldReset, dispatch]);
 
   // STAGE 1: Pre-loading on mount
   useEffect(() => {
@@ -395,11 +410,6 @@ export default function BackgroundInterviewPage() {
       console.log("[bg-interview] Stage 2 complete - transitioning to interview");
       setStage('interview');
       
-      // Update URL to reflect stage change
-      const url = new URL(window.location.href);
-      url.searchParams.set('stage', 'interview');
-      window.history.pushState({}, '', url);
-      
       // Start interview flow after transition
       await startInterviewFlow();
       
@@ -415,24 +425,15 @@ export default function BackgroundInterviewPage() {
     try {
       console.log("[bg-interview] Stage 3: Starting interview flow...");
       
-      // Initialize state machine
+      // Initialize state machine - move to greeting state
       const firstName = name.trim().split(' ')[0];
       dispatch(start({ candidateName: firstName }));
+      dispatch(aiFinal({ text: "greeting" })); // → greeting_said_by_ai
       
       // Initialize chat store
       interviewChatStore.dispatch({ type: "SET_STAGE", payload: "background" } as any);
-      interviewChatStore.dispatch({ type: "BG_GUARD_START_TIMER" } as any);
       
-      // Don't add first question to chat store yet - wait for announcement to complete
-      // (otherwise the chat store subscription will trigger and show the question)
-      
-      // Transition state machine to background mode (skip greeting)
-      const firstQuestion = preloadedFirstQuestion || "";
-      dispatch(aiFinal({ text: "greeting" }));
-      dispatch(userFinal());
-      dispatch(aiFinal({ text: firstQuestion }));
-      
-      console.log("[bg-interview] State machine initialized in background mode");
+      console.log("[bg-interview] State machine in greeting_said_by_ai");
       
       // Wait 1 second
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -474,9 +475,17 @@ export default function BackgroundInterviewPage() {
   const handleAnnouncementComplete = () => {
     console.log("[bg-interview] Announcement complete, showing first question");
     setShowAnnouncement(false);
+    setAllowQuestionDisplay(true); // Now allow questions to be displayed
     
-    // Now add first question to chat store (this will trigger the useEffect and set currentQuestion)
     const firstQuestion = preloadedFirstQuestion || "";
+    
+    // Transition state machine: greeting_said_by_ai → background_asked_by_ai
+    dispatch(aiFinal({ text: firstQuestion }));
+    console.log("[bg-interview] State machine transitioned to background_asked_by_ai");
+    
+    // Directly set the question (don't rely on subscription timing)
+    setCurrentQuestion(firstQuestion);
+    // Also add to chat store for consistency
     interviewChatStore.dispatch({
       type: "ADD_MESSAGE",
       payload: { text: firstQuestion, speaker: "ai" },

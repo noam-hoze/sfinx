@@ -7,7 +7,9 @@ import Image from "next/image";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Menu } from "@headlessui/react";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
+import { triggerReset } from "@/shared/state/slices/interviewMachineSlice";
+import { RootState } from "@/shared/state/store";
 import { log } from "../services";
 import SfinxLogo from "./SfinxLogo";
 import DemoProgressHeader from "../../../app/(features)/demo/components/DemoProgressHeader";
@@ -18,13 +20,15 @@ const logger = log;
 export default function Header() {
     const { data: session } = useSession();
     const router = useRouter();
+    const dispatch = useDispatch();
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const isDemoMode = searchParams.get("demo") === "true" || pathname?.startsWith("/demo") || pathname?.startsWith("/background-interview");
     const { isMuted, toggleMute } = useMute();
     
-    // Get Redux state for page loading
-    const isPageLoading = useSelector((state: any) => state.interviewMachine?.isPageLoading || false);
+    // Get Redux state for page loading and state machine
+    const isPageLoading = useSelector((state: RootState) => state.interviewMachine.isPageLoading || false);
+    const machineState = useSelector((state: RootState) => state.interviewMachine.state);
 
     // Sliding indicator state
     const [indicatorStyle, setIndicatorStyle] = useState({ width: 0, left: 0 });
@@ -82,14 +86,27 @@ export default function Header() {
     const role = (session?.user as any)?.role;
     const settingsPath = role === "COMPANY" ? "/company-dashboard/settings" : "/settings";
 
-    // Get current demo stage based on pathname
+    // Get current demo stage based on Redux state machine and pathname
     const getDemoStage = (): 1 | 2 | 3 | 4 | 5 | null => {
         if (!isDemoMode) return null;
-        if (pathname === "/background-interview") {
-            // Check if we're on the welcome screen or in the interview
-            const urlParams = new URLSearchParams(window.location.search);
-            const stage = urlParams.get("stage");
-            return stage === "interview" ? 2 : 1;
+        
+        // Map state machine states to demo stages
+        if (pathname === "/background-interview" || pathname?.startsWith("/background-interview")) {
+            // Stage 1: Welcome (idle, greeting)
+            if (machineState === "idle" || machineState === "greeting_said_by_ai") {
+                return 1;
+            }
+            // Stage 2: Background questions
+            if (machineState === "background_asked_by_ai" || 
+                machineState === "background_answered_by_user") {
+                return 2;
+            }
+            // Stage 3: Coding (completion screen)
+            if (machineState === "in_coding_session") {
+                return 3;
+            }
+            // Default to stage 1 if unknown
+            return 1;
         }
         if (pathname === "/interview") return 3;
         if (pathname === "/demo/company-view") return 4;
@@ -245,7 +262,11 @@ export default function Header() {
                             </button>
                             <button
                                 onClick={() => {
-                                    router.push(`/background-interview?jobId=meta-frontend-engineer&companyId=meta&_reset=${Date.now()}`);
+                                    dispatch(triggerReset());
+                                    // Only navigate if not already on background-interview page
+                                    if (!pathname?.startsWith('/background-interview')) {
+                                        router.push('/background-interview?jobId=meta-frontend-engineer&companyId=meta');
+                                    }
                                 }}
                                 disabled={isPageLoading}
                                 className={`px-4 py-2 text-sm font-medium text-sfinx-purple border border-sfinx-purple rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${!isPageLoading ? 'hover:bg-sfinx-purple hover:text-white' : ''}`}
