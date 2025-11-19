@@ -91,6 +91,7 @@ export default function BackgroundInterviewPage() {
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
   const [allowQuestionDisplay, setAllowQuestionDisplay] = useState(false);
+  const [soundsReady, setSoundsReady] = useState(false);
 
   // Preloaded sounds
   const clickSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -106,17 +107,37 @@ export default function BackgroundInterviewPage() {
     setStage('loading');
   }, [dispatch]);
 
-  // Preload sounds on mount
+  // Preload sounds on mount - wait for them to be fully ready
   useEffect(() => {
-    clickSoundRef.current = new Audio("/sounds/click-button.mp3");
-    clickSoundRef.current.preload = "auto";
-    clickSoundRef.current.load();
+    // Skip if sounds are already loaded
+    if (clickSoundRef.current && startSoundRef.current) {
+      console.log("[bg-interview] Sounds already loaded, skipping preload");
+      setSoundsReady(true);
+      return;
+    }
     
-    startSoundRef.current = new Audio("/sounds/start-interview.mp3");
-    startSoundRef.current.preload = "auto";
-    startSoundRef.current.load();
+    const clickSound = new Audio("/sounds/click-button.mp3");
+    const startSound = new Audio("/sounds/start-interview.mp3");
     
-    console.log("[bg-interview] Sounds preloaded");
+    clickSound.preload = "auto";
+    startSound.preload = "auto";
+    
+    // Wait for both to be ready to play without delay
+    Promise.all([
+      new Promise(resolve => {
+        clickSound.addEventListener('canplaythrough', resolve, { once: true });
+        clickSound.load();
+      }),
+      new Promise(resolve => {
+        startSound.addEventListener('canplaythrough', resolve, { once: true });
+        startSound.load();
+      })
+    ]).then(() => {
+      clickSoundRef.current = clickSound;
+      startSoundRef.current = startSound;
+      setSoundsReady(true);
+      console.log("[bg-interview] Sounds fully loaded and ready");
+    });
   }, []);
 
   // Initialize OpenAI client
@@ -192,6 +213,7 @@ export default function BackgroundInterviewPage() {
       setCompleted(false);
       setName("");
       setAllowQuestionDisplay(false);
+      setIsStarting(false);
       // Then dispatch Redux reset and set stage to loading
       dispatch(reset()); // This clears shouldReset flag and sets isPageLoading to true
       setStage('loading');
@@ -648,7 +670,7 @@ export default function BackgroundInterviewPage() {
       <InterviewStageScreen
         onSubmit={handleStartInterview}
         ctaText="Start"
-        ctaDisabled={!name.trim()}
+        ctaDisabled={!name.trim() || !soundsReady || isStarting}
       >
         {/* Two-stage flow visualization */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
