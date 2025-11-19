@@ -2,9 +2,10 @@ import { configureStore } from "@reduxjs/toolkit";
 import interviewChat from "./slices/interviewChatSlice";
 import interviewMachine from "./slices/interviewMachineSlice";
 import demo from "./slices/demoSlice";
+import cps from "./slices/cpsSlice";
 
 export const store = configureStore({
-    reducer: { interviewChat, interviewMachine, demo },
+    reducer: { interviewChat, interviewMachine, demo, cps },
     devTools: true,
 });
 

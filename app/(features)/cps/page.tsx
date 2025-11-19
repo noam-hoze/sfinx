@@ -531,6 +531,30 @@ function TelemetryContent() {
                                 )}
                             </CollapsibleSection>
                             
+                            {/* Coding Section */}
+                            <CollapsibleSection
+                                title="Coding"
+                                score={calculatedCodingScore ?? undefined}
+                                isExpanded={codingExpanded}
+                                onToggle={() => setCodingExpanded(!codingExpanded)}
+                            >
+                                {workstyle && (
+                                    <WorkstyleDashboard
+                                        workstyle={workstyle}
+                                        codingSummary={codingSummary}
+                                        onVideoJump={onVideoJump}
+                                    />
+                                )}
+                                {codingSummary && (
+                                    <button
+                                        onClick={() => setCodingModalOpen(true)}
+                                        className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                    >
+                                        Read more
+                                    </button>
+                                )}
+                            </CollapsibleSection>
+                            
                             {/* Experience Section */}
                             <CollapsibleSection
                                 title="Experience"
@@ -555,30 +579,6 @@ function TelemetryContent() {
                                             </button>
                                         )}
                                     </div>
-                                )}
-                            </CollapsibleSection>
-                            
-                            {/* Coding Section */}
-                            <CollapsibleSection
-                                title="Coding"
-                                score={calculatedCodingScore ?? undefined}
-                                isExpanded={codingExpanded}
-                                onToggle={() => setCodingExpanded(!codingExpanded)}
-                            >
-                                {workstyle && (
-                                    <WorkstyleDashboard
-                                        workstyle={workstyle}
-                                        codingSummary={codingSummary}
-                                        onVideoJump={onVideoJump}
-                                    />
-                                )}
-                                {codingSummary && (
-                                    <button
-                                        onClick={() => setCodingModalOpen(true)}
-                                        className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
-                                    >
-                                        Read more
-                                    </button>
                                 )}
                             </CollapsibleSection>
                         </div>

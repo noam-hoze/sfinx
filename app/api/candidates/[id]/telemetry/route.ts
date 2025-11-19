@@ -248,16 +248,25 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 const evidenceClips = telemetry?.evidenceClips || [];
                 const sessionIterations = iterationsBySession.get(session.id) || [];
 
-                const iterationSpeedLinks: number[] = [];
+                const iterationSpeedLinks: Array<{timestamp: number, evaluation: string}> = [];
                 const aiAssistUsageLinks: number[] = [];
 
-                // Add iteration evidence links using stored VideoChapter.startTime
+                // Add iteration evidence links using stored VideoChapter.startTime with evaluation status
                 const sessionIterationChapters = iterationVideoChaptersBySession.get(session.id) || [];
                 log.info(`[Telemetry API] Session ${session.id}: Found ${sessionIterationChapters.length} iteration video chapters`);
                 sessionIterationChapters.forEach((chapter: any) => {
                     log.info(`  - Adding iteration evidence link: ${chapter.title} at ${chapter.startTime}s`);
                     if (chapter.startTime >= 0) {
-                        iterationSpeedLinks.push(chapter.startTime);
+                        // Extract iteration number from title (e.g., "Iteration 1" -> 1)
+                        const iterationNumber = parseInt(chapter.title.replace(/\D/g, ''), 10);
+                        // Find the corresponding iteration (iterations are 1-indexed in the array)
+                        const iteration = sessionIterations[iterationNumber - 1];
+                        const evaluation = iteration?.evaluation || "INCORRECT";
+                        
+                        iterationSpeedLinks.push({
+                            timestamp: chapter.startTime,
+                            evaluation: evaluation
+                        });
                     }
                 });
 
@@ -309,13 +318,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 evidenceClips.forEach((clip: any) => {
                     if (clip.startTime === null || clip.startTime === undefined)
                         return;
-                    // Prefer explicit category if available; fallback to title heuristics
-                    if (
-                        clip.category === "ITERATION_SPEED" ||
-                        clip.title.includes("Iteration Speed")
-                    ) {
-                        iterationSpeedLinks.push(clip.startTime);
-                    }
+                    // Only process AI Assist Usage from evidence clips
+                    // Iteration evidence now comes from VideoChapters with evaluation status
                     if (
                         clip.category === "AI_ASSIST_USAGE" ||
                         clip.title.includes("AI Assist")

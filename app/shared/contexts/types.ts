@@ -107,6 +107,11 @@ export interface VideoChapter {
     captions?: VideoCaption[];
 }
 
+export interface EvidenceLink {
+    timestamp: number;
+    evaluation?: "CORRECT" | "PARTIAL" | "INCORRECT";
+}
+
 export interface WorkstyleMetrics {
     iterationSpeed: {
         value: number; // 0-100
@@ -114,7 +119,7 @@ export interface WorkstyleMetrics {
         color: "blue" | "yellow" | "red";
         // Top Performing Engineer benchmark (0-100). Optional.
         tpe?: number;
-        evidenceLinks?: number[]; // Array of video timestamps
+        evidenceLinks?: Array<number | EvidenceLink>; // Array of video timestamps or objects with evaluation status
     };
     refactorCleanups: {
         value: number; // 0-100

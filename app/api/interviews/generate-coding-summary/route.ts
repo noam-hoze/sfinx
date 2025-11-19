@@ -28,6 +28,35 @@ export async function POST(request: NextRequest) {
 
         log.info("[Generate Coding Summary] Starting summary generation for session:", sessionId);
 
+        // Fetch session with application and job to get scoring configuration
+        const session = await prisma.interviewSession.findUnique({
+            where: { id: sessionId },
+            include: {
+                telemetryData: true,
+                application: {
+                    include: {
+                        job: {
+                            include: {
+                                scoringConfiguration: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        if (!session) {
+            return NextResponse.json(
+                { error: "Session not found" },
+                { status: 404 }
+            );
+        }
+
+        // Get scoring configuration (with defaults if not configured)
+        const scoringConfig = session.application?.job?.scoringConfiguration;
+        const iterationThresholdModerate = scoringConfig?.iterationSpeedThresholdModerate ?? 5;
+        const iterationThresholdHigh = scoringConfig?.iterationSpeedThresholdHigh ?? 10;
+
         // Fetch all coding session metrics
         const [iterations, externalToolUsages] = await Promise.all([
             prisma.iteration.findMany({
@@ -118,7 +147,22 @@ CRITICAL SCORING GUIDELINES:
 - "Not doing anything" is NOT the same as "doing something well"
 - Be harsh but fair - empty submissions deserve empty scores
 - Recommendation should be "NO HIRE" if no meaningful code was produced
-- Executive summary should explicitly state when no functional implementation was delivered`;
+- Executive summary should explicitly state when no functional implementation was delivered
+
+PROBLEM SOLVING SCORING - ITERATION EFFICIENCY:
+Evaluate based on iteration efficiency and solution quality using these benchmarks:
+- 1 iteration to CORRECT = 100 (perfect first-try solution)
+- 2-${iterationThresholdModerate} iterations to CORRECT = 75-99 (strong performance, minor adjustments needed)
+- ${iterationThresholdModerate + 1}-${iterationThresholdHigh} iterations to CORRECT = 50-74 (acceptable, required moderate debugging)
+- >${iterationThresholdHigh} iterations to CORRECT = 0-49 (poor efficiency, excessive trial and error)
+- No CORRECT solution achieved: Score based on best attempt and progression quality (PARTIAL better than INCORRECT)
+- Consider progression: INCORRECT → PARTIAL → CORRECT shows learning and adaptation
+- Factor in matchPercentage trends across iterations to assess improvement trajectory
+- No iterations at all = 0 score (no attempt to solve)
+
+Iteration Benchmarks for this role:
+- Moderate threshold: ${iterationThresholdModerate} iterations
+- High threshold: ${iterationThresholdHigh} iterations`;
 
         const userPrompt = `Analyze this coding session:
 
@@ -158,12 +202,6 @@ Provide a comprehensive summary and scores for this candidate's coding performan
         const parsed = JSON.parse(responseText);
 
         log.info("[Generate Coding Summary] Parsed summary");
-
-        // Get telemetry data for this session
-        const session = await prisma.interviewSession.findUnique({
-            where: { id: sessionId },
-            include: { telemetryData: true },
-        });
 
         if (!session?.telemetryData) {
             log.error("[Generate Coding Summary] No telemetry data found for session");

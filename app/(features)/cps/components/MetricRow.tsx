@@ -1,4 +1,12 @@
 import React from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState } from "shared/state/store";
+import { setActiveEvidenceTimestamp } from "shared/state/slices/cpsSlice";
+
+interface EvidenceLink {
+    timestamp: number;
+    evaluation?: string;
+}
 
 interface MetricRowProps {
     label: string;
@@ -8,7 +16,7 @@ interface MetricRowProps {
     benchmarkLow?: number;
     benchmarkHigh?: number;
     inverse?: boolean; // For metrics where lower is better (iteration speed)
-    evidenceLinks?: number[]; // Video timestamps for evidence
+    evidenceLinks?: number[] | EvidenceLink[]; // Video timestamps for evidence (with optional evaluation status)
     onVideoJump?: (timestamp: number) => void;
 }
 
@@ -23,7 +31,8 @@ const MetricRow: React.FC<MetricRowProps> = ({
     evidenceLinks = [],
     onVideoJump,
 }) => {
-    const [clickedTimestamp, setClickedTimestamp] = React.useState<number | null>(null);
+    const dispatch = useDispatch();
+    const activeEvidenceTimestamp = useSelector((state: RootState) => state.cps.activeEvidenceTimestamp);
     
     // Handle N/A case when value is null
     const isNA = value === null;
@@ -51,6 +60,46 @@ const MetricRow: React.FC<MetricRowProps> = ({
     };
 
     const status = getStatus();
+
+    // Normalize evidence links to handle both formats
+    const normalizedLinks: EvidenceLink[] = evidenceLinks.map(link => 
+        typeof link === 'number' ? { timestamp: link } : link
+    );
+
+    // Helper to get status badge icon and color
+    const getStatusBadge = (evaluation?: string) => {
+        if (!evaluation) return null;
+        
+        switch (evaluation) {
+            case "CORRECT":
+                return (
+                    <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 flex items-center justify-center shadow-sm">
+                        <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+                );
+            case "PARTIAL":
+                return (
+                    <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-amber-500 flex items-center justify-center shadow-sm">
+                        <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" strokeWidth={2} />
+                            <line x1="8" y1="12" x2="16" y2="12" strokeWidth={2} strokeLinecap="round" />
+                        </svg>
+                    </div>
+                );
+            case "INCORRECT":
+                return (
+                    <div className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-red-500 flex items-center justify-center shadow-sm">
+                        <svg className="w-2 h-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </div>
+                );
+            default:
+                return null;
+        }
+    };
 
     return (
         <div className="py-4 px-3 hover:bg-gray-50/30 transition-all duration-200 rounded-lg group">
@@ -96,29 +145,38 @@ const MetricRow: React.FC<MetricRowProps> = ({
                 </div>
             </div>
 
-            {/* Evidence Links */}
+            {/* Evidence Links - Apple-inspired play buttons with status badges */}
             {evidenceLinks && evidenceLinks.length > 0 && onVideoJump && (
-                <div className="mt-2 flex gap-1 pl-[196px]">
-                    {evidenceLinks.map((timestamp, index) => (
-                        <button
-                            key={index}
-                            onClick={() => {
-                                setClickedTimestamp(timestamp);
-                                onVideoJump(timestamp);
-                            }}
-                            className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded transition-all duration-200 !cursor-pointer ${
-                                clickedTimestamp === timestamp
-                                    ? "text-blue-600 bg-blue-50"
-                                    : "text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                            }`}
-                            style={{ cursor: 'pointer' }}
-                            title={`Jump to ${Math.floor(timestamp / 60)}:${(timestamp % 60)
-                                .toString()
-                                .padStart(2, "0")}`}
-                        >
-                            {index + 1}
-                        </button>
-                    ))}
+                <div className="mt-3 flex gap-2">
+                    {normalizedLinks.map((link, index) => {
+                        const isActive = activeEvidenceTimestamp === link.timestamp;
+                        return (
+                            <button
+                                key={index}
+                                onClick={() => {
+                                    dispatch(setActiveEvidenceTimestamp(link.timestamp));
+                                    onVideoJump(link.timestamp);
+                                }}
+                                className={`relative w-8 h-8 flex items-center justify-center rounded-full transition-all duration-200 !cursor-pointer shadow-sm ${
+                                    isActive
+                                        ? "bg-blue-500 text-white scale-110 shadow-md"
+                                        : "bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:scale-105 hover:shadow"
+                                }`}
+                                style={{ cursor: 'pointer' }}
+                                title={`Jump to ${Math.floor(link.timestamp / 60)}:${(link.timestamp % 60)
+                                    .toString()
+                                    .padStart(2, "0")} - ${link.evaluation || "N/A"}`}
+                            >
+                                {/* Play icon */}
+                                <svg className="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M8 5v14l11-7z" />
+                                </svg>
+                                
+                                {/* Status badge */}
+                                {getStatusBadge(link.evaluation)}
+                            </button>
+                        );
+                    })}
                 </div>
             )}
         </div>
