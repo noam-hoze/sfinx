@@ -18,7 +18,6 @@ import React, {
 import OpenAI from "openai";
 import { log } from "../../../../shared/services";
 import { buildControlContextMessages, buildDeltaControlMessages, parseControlResult, CONTROL_CONTEXT_TURNS } from "../../../../shared/services";
-import { buildClosingInstruction } from "./openAITextConversationHelpers";
 import { useOpenAIRealtimeSession } from "@/shared/hooks/useOpenAIRealtimeSession";
 import { store } from "@/shared/state/store";
 import {
@@ -738,50 +737,8 @@ const OpenAIVoiceConversation = forwardRef<any, OpenAIVoiceConversationProps>(
                 }
             },
             sayClosingLine: async (name?: string) => {
-                try {
-                    if (!name) {
-                        throw new Error("sayClosingLine requires a candidate name");
-                    }
-                    const candidate = name.trim();
-                    const instruction = buildClosingInstruction(candidate);
-                    closingExpectedRef.current = instruction.replace('Say exactly: "', "").replace(/"$/, "");
-                    awaitingClosingRef.current = true;
-                    // Interrupt any ongoing AI response and clear input buffer
-                    try {
-                        logger.info("[closing][submit] sending response.cancel");
-                        session.current?.transport?.sendEvent?.({
-                            type: "response.cancel",
-                        });
-                        logger.info("[closing][submit] response.cancel sent");
-                    } catch {}
-                    try {
-                        logger.info("[closing][submit] clearing input_audio_buffer");
-                        session.current?.transport?.sendEvent?.({
-                            type: "input_audio_buffer.clear",
-                        });
-                        logger.info("[closing][submit] input_audio_buffer cleared");
-                    } catch {}
-                    try {
-                        logger.info("[openai][prompt][closing]\n" + instruction);
-                    } catch {}
-                    logger.info("[closing][submit] enqueue closing item.create", { instruction });
-                    session.current?.transport?.sendEvent?.({
-                        type: "conversation.item.create",
-                        item: {
-                            type: "message",
-                            role: "system",
-                            content: [{ type: "input_text", text: instruction }],
-                        },
-                    });
-                    // Removed local Web Speech fallback to preserve voice consistency
-                    try {
-                        logger.info("[closing][submit] triggering respond()");
-                        respond();
-                        logger.info("[closing][submit] respond() called");
-                    } catch {}
-                } catch (e) {
-                    logger.error("sayClosingLine failed", e);
-                }
+                // Skip closing line - completion message already shown on screen
+                logger.info("[closing] Skipping closing line - completion message shown on screen");
             },
         }));
 

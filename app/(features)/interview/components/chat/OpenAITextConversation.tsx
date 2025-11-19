@@ -28,7 +28,6 @@ import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import { stopCheck } from "@/shared/services/weightedMean/scorer";
 import {
   askViaChatCompletion,
-  buildClosingInstruction,
   generateAssistantReply,
   runBackgroundControl,
 } from "./openAITextConversationHelpers";
@@ -1255,21 +1254,12 @@ The candidate is working on this task. Respond to their question while following
 
     const sayClosingLine = useCallback(
       async (name?: string) => {
-        const candidate = typeof name === "string" && name.trim().length > 0 ? name.trim() : candidateName;
-        
-        // WORKAROUND: Post closing message directly instead of asking OpenAI to generate it.
-        // OpenAI sometimes refuses to follow the exact instruction (responding with "I'm unable to...") 
-        // or corrupts the output. Since this is the final message and must be consistent for all 
-        // candidates, we bypass AI generation and post the exact scripted message directly.
-        const closingMessage = `Thank you so much ${candidate}, the next steps will be shared with you shortly.`;
-        post(closingMessage, "ai");
-        dispatch(machineAiFinal({ text: closingMessage }));
-        
+        // Skip posting closing message - completion message already shown on screen
         try {
           onInterviewConcluded?.(2700);
         } catch {}
       },
-      [candidateName, post, dispatch, onInterviewConcluded]
+      [onInterviewConcluded]
     );
 
     useImperativeHandle(ref, () => ({
