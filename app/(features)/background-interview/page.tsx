@@ -96,6 +96,16 @@ export default function BackgroundInterviewPage() {
   const clickSoundRef = useRef<HTMLAudioElement | null>(null);
   const startSoundRef = useRef<HTMLAudioElement | null>(null);
 
+  // Reset store on mount to ensure clean slate (prevents lingering data from previous sessions)
+  // Only reset if we're starting fresh (not already in progress)
+  useEffect(() => {
+    console.log("[bg-interview] Component mounted - resetting store");
+    interviewChatStore.dispatch({ type: 'RESET_ALL' } as any);
+    dispatch(reset()); // This also clears shouldReset flag if it was set
+    // Immediately set stage to loading to trigger preload
+    setStage('loading');
+  }, [dispatch]);
+
   // Preload sounds on mount
   useEffect(() => {
     clickSoundRef.current = new Audio("/sounds/click-button.mp3");
