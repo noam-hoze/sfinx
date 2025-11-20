@@ -358,7 +358,7 @@ export default function BackgroundInterviewPage() {
         const jobTitle = scriptData.jobTitle || roleSlug.split("-").map(
           (word: string) => word.charAt(0).toUpperCase() + word.slice(1)
         ).join(" ");
-        const announcement = `Hi! Welcome to your interview for ${jobTitle} at ${companyNameFromScript}`;
+        const announcement = `Hi! Welcome to your ${jobTitle} interview`;
         setAnnouncementText(announcement);
         
         // Cache key based on the text content (simple hash)
@@ -750,15 +750,17 @@ export default function BackgroundInterviewPage() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex flex-col relative">
         {/* Debug Toggle Button */}
-        <button
-          onClick={() => setShowDebugPanel(!showDebugPanel)}
-          className="absolute top-4 right-4 z-50 p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
-          title={showDebugPanel ? "Hide Debug Panel" : "Show Debug Panel"}
-        >
-          <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-          </svg>
-        </button>
+        {process.env.NEXT_PUBLIC_DEBUG_MODE === "true" && (
+          <button
+            onClick={() => setShowDebugPanel(!showDebugPanel)}
+            className="absolute top-4 right-4 z-50 rounded-full bg-purple-600 p-3 text-white shadow-lg hover:bg-purple-700 transition-colors"
+            title={showDebugPanel ? "Hide Debug Panel" : "Show Debug Panel"}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+            </svg>
+          </button>
+        )}
 
         {/* Main content area */}
         <div className="flex-1 flex items-center justify-center p-4">
@@ -787,15 +789,17 @@ export default function BackgroundInterviewPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex flex-col relative">
       {/* Debug Toggle Button */}
-      <button
-        onClick={() => setShowDebugPanel(!showDebugPanel)}
-        className="absolute top-4 right-4 z-50 p-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
-        title={showDebugPanel ? "Hide Debug Panel" : "Show Debug Panel"}
-      >
-        <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-      </button>
+      {process.env.NEXT_PUBLIC_DEBUG_MODE === "true" && (
+        <button
+          onClick={() => setShowDebugPanel(!showDebugPanel)}
+          className="absolute top-4 right-4 z-50 rounded-full bg-purple-600 p-3 text-white shadow-lg hover:bg-purple-700 transition-colors"
+          title={showDebugPanel ? "Hide Debug Panel" : "Show Debug Panel"}
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+          </svg>
+        </button>
+      )}
 
       {/* Main content area */}
       <div className="flex-1 flex items-center justify-center p-4">
