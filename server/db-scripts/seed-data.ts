@@ -6,6 +6,15 @@ import path from "path";
 import bcrypt from "bcryptjs";
 import { log } from "app/shared/services";
 
+// Hardcoded database URLs
+const DEV_DATABASE_URL = "postgresql://neondb_owner:npg_QMkL3hFyNI1d@ep-orange-tree-ad4daj41-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+
+// Set DATABASE_URL for local development
+const isLocal = fs.existsSync(".env.local");
+if (isLocal) {
+    process.env.DATABASE_URL = DEV_DATABASE_URL;
+}
+
 // Import seed functions
 import { seedDemoCandidate } from "./seed-candidate/seed-demo-candidate";
 
