@@ -38,8 +38,6 @@ import { createInterviewSession } from "../interview/components/services/intervi
 import { buildControlContextMessages, CONTROL_CONTEXT_TURNS } from "../../shared/services";
 import { loadAndCacheSoundEffect } from "@/shared/utils/audioCache";
 
-type Stage = 'loading' | 'welcome' | 'interview';
-
 export default function BackgroundInterviewPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -73,8 +71,8 @@ export default function BackgroundInterviewPage() {
     (state: RootState) => state.interviewMachine.shouldReset
   );
 
-  // UI stage management
-  const [stage, setStage] = useState<Stage>('loading');
+  // UI phase is derived directly from Redux state (isPageLoading + machineState)
+  // No need for intermediate 'stage' variable
   const [name, setName] = useState("");
   
   // Interview flow state
@@ -103,9 +101,7 @@ export default function BackgroundInterviewPage() {
   useEffect(() => {
     console.log("[bg-interview] Component mounted - resetting store");
     interviewChatStore.dispatch({ type: 'RESET_ALL' } as any);
-    dispatch(reset()); // This also clears shouldReset flag if it was set
-    // Immediately set stage to loading to trigger preload
-    setStage('loading');
+    dispatch(reset()); // This also clears shouldReset flag if it was set and sets isPageLoading = true
   }, [dispatch]);
 
   // Preload sounds on mount - wait for them to be fully ready (with caching)
@@ -204,15 +200,14 @@ export default function BackgroundInterviewPage() {
       setName("");
       setAllowQuestionDisplay(false);
       setIsStarting(false);
-      // Then dispatch Redux reset and set stage to loading
-      dispatch(reset()); // This clears shouldReset flag and sets isPageLoading to true
-      setStage('loading');
+      // Then dispatch Redux reset (which sets isPageLoading to true)
+      dispatch(reset()); // This clears shouldReset flag and sets isPageLoading to true → stage will be 'loading'
     }
   }, [shouldReset, dispatch]);
 
   // STAGE 1: Pre-loading on mount
   useEffect(() => {
-    if (stage !== 'loading' || !openaiClient) return;
+    if (!isPageLoading || !openaiClient) return;
 
     // Set loading state in Redux
     dispatch(setPageLoading({ isLoading: true }));
@@ -382,7 +377,7 @@ export default function BackgroundInterviewPage() {
         }
         
         console.log("[bg-interview] Stage 1 complete - transitioning to welcome");
-        setStage('welcome');
+        dispatch(setPageLoading({ isLoading: false })); // isPageLoading = false, machineState = idle → welcome
         dispatch(setPageLoading({ isLoading: false }));
         
       } catch (error) {
@@ -393,7 +388,7 @@ export default function BackgroundInterviewPage() {
     };
 
     preloadData();
-  }, [stage, openaiClient, searchParams, dispatch]);
+  }, [isPageLoading, machineState, openaiClient, searchParams, dispatch]);  // Changed from 'stage' to actual Redux deps
 
   // STAGE 2: Handle Start Interview button click
   const [isStarting, setIsStarting] = useState(false);
@@ -443,7 +438,7 @@ export default function BackgroundInterviewPage() {
       
       // Transition to Stage 3
       console.log("[bg-interview] Stage 2 complete - transitioning to interview");
-      setStage('interview');
+      // No need to setStage - startInterviewFlow() will dispatch start() and aiFinal() which transitions machineState
       
       // Start interview flow after transition
       await startInterviewFlow();
@@ -658,8 +653,8 @@ export default function BackgroundInterviewPage() {
     }
   };
 
-  // STAGE 1: Loading screen
-  if (stage === 'loading') {
+  // STAGE 1: Loading
+  if (isPageLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex items-center justify-center p-4">
         <SfinxSpinner size="lg" />
@@ -667,8 +662,8 @@ export default function BackgroundInterviewPage() {
     );
   }
 
-  // STAGE 2: Welcome/Name Input screen
-  if (stage === 'welcome') {
+  // STAGE 2: Welcome screen (name input)
+  if (!isPageLoading && machineState === 'idle') {
     return (
       <InterviewStageScreen
         onSubmit={handleStartInterview}
