@@ -42,9 +42,17 @@ export async function runBackgroundControl(client: OpenAI): Promise<void> {
     assistant: lastQ,
     user: lastA,
   } = buildDeltaControlMessages(CONTROL_CONTEXT_TURNS);
-  const system = `You are the evaluation module for a technical interview at ${companySource} for the ${String(
+  
+  const isBlankAnswer = !lastA || lastA.trim().length === 0;
+  
+  const baseSystemPrompt = `You are the evaluation module for a technical interview at ${companySource} for the ${String(
     roleSource
   ).replace(/[-_]/g, " ")} position.\nStage: Background.\n\nCRITICAL RULES:\n- Score ONLY the last user answer that follows.\n- Use the read-only history for understanding terms only; DO NOT award credit for past turns.\n- If the last user answer contains no concrete, attributable evidence for a pillar, output 0 for that pillar.\n- Every non-zero pillar MUST be justified with a short rationale referencing exact phrases from the last answer.\n- DO NOT initiate or suggest moving to coding; that decision is external and controlled by the system.\n\n${roHistory}\n\nOutput: STRICT JSON only (no preface) with fields: pillars {adaptability, creativity, reasoning} (0-100), rationale (string explaining your decision), pillarRationales {adaptability: string, creativity: string, reasoning: string}.`;
+  
+  const system = isBlankAnswer 
+    ? `${baseSystemPrompt}\n\nIMPORTANT: The user provided a blank or empty response. You MUST return 0 for all pillars (adaptability: 0, creativity: 0, reasoning: 0).`
+    : baseSystemPrompt;
+  
   const messages = [
     { role: "system", content: system },
     lastQ ? ({ role: "assistant", content: lastQ } as any) : undefined,
@@ -56,7 +64,35 @@ export async function runBackgroundControl(client: OpenAI): Promise<void> {
     messages,
   });
   const txt = completion.choices?.[0]?.message?.content ?? "";
-  const parsed = parseControlResult(txt);
+  let parsed = parseControlResult(txt);
+  
+  // For blank answers, force 0/0/0 and check if OpenAI complied
+  if (isBlankAnswer) {
+    const aiReturnedZeros = 
+      parsed.pillars.adaptability === 0 && 
+      parsed.pillars.creativity === 0 && 
+      parsed.pillars.reasoning === 0;
+    
+    if (!aiReturnedZeros) {
+      console.error(
+        "[runBackgroundControl] ERROR: OpenAI did not return 0/0/0 for blank answer. Received:",
+        parsed.pillars,
+        "Forcing 0/0/0 anyway."
+      );
+    }
+    
+    // Force 0/0/0 regardless
+    parsed = {
+      pillars: { adaptability: 0, creativity: 0, reasoning: 0 },
+      rationale: "Blank response provided - no evidence to evaluate.",
+      pillarRationales: {
+        adaptability: "No evidence provided.",
+        creativity: "No evidence provided.",
+        reasoning: "No evidence provided.",
+      },
+    };
+  }
+  
   interviewChatStore.dispatch({
     type: "BG_SET_CONTROL_RESULT",
     payload: {

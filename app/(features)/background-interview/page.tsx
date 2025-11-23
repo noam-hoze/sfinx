@@ -36,7 +36,7 @@ import { stopCheck } from "@/shared/services/weightedMean/scorer";
 import { shouldTransition } from "@/shared/services/backgroundSessionGuard";
 import { createInterviewSession } from "../interview/components/services/interviewSessionService";
 import { buildControlContextMessages, CONTROL_CONTEXT_TURNS } from "../../shared/services";
-import { loadAndCacheSoundEffect, getCachedBlob, cacheBlob } from "@/shared/utils/audioCache";
+import { loadAndCacheSoundEffect } from "@/shared/utils/audioCache";
 
 type Stage = 'loading' | 'welcome' | 'interview';
 
@@ -361,40 +361,24 @@ export default function BackgroundInterviewPage() {
         const announcement = `Hi! Welcome to your ${jobTitle} interview`;
         setAnnouncementText(announcement);
         
-        // Cache key based on the text content (simple hash)
-        const textHash = announcement.split('').reduce((acc, char) => {
-          return ((acc << 5) - acc) + char.charCodeAt(0) | 0;
-        }, 0).toString(36);
-        const announcementCacheKey = `announcement-${textHash}`;
-        
-        // Check if we have cached audio for this exact text
-        const cachedBlob = getCachedBlob(announcementCacheKey);
-        
-        if (cachedBlob) {
-          console.log("[bg-interview] Using cached announcement TTS");
-          setAnnouncementAudioBlob(cachedBlob);
-        } else {
-          // Generate new TTS and cache it
-          console.log("[bg-interview] Generating announcement TTS...");
-          try {
-            const ttsResp = await fetch("/api/tts", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ text: announcement }),
-            });
-            if (ttsResp.ok) {
-              const audioBuffer = await ttsResp.arrayBuffer();
-              const audioBlob = new Blob([audioBuffer], { type: "audio/mpeg" });
-              setAnnouncementAudioBlob(audioBlob);
-              // Cache the audio
-              await cacheBlob(announcementCacheKey, audioBlob);
-              console.log("[bg-interview] Announcement TTS generated and cached");
-            } else {
-              console.warn("[bg-interview] Failed to generate announcement TTS");
-            }
-          } catch (err) {
-            console.warn("[bg-interview] Error generating announcement TTS:", err);
+        // Generate TTS (no caching)
+        console.log("[bg-interview] Generating announcement TTS...");
+        try {
+          const ttsResp = await fetch("/api/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: announcement }),
+          });
+          if (ttsResp.ok) {
+            const audioBuffer = await ttsResp.arrayBuffer();
+            const audioBlob = new Blob([audioBuffer], { type: "audio/mpeg" });
+            setAnnouncementAudioBlob(audioBlob);
+            console.log("[bg-interview] Announcement TTS generated");
+          } else {
+            console.warn("[bg-interview] Failed to generate announcement TTS");
           }
+        } catch (err) {
+          console.warn("[bg-interview] Error generating announcement TTS:", err);
         }
         
         console.log("[bg-interview] Stage 1 complete - transitioning to welcome");
@@ -702,7 +686,7 @@ export default function BackgroundInterviewPage() {
               <h2 className="text-2xl font-semibold text-gray-900">Candidate</h2>
             </div>
             <p className="text-gray-600">
-              Complete a technical interview for Frontend Engineer at Meta
+              Complete a screening interview for a Frontend Engineer role
             </p>
           </div>
 
