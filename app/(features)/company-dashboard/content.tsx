@@ -1,280 +1,459 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import Image from "next/image";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { Route } from "next";
+import { JobGrid, JobGridJob } from "app/shared/components/jobs/JobGrid";
+import type { JobGridCompany } from "app/shared/components/jobs/JobGrid";
 import { log } from "app/shared/services";
+import { readResponseError } from "app/shared/utils/http";
+import InterviewContentSection, {
+    InterviewContentState,
+    InterviewDurationState,
+    defaultInterviewDurations,
+    emptyInterviewContentState,
+} from "./jobs/components/InterviewContentSection";
 
-interface Candidate {
-    id: string;
-    name: string;
-    email: string;
-    image: string | null;
-    jobTitle: string;
-    location: string;
-    appliedJob: string;
-    appliedAt: string;
-    status: string;
-    applicationId?: string;
-    matchScore?: number | null;
+interface CompanyJobListItem extends JobGridJob {
+    salary: string | null;
+    requirements: string | null;
+    interviewContent: null | {
+        id: string;
+        backgroundQuestion: string | null;
+        codingPrompt: string;
+        codingTemplate: string | null;
+        codingAnswer: string | null;
+    };
 }
+
+interface CompanyJobsResponse {
+    company: JobGridCompany;
+    jobs: CompanyJobListItem[];
+}
+
+interface CreateJobState {
+    title: string;
+    location: string;
+    type: string;
+    salary: string;
+    description: string;
+    requirements: string;
+}
+
+const defaultCreateState: CreateJobState = {
+    title: "",
+    location: "",
+    type: "",
+    salary: "",
+    description: "",
+    requirements: "",
+};
 
 function CompanyDashboardContent() {
     const router = useRouter();
-    const [jobRoleFilter, setJobRoleFilter] = useState("");
-    const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
-    const fetchCandidates = useCallback(async () => {
-        try {
-            setLoading(true);
-            const params = new URLSearchParams();
-            if (jobRoleFilter) params.append("jobRole", jobRoleFilter);
-
-            const response = await fetch(
-                `/api/company/candidates?${params.toString()}`
-            );
-
-            if (response.ok) {
-                const data = await response.json();
-                // Enrich candidates with latest match score (per application when available)
-                const candidatesWithScores: Candidate[] = await Promise.all(
-                    (data.candidates || []).map(async (c: any) => {
-                        try {
-                            const url = c.applicationId
-                                ? `/api/candidates/${c.id}/telemetry?applicationId=${encodeURIComponent(
-                                      c.applicationId
-                                  )}`
-                                : `/api/candidates/${c.id}/telemetry`;
-                            const res = await fetch(url);
-                            if (res.ok) {
-                                const payload = await res.json();
-                                const score = payload?.candidate?.matchScore ?? null;
-                                return { ...c, matchScore: score } as Candidate;
-                            }
-                        } catch (e) {
-                            // noop – fallback below
-                        }
-                        return { ...c, matchScore: null } as Candidate;
-                    })
-                );
-                const sorted = [...candidatesWithScores].sort(
-                    (a, b) => (b.matchScore ?? -1) - (a.matchScore ?? -1)
-                );
-                setCandidates(sorted);
-                setError(null);
-            } else {
-                setError("Failed to load candidates");
-            }
-        } catch (error) {
-            log.error("Error fetching candidates:", error);
-            setError("Failed to load candidates");
-        } finally {
-            setLoading(false);
-        }
-    }, [jobRoleFilter]);
+    const [jobs, setJobs] = useState<JobGridJob[]>([]);
+    const [createMode, setCreateMode] = useState(false);
+    const [companyName, setCompanyName] = useState<string>("");
+    const [createState, setCreateState] =
+        useState<CreateJobState>(defaultCreateState);
+    const [interviewState, setInterviewState] =
+        useState<InterviewContentState>(emptyInterviewContentState);
+    const [interviewDurations, setInterviewDurations] =
+        useState<InterviewDurationState>(defaultInterviewDurations);
+    const [createSubmitting, setCreateSubmitting] = useState(false);
+    const [deleteInFlight, setDeleteInFlight] = useState<string | null>(null);
 
     useEffect(() => {
-        fetchCandidates();
-    }, [fetchCandidates]);
+        const fetchJobs = async () => {
+            log.info("Fetching company jobs...");
+            try {
+                const resp = await fetch("/api/company/jobs");
+                if (!resp.ok) {
+                    const detail = await readResponseError(resp);
+                    throw new Error(
+                        `Failed to load company jobs: ${resp.status} ${detail}`
+                    );
+                }
+                const data = (await resp.json()) as CompanyJobsResponse;
+                if (!data.company) {
+                    throw new Error("Response missing company data");
+                }
+                setCompanyName(data.company.name);
+                setJobs(
+                    data.jobs.map((job) => {
+                        const description =
+                            typeof job.description === "string"
+                                ? job.description
+                                : null;
+                        return {
+                            id: job.id,
+                            title: job.title,
+                            location: job.location,
+                            type: job.type,
+                            description,
+                            company: {
+                                id: data.company.id,
+                                name: data.company.name,
+                                logo: null,
+                                industry: data.company.industry,
+                                size: data.company.size,
+                            },
+                        };
+                    })
+                );
+                setError(null);
+            } catch (err) {
+                const message =
+                    err instanceof Error ? err.message : "Unknown error";
+                log.error("❌ Failed to fetch company jobs:", err);
+                setError(message);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchJobs().catch((err) => {
+            log.error("❌ Unexpected fetch error:", err);
+        });
+    }, []);
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case "PENDING":
-                return "bg-yellow-100 text-yellow-800";
-            case "REVIEWED":
-                return "bg-blue-100 text-blue-800";
-            case "INTERVIEWING":
-                return "bg-purple-100 text-purple-800";
-            case "ACCEPTED":
-                return "bg-green-100 text-green-800";
-            case "REJECTED":
-                return "bg-red-100 text-red-800";
-            default:
-                return "bg-gray-100 text-gray-800";
+    const resetCreateForm = () => {
+        setCreateState(defaultCreateState);
+        setInterviewState(emptyInterviewContentState);
+        setInterviewDurations(defaultInterviewDurations);
+    };
+
+    const handleCreateJob = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        setCreateSubmitting(true);
+        try {
+            const hasInterviewContent =
+                interviewState.backgroundQuestion.trim().length > 0 ||
+                interviewState.codingPrompt.trim().length > 0 ||
+                interviewState.codingTemplate.trim().length > 0 ||
+                interviewState.codingAnswer.trim().length > 0;
+
+            if (
+                hasInterviewContent &&
+                interviewState.codingPrompt.trim().length === 0
+            ) {
+                setError(
+                    "Coding prompt is required when adding interview content."
+                );
+                setCreateSubmitting(false);
+                return;
+            }
+
+            const payload: Record<string, unknown> = {
+                title: createState.title,
+                location: createState.location,
+                type: createState.type,
+                salary: createState.salary,
+                description: createState.description,
+                requirements: createState.requirements,
+            };
+
+            if (hasInterviewContent) {
+                payload.interviewContent = {
+                    backgroundQuestion: interviewState.backgroundQuestion,
+                    codingPrompt: interviewState.codingPrompt.trim(),
+                    codingTemplate:
+                        interviewState.codingTemplate.trim().length > 0
+                            ? interviewState.codingTemplate
+                            : null,
+                    codingAnswer:
+                        interviewState.codingAnswer.trim().length > 0
+                            ? interviewState.codingAnswer
+                            : null,
+                    backgroundQuestionTimeSeconds:
+                        interviewDurations.backgroundSeconds,
+                    codingQuestionTimeSeconds: interviewDurations.codingSeconds,
+                };
+            }
+
+            const resp = await fetch("/api/company/jobs", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload),
+            });
+            if (!resp.ok) {
+                const detail = await readResponseError(resp);
+                throw new Error(
+                    `Failed to create job: ${resp.status} ${detail}`
+                );
+            }
+            const created = (await resp.json()) as CompanyJobsResponse["jobs"][number];
+            setJobs((prev) => [
+                {
+                    id: created.id,
+                    title: created.title,
+                    location: created.location,
+                    type: created.type,
+                    description:
+                        typeof created.description === "string"
+                            ? created.description
+                            : null,
+                    company: {
+                        id: created.company.id,
+                        name: created.company.name,
+                        logo: null,
+                        industry: created.company.industry,
+                        size: created.company.size,
+                    },
+                },
+                ...prev,
+            ]);
+            resetCreateForm();
+            setCreateMode(false);
+            setError(null);
+        } catch (err) {
+            const message =
+                err instanceof Error ? err.message : "Unknown error";
+            setError(message);
+            log.error("❌ Failed to create job:", err);
+        } finally {
+            setCreateSubmitting(false);
         }
     };
 
-    const handleCandidateClick = (
-        candidateId: string,
-        applicationId?: string
-    ) => {
-        const search = new URLSearchParams();
-        search.set("candidateId", candidateId);
-        if (applicationId) search.set("applicationId", applicationId);
-        router.push(`/cps?${search.toString()}`);
-    };
-
-    const getMatchScoreColor = (score: number) => {
-        if (score >= 80) return "text-green-600";
-        if (score >= 60) return "text-yellow-600";
-        return "text-red-600";
+    const handleDeleteJob = async (jobId: string) => {
+        setDeleteInFlight(jobId);
+        try {
+            const resp = await fetch(`/api/company/jobs/${jobId}`, {
+                method: "DELETE",
+            });
+            if (!resp.ok) {
+                const detail = await readResponseError(resp);
+                throw new Error(
+                    `Failed to delete job: ${resp.status} ${detail}`
+                );
+            }
+            setJobs((prev) => prev.filter((job) => job.id !== jobId));
+        } catch (err) {
+            const message =
+                err instanceof Error ? err.message : "Unknown error";
+            setError(message);
+            log.error("❌ Failed to delete job:", err);
+        } finally {
+            setDeleteInFlight(null);
+        }
     };
 
     return (
         <div className="space-y-8">
-            {/* Filter Form */}
-            <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 shadow-sm">
-                <div className="max-w-md">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Filter by Job Role
-                    </label>
-                    <input
-                        type="text"
-                        placeholder="e.g. Software Engineer, Product Manager..."
-                        value={jobRoleFilter}
-                        onChange={(e) => setJobRoleFilter(e.target.value)}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all duration-300 bg-white/50 backdrop-blur-sm"
-                    />
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-semibold text-gray-800 tracking-tight">
+                        {companyName}
+                    </h1>
+                    <p className="text-gray-600">
+                        Manage openings, interview content, and publishing.
+                    </p>
                 </div>
-                <div className="mt-4 text-sm text-gray-600">
-                    {candidates.length} candidates found
-                </div>
+                <button
+                    type="button"
+                    className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                    onClick={() => setCreateMode((prev) => !prev)}
+                >
+                    {createMode ? "Close" : "Create New Job"}
+                </button>
             </div>
 
-            {/* Candidates Grid */}
+            {createMode && (
+                <form
+                    className="bg-white/80 backdrop-blur rounded-2xl border border-white/20 p-6 shadow-sm"
+                    onSubmit={handleCreateJob}
+                >
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-semibold text-gray-800">
+                            New Job
+                        </h2>
+                        <button
+                            type="button"
+                            className="text-sm text-gray-500 hover:text-gray-700"
+                            onClick={() => {
+                                setCreateMode(false);
+                                resetCreateForm();
+                            }}
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <label className="flex flex-col text-sm font-medium text-gray-700">
+                            Title
+                            <input
+                                value={createState.title}
+                                onChange={(event) =>
+                                    setCreateState((prev) => ({
+                                        ...prev,
+                                        title: event.target.value,
+                                    }))
+                                }
+                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                required
+                            />
+                        </label>
+                        <label className="flex flex-col text-sm font-medium text-gray-700">
+                            Location
+                            <input
+                                value={createState.location}
+                                onChange={(event) =>
+                                    setCreateState((prev) => ({
+                                        ...prev,
+                                        location: event.target.value,
+                                    }))
+                                }
+                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                required
+                            />
+                        </label>
+                        <label className="flex flex-col text-sm font-medium text-gray-700">
+                            Type
+                            <input
+                                value={createState.type}
+                                onChange={(event) =>
+                                    setCreateState((prev) => ({
+                                        ...prev,
+                                        type: event.target.value,
+                                    }))
+                                }
+                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                placeholder="e.g. full-time"
+                                required
+                            />
+                        </label>
+                        <label className="flex flex-col text-sm font-medium text-gray-700">
+                            Salary
+                            <input
+                                value={createState.salary}
+                                onChange={(event) =>
+                                    setCreateState((prev) => ({
+                                        ...prev,
+                                        salary: event.target.value,
+                                    }))
+                                }
+                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                placeholder="$150k - $200k"
+                            />
+                        </label>
+                        <label className="flex flex-col text-sm font-medium text-gray-700 md:col-span-2">
+                            Description
+                            <textarea
+                                value={createState.description}
+                                onChange={(event) =>
+                                    setCreateState((prev) => ({
+                                        ...prev,
+                                        description: event.target.value,
+                                    }))
+                                }
+                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all min-h-[120px]"
+                            />
+                        </label>
+                        <label className="flex flex-col text-sm font-medium text-gray-700 md:col-span-2">
+                            Requirements
+                            <textarea
+                                value={createState.requirements}
+                                onChange={(event) =>
+                                    setCreateState((prev) => ({
+                                        ...prev,
+                                        requirements: event.target.value,
+                                    }))
+                                }
+                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all min-h-[120px]"
+                            />
+                        </label>
+                    </div>
+                    <div className="mt-6">
+                        <InterviewContentSection
+                            state={interviewState}
+                            onChange={setInterviewState}
+                            durations={interviewDurations}
+                            onDurationChange={setInterviewDurations}
+                            disabled={createSubmitting}
+                            subtitle="Optional: configure the background conversation, coding prompt, and timers candidates will experience."
+                            allowEmptyCodingPrompt={false}
+                        />
+                    </div>
+                    <div className="mt-4 flex justify-end gap-3">
+                        <button
+                            type="button"
+                            className="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 transition-colors"
+                            onClick={() => {
+                                setCreateMode(false);
+                                setCreateState(defaultCreateState);
+                            }}
+                            disabled={createSubmitting}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
+                            disabled={createSubmitting}
+                        >
+                            {createSubmitting ? "Saving..." : "Save"}
+                        </button>
+                    </div>
+                </form>
+            )}
+
+            {error ? (
+                <div className="rounded-xl bg-red-50 border border-red-200 p-4 text-red-700">
+                    {error}
+                </div>
+            ) : null}
+
             {loading ? (
                 <div className="text-center py-12">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                    <p className="mt-4 text-gray-600">Loading candidates...</p>
-                </div>
-            ) : error ? (
-                <div className="text-center py-12">
-                    <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
-                        <svg
-                            className="w-8 h-8 text-red-600"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
-                            />
-                        </svg>
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        Error Loading Candidates
-                    </h3>
-                    <p className="text-gray-600 mb-4">{error}</p>
-                    <button
-                        onClick={fetchCandidates}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                        Try Again
-                    </button>
+                    <p className="mt-4 text-gray-600">Loading jobs...</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {candidates.map((candidate, index) => (
-                        <div
-                            key={candidate.id}
-                            onClick={() =>
-                                handleCandidateClick(
-                                    (candidate as any).id,
-                                    (candidate as any).applicationId
-                                )
-                            }
-                            className="group relative bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:bg-white/80 hover:shadow-lg transition-all duration-300 ease-out hover:scale-105 cursor-pointer"
-                            style={{
-                                animationDelay: `${index * 50}ms`,
-                                animation: "fadeInUp 0.5s ease-out forwards",
-                            }}
-                        >
-                            {candidate.matchScore !== null &&
-                                candidate.matchScore !== undefined && (
-                                    <div className="absolute top-3 right-3 bg-white/80 border border-gray-200 rounded-lg px-2 py-1 shadow-sm">
-                                        <span
-                                            className={`text-sm font-semibold ${getMatchScoreColor(
-                                                candidate.matchScore
-                                            )}`}
-                                        >
-                                            {candidate.matchScore}%
-                                        </span>
-                                    </div>
-                                )}
-                            {/* Candidate Avatar */}
-                            <div className="relative w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden bg-gray-200">
-                                <Image
-                                    src={candidate.image || ""}
-                                    alt={`${candidate.name} profile`}
-                                    fill
-                                    sizes="80px"
-                                    className="object-cover"
-                                />
-                            </div>
-
-                            {/* Candidate Info */}
-                            <div className="text-center">
-                                <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-                                    {candidate.name}
-                                </h3>
-                                <p className="text-sm text-gray-600 mb-1">
-                                    {candidate.jobTitle || "Candidate"}
-                                </p>
-                                <p className="text-xs text-gray-500 mb-2">
-                                    {candidate.location || "Location not specified"}
-                                </p>
-                                <p className="text-xs text-gray-500 mb-3">
-                                    Applied for: {candidate.appliedJob}
-                                </p>
-
-                                {/* Status Badge */}
-                                <span
-                                    className={`inline-block px-2 py-1 text-xs rounded-full ${getStatusColor(
-                                        candidate.status
-                                    )}`}
-                                >
-                                    {candidate.status}
-                                </span>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            {/* No Results */}
-            {!loading && !error && candidates.length === 0 && (
-                <div className="text-center py-12">
-                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                        <svg
-                            className="w-8 h-8 text-gray-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                            />
-                        </svg>
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        No candidates found
-                    </h3>
-                    <p className="text-gray-600">Try adjusting your search criteria</p>
-                </div>
-            )}
-
-            <style jsx>{`
-                @keyframes fadeInUp {
-                    from {
-                        opacity: 0;
-                        transform: translateY(20px);
+                <JobGrid
+                    items={jobs}
+                    showLogo={false}
+                    showCompanyName={false}
+                    getHref={(job) =>
+                        `/company-dashboard/jobs/${encodeURIComponent(
+                            job.id
+                        )}` as Route
                     }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-            `}</style>
+                    renderActions={(job) => (
+                        <>
+                            <button
+                                type="button"
+                                className="px-3 py-1 text-sm rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                                onClick={() =>
+                                    router.push(
+                                        `/company-dashboard/jobs/${encodeURIComponent(
+                                            job.id
+                                        )}`
+                                    )
+                                }
+                            >
+                                Edit
+                            </button>
+                            <button
+                                type="button"
+                                className="px-3 py-1 text-sm rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-60"
+                                onClick={() => handleDeleteJob(job.id)}
+                                disabled={deleteInFlight === job.id}
+                            >
+                                {deleteInFlight === job.id
+                                    ? "Deleting..."
+                                    : "Delete"}
+                            </button>
+                        </>
+                    )}
+                />
+            )}
         </div>
     );
 }
 
 export default CompanyDashboardContent;
+
