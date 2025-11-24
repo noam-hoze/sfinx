@@ -271,6 +271,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
      * Enters coding mode and starts the interview timer.
      */
     const handleStartCoding = useCallback(async () => {
+        console.log("🎯 handleStartCoding called");
         setIsCodingStarted(true);
         setCodingStarted(true);
         await setCodingState(true);
@@ -278,17 +279,19 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     }, [setCodingStarted, setCodingState, startTimer]);
 
     useEffect(() => {
-        if (!automaticMode || isTextMode) {
+        if (!automaticMode) {
             return;
         }
         const unsubscribe = store.subscribe(() => {
-            const machineState = store.getState().interviewMachine?.state;
-            if (machineState === "in_coding_session" && !isCodingStarted) {
+            const state = store.getState();
+            const machineState = state.interviewMachine?.state;
+            const currentCodingStarted = isCodingStarted; // Capture current state
+            if (machineState === "in_coding_session" && !currentCodingStarted) {
                 void handleStartCoding();
             }
         });
         return () => unsubscribe();
-    }, [automaticMode, handleStartCoding, isCodingStarted, isTextMode]);
+    }, [automaticMode, handleStartCoding, isTextMode]);
 
     useEffect(() => {
         if (!isTextMode) {
