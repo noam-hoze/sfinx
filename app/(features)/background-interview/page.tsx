@@ -746,10 +746,6 @@ export default function BackgroundInterviewPage() {
           <CompletionScreen
             codingTimeChallenge={codingTimeChallenge}
             onStartCoding={() => {}}
-            jobId={searchParams.get("jobId") || "meta-frontend-engineer"}
-            userId={userId || ""}
-            companyId={searchParams.get("companyId") || "meta"}
-            applicationId={applicationId || ""}
           />
         </div>
 

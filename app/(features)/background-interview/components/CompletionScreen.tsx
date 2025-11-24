@@ -1,35 +1,21 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
 import InterviewStageScreen from "app/shared/components/InterviewStageScreen";
 
 type CompletionScreenProps = {
   codingTimeChallenge: number;
   onStartCoding: () => void;
-  jobId: string;
-  userId: string;
-  companyId: string;
-  applicationId: string;
 };
 
 export default function CompletionScreen({
   codingTimeChallenge,
   onStartCoding,
-  jobId,
-  userId,
-  companyId,
-  applicationId,
 }: CompletionScreenProps) {
-  const router = useRouter();
 
   const handleStartCoding = () => {
-    // Set sessionStorage flag to auto-start interview on next page
-    sessionStorage.setItem("sfinx-demo-autostart", "true");
-    
-    router.push(
-      `/interview?demo=true&jobId=${jobId}&userId=${userId}&companyId=${companyId}&applicationId=${applicationId}`
-    );
+    console.log("[CompletionScreen] Button clicked - calling onStartCoding prop");
+    onStartCoding();
   };
 
   return (

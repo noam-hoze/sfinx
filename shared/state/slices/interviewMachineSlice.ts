@@ -37,6 +37,9 @@ const initialState: InterviewMachineState = {
     state: "idle",
     isPageLoading: false,
     shouldReset: false,
+    companySlug: "meta",
+    roleSlug: "frontend-engineer",
+    companyName: "Meta",
 };
 
 const logStageTransition = (

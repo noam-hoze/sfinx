@@ -7,7 +7,7 @@ import React, {
     useRef,
     useState,
 } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
@@ -31,10 +31,10 @@ import { useThemePreference } from "./hooks/useThemePreference";
 import { createApplication } from "./services/applicationService";
 import { createInterviewSession } from "./services/interviewSessionService";
 import { fetchJobById } from "./services/jobService";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { forceCoding, setCompanyContext, setSessionId } from "@/shared/state/slices/interviewMachineSlice";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
-import { store } from "@/shared/state/store";
+import { store, RootState } from "@/shared/state/store";
 
 const logger = log;
 const DEFAULT_CODING_DURATION_SECONDS = 30 * 60;
@@ -83,18 +83,23 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         queueUserMessage,
     } = useInterview();
     const { markCompanyApplied } = useJobApplication();
-    const searchParams = useSearchParams();
     const router = useRouter();
     const { data: session } = useSession();
-    const companyId = searchParams.get("companyId");
-    const jobId = searchParams.get("jobId");
     const dispatch = useDispatch();
+    const reduxCompanySlug = useSelector((state: RootState) => state.interviewMachine.companySlug);
+    const reduxRoleSlug = useSelector((state: RootState) => state.interviewMachine.roleSlug);
+    const reduxUserId = useSelector((state: RootState) => state.interviewMachine.userId);
+    const reduxApplicationId = useSelector((state: RootState) => state.interviewMachine.applicationId);
+    
+    // Construct companyId and jobId from Redux values
+    const companyId = reduxCompanySlug || "meta";
+    const jobId = reduxCompanySlug && reduxRoleSlug ? `${reduxCompanySlug}-${reduxRoleSlug}` : "meta-frontend-engineer";
+    
     const [job, setJob] = useState<any | null>(null);
     const [codingDurationSeconds, setCodingDurationSeconds] = useState(
         DEFAULT_CODING_DURATION_SECONDS
     );
-    const isDemoMode = searchParams.get("demo") === "true";
-    const demoUserId = searchParams.get("userId");
+    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
     const [demoCandidateName, setDemoCandidateName] = useState<string | null>(null);
     
     const candidateName = isDemoMode 
@@ -208,8 +213,8 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
      * Fetch demo candidate name when in demo mode.
      */
     useEffect(() => {
-        if (isDemoMode && demoUserId) {
-            fetch(`/api/candidates/${demoUserId}/basic?skip-auth=true`)
+        if (isDemoMode && reduxUserId) {
+            fetch(`/api/candidates/${reduxUserId}/basic?skip-auth=true`)
                 .then((res) => res.json())
                 .then((data) => {
                     if (data.name) {
@@ -219,7 +224,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 })
                 .catch((err) => logger.error("Failed to fetch demo candidate name:", err));
         }
-    }, [isDemoMode, demoUserId]);
+    }, [isDemoMode, reduxUserId]);
 
     // Background timer removed - background phase handled in separate page
 
@@ -415,7 +420,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             setIsEvaluationLoading(false);
             logger.info("[TEST_EVAL] Loading state set to false");
         }
-    }, [interviewSessionId, interviewScript, state.currentCode, isDebugVisible, isDebugModeEnabled, setIsDebugVisible, setEvaluationDebugData, setIsEvaluationLoading, isDemoMode, demoUserId]);
+    }, [interviewSessionId, interviewScript, state.currentCode, isDebugVisible, isDebugModeEnabled, setIsDebugVisible, setEvaluationDebugData, setIsEvaluationLoading, isDemoMode, reduxUserId]);
 
     // Notify parent of handleTestEvaluation when it changes
     useEffect(() => {
@@ -534,26 +539,21 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 return;
             }
 
-            const isDemoMode = searchParams.get("demo") === "true";
-            const demoUserId = searchParams.get("userId");
-
             if (!applicationCreated && companyId) {
                 try {
-                    // Check if applicationId exists in URL params (from background-interview)
-                    const existingApplicationId = searchParams.get("applicationId");
-
-                    if (existingApplicationId) {
-                        logger.info(`✅ Using existing application: ${existingApplicationId}`);
+                    // Use applicationId from Redux (created during preload)
+                    if (reduxApplicationId) {
+                        logger.info(`✅ Using application from Redux: ${reduxApplicationId}`);
                         setApplicationCreated(true);
-                        setApplicationId(existingApplicationId);
+                        setApplicationId(reduxApplicationId);
                         
                         // Always create a NEW session for the coding phase with fresh recording timestamp
                         const actualStartTime = getActualRecordingStartTime();
                         logger.info("📹 Creating NEW coding session with actual recording start time:", actualStartTime?.toISOString());
                         const session = await createInterviewSession({
-                            applicationId: existingApplicationId,
+                            applicationId: reduxApplicationId,
                             companyId,
-                            userId: isDemoMode ? demoUserId || undefined : undefined,
+                            userId: reduxUserId || undefined,
                             isDemoMode,
                             recordingStartedAt: actualStartTime || undefined,
                         });
@@ -561,11 +561,11 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                         setInterviewSessionId(sessionId);
                         dispatch(setSessionId({ sessionId }));
                     } else {
-                        // Create new application and session
+                        // Fallback: Create new application and session (shouldn't happen in unified flow)
                         const application = await createApplication({
                             companyId,
                             jobId,
-                            userId: isDemoMode ? demoUserId || undefined : undefined,
+                            userId: reduxUserId || undefined,
                             isDemoMode,
                         });
                         setApplicationCreated(true);
@@ -577,7 +577,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                             const session = await createInterviewSession({
                                 applicationId: application.application.id,
                                 companyId,
-                                userId: isDemoMode ? demoUserId || undefined : undefined,
+                                userId: reduxUserId || undefined,
                                 isDemoMode,
                                 recordingStartedAt: actualStartTime || undefined,
                             });
@@ -714,23 +714,18 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
      * Initializes editor content with the default snippet if empty.
      */
     useEffect(() => {
-        // If no code yet, fetch the coding template once company/role are known
+        // If no code yet, fetch the coding template once company/role are known (from Redux)
         (async () => {
             if (state.currentCode) return;
-            if (!job) return; // wait until job is loaded and store context set
-            const companyNameRaw = job?.company?.name;
-            const roleTitleRaw = job?.title;
-            if (!companyNameRaw || !roleTitleRaw) return;
-            const companySlug = companyNameRaw.toLowerCase();
-            const roleSlug = roleTitleRaw.toLowerCase().replace(/\s+/g, "-");
+            if (!reduxCompanySlug || !reduxRoleSlug) return; // wait until company context is set in Redux
             const resp = await fetch(
-                `/api/interviews/script?company=${companySlug}&role=${roleSlug}`
+                `/api/interviews/script?company=${reduxCompanySlug}&role=${reduxRoleSlug}`
             );
             if (!resp.ok) {
                 const detail =
                     (await resp.text().catch(() => "")) || resp.statusText;
                 throw new Error(
-                    `Failed to load interview script for ${companySlug}/${roleSlug}: ${detail}`
+                    `Failed to load interview script for ${reduxCompanySlug}/${reduxRoleSlug}: ${detail}`
                 );
             }
             const data = await resp.json();
@@ -743,7 +738,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             logger.error("❌ Failed to load interview script:", error);
             throw error;
         });
-    }, [state.currentCode, updateCurrentCode, job]);
+    }, [state.currentCode, updateCurrentCode, reduxCompanySlug, reduxRoleSlug]);
 
     /**
      * Resets editor code for specific tasks (e.g., task1-userlist) when task changes.
@@ -770,26 +765,25 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             const onPracticePage =
                 typeof window !== "undefined" &&
                 window.location.pathname === "/practice";
-            const isDemoMode = searchParams.get("demo") === "true";
 
             if (!onPracticePage) {
                 const delay = typeof redirectDelayMs === "number" ? redirectDelayMs : 4000;
                 setTimeout(() => {
                     try {
                         const destination = isDemoMode
-                            ? `/demo/company-view?candidateId=${searchParams.get("userId")}&applicationId=${applicationId}`
+                            ? `/demo/company-view?candidateId=${reduxUserId}&applicationId=${applicationId}`
                             : "/job-search";
                         window.location.href = destination;
                     } catch {
                         const destination = isDemoMode
-                            ? `/demo/company-view?candidateId=${searchParams.get("userId")}&applicationId=${applicationId}`
+                            ? `/demo/company-view?candidateId=${reduxUserId}&applicationId=${applicationId}`
                             : "/job-search";
                         router.push(destination as any);
                     }
                 }, delay);
             }
         }
-    }, [interviewConcluded, companyId, router, markCompanyApplied, redirectDelayMs, searchParams, interviewSessionId, applicationId]);
+    }, [interviewConcluded, companyId, router, markCompanyApplied, redirectDelayMs, reduxUserId, interviewSessionId, applicationId]);
 
     /**
      * Listens for mic mute/unmute messages from child frames and syncs local state.
@@ -887,8 +881,8 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                     caption: evaluation.caption,
                 };
 
-                if (isDemoMode && demoUserId) {
-                    body.userId = demoUserId;
+                if (isDemoMode && reduxUserId) {
+                    body.userId = reduxUserId;
                 }
 
                 logger.info("💾 [ITERATION] Saving to DB:", {
@@ -923,7 +917,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             }
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [interviewSessionId, interviewScript, isDemoMode, demoUserId]
+        [interviewSessionId, interviewScript, isDemoMode, reduxUserId]
         // Note: runCodeClickTime intentionally omitted to prevent re-execution on state change
     );
 
