@@ -6,7 +6,7 @@ type SfinxSpinnerProps = {
 };
 
 /**
- * Animated atom-inspired spinner used across interview transition screens.
+ * Animated atom-inspired spinner used across Sfinx loading experiences.
  */
 export default function SfinxSpinner({ size = "md", className = "" }: SfinxSpinnerProps) {
   const sizes = {

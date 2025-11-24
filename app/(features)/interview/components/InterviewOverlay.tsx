@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
-import SfinxSpinner from "./backgroundInterview/SfinxSpinner";
+import SfinxSpinner from "app/shared/components/SfinxSpinner";
 
 function shouldHideStartButton(): boolean {
     if (typeof window === "undefined") return false;

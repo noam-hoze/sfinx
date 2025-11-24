@@ -19,7 +19,7 @@ import {
 import QuestionCard from "./components/backgroundInterview/QuestionCard";
 import CompletionScreen from "./components/backgroundInterview/CompletionScreen";
 import AnnouncementScreen from "./components/backgroundInterview/AnnouncementScreen";
-import SfinxSpinner from "./components/backgroundInterview/SfinxSpinner";
+import SfinxSpinner from "app/shared/components/SfinxSpinner";
 import InterviewStageScreen from "app/shared/components/InterviewStageScreen";
 import { InterviewIDE } from "./components";
 import { useMute } from "app/shared/contexts";
