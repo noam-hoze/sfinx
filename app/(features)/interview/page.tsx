@@ -13,6 +13,8 @@ import {
   setPageLoading,
   forceCoding,
   setCompanyContext,
+  setSessionId,
+  setPreloadedData,
 } from "@/shared/state/slices/interviewMachineSlice";
 import QuestionCard from "../background-interview/components/QuestionCard";
 import CompletionScreen from "../background-interview/components/CompletionScreen";
@@ -20,8 +22,11 @@ import AnnouncementScreen from "../background-interview/components/AnnouncementS
 import SfinxSpinner from "../background-interview/components/SfinxSpinner";
 import InterviewStageScreen from "app/shared/components/InterviewStageScreen";
 import { InterviewIDE } from "./components";
-import { InterviewProvider } from "app/shared/contexts";
 import { useMute } from "app/shared/contexts";
+import { useScreenRecording } from "./components/hooks/useScreenRecording";
+import { InterviewRecordingProvider } from "./components/InterviewRecordingContext";
+import { createInterviewSession } from "./components/services/interviewSessionService";
+import { createApplication } from "./components/services/applicationService";
 import OpenAI from "openai";
 import {
   useBackgroundPreload,
@@ -48,7 +53,6 @@ function InterviewPageContent() {
   const preloadedFirstQuestion = useSelector((state: RootState) => state.interviewMachine.preloadedFirstQuestion);
   const userId = useSelector((state: RootState) => state.interviewMachine.userId);
   const applicationId = useSelector((state: RootState) => state.interviewMachine.applicationId);
-  const sessionId = useSelector((state: RootState) => state.interviewMachine.sessionId);
   const shouldResetFlag = useSelector((state: RootState) => state.interviewMachine.shouldReset);
 
   // Local state
@@ -68,6 +72,11 @@ function InterviewPageContent() {
   const [allowQuestionDisplay, setAllowQuestionDisplay] = useState(false);
   const [showCodingIDE, setShowCodingIDE] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [codingApplicationId, setCodingApplicationId] = useState<string | null>(applicationId || null);
+
+  const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+  const recordingControls = useScreenRecording(isDemoMode);
+  const { startRecording, interviewSessionId, setInterviewSessionId, getActualRecordingStartTime } = recordingControls;
 
   // Refs
   const clickSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -99,6 +108,12 @@ function InterviewPageContent() {
       setOpenaiClient(new OpenAI({ apiKey, dangerouslyAllowBrowser: true }));
     }
   }, []);
+
+  useEffect(() => {
+    if (applicationId) {
+      setCodingApplicationId(applicationId);
+    }
+  }, [applicationId]);
 
   // Subscribe to chat store for messages
   useEffect(() => {
@@ -150,9 +165,11 @@ function InterviewPageContent() {
       setAllowQuestionDisplay(false);
       setIsStarting(false);
       setShowCodingIDE(false);
+      setCodingApplicationId(applicationId || null);
+      setInterviewSessionId(null);
       dispatch(reset());
     }
-  }, [shouldResetFlag, dispatch]);
+  }, [shouldResetFlag, dispatch, applicationId, setInterviewSessionId]);
 
   // STAGE 1: Preload
   useEffect(() => {
@@ -184,6 +201,77 @@ function InterviewPageContent() {
     executePreload();
   }, [isPageLoading, openaiClient, dispatch, preload, generateAnnouncement]);
 
+  /**
+   * Ensures an application exists for the coding phase and returns its ID.
+   */
+  const resolveApplicationId = useCallback(async () => {
+    if (codingApplicationId) return codingApplicationId;
+    if (applicationId) {
+      setCodingApplicationId(applicationId);
+      return applicationId;
+    }
+
+    try {
+      const jobId = companySlug && roleSlug ? `${companySlug}-${roleSlug}` : "meta-frontend-engineer";
+      const companyId = companySlug || "meta";
+      const application = await createApplication({
+        companyId,
+        jobId,
+        userId: userId || undefined,
+        isDemoMode,
+      });
+      const createdId = application?.application?.id || null;
+      if (createdId) {
+        setCodingApplicationId(createdId);
+        dispatch(setPreloadedData({ applicationId: createdId }));
+      }
+      return createdId;
+    } catch (error) {
+      console.error("[interview] Failed to create application:", error);
+      return null;
+    }
+  }, [codingApplicationId, applicationId, companySlug, roleSlug, userId, isDemoMode, dispatch]);
+
+  /**
+   * Starts recording immediately after the start flow and creates the coding session.
+   */
+  const ensureRecordingSession = useCallback(async () => {
+    if (interviewSessionId) return interviewSessionId;
+
+    try {
+      const recordingStarted = await startRecording();
+      if (!recordingStarted) return null;
+
+      const resolvedApplicationId = await resolveApplicationId();
+      if (!resolvedApplicationId) return null;
+
+      const session = await createInterviewSession({
+        applicationId: resolvedApplicationId,
+        companyId: companySlug || "meta",
+        userId: userId || undefined,
+        isDemoMode,
+        recordingStartedAt: getActualRecordingStartTime() || undefined,
+      });
+      const newSessionId = session.interviewSession.id;
+      setInterviewSessionId(newSessionId);
+      dispatch(setSessionId({ sessionId: newSessionId }));
+      return newSessionId;
+    } catch (error) {
+      console.error("[interview] Failed to create recording session:", error);
+      return null;
+    }
+  }, [
+    interviewSessionId,
+    startRecording,
+    resolveApplicationId,
+    companySlug,
+    userId,
+    isDemoMode,
+    getActualRecordingStartTime,
+    setInterviewSessionId,
+    dispatch,
+  ]);
+
   // STAGE 2: Start interview handler
   const handleStartInterview = async () => {
     if (!name.trim()) {
@@ -213,6 +301,13 @@ function InterviewPageContent() {
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
       setMicStream(stream);
+
+      const activeSessionId = await ensureRecordingSession();
+      if (!activeSessionId) {
+        setIsStarting(false);
+        alert("Screen recording is required.");
+        return;
+      }
 
       await startInterviewFlow();
     } catch (error) {
@@ -360,9 +455,9 @@ function InterviewPageContent() {
 
   if (machineState === "in_coding_session" && showCodingIDE) {
     return (
-      <InterviewProvider>
+      <InterviewRecordingProvider value={recordingControls}>
         <InterviewIDE />
-      </InterviewProvider>
+      </InterviewRecordingProvider>
     );
   }
 

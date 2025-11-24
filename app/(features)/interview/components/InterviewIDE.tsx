@@ -25,16 +25,14 @@ import {
 import { useElevenLabsStateMachine } from "../../../shared/hooks/useElevenLabsStateMachine";
 import { log } from "../../../shared/services";
 import { useCamera } from "./hooks/useCamera";
-import { useScreenRecording } from "./hooks/useScreenRecording";
 import { useInterviewTimer } from "./hooks/useInterviewTimer";
 import { useThemePreference } from "./hooks/useThemePreference";
-import { createApplication } from "./services/applicationService";
-import { createInterviewSession } from "./services/interviewSessionService";
 import { fetchJobById } from "./services/jobService";
 import { useDispatch, useSelector } from "react-redux";
 import { forceCoding, setCompanyContext, setSessionId } from "@/shared/state/slices/interviewMachineSlice";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import { store, RootState } from "@/shared/state/store";
+import { useInterviewRecording } from "./InterviewRecordingContext";
 
 const logger = log;
 const DEFAULT_CODING_DURATION_SECONDS = 30 * 60;
@@ -160,7 +158,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     const [isAgentConnected, setIsAgentConnected] = useState(false);
     const [isCodingStarted, setIsCodingStarted] = useState(false);
     const [micMuted, setMicMuted] = useState(false);
-    const [applicationCreated, setApplicationCreated] = useState(false);
     const [interviewConcluded, setInterviewConcluded] = useState(false);
     const [isChatInputLocked, setIsChatInputLocked] = useState(true);
     const [redirectDelayMs, setRedirectDelayMs] = useState<number>(4000);
@@ -193,13 +190,13 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
     const { isCameraOn, selfVideoRef, toggleCamera } = useCamera();
     const {
-        startRecording,
+        recordingPermissionGranted,
         stopRecording,
         insertRecordingUrl,
         interviewSessionId,
-        setInterviewSessionId,
+        mediaRecorderRef,
         getActualRecordingStartTime,
-    } = useScreenRecording(isDemoMode);
+    } = useInterviewRecording();
     const [applicationId, setApplicationId] = useState<string | null>(null);
 
     /**
@@ -208,6 +205,12 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     useEffect(() => {
         logger.info("interviewSessionId changed to:", interviewSessionId);
     }, [interviewSessionId]);
+
+    useEffect(() => {
+        if (reduxApplicationId) {
+            setApplicationId(reduxApplicationId);
+        }
+    }, [reduxApplicationId]);
 
     /**
      * Fetch demo candidate name when in demo mode.
@@ -531,87 +534,39 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     }, [candidateName, insertRecordingUrl, interviewScript, interviewSessionId, setCodingStarted, setCodingState, state.currentCode, stateMachineHandleSubmission, stopRecording, stopTimer, updateSubmission]);
 
     /**
-     * Starts the interview: begins recording, creates application/session, resets code, and connects to the agent.
+     * Starts the interview using the shared recording session created during the start flow.
      */
     const handleInterviewButtonClick = useCallback(async () => {
+        if (isInterviewLoading || isInterviewActive) return;
+        if (!recordingPermissionGranted || !mediaRecorderRef.current) {
+            logger.warn("Recording not initialized; skipping duplicate start prompt");
+            return;
+        }
+        if (!interviewSessionId) {
+            logger.warn("Missing interview session from start flow");
+            return;
+        }
+
         try {
             setIsInterviewLoading(true);
-            const recordingStarted = await startRecording();
-            if (!recordingStarted) {
-                setIsInterviewLoading(false);
-                return;
-            }
-
-            if (!applicationCreated && companyId) {
-                try {
-                    // Use applicationId from Redux (created during preload)
-                    if (reduxApplicationId) {
-                        logger.info(`✅ Using application from Redux: ${reduxApplicationId}`);
-                        setApplicationCreated(true);
-                        setApplicationId(reduxApplicationId);
-                        
-                        // Always create a NEW session for the coding phase with fresh recording timestamp
-                        const actualStartTime = getActualRecordingStartTime();
-                        logger.info("📹 Creating NEW coding session with actual recording start time:", actualStartTime?.toISOString());
-                        const session = await createInterviewSession({
-                            applicationId: reduxApplicationId,
-                            companyId,
-                            userId: reduxUserId || undefined,
-                            isDemoMode,
-                            recordingStartedAt: actualStartTime || undefined,
-                        });
-                        const sessionId = session.interviewSession.id;
-                        setInterviewSessionId(sessionId);
-                        dispatch(setSessionId({ sessionId }));
-                    } else {
-                        // Fallback: Create new application and session (shouldn't happen in unified flow)
-                        const application = await createApplication({
-                            companyId,
-                            jobId,
-                            userId: reduxUserId || undefined,
-                            isDemoMode,
-                        });
-                        setApplicationCreated(true);
-
-                        if (application?.application?.id) {
-                            setApplicationId(application.application.id);
-                            const actualStartTime = getActualRecordingStartTime();
-                            logger.info("📹 Creating session with actual recording start time:", actualStartTime?.toISOString());
-                            const session = await createInterviewSession({
-                                applicationId: application.application.id,
-                                companyId,
-                                userId: reduxUserId || undefined,
-                                isDemoMode,
-                                recordingStartedAt: actualStartTime || undefined,
-                            });
-                            const sessionId = session.interviewSession.id;
-                            setInterviewSessionId(sessionId);
-                            dispatch(setSessionId({ sessionId }));
-                        }
-                    }
-                } catch (error) {
-                    logger.error(
-                        "❌ Error creating application/interview session:",
-                        error
-                    );
-                }
-            }
-
             if (isTextMode) {
                 setIsChatInputLocked(true);
             }
-            
+
+            const recordingStart = getActualRecordingStartTime?.();
+            if (recordingStart) {
+                logger.info("Reusing recording started at:", recordingStart.toISOString());
+            }
+
             updateCurrentCode(getInitialCode());
             window.postMessage({ type: "clear-chat" }, "*");
-            
-            // Start conversation first to load script, THEN force to coding
+
             await realTimeConversationRef.current?.startConversation();
-            
-            // Force state machine to coding stage (background handled separately)
+
             dispatch(forceCoding());
             interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" } as any);
             logger.info("✅ State machine transitioned to coding stage");
-            
+
             setIsInterviewActive(true);
             logger.info("Interview started successfully!");
         } catch (error) {
@@ -619,14 +574,16 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             setIsInterviewLoading(false);
         }
     }, [
-        startRecording,
-        applicationCreated,
-        companyId,
-        jobId,
-        updateCurrentCode,
-        setInterviewSessionId,
+        isInterviewLoading,
+        isInterviewActive,
+        recordingPermissionGranted,
+        mediaRecorderRef,
+        interviewSessionId,
         isTextMode,
         setIsChatInputLocked,
+        updateCurrentCode,
+        dispatch,
+        getActualRecordingStartTime,
     ]);
 
     /**
