@@ -37,6 +37,7 @@ import { shouldTransition } from "@/shared/services/backgroundSessionGuard";
 import { createInterviewSession } from "../interview/components/services/interviewSessionService";
 import { buildControlContextMessages, CONTROL_CONTEXT_TURNS } from "../../shared/services";
 import { loadAndCacheSoundEffect } from "@/shared/utils/audioCache";
+import { startCodingStage } from "@/shared/services/codingStageTransition";
 
 export default function BackgroundInterviewPage() {
   const router = useRouter();
@@ -48,6 +49,12 @@ export default function BackgroundInterviewPage() {
   );
   const companyName = useSelector(
     (state: RootState) => state.interviewMachine.companyName
+  );
+  const companySlug = useSelector(
+    (state: RootState) => state.interviewMachine.companySlug
+  );
+  const roleSlug = useSelector(
+    (state: RootState) => state.interviewMachine.roleSlug
   );
   const preloadedFirstQuestion = useSelector(
     (state: RootState) => state.interviewMachine.preloadedFirstQuestion
@@ -88,6 +95,7 @@ export default function BackgroundInterviewPage() {
   const [backgroundTimeSeconds, setBackgroundTimeSeconds] = useState<number | undefined>(undefined);
   const [openaiClient, setOpenaiClient] = useState<OpenAI | null>(null);
   const [showDebugPanel, setShowDebugPanel] = useState(false);
+  const [, setShowCodingIDE] = useState(false);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
   const [allowQuestionDisplay, setAllowQuestionDisplay] = useState(false);
   const [soundsReady, setSoundsReady] = useState(false);
@@ -653,6 +661,14 @@ export default function BackgroundInterviewPage() {
     }
   };
 
+  const handleStartCoding = useCallback(() => {
+    startCodingStage(
+      dispatch,
+      { companyName, companySlug, roleSlug },
+      setShowCodingIDE,
+    );
+  }, [dispatch, companyName, companySlug, roleSlug]);
+
   // STAGE 1: Loading
   if (isPageLoading) {
     return (
@@ -745,7 +761,7 @@ export default function BackgroundInterviewPage() {
         <div className="flex-1 flex items-center justify-center p-4">
           <CompletionScreen
             codingTimeChallenge={codingTimeChallenge}
-            onStartCoding={() => {}}
+            onStartCoding={handleStartCoding}
           />
         </div>
 

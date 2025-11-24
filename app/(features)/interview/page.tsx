@@ -11,7 +11,6 @@ import {
   aiFinal,
   reset,
   setPageLoading,
-  forceCoding,
   setCompanyContext,
   setSessionId,
   setPreloadedData,
@@ -27,6 +26,7 @@ import { useScreenRecording } from "./components/hooks/useScreenRecording";
 import { InterviewRecordingProvider } from "./components/InterviewRecordingContext";
 import { createInterviewSession } from "./components/services/interviewSessionService";
 import { createApplication } from "./components/services/applicationService";
+import { startCodingStage } from "@/shared/services/codingStageTransition";
 import OpenAI from "openai";
 import {
   useBackgroundPreload,
@@ -383,15 +383,11 @@ function InterviewPageContent() {
 
   // Start coding handler
   const handleStartCoding = () => {
-    // Dispatch company context (already in Redux from preload, but ensure it's set)
-    dispatch(setCompanyContext({
-      companyName: companyName || (companySlug ? companySlug.charAt(0).toUpperCase() + companySlug.slice(1) : "Meta"),
-      companySlug: companySlug || "meta",
-      roleSlug: roleSlug || "frontend-engineer",
-    }));
-    dispatch(forceCoding());
-    interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" } as any);
-    setShowCodingIDE(true);
+    startCodingStage(
+      dispatch,
+      { companyName, companySlug, roleSlug },
+      setShowCodingIDE,
+    );
   };
 
   // ===== RENDER CONDITIONS =====
