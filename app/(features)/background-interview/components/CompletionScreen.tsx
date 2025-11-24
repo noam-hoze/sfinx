@@ -25,7 +25,7 @@ export default function CompletionScreen({
     // Non-blocking chapter generation
     if (interviewSessionId) {
       console.log("[CompletionScreen] Triggering background chapter generation");
-      const url = isDemoMode
+      const chapterUrl = isDemoMode
         ? `/api/interviews/session/${interviewSessionId}/background-chapters?skip-auth=true`
         : `/api/interviews/session/${interviewSessionId}/background-chapters`;
       
@@ -34,15 +34,17 @@ export default function CompletionScreen({
         if (userId) {
           body.userId = userId;
         } else {
-          console.error("[CompletionScreen] ❌ isDemoMode is true but userId is missing! Chapter generation will fail.");
+          console.error("[CompletionScreen] ❌ isDemoMode is true but userId is missing! Generation will fail.");
         }
       }
       
-      fetch(url, {
+      // Trigger Chapter Generation
+      fetch(chapterUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       }).catch(err => console.error('[CompletionScreen] Background chapter generation failed:', err));
+
     }
     
     // Immediately proceed to coding

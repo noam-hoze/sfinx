@@ -218,11 +218,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         log.info("[background-summary/POST] Request body:", { scores, rationales, companyName, roleName });
 
         if (!scores || typeof scores.adaptability !== "number") {
-            log.warn("[background-summary/POST] ❌ Invalid scores provided:", scores);
-            return NextResponse.json(
-                { error: "Valid trait scores are required" },
-                { status: 400 }
-            );
+            log.warn("[background-summary/POST] ⚠️ No valid scores provided, will ask AI to estimate them.");
+            // Proceed without scores
         }
 
         // Fetch background messages
@@ -256,11 +253,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 text: m.text,
                 timestamp: m.timestamp.getTime(),
             })),
-            scores: {
+            scores: scores ? {
                 adaptability: scores.adaptability,
                 creativity: scores.creativity,
                 reasoning: scores.reasoning,
-            },
+            } : undefined,
             rationales,
             companyName:
                 companyName || interviewSession.application.job.company.name,
@@ -330,31 +327,40 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         // Store in database
         log.info("[background-summary/POST] Saving summary to database...");
-        const backgroundSummary = await prisma.backgroundSummary.create({
-            data: {
+        
+        const summaryDbData = {
+            executiveSummary: summaryData.executiveSummary,
+            executiveSummaryOneLiner: summaryData.executiveSummaryOneLiner,
+            recommendation: summaryData.recommendation,
+            adaptabilityScore: summaryData.adaptability.score,
+            adaptabilityText: summaryData.adaptability.assessment,
+            adaptabilityOneLiner: summaryData.adaptability.oneLiner,
+            creativityScore: summaryData.creativity.score,
+            creativityText: summaryData.creativity.assessment,
+            creativityOneLiner: summaryData.creativity.oneLiner,
+            reasoningScore: summaryData.reasoning.score,
+            reasoningText: summaryData.reasoning.assessment,
+            reasoningOneLiner: summaryData.reasoning.oneLiner,
+            conversationJson: messages.map((m) => ({
+                speaker: m.speaker,
+                text: m.text,
+                timestamp: m.timestamp.getTime(),
+            })),
+            evidenceJson: {
+                adaptability: summaryData.adaptability.evidence,
+                creativity: summaryData.creativity.evidence,
+                reasoning: summaryData.reasoning.evidence,
+            },
+        };
+
+        const backgroundSummary = await prisma.backgroundSummary.upsert({
+            where: {
                 telemetryDataId: interviewSession.telemetryData.id,
-                executiveSummary: summaryData.executiveSummary,
-                executiveSummaryOneLiner: summaryData.executiveSummaryOneLiner,
-                recommendation: summaryData.recommendation,
-                adaptabilityScore: summaryData.adaptability.score,
-                adaptabilityText: summaryData.adaptability.assessment,
-                adaptabilityOneLiner: summaryData.adaptability.oneLiner,
-                creativityScore: summaryData.creativity.score,
-                creativityText: summaryData.creativity.assessment,
-                creativityOneLiner: summaryData.creativity.oneLiner,
-                reasoningScore: summaryData.reasoning.score,
-                reasoningText: summaryData.reasoning.assessment,
-                reasoningOneLiner: summaryData.reasoning.oneLiner,
-                conversationJson: messages.map((m) => ({
-                    speaker: m.speaker,
-                    text: m.text,
-                    timestamp: m.timestamp.getTime(),
-                })),
-                evidenceJson: {
-                    adaptability: summaryData.adaptability.evidence,
-                    creativity: summaryData.creativity.evidence,
-                    reasoning: summaryData.reasoning.evidence,
-                },
+            },
+            update: summaryDbData,
+            create: {
+                telemetryDataId: interviewSession.telemetryData.id,
+                ...summaryDbData,
             },
         });
 

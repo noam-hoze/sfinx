@@ -114,10 +114,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
             log.info("[background-evidence/POST] ✅ Created telemetryData:", telemetryDataId);
         }
 
+        const dateObj = new Date(timestamp);
+        if (isNaN(dateObj.getTime())) {
+            log.error("[background-evidence/POST] ❌ Invalid timestamp:", timestamp);
+            return NextResponse.json({ error: "Invalid timestamp" }, { status: 400 });
+        }
+
         // Create background evidence record
         log.info("[background-evidence/POST] Creating background evidence with data:", {
             telemetryDataId,
-            timestamp: new Date(timestamp),
+            timestamp: dateObj.toISOString(),
             questionText: questionText.substring(0, 50) + "...",
             answerText: answerText.substring(0, 50) + "...",
             questionNumber
@@ -130,8 +136,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         const backgroundEvidence = await prisma.backgroundEvidence.create({
             data: {
-                telemetryDataId,
-                timestamp: new Date(timestamp),
+                telemetryData: {
+                    connect: { id: telemetryDataId }
+                },
+                timestamp: dateObj,
                 questionText,
                 answerText,
                 questionNumber,

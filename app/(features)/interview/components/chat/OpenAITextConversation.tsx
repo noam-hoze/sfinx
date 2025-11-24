@@ -51,6 +51,8 @@ type Props = {
   onPasteDetected?: (pastedCode: string) => void;
   onHighlightPastedCode?: (pastedCode: string) => void;
   interviewSessionId?: string | null;
+  isDemoMode?: boolean;
+  userId?: string;
 };
 
 const OpenAITextConversation = forwardRef<any, Props>(
@@ -65,13 +67,15 @@ const OpenAITextConversation = forwardRef<any, Props>(
     onPasteDetected,
     onHighlightPastedCode,
     interviewSessionId,
+    isDemoMode: propIsDemoMode,
+    userId: propUserId,
   }, ref) => {
     if (!candidateName) {
       throw new Error("OpenAITextConversation requires a candidateName");
     }
     const searchParams = useSearchParams();
-    const isDemoMode = searchParams.get("demo") === "true";
-    const demoUserId = searchParams.get("userId");
+    const isDemoMode = propIsDemoMode ?? (searchParams.get("demo") === "true");
+    const demoUserId = propUserId ?? searchParams.get("userId");
     
     const dispatch = useDispatch();
     const openAIApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
