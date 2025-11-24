@@ -364,6 +364,66 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         log.info("[background-summary/POST] ✅ Background summary created successfully. ID:", backgroundSummary.id);
 
+        // Create EvidenceClip records for each trait's evidence
+        log.info("[background-summary/POST] Creating evidence clips...");
+        
+        // Fetch all background evidence for this session to get timestamps
+        const backgroundEvidenceRecords = await prisma.backgroundEvidence.findMany({
+            where: {
+                telemetryDataId: interviewSession.telemetryData.id,
+            },
+            orderBy: {
+                questionNumber: 'asc',
+            },
+        });
+
+        log.info("[background-summary/POST] Found", backgroundEvidenceRecords.length, "background evidence records");
+
+        // Helper function to create evidence clips for a trait
+        const createClipsForTrait = async (
+            traitName: string,
+            category: 'ADAPTABILITY' | 'CREATIVITY' | 'REASONING',
+            evidenceArray: Array<{ question: string; answerExcerpt: string; reasoning: string }>
+        ) => {
+            for (const evidence of evidenceArray) {
+                // Find matching background evidence by question text
+                const matchingEvidence = backgroundEvidenceRecords.find(
+                    (record) => record.questionText === evidence.question
+                );
+
+                if (matchingEvidence) {
+                    // Calculate start time in seconds from timestamp
+                    const recordingStart = interviewSession.telemetryData.createdAt;
+                    const startTimeSeconds = Math.floor(
+                        (matchingEvidence.timestamp.getTime() - recordingStart.getTime()) / 1000
+                    );
+
+                    await prisma.evidenceClip.create({
+                        data: {
+                            telemetryDataId: interviewSession.telemetryData.id,
+                            category,
+                            title: `${traitName}: ${evidence.answerExcerpt.substring(0, 50)}...`,
+                            description: evidence.reasoning,
+                            startTime: startTimeSeconds,
+                            duration: 10, // Default 10 second clip
+                            thumbnailUrl: null,
+                        },
+                    });
+
+                    log.info(`[background-summary/POST] ✅ Created ${category} evidence clip at ${startTimeSeconds}s`);
+                } else {
+                    log.warn(`[background-summary/POST] ⚠️ No matching evidence found for question: "${evidence.question.substring(0, 50)}..."`);
+                }
+            }
+        };
+
+        // Create clips for each trait
+        await createClipsForTrait('Adaptability', 'ADAPTABILITY', summaryData.adaptability.evidence);
+        await createClipsForTrait('Creativity', 'CREATIVITY', summaryData.creativity.evidence);
+        await createClipsForTrait('Reasoning', 'REASONING', summaryData.reasoning.evidence);
+
+        log.info("[background-summary/POST] ✅ Evidence clips created successfully");
+
         return NextResponse.json(
             {
                 message: "Background summary generated successfully",

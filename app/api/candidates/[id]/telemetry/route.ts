@@ -397,6 +397,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         duration: clip.duration,
                         description: clip.description,
                         startTime: clip.startTime,
+                        category: clip.category,
                     })) || [],
                     chapters: (() => {
                         log.info(`[Telemetry API] Session ${session.id} chapters:`, {
