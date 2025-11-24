@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useRouter } from "next/navigation";
 import { Suspense } from "react";
 import { store, RootState } from "@/shared/state/store";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
@@ -40,7 +39,6 @@ import {
  * All stages on single page with Redux state machine driving UI.
  */
 function InterviewPageContent() {
-  const router = useRouter();
   const { isMuted } = useMute();
   const dispatch = useDispatch();
 
@@ -70,7 +68,6 @@ function InterviewPageContent() {
   const [openaiClient, setOpenaiClient] = useState<OpenAI | null>(null);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
   const [allowQuestionDisplay, setAllowQuestionDisplay] = useState(false);
-  const [showCodingIDE, setShowCodingIDE] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [codingApplicationId, setCodingApplicationId] = useState<string | null>(applicationId || null);
 
@@ -164,7 +161,6 @@ function InterviewPageContent() {
       setName("");
       setAllowQuestionDisplay(false);
       setIsStarting(false);
-      setShowCodingIDE(false);
       setCodingApplicationId(applicationId || null);
       setInterviewSessionId(null);
       dispatch(reset());
@@ -382,8 +378,10 @@ function InterviewPageContent() {
   };
 
   // Start coding handler
-  const handleStartCoding = () => {
-    // Dispatch company context (already in Redux from preload, but ensure it's set)
+  /**
+   * Starts the coding stage and aligns chat + machine state.
+   */
+  const startCodingStage = useCallback(() => {
     dispatch(setCompanyContext({
       companyName: companyName || (companySlug ? companySlug.charAt(0).toUpperCase() + companySlug.slice(1) : "Meta"),
       companySlug: companySlug || "meta",
@@ -391,7 +389,10 @@ function InterviewPageContent() {
     }));
     dispatch(forceCoding());
     interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" } as any);
-    setShowCodingIDE(true);
+  }, [companyName, companySlug, dispatch, roleSlug]);
+
+  const handleStartCoding = () => {
+    startCodingStage();
   };
 
   // ===== RENDER CONDITIONS =====
@@ -453,7 +454,7 @@ function InterviewPageContent() {
     );
   }
 
-  if (machineState === "in_coding_session" && showCodingIDE) {
+  if (machineState === "in_coding_session") {
     return (
       <InterviewRecordingProvider value={recordingControls}>
         <InterviewIDE />
