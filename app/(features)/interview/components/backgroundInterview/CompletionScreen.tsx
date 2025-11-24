@@ -12,6 +12,9 @@ export default function CompletionScreen({
   codingTimeChallenge,
   onStartCoding,
 }: CompletionScreenProps) {
+  /**
+   * Shows the transition screen from background interview to coding and starts the challenge on demand.
+   */
 
   const handleStartCoding = () => {
     console.log("[CompletionScreen] Button clicked - calling onStartCoding prop");

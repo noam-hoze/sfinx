@@ -38,6 +38,9 @@ export default function QuestionCard({
   micStream,
   isFirstQuestion = false,
 }: QuestionCardProps) {
+  /**
+   * Presents a background interview question with TTS playback and text/voice answer capture.
+   */
   const { isMuted } = useMute();
   const [answer, setAnswer] = useState("");
   const [inputMode, setInputMode] = useState<"text" | "voice">("text");

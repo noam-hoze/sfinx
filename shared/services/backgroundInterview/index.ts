@@ -1,8 +1,9 @@
 /**
  * Background Interview Services
  * Modular, reusable services for background interview flow: preload, announcement, sounds, answer handling.
- * Used by both /background-interview and /interview pages (Constitution Principle II: Reuse-First).
- */
+ * Used by the interview page flow (Constitution Principle II: Reuse-First) after retiring the
+ * legacy /background-interview route.
+*/
 
 export { useBackgroundPreload } from "./useBackgroundPreload";
 export { useAnnouncementGeneration } from "./useAnnouncementGeneration";

@@ -16,10 +16,10 @@ import {
   setSessionId,
   setPreloadedData,
 } from "@/shared/state/slices/interviewMachineSlice";
-import QuestionCard from "../background-interview/components/QuestionCard";
-import CompletionScreen from "../background-interview/components/CompletionScreen";
-import AnnouncementScreen from "../background-interview/components/AnnouncementScreen";
-import SfinxSpinner from "../background-interview/components/SfinxSpinner";
+import QuestionCard from "./components/backgroundInterview/QuestionCard";
+import CompletionScreen from "./components/backgroundInterview/CompletionScreen";
+import AnnouncementScreen from "./components/backgroundInterview/AnnouncementScreen";
+import SfinxSpinner from "./components/backgroundInterview/SfinxSpinner";
 import InterviewStageScreen from "app/shared/components/InterviewStageScreen";
 import { InterviewIDE } from "./components";
 import { useMute } from "app/shared/contexts";

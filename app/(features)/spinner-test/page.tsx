@@ -1,6 +1,6 @@
 "use client";
 
-import SfinxSpinner from "../background-interview/components/SfinxSpinner";
+import SfinxSpinner from "../interview/components/backgroundInterview/SfinxSpinner";
 
 export default function SpinnerTestPage() {
   return (
