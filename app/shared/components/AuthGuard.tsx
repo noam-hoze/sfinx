@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useEffect } from "react";
 
 interface AuthGuardProps {
@@ -18,6 +18,7 @@ export default function AuthGuard({
     const { data: session, status } = useSession();
     const router = useRouter();
     const searchParams = useSearchParams();
+    const pathname = usePathname();
 
     const isDemoMode = searchParams.get("demo") === "true";
 
@@ -26,9 +27,15 @@ export default function AuthGuard({
 
         if (status === "loading") return; // Still loading
 
+        const search = searchParams.toString();
+        const callbackUrl = `${pathname ?? ""}${search ? `?${search}` : ""}`;
+
         if (!session) {
             // User is not authenticated
-            router.push("/login");
+            const loginUrl = callbackUrl.length
+                ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
+                : "/login";
+            router.push(loginUrl);
             return;
         }
 
@@ -41,10 +48,13 @@ export default function AuthGuard({
 
         // Check if user has the exact required role
         if (userRole !== requiredRole) {
-            router.push("/login");
+            const loginUrl = callbackUrl.length
+                ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
+                : "/login";
+            router.push(loginUrl);
             return;
         }
-    }, [session, status, requiredRole, router, isDemoMode]);
+    }, [session, status, requiredRole, router, isDemoMode, pathname, searchParams]);
 
     if (isDemoMode) {
         return <>{children}</>;

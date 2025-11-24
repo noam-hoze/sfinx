@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { AuthGuard } from "app/shared/components";
@@ -244,6 +243,15 @@ function CompanyJobsContent() {
         }
     };
 
+    const buildInterviewLink = (job: JobGridJob) => {
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        const params = new URLSearchParams({
+            jobId: job.id,
+            companyId: job.company.id,
+        });
+        return `${origin}/interview?${params.toString()}`;
+    };
+
     return (
         <div className="min-h-screen bg-gray-50">
             <div className="max-w-7xl mx-auto p-6">
@@ -452,6 +460,37 @@ function CompanyJobsContent() {
                                 </button>
                             </>
                         )}
+                        renderFooter={(job) => {
+                            const interviewLink = buildInterviewLink(job);
+                            return (
+                                <div className="text-left">
+                                    <p className="text-sm font-medium text-gray-800">
+                                        Interview link
+                                    </p>
+                                    <div className="mt-1 flex items-center gap-2">
+                                        <input
+                                            readOnly
+                                            value={interviewLink}
+                                            onFocus={(event) => event.target.select()}
+                                            className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700"
+                                        />
+                                        <button
+                                            type="button"
+                                            className="px-3 py-2 text-xs font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                                            onClick={() =>
+                                                navigator.clipboard?.writeText(interviewLink)
+                                            }
+                                        >
+                                            Copy
+                                        </button>
+                                    </div>
+                                    <p className="mt-1 text-xs text-gray-500">
+                                        Candidates will be asked to log in before continuing to the
+                                        interview.
+                                    </p>
+                                </div>
+                            );
+                        }}
                     />
                 )}
             </div>

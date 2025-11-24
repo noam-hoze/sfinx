@@ -29,6 +29,7 @@ interface JobGridProps {
     getHref?: (job: JobGridJob) => LinkHref | null;
     renderBadge?: (job: JobGridJob) => React.ReactNode;
     renderActions?: (job: JobGridJob) => React.ReactNode;
+    renderFooter?: (job: JobGridJob) => React.ReactNode;
     emptyLabel?: string;
 }
 
@@ -43,6 +44,7 @@ export function JobGrid({
     getHref,
     renderBadge,
     renderActions,
+    renderFooter,
     emptyLabel,
 }: JobGridProps) {
     if (items.length === 0) {
@@ -85,7 +87,7 @@ export function JobGrid({
                 const href = getHref ? getHref(job) : null;
                 const card = (
                     <div
-                        className={`group bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:bg-white/80 hover:shadow-lg transition-all duration-300 ease-out hover:scale-105`}
+                        className={`group bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:bg-white/80 hover:shadow-lg transition-all duration-300 ease-out hover:scale-105 flex flex-col h-full`}
                         onClick={() => {
                             if (onCardClick) {
                                 onCardClick(job);
@@ -111,7 +113,7 @@ export function JobGrid({
                             </div>
                         )}
 
-                        <div className="text-center">
+                        <div className="text-center flex-1">
                             {showCompanyName && (
                                 <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
                                     {company.name}
@@ -142,6 +144,10 @@ export function JobGrid({
                             <div className="mt-4 flex items-center justify-center gap-2">
                                 {renderActions(job)}
                             </div>
+                        ) : null}
+
+                        {renderFooter ? (
+                            <div className="mt-4 w-full">{renderFooter(job)}</div>
                         ) : null}
                     </div>
                 );

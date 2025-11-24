@@ -6,6 +6,7 @@ import React, { useState } from "react";
 import SfinxLogo from "app/shared/components/SfinxLogo";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
@@ -14,6 +15,8 @@ export default function LoginPage() {
     const [isGoogleLoading, setIsGoogleLoading] = useState(false);
     const [error, setError] = useState("");
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const callbackUrl = searchParams.get("callbackUrl") ?? "/";
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -31,7 +34,7 @@ export default function LoginPage() {
                 setError("Invalid credentials");
             } else {
                 // Redirect based on user role (this will be handled by NextAuth callback)
-                router.push("/");
+                router.push(callbackUrl);
             }
         } catch (error) {
             setError("An error occurred. Please try again.");
@@ -48,7 +51,7 @@ export default function LoginPage() {
         setIsGoogleLoading(true);
         try {
             // 🚀 Let NextAuth handle the redirect entirely
-            await signIn("google", { callbackUrl: "/" });
+            await signIn("google", { callbackUrl });
         } catch {
             setError("Google sign-in failed. Please try again.");
             setIsGoogleLoading(false);
