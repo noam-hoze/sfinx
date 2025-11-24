@@ -366,6 +366,7 @@ function InterviewPageContent() {
       const result = await submitAnswer(answer, openaiClient, name);
 
       if (result.shouldComplete) {
+        startCodingStage();
         setCompleted(true);
       } else {
         setSubmitting(false);
