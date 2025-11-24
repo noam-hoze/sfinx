@@ -253,8 +253,6 @@ Output JSON:
             { error: "Failed to generate background chapters" },
             { status: 500 }
         );
-    } finally {
-        await prisma.$disconnect();
     }
 }
 

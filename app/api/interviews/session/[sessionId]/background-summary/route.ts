@@ -102,8 +102,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
             { error: "Failed to retrieve background summary" },
             { status: 500 }
         );
-    } finally {
-        await prisma.$disconnect();
     }
 }
 
@@ -379,8 +377,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
             { error: "Failed to generate background summary" },
             { status: 500 }
         );
-    } finally {
-        await prisma.$disconnect();
     }
 }
 

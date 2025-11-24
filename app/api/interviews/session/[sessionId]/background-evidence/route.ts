@@ -161,7 +161,5 @@ export async function POST(request: NextRequest, context: RouteContext) {
             { error: "Failed to create background evidence" },
             { status: 500 }
         );
-    } finally {
-        await prisma.$disconnect();
     }
 }

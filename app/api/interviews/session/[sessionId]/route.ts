@@ -198,7 +198,5 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             { error: "Failed to update interview session" },
             { status: 500 }
         );
-    } finally {
-        await prisma.$disconnect();
     }
 }
