@@ -6,15 +6,46 @@ import InterviewStageScreen from "app/shared/components/InterviewStageScreen";
 type CompletionScreenProps = {
   codingTimeChallenge: number;
   onStartCoding: () => void;
+  interviewSessionId?: string | null;
+  userId?: string;
+  isDemoMode?: boolean;
 };
 
 export default function CompletionScreen({
   codingTimeChallenge,
   onStartCoding,
+  interviewSessionId,
+  userId,
+  isDemoMode = false,
 }: CompletionScreenProps) {
 
   const handleStartCoding = () => {
-    console.log("[CompletionScreen] Button clicked - calling onStartCoding prop");
+    console.log("[CompletionScreen] Button clicked - call onStart Coding prop");
+    
+    // Non-blocking chapter generation
+    if (interviewSessionId) {
+      console.log("[CompletionScreen] Triggering background chapter generation");
+      const url = isDemoMode
+        ? `/api/interviews/session/${interviewSessionId}/background-chapters?skip-auth=true`
+        : `/api/interviews/session/${interviewSessionId}/background-chapters`;
+      
+      const body: Record<string, any> = {};
+      if (isDemoMode) {
+        if (userId) {
+          body.userId = userId;
+        } else {
+          console.error("[CompletionScreen] ❌ isDemoMode is true but userId is missing! Chapter generation will fail.");
+        }
+      }
+      
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }).catch(err => console.error('[CompletionScreen] Background chapter generation failed:', err));
+    }
+    
+    // Immediately proceed to coding
     onStartCoding();
   };
 
