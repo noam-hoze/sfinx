@@ -1234,6 +1234,7 @@ The candidate is working on this task. Respond to their question while following
       }
       const data = await resp.json();
       scriptRef.current = data;
+      codingPromptSentRef.current = false;
       if (data?.backgroundQuestion)
         dispatch(
           setExpectedBackgroundQuestion({
