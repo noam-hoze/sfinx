@@ -30,7 +30,7 @@ function CompanyViewContent() {
     if (isNavigating) {
         return (
             <div className="min-h-screen bg-white flex items-center justify-center">
-                <SfinxSpinner size="lg" />
+                <SfinxSpinner size="lg" title="Loading company view" messages="Getting data" />
             </div>
         );
     }

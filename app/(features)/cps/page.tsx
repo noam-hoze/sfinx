@@ -352,12 +352,7 @@ function TelemetryContent() {
     if (loading) {
         return (
             <div className="h-screen bg-gray-50 overflow-hidden flex items-center justify-center">
-                <div className="text-center">
-                    <SfinxSpinner size="md" />
-                    <p className="mt-4 text-base md:text-lg text-gray-600 dark:text-gray-300">
-                        Loading candidate telemetry...
-                    </p>
-                </div>
+                <SfinxSpinner size="md" title="Loading candidate profile" messages={["Getting telemetry data", "Almost there"]} />
             </div>
         );
     }

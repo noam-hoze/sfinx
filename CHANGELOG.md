@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.23.0] - 2025-11-25
+
+### Enhanced
+
+- **SfinxSpinner Component**: Refactored into modular, self-contained loading component with integrated title and status messages
+- **Loading Experience Consistency**: Unified styling and structure across all loading states throughout the application
+- **Message Rotation System**: Support for single or multiple status messages with automatic 3.5-second rotation intervals
+- **Above-the-fold Positioning**: Proper vertical positioning (`-mt-32`) ensures spinner and text remain visible without scrolling
+
+### Changed
+
+- **SfinxSpinner Props**: Now requires `title` (main heading) and `messages` (string or array) for consistent two-tier text structure
+- **Loading Text Styling**: Standardized with `text-2xl md:text-3xl font-semibold` for titles and `text-base md:text-lg` for messages
+- **Component Self-Sufficiency**: Removed duplicate message rotation logic from InterviewOverlay, now handled entirely within SfinxSpinner
+- **All Loading States Updated**: Interview page, CPS page, demo company view, and InterviewOverlay screens use new component structure
+
+### Technical
+
+- **Component Architecture**: SfinxSpinner manages both visual spinner and text elements as single cohesive unit
+- **State Management**: Internal message rotation with useEffect hooks, configurable via props
+- **Reusability**: Eliminated code duplication across 5 loading implementations
+- **Styling Consistency**: Unified fade-in animations and responsive text sizing across all instances
+
 ## [1.17.0] - 2025-11-11
 
 ### Added

@@ -41,7 +41,6 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
 
     const [stage, setStage] = useState<string | null>(derivedStage);
     const [visible, setVisible] = useState<boolean>(true);
-    const [computingMessageIndex, setComputingMessageIndex] = useState<number>(0);
 
     const computingMessages = [
         "Analyzing your performance",
@@ -64,36 +63,10 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
         return () => clearTimeout(t);
     }, [derivedStage, stage]);
 
-    /**
-     * Rotate computing messages during the computing stage.
-     */
-    useEffect(() => {
-        if (stage === "computing") {
-            setComputingMessageIndex(0);
-            const timer = setInterval(() => {
-                setComputingMessageIndex((prevIndex) => {
-                    if (prevIndex < computingMessages.length - 1) {
-                        return prevIndex + 1;
-                    }
-                    return prevIndex;
-                });
-            }, 3500);
-            return () => clearInterval(timer);
-        } else {
-            setComputingMessageIndex(0);
-        }
-    }, [stage, computingMessages.length]);
-
     if (!stage) return null;
 
     return (
         <>
-            <style>{`
-                @keyframes fadeIn {
-                    from { opacity: 0; }
-                    to { opacity: 1; }
-                }
-            `}</style>
             <div className="absolute inset-0 z-20 bg-white/80 dark:bg-black/70 backdrop-blur-md flex items-center justify-center select-none transition-opacity duration-500 ease-out opacity-100">
                 <div
                     className={`text-center transition-opacity duration-500 ${
@@ -124,35 +97,9 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
                             </p>
                         </>
                     ) : stage === "computing" ? (
-                        <div className="-mt-32">
-                            <div className="mb-8">
-                                <SfinxSpinner size="lg" />
-                            </div>
-                            <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white mb-4">
-                                Computing interview insights
-                            </h2>
-                            <p className="text-base md:text-lg text-gray-600 dark:text-gray-300">
-                                <span 
-                                    key={computingMessageIndex} 
-                                    className="transition-opacity duration-[2000ms] opacity-0"
-                                    style={{ animation: 'fadeIn 0.5s ease-in forwards' }}
-                                >
-                                    {computingMessages[computingMessageIndex]}
-                                </span>
-                            </p>
-                        </div>
+                        <SfinxSpinner size="lg" title="Computing interview insights" messages={computingMessages} />
                     ) : stage === "loading" ? (
-                        <div className="-mt-32">
-                            <div className="mb-8">
-                                <SfinxSpinner size="lg" />
-                            </div>
-                            <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white mb-4">
-                                Welcome to your interview session
-                            </h2>
-                            <p className="text-base md:text-lg text-gray-600 dark:text-gray-300">
-                                Getting things started
-                            </p>
-                        </div>
+                        <SfinxSpinner size="lg" title="Initializing interview" messages={["Getting things ready", "Almost there"]} />
                     ) : null}
                 </div>
             </div>

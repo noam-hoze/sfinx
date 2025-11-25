@@ -422,7 +422,7 @@ function InterviewPageContent() {
   if (isPageLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex items-center justify-center p-4">
-        <SfinxSpinner size="lg" />
+        <SfinxSpinner size="lg" title="Loading interview" messages="Setting things up" />
       </div>
     );
   }

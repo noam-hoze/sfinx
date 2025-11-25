@@ -1,14 +1,18 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 type SfinxSpinnerProps = {
   size?: "sm" | "md" | "lg";
   className?: string;
+  title: string;
+  messages: string | string[];
 };
 
 /**
  * Animated atom-inspired spinner used across Sfinx loading experiences.
  */
-export default function SfinxSpinner({ size = "md", className = "" }: SfinxSpinnerProps) {
+export default function SfinxSpinner({ size = "md", className = "", title, messages }: SfinxSpinnerProps) {
   const sizes = {
     sm: { atom: 24, nucleus: 4, orbit: 14, electron: 2, fontSize: '8px' },
     md: { atom: 300, nucleus: 25, orbit: 170, electron: 10, fontSize: '28px' },
@@ -16,8 +20,22 @@ export default function SfinxSpinner({ size = "md", className = "" }: SfinxSpinn
   };
   
   const s = sizes[size];
+  
+  const messageArray = Array.isArray(messages) ? messages : [messages];
+  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
+  
+  useEffect(() => {
+    if (messageArray.length <= 1) return;
+    
+    const timer = setInterval(() => {
+      setCurrentMessageIndex((prev) => (prev + 1) % messageArray.length);
+    }, 3500);
+    
+    return () => clearInterval(timer);
+  }, [messageArray.length]);
 
   return (
+    <div className="text-center -mt-32">
     <div className={`atom ${className}`} style={{ opacity: 0 }}>
       <div className="nucleus">
         <span className="nucleus-text">S</span>
@@ -206,6 +224,19 @@ export default function SfinxSpinner({ size = "md", className = "" }: SfinxSpinn
           }
         }
       `}</style>
+    </div>
+    <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 dark:text-white mb-4">
+      {title}
+    </h2>
+    <p className="text-base md:text-lg text-gray-600 dark:text-gray-300">
+      <span 
+        key={currentMessageIndex} 
+        className="transition-opacity duration-[2000ms] opacity-0"
+        style={{ animation: 'fadeIn 0.5s ease-in forwards' }}
+      >
+        {messageArray[currentMessageIndex]}
+      </span>
+    </p>
     </div>
   );
 }
