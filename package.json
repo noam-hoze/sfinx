@@ -10,10 +10,6 @@
         "lint": "next lint",
         "test": "vitest run",
         "seed": "tsx server/db-scripts/seed-data.ts",
-        "seed:json": "tsx server/db-scripts/seed-candidate/seed-candidate-from-json.ts --file",
-        "seed:gal": "tsx server/db-scripts/seed-candidate/seed-candidate-from-json.ts --file=server/db-scripts/data/gal.json",
-        "seed:mark": "tsx server/db-scripts/seed-candidate/seed-candidate-from-json.ts --file=server/db-scripts/data/mark.json",
-        "seed:demo": "tsx server/db-scripts/seed-candidate/seed-demo-candidate.ts",
         "sync-schema-and-seed": "tsx server/db-scripts/sync-schema-and-seed.ts",
         "clean:next": "rm -rf .next .turbo node_modules/.cache",
         "e2e": "playwright test --project=voice-chromium --headed --workers=1"

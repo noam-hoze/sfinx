@@ -16,7 +16,6 @@ if (isLocal) {
 }
 
 // Import seed functions
-import { seedDemoCandidate } from "./seed-candidate/seed-demo-candidate";
 
 const prisma = new PrismaClient();
 
@@ -270,9 +269,6 @@ async function resetDatabase() {
         );
 
         log.info("Database reset and seeded successfully!");
-
-        // Create demo candidate
-        await seedDemoCandidate();
 
         // Print summary
         const companyCount = await prisma.company.count();
