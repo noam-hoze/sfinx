@@ -126,7 +126,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     >(["editor"]);
     const [activeTab, setActiveTab] = useState<"editor" | "preview">("editor");
     const [isInterviewActive, setIsInterviewActive] = useState(false);
-    const [isInterviewLoading, setIsInterviewLoading] = useState(false);
+    const [isInterviewLoading, setIsInterviewLoading] = useState(true);
     const [isAgentConnected, setIsAgentConnected] = useState(false);
     const [isCodingStarted, setIsCodingStarted] = useState(false);
     const [micMuted, setMicMuted] = useState(false);
@@ -141,7 +141,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     const realTimeConversationRef = useRef<any>(null);
     const automaticMode = process.env.NEXT_PUBLIC_AUTOMATIC_MODE === "true";
     const timeboxFiredRef = useRef(false);
-    const autoStartTriggeredRef = useRef(false);
     const [runCodeClickTime, setRunCodeClickTime] = useState<Date>(new Date());
     const runCodeClickTimeRef = useRef<Date>(runCodeClickTime);
 
@@ -491,8 +490,8 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     /**
      * Starts the interview using the shared recording session created during the start flow.
      */
-    const handleInterviewButtonClick = useCallback(async () => {
-        if (isInterviewLoading || isInterviewActive) return;
+    const startInterview = useCallback(async () => {
+        if (isInterviewActive) return;
         if (!recordingPermissionGranted || !mediaRecorderRef.current) {
             logger.warn("Recording not initialized; skipping duplicate start prompt");
             return;
@@ -527,7 +526,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             setIsInterviewLoading(false);
         }
     }, [
-        isInterviewLoading,
         isInterviewActive,
         recordingPermissionGranted,
         mediaRecorderRef,
@@ -539,17 +537,15 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     ]);
 
     /**
-     * Auto-start interview when coming from demo page (one-time flag).
+     * Start interview when IDE mounts.
      */
     useEffect(() => {
-        const shouldAutoStart = sessionStorage.getItem("sfinx-demo-autostart") === "true";
-        if (shouldAutoStart && !autoStartTriggeredRef.current && !isInterviewActive && demoCandidateName) {
-            autoStartTriggeredRef.current = true;
-            sessionStorage.removeItem("sfinx-demo-autostart");
-            logger.info("Auto-starting interview from demo flow");
-            void handleInterviewButtonClick();
+        if (!isInterviewActive) {
+            logger.info("Starting interview");
+            void startInterview();
         }
-    }, [isInterviewActive, demoCandidateName, handleInterviewButtonClick]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     /**
      * Toggles microphone mute state via the real-time conversation ref.
@@ -1011,8 +1007,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 interviewConcluded={interviewConcluded}
                 hasSubmitted={state.hasSubmitted}
                 candidateName={candidateName}
-                codingDurationSeconds={codingDurationSeconds}
-                onStartInterview={handleInterviewButtonClick}
             />
         </div>
     );
