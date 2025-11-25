@@ -130,11 +130,13 @@ WRITING GUIDELINES:
 2. Be specific - reference actual things the candidate said
 3. Balance positive observations with constructive concerns
 4. Focus on job-relevant insights, not personality
-5. Each evidence array should have 1-3 of the MOST compelling exchanges (quality over quantity)
-6. Assessments should explain what the score means in practice (e.g., "score of 75 indicates...")
-7. Use concrete examples from the conversation
-8. Avoid jargon and buzzwords - be direct
-9. Make the recommendation actionable
+5. CRITICAL: Each evidence array MUST include ALL interviewer questions and candidate responses. Every Q&A pair must be evaluated for each trait (adaptability, creativity, reasoning).
+6. For each Q&A pair, provide "reasoning" explaining how the answer demonstrates (or fails to demonstrate) that specific trait
+7. For each Q&A pair, provide "answerExcerpt" with the most relevant part of the candidate's response (1-2 sentences)
+8. Assessments should explain what the score means in practice (e.g., "score of 75 indicates...")
+9. Use concrete examples from the conversation
+10. Avoid jargon and buzzwords - be direct
+11. Make the recommendation actionable
 
 Return ONLY the JSON object, no other text.`;
 

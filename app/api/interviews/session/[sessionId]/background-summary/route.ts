@@ -367,6 +367,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
         // Create EvidenceClip records for each trait's evidence
         log.info("[background-summary/POST] Creating evidence clips...");
         
+        // Log what OpenAI gave us for evidence
+        log.info("[background-summary/POST] OpenAI Evidence Summary:");
+        log.info("  - Adaptability evidence count:", summaryData.adaptability.evidence.length);
+        log.info("  - Creativity evidence count:", summaryData.creativity.evidence.length);
+        log.info("  - Reasoning evidence count:", summaryData.reasoning.evidence.length);
+        summaryData.adaptability.evidence.forEach((ev, idx) => {
+            log.info(`  - Adaptability[${idx}]: question="${ev.question?.substring(0, 50)}...", hasReasoning=${!!ev.reasoning}, hasAnswerExcerpt=${!!ev.answerExcerpt}`);
+        });
+        summaryData.creativity.evidence.forEach((ev, idx) => {
+            log.info(`  - Creativity[${idx}]: question="${ev.question?.substring(0, 50)}...", hasReasoning=${!!ev.reasoning}, hasAnswerExcerpt=${!!ev.answerExcerpt}`);
+        });
+        summaryData.reasoning.evidence.forEach((ev, idx) => {
+            log.info(`  - Reasoning[${idx}]: question="${ev.question?.substring(0, 50)}...", hasReasoning=${!!ev.reasoning}, hasAnswerExcerpt=${!!ev.answerExcerpt}`);
+        });
+        
         // Fetch all background evidence for this session to get timestamps
         const backgroundEvidenceRecords = await prisma.backgroundEvidence.findMany({
             where: {
@@ -396,11 +411,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
         };
 
         /**
-         * Builds a descriptive title for an evidence clip.
+         * Builds a descriptive title for an evidence clip using OpenAI's answer excerpt.
          */
         const buildClipTitle = (
             traitName: string,
-            traitEvidence: { answerExcerpt?: string } | null,
+            traitEvidence: { answerExcerpt?: string; question?: string } | null,
             record: any
         ) => {
             const answerSnippet = traitEvidence?.answerExcerpt?.substring(0, 50);
@@ -417,16 +432,23 @@ export async function POST(request: NextRequest, context: RouteContext) {
         };
 
         /**
-         * Builds a description for an evidence clip using available context.
+         * Builds a description for an evidence clip using OpenAI evaluation only.
+         * Throws error if OpenAI didn't provide proper evidence (no hidden fallbacks per Constitution).
          */
         const buildClipDescription = (
             traitEvidence: { reasoning?: string; answerExcerpt?: string } | null,
-            record: any
+            record: any,
+            category: string
         ) => {
             if (traitEvidence?.reasoning?.trim()) return traitEvidence.reasoning;
             if (traitEvidence?.answerExcerpt?.trim()) return traitEvidence.answerExcerpt;
-            if (record.answerText?.trim()) return record.answerText;
-            return record.questionText;
+            
+            // NO FALLBACKS - per Constitution Principle I
+            throw new Error(
+                `OpenAI failed to provide evidence for ${category}. ` +
+                `Question: "${record.questionText.substring(0, 50)}...". ` +
+                `This is a critical error - captions must be OpenAI evaluations, not raw user input.`
+            );
         };
 
         // Helper function to create evidence clips for a trait across all background evidence
@@ -437,25 +459,45 @@ export async function POST(request: NextRequest, context: RouteContext) {
         ) => {
             const recordingStart = interviewSession.telemetryData.createdAt;
 
+            // Create clips for ALL background records (OpenAI should provide evidence for each)
             for (const [index, record] of backgroundEvidenceRecords.entries()) {
                 const traitEvidence = pickTraitEvidence(evidenceArray, record, index);
                 const startTimeSeconds = Math.floor(
                     (record.timestamp.getTime() - recordingStart.getTime()) / 1000
                 );
+                
+                log.info(`[background-summary/POST] ${category}[${index}]: Matching record Q="${record.questionText.substring(0, 50)}..." with evidence:`, {
+                    matched: traitEvidence ? `"${traitEvidence.question.substring(0, 50)}..."` : 'null',
+                    hasReasoning: traitEvidence?.reasoning ? true : false,
+                    hasAnswerExcerpt: traitEvidence?.answerExcerpt ? true : false,
+                });
+
+                // Calculate duration based on next evidence timestamp
+                let clipDuration = 15; // Default fallback for last question
+                const nextRecord = backgroundEvidenceRecords[index + 1];
+                
+                if (nextRecord) {
+                    const durationMs = nextRecord.timestamp.getTime() - record.timestamp.getTime();
+                    clipDuration = Math.floor(durationMs / 1000);
+                }
+                
+                const description = buildClipDescription(traitEvidence, record, category);
+                
+                log.info(`[background-summary/POST] ${category}[${index}]: Using description="${description.substring(0, 100)}..."`);
 
                 await prisma.evidenceClip.create({
                     data: {
                         telemetryDataId: interviewSession.telemetryData.id,
                         category,
                         title: buildClipTitle(traitName, traitEvidence, record),
-                        description: buildClipDescription(traitEvidence, record),
+                        description: description,
                         startTime: startTimeSeconds,
-                        duration: 10, // Default 10 second clip
+                        duration: clipDuration,
                         thumbnailUrl: null,
                     },
                 });
 
-                log.info(`[background-summary/POST] ✅ Created ${category} evidence clip at ${startTimeSeconds}s`);
+                log.info(`[background-summary/POST] ✅ Created ${category} evidence clip at ${startTimeSeconds}s with duration ${clipDuration}s`);
             }
         };
 
@@ -512,12 +554,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
                     })
                     .join('; ');
 
+                // Use the duration from the clips (all clips at this timestamp should have same duration)
+                const duration = clips[0]?.duration || 10;
+
                 await prisma.videoCaption.create({
                     data: {
                         videoChapterId: backgroundChapter.id,
                         text: combinedDescription,
                         startTime: timestamp,
-                        endTime: timestamp + 10, // 10 second caption duration
+                        endTime: timestamp + duration,
                     },
                 });
 
