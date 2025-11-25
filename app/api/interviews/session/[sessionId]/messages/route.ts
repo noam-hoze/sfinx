@@ -133,8 +133,5 @@ export async function POST(request: NextRequest, context: RouteContext) {
             { error: "Failed to save messages" },
             { status: 500 }
         );
-    } finally {
-        await prisma.$disconnect();
     }
 }
-

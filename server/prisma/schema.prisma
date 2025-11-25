@@ -223,6 +223,7 @@ model TelemetryData {
   workstyleMetrics   WorkstyleMetrics?
   backgroundSummary  BackgroundSummary?
   codingSummary      CodingSummary?
+  backgroundEvidence BackgroundEvidence[]
 }
 
 model WorkstyleMetrics {
@@ -352,6 +353,26 @@ model CodingSummary {
   telemetryData          TelemetryData @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
 }
 
+/// Tracks background interview answer submissions for video evidence.
+model BackgroundEvidence {
+  id              String        @id @default(cuid())
+  telemetryDataId String
+  /// Timestamp when Submit button was clicked (minus 1s offset for video evidence).
+  timestamp       DateTime
+  /// The question that was asked.
+  questionText    String        @db.Text
+  /// The user's answer (transcribed or typed).
+  answerText      String        @db.Text
+  /// Sequential question number (1, 2, 3...).
+  questionNumber  Int
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  telemetryData   TelemetryData @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
+
+  @@index([telemetryDataId])
+  @@index([timestamp])
+}
+
 enum UserRole {
   CANDIDATE
   COMPANY
@@ -455,4 +476,7 @@ enum EvidenceCategory {
   REFACTOR_CLEANUPS
   AI_ASSIST_USAGE
   EXTERNAL_TOOL_USAGE
+  ADAPTABILITY
+  CREATIVITY
+  REASONING
 }

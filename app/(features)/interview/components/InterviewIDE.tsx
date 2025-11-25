@@ -7,7 +7,7 @@ import React, {
     useRef,
     useState,
 } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
@@ -25,16 +25,14 @@ import {
 import { useElevenLabsStateMachine } from "../../../shared/hooks/useElevenLabsStateMachine";
 import { log } from "../../../shared/services";
 import { useCamera } from "./hooks/useCamera";
-import { useScreenRecording } from "./hooks/useScreenRecording";
 import { useInterviewTimer } from "./hooks/useInterviewTimer";
 import { useThemePreference } from "./hooks/useThemePreference";
-import { createApplication } from "./services/applicationService";
-import { createInterviewSession } from "./services/interviewSessionService";
 import { fetchJobById } from "./services/jobService";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { forceCoding, setCompanyContext, setSessionId } from "@/shared/state/slices/interviewMachineSlice";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
-import { store } from "@/shared/state/store";
+import { store, RootState } from "@/shared/state/store";
+import { useInterviewRecording } from "./InterviewRecordingContext";
 
 const logger = log;
 const DEFAULT_CODING_DURATION_SECONDS = 30 * 60;
@@ -83,18 +81,24 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         queueUserMessage,
     } = useInterview();
     const { markCompanyApplied } = useJobApplication();
-    const searchParams = useSearchParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { data: session } = useSession();
-    const companyId = searchParams.get("companyId");
-    const jobId = searchParams.get("jobId");
     const dispatch = useDispatch();
+    const reduxCompanySlug = useSelector((state: RootState) => state.interviewMachine.companySlug);
+    const reduxRoleSlug = useSelector((state: RootState) => state.interviewMachine.roleSlug);
+    const reduxUserId = useSelector((state: RootState) => state.interviewMachine.userId);
+    const reduxApplicationId = useSelector((state: RootState) => state.interviewMachine.applicationId);
+    
+    // Construct companyId and jobId from Redux values
+    const companyId = reduxCompanySlug || "meta";
+    const jobId = reduxCompanySlug && reduxRoleSlug ? `${reduxCompanySlug}-${reduxRoleSlug}` : "meta-frontend-engineer";
+    
     const [job, setJob] = useState<any | null>(null);
     const [codingDurationSeconds, setCodingDurationSeconds] = useState(
         DEFAULT_CODING_DURATION_SECONDS
     );
-    const isDemoMode = searchParams.get("demo") === "true";
-    const demoUserId = searchParams.get("userId");
+    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true" || searchParams.get("demo") === "true";
     const [demoCandidateName, setDemoCandidateName] = useState<string | null>(null);
     
     const candidateName = isDemoMode 
@@ -155,7 +159,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     const [isAgentConnected, setIsAgentConnected] = useState(false);
     const [isCodingStarted, setIsCodingStarted] = useState(false);
     const [micMuted, setMicMuted] = useState(false);
-    const [applicationCreated, setApplicationCreated] = useState(false);
     const [interviewConcluded, setInterviewConcluded] = useState(false);
     const [isChatInputLocked, setIsChatInputLocked] = useState(true);
     const [redirectDelayMs, setRedirectDelayMs] = useState<number>(4000);
@@ -188,13 +191,13 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
     const { isCameraOn, selfVideoRef, toggleCamera } = useCamera();
     const {
-        startRecording,
+        recordingPermissionGranted,
         stopRecording,
         insertRecordingUrl,
         interviewSessionId,
-        setInterviewSessionId,
+        mediaRecorderRef,
         getActualRecordingStartTime,
-    } = useScreenRecording(isDemoMode);
+    } = useInterviewRecording();
     const [applicationId, setApplicationId] = useState<string | null>(null);
 
     /**
@@ -204,12 +207,18 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         logger.info("interviewSessionId changed to:", interviewSessionId);
     }, [interviewSessionId]);
 
+    useEffect(() => {
+        if (reduxApplicationId) {
+            setApplicationId(reduxApplicationId);
+        }
+    }, [reduxApplicationId]);
+
     /**
      * Fetch demo candidate name when in demo mode.
      */
     useEffect(() => {
-        if (isDemoMode && demoUserId) {
-            fetch(`/api/candidates/${demoUserId}/basic?skip-auth=true`)
+        if (isDemoMode && reduxUserId) {
+            fetch(`/api/candidates/${reduxUserId}/basic?skip-auth=true`)
                 .then((res) => res.json())
                 .then((data) => {
                     if (data.name) {
@@ -219,7 +228,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 })
                 .catch((err) => logger.error("Failed to fetch demo candidate name:", err));
         }
-    }, [isDemoMode, demoUserId]);
+    }, [isDemoMode, reduxUserId]);
 
     // Background timer removed - background phase handled in separate page
 
@@ -266,6 +275,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
      * Enters coding mode and starts the interview timer.
      */
     const handleStartCoding = useCallback(async () => {
+        console.log("🎯 handleStartCoding called");
         setIsCodingStarted(true);
         setCodingStarted(true);
         await setCodingState(true);
@@ -273,17 +283,19 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     }, [setCodingStarted, setCodingState, startTimer]);
 
     useEffect(() => {
-        if (!automaticMode || isTextMode) {
+        if (!automaticMode) {
             return;
         }
         const unsubscribe = store.subscribe(() => {
-            const machineState = store.getState().interviewMachine?.state;
-            if (machineState === "in_coding_session" && !isCodingStarted) {
+            const state = store.getState();
+            const machineState = state.interviewMachine?.state;
+            const currentCodingStarted = isCodingStarted; // Capture current state
+            if (machineState === "in_coding_session" && !currentCodingStarted) {
                 void handleStartCoding();
             }
         });
         return () => unsubscribe();
-    }, [automaticMode, handleStartCoding, isCodingStarted, isTextMode]);
+    }, [automaticMode, handleStartCoding, isTextMode]);
 
     useEffect(() => {
         if (!isTextMode) {
@@ -415,7 +427,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             setIsEvaluationLoading(false);
             logger.info("[TEST_EVAL] Loading state set to false");
         }
-    }, [interviewSessionId, interviewScript, state.currentCode, isDebugVisible, isDebugModeEnabled, setIsDebugVisible, setEvaluationDebugData, setIsEvaluationLoading, isDemoMode, demoUserId]);
+    }, [interviewSessionId, interviewScript, state.currentCode, isDebugVisible, isDebugModeEnabled, setIsDebugVisible, setEvaluationDebugData, setIsEvaluationLoading, isDemoMode, reduxUserId]);
 
     // Notify parent of handleTestEvaluation when it changes
     useEffect(() => {
@@ -523,92 +535,39 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     }, [candidateName, insertRecordingUrl, interviewScript, interviewSessionId, setCodingStarted, setCodingState, state.currentCode, stateMachineHandleSubmission, stopRecording, stopTimer, updateSubmission]);
 
     /**
-     * Starts the interview: begins recording, creates application/session, resets code, and connects to the agent.
+     * Starts the interview using the shared recording session created during the start flow.
      */
     const handleInterviewButtonClick = useCallback(async () => {
+        if (isInterviewLoading || isInterviewActive) return;
+        if (!recordingPermissionGranted || !mediaRecorderRef.current) {
+            logger.warn("Recording not initialized; skipping duplicate start prompt");
+            return;
+        }
+        if (!interviewSessionId) {
+            logger.warn("Missing interview session from start flow");
+            return;
+        }
+
         try {
             setIsInterviewLoading(true);
-            const recordingStarted = await startRecording();
-            if (!recordingStarted) {
-                setIsInterviewLoading(false);
-                return;
-            }
-
-            const isDemoMode = searchParams.get("demo") === "true";
-            const demoUserId = searchParams.get("userId");
-
-            if (!applicationCreated && companyId) {
-                try {
-                    // Check if applicationId exists in URL params (from background-interview)
-                    const existingApplicationId = searchParams.get("applicationId");
-
-                    if (existingApplicationId) {
-                        logger.info(`✅ Using existing application: ${existingApplicationId}`);
-                        setApplicationCreated(true);
-                        setApplicationId(existingApplicationId);
-                        
-                        // Always create a NEW session for the coding phase with fresh recording timestamp
-                        const actualStartTime = getActualRecordingStartTime();
-                        logger.info("📹 Creating NEW coding session with actual recording start time:", actualStartTime?.toISOString());
-                        const session = await createInterviewSession({
-                            applicationId: existingApplicationId,
-                            companyId,
-                            userId: isDemoMode ? demoUserId || undefined : undefined,
-                            isDemoMode,
-                            recordingStartedAt: actualStartTime || undefined,
-                        });
-                        const sessionId = session.interviewSession.id;
-                        setInterviewSessionId(sessionId);
-                        dispatch(setSessionId({ sessionId }));
-                    } else {
-                        // Create new application and session
-                        const application = await createApplication({
-                            companyId,
-                            jobId,
-                            userId: isDemoMode ? demoUserId || undefined : undefined,
-                            isDemoMode,
-                        });
-                        setApplicationCreated(true);
-
-                        if (application?.application?.id) {
-                            setApplicationId(application.application.id);
-                            const actualStartTime = getActualRecordingStartTime();
-                            logger.info("📹 Creating session with actual recording start time:", actualStartTime?.toISOString());
-                            const session = await createInterviewSession({
-                                applicationId: application.application.id,
-                                companyId,
-                                userId: isDemoMode ? demoUserId || undefined : undefined,
-                                isDemoMode,
-                                recordingStartedAt: actualStartTime || undefined,
-                            });
-                            const sessionId = session.interviewSession.id;
-                            setInterviewSessionId(sessionId);
-                            dispatch(setSessionId({ sessionId }));
-                        }
-                    }
-                } catch (error) {
-                    logger.error(
-                        "❌ Error creating application/interview session:",
-                        error
-                    );
-                }
-            }
-
             if (isTextMode) {
                 setIsChatInputLocked(true);
             }
-            
+
+            const recordingStart = getActualRecordingStartTime?.();
+            if (recordingStart) {
+                logger.info("Reusing recording started at:", recordingStart.toISOString());
+            }
+
             updateCurrentCode(getInitialCode());
             window.postMessage({ type: "clear-chat" }, "*");
-            
-            // Start conversation first to load script, THEN force to coding
+
             await realTimeConversationRef.current?.startConversation();
-            
-            // Force state machine to coding stage (background handled separately)
+
             dispatch(forceCoding());
             interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" } as any);
             logger.info("✅ State machine transitioned to coding stage");
-            
+
             setIsInterviewActive(true);
             logger.info("Interview started successfully!");
         } catch (error) {
@@ -616,14 +575,16 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             setIsInterviewLoading(false);
         }
     }, [
-        startRecording,
-        applicationCreated,
-        companyId,
-        jobId,
-        updateCurrentCode,
-        setInterviewSessionId,
+        isInterviewLoading,
+        isInterviewActive,
+        recordingPermissionGranted,
+        mediaRecorderRef,
+        interviewSessionId,
         isTextMode,
         setIsChatInputLocked,
+        updateCurrentCode,
+        dispatch,
+        getActualRecordingStartTime,
     ]);
 
     /**
@@ -714,23 +675,18 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
      * Initializes editor content with the default snippet if empty.
      */
     useEffect(() => {
-        // If no code yet, fetch the coding template once company/role are known
+        // If no code yet, fetch the coding template once company/role are known (from Redux)
         (async () => {
             if (state.currentCode) return;
-            if (!job) return; // wait until job is loaded and store context set
-            const companyNameRaw = job?.company?.name;
-            const roleTitleRaw = job?.title;
-            if (!companyNameRaw || !roleTitleRaw) return;
-            const companySlug = companyNameRaw.toLowerCase();
-            const roleSlug = roleTitleRaw.toLowerCase().replace(/\s+/g, "-");
+            if (!reduxCompanySlug || !reduxRoleSlug) return; // wait until company context is set in Redux
             const resp = await fetch(
-                `/api/interviews/script?company=${companySlug}&role=${roleSlug}`
+                `/api/interviews/script?company=${reduxCompanySlug}&role=${reduxRoleSlug}`
             );
             if (!resp.ok) {
                 const detail =
                     (await resp.text().catch(() => "")) || resp.statusText;
                 throw new Error(
-                    `Failed to load interview script for ${companySlug}/${roleSlug}: ${detail}`
+                    `Failed to load interview script for ${reduxCompanySlug}/${reduxRoleSlug}: ${detail}`
                 );
             }
             const data = await resp.json();
@@ -743,7 +699,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             logger.error("❌ Failed to load interview script:", error);
             throw error;
         });
-    }, [state.currentCode, updateCurrentCode, job]);
+    }, [state.currentCode, updateCurrentCode, reduxCompanySlug, reduxRoleSlug]);
 
     /**
      * Resets editor code for specific tasks (e.g., task1-userlist) when task changes.
@@ -770,26 +726,25 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             const onPracticePage =
                 typeof window !== "undefined" &&
                 window.location.pathname === "/practice";
-            const isDemoMode = searchParams.get("demo") === "true";
 
             if (!onPracticePage) {
                 const delay = typeof redirectDelayMs === "number" ? redirectDelayMs : 4000;
                 setTimeout(() => {
                     try {
                         const destination = isDemoMode
-                            ? `/demo/company-view?candidateId=${searchParams.get("userId")}&applicationId=${applicationId}`
+                            ? `/demo/company-view?candidateId=${reduxUserId}&applicationId=${applicationId}`
                             : "/job-search";
                         window.location.href = destination;
                     } catch {
                         const destination = isDemoMode
-                            ? `/demo/company-view?candidateId=${searchParams.get("userId")}&applicationId=${applicationId}`
+                            ? `/demo/company-view?candidateId=${reduxUserId}&applicationId=${applicationId}`
                             : "/job-search";
                         router.push(destination as any);
                     }
                 }, delay);
             }
         }
-    }, [interviewConcluded, companyId, router, markCompanyApplied, redirectDelayMs, searchParams, interviewSessionId, applicationId]);
+    }, [interviewConcluded, companyId, router, markCompanyApplied, redirectDelayMs, reduxUserId, interviewSessionId, applicationId]);
 
     /**
      * Listens for mic mute/unmute messages from child frames and syncs local state.
@@ -887,8 +842,8 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                     caption: evaluation.caption,
                 };
 
-                if (isDemoMode && demoUserId) {
-                    body.userId = demoUserId;
+                if (isDemoMode && reduxUserId) {
+                    body.userId = reduxUserId;
                 }
 
                 logger.info("💾 [ITERATION] Saving to DB:", {
@@ -923,7 +878,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             }
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [interviewSessionId, interviewScript, isDemoMode, demoUserId]
+        [interviewSessionId, interviewScript, isDemoMode, reduxUserId]
         // Note: runCodeClickTime intentionally omitted to prevent re-execution on state change
     );
 
@@ -1098,6 +1053,8 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                                 }
                             }}
                             interviewSessionId={interviewSessionId}
+                            isDemoMode={isDemoMode}
+                            userId={reduxUserId || undefined}
                         />
                     </Panel>
                 </PanelGroup>

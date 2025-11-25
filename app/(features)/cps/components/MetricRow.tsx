@@ -1,7 +1,7 @@
 import React from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "shared/state/store";
-import { setActiveEvidenceTimestamp } from "shared/state/slices/cpsSlice";
+import { setActiveEvidenceKey } from "shared/state/slices/cpsSlice";
 
 interface EvidenceLink {
     timestamp: number;
@@ -32,7 +32,7 @@ const MetricRow: React.FC<MetricRowProps> = ({
     onVideoJump,
 }) => {
     const dispatch = useDispatch();
-    const activeEvidenceTimestamp = useSelector((state: RootState) => state.cps.activeEvidenceTimestamp);
+    const activeEvidenceKey = useSelector((state: RootState) => state.cps.activeEvidenceKey);
     
     // Handle N/A case when value is null
     const isNA = value === null;
@@ -149,12 +149,14 @@ const MetricRow: React.FC<MetricRowProps> = ({
             {evidenceLinks && evidenceLinks.length > 0 && onVideoJump && (
                 <div className="mt-3 flex gap-2">
                     {normalizedLinks.map((link, index) => {
-                        const isActive = activeEvidenceTimestamp === link.timestamp;
+                        // Create unique key for this evidence link
+                        const evidenceKey = `${link.timestamp}-${link.evaluation || 'none'}`;
+                        const isActive = activeEvidenceKey === evidenceKey;
                         return (
                             <button
                                 key={index}
                                 onClick={() => {
-                                    dispatch(setActiveEvidenceTimestamp(link.timestamp));
+                                    dispatch(setActiveEvidenceKey(evidenceKey));
                                     onVideoJump(link.timestamp);
                                 }}
                                 className={`relative w-8 h-8 flex items-center justify-center rounded-full transition-all duration-200 !cursor-pointer shadow-sm ${

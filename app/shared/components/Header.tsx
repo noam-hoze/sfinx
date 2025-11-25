@@ -21,7 +21,7 @@ export default function Header() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const isDemoMode = searchParams.get("demo") === "true" || pathname?.startsWith("/demo") || pathname?.startsWith("/background-interview");
+    const isDemoMode = searchParams.get("demo") === "true" || pathname?.startsWith("/demo") || pathname?.startsWith("/interview");
     const { isMuted, toggleMute } = useMute();
     
     // Get Redux state for page loading and state machine
@@ -89,7 +89,7 @@ export default function Header() {
         if (!isDemoMode) return null;
         
         // Map state machine states to demo stages
-        if (pathname === "/background-interview" || pathname?.startsWith("/background-interview")) {
+        if (pathname === "/interview" ) {
             // Stage 1: Welcome (idle, greeting)
             if (machineState === "idle" || machineState === "greeting_said_by_ai") {
                 return 1;
@@ -260,8 +260,8 @@ export default function Header() {
                             </button>
                             <button
                                 onClick={() => {
-                                    // Full page refresh to background-interview (cleanest reset)
-                                    window.location.href = '/background-interview';
+                                    // Full page refresh to interview (cleanest reset)
+                                    window.location.href = '/interview';
                                 }}
                                 disabled={isPageLoading}
                                 className={`px-4 py-2 text-sm font-medium text-sfinx-purple border border-sfinx-purple rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${!isPageLoading ? 'hover:bg-sfinx-purple hover:text-white cursor-pointer' : ''}`}

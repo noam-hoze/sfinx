@@ -8,7 +8,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import InterviewStageScreen from "app/shared/components/InterviewStageScreen";
-import SfinxSpinner from "app/(features)/background-interview/components/SfinxSpinner";
+import SfinxSpinner from "app/shared/components/SfinxSpinner";
 
 function CompanyViewContent() {
     const router = useRouter();

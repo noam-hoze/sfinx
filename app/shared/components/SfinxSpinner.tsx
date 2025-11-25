@@ -5,6 +5,9 @@ type SfinxSpinnerProps = {
   className?: string;
 };
 
+/**
+ * Animated atom-inspired spinner used across Sfinx loading experiences.
+ */
 export default function SfinxSpinner({ size = "md", className = "" }: SfinxSpinnerProps) {
   const sizes = {
     sm: { atom: 24, nucleus: 4, orbit: 14, electron: 2, fontSize: '8px' },

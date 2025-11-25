@@ -1,35 +1,57 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
 import InterviewStageScreen from "app/shared/components/InterviewStageScreen";
 
 type CompletionScreenProps = {
   codingTimeChallenge: number;
   onStartCoding: () => void;
-  jobId: string;
-  userId: string;
-  companyId: string;
-  applicationId: string;
+  interviewSessionId?: string | null;
+  userId?: string;
+  isDemoMode?: boolean;
 };
 
 export default function CompletionScreen({
   codingTimeChallenge,
   onStartCoding,
-  jobId,
+  interviewSessionId,
   userId,
-  companyId,
-  applicationId,
+  isDemoMode = false,
 }: CompletionScreenProps) {
-  const router = useRouter();
+  /**
+   * Shows the transition screen from background interview to coding and starts the challenge on demand.
+   */
 
   const handleStartCoding = () => {
-    // Set sessionStorage flag to auto-start interview on next page
-    sessionStorage.setItem("sfinx-demo-autostart", "true");
+    console.log("[CompletionScreen] Button clicked - call onStart Coding prop");
     
-    router.push(
-      `/interview?demo=true&jobId=${jobId}&userId=${userId}&companyId=${companyId}&applicationId=${applicationId}`
-    );
+    // Non-blocking chapter generation
+    if (interviewSessionId) {
+      console.log("[CompletionScreen] Triggering background chapter generation");
+      const chapterUrl = isDemoMode
+        ? `/api/interviews/session/${interviewSessionId}/background-chapters?skip-auth=true`
+        : `/api/interviews/session/${interviewSessionId}/background-chapters`;
+      
+      const body: Record<string, any> = {};
+      if (isDemoMode) {
+        if (userId) {
+          body.userId = userId;
+        } else {
+          console.error("[CompletionScreen] ❌ isDemoMode is true but userId is missing! Generation will fail.");
+        }
+      }
+      
+      // Trigger Chapter Generation
+      fetch(chapterUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }).catch(err => console.error('[CompletionScreen] Background chapter generation failed:', err));
+
+    }
+    
+    // Immediately proceed to coding
+    onStartCoding();
   };
 
   return (

@@ -73,4 +73,21 @@
 - Amendments: Use `/speckit.constitution` to propose changes; maintainers may update directly in POC. Post‑POC, changes require approval per governance policy.
 - Versioning: MAJOR for incompatible principle changes; MINOR for new principles/sections; PATCH for clarifications.
 
-**Version**: 1.4.0
+## Communication Style
+- All responses MUST be limited to 5 sentences maximum.
+- Concise, direct communication is mandatory.
+- No exceptions to the 5-sentence limit.
+
+## AI Efficiency & Token Optimization
+- Use `grep` or `codebase_search` instead of reading entire files when searching for specific code patterns.
+- Execute all independent tool calls in parallel (batch file reads, searches, etc.).
+- NEVER re-read files unnecessarily; remember file contents from earlier in the conversation.
+- Use targeted line ranges (`offset`/`limit`) when reading large files; only read full files when absolutely necessary.
+- Execute changes immediately without verbose explanations; let the code speak for itself.
+- Avoid redundant context or explanatory text—assume the user understands their codebase.
+- Only read/reference files directly relevant to the current task; avoid including unnecessary context.
+- Consolidate related changes within single conversations to maximize cache effectiveness.
+- Prefer targeted edits (`search_replace`) over full file rewrites to minimize token usage.
+- Batch related requests together rather than making separate prompts for connected work.
+
+**Version**: 1.5.0

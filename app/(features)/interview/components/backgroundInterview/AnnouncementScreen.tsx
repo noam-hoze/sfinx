@@ -33,6 +33,9 @@ export default function AnnouncementScreen({
   preloadedAudioBlob,
   onComplete,
 }: AnnouncementScreenProps) {
+  /**
+   * Plays a spoken announcement while revealing the text word by word before advancing the flow.
+   */
   const { isMuted } = useMute();
   const [displayedWords, setDisplayedWords] = useState<string[]>([]);
   const [audioFinished, setAudioFinished] = useState(false);
