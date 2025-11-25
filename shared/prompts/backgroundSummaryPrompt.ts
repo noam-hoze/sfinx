@@ -73,6 +73,10 @@ export function buildBackgroundSummaryPrompt(input: SummaryInput): string {
         .map((m) => `${m.speaker === "ai" ? "Interviewer" : "Candidate"}: ${m.text}`)
         .join("\n\n");
 
+    // Count interviewer questions
+    const interviewerQuestions = messages.filter(m => m.speaker === "ai");
+    const questionCount = interviewerQuestions.length;
+
     const scoresProvided = !!scores;
 
     const system = `You are an executive recruiter writing a candidate assessment report for hiring managers at ${companyName}.
@@ -93,7 +97,10 @@ ${transcript}
 
 OUTPUT REQUIREMENTS:
 Return a JSON object with this exact structure.
-IMPORTANT: All "score" fields MUST be numbers (0-100). Do NOT use "undefined" or "null".
+IMPORTANT: 
+- All "score" fields MUST be numbers (0-100). Do NOT use "undefined" or "null".
+- CRITICAL: The transcript contains ${questionCount} interviewer questions. EACH of the three evidence arrays (adaptability, creativity, reasoning) MUST contain EXACTLY ${questionCount} evidence objects - one for every single question asked.
+- Every evidence object MUST have all three fields: "question", "answerExcerpt", and "reasoning". NO empty strings or null values.
 
 {
   "executiveSummary": "2-3 paragraph overview of the candidate's overall performance, key strengths, and any concerns. Written for busy executives.",
@@ -105,23 +112,37 @@ IMPORTANT: All "score" fields MUST be numbers (0-100). Do NOT use "undefined" or
     "oneLiner": "Single sentence (15-25 words) capturing the key finding about adaptability.",
     "evidence": [
       {
-        "question": "The exact question the interviewer asked",
-        "answerExcerpt": "Key excerpt from candidate's answer (1-2 sentences that best demonstrate this trait)",
-        "reasoning": "Why this exchange demonstrates adaptability"
+        "question": "The exact first question the interviewer asked",
+        "answerExcerpt": "Key excerpt from candidate's answer (1-2 sentences)",
+        "reasoning": "How this demonstrates or fails to demonstrate adaptability"
+      },
+      {
+        "question": "The exact second question the interviewer asked",
+        "answerExcerpt": "Key excerpt from candidate's answer (1-2 sentences)",
+        "reasoning": "How this demonstrates or fails to demonstrate adaptability"
       }
+      // ... MUST include ALL ${questionCount} questions
     ]
   },
   "creativity": {
     "score": ${scoresProvided ? scores.creativity : 0},
     "assessment": "2-3 paragraph detailed assessment of the candidate's creativity.",
     "oneLiner": "Single sentence (15-25 words) capturing the key finding about creativity.",
-    "evidence": [similar structure]
+    "evidence": [
+      // MUST include ALL ${questionCount} questions with same structure as adaptability
+      { "question": "...", "answerExcerpt": "...", "reasoning": "..." },
+      // ... ALL questions
+    ]
   },
   "reasoning": {
     "score": ${scoresProvided ? scores.reasoning : 0},
     "assessment": "2-3 paragraph detailed assessment of the candidate's reasoning ability.",
     "oneLiner": "Single sentence (15-25 words) capturing the key finding about reasoning.",
-    "evidence": [similar structure]
+    "evidence": [
+      // MUST include ALL ${questionCount} questions with same structure as adaptability
+      { "question": "...", "answerExcerpt": "...", "reasoning": "..." },
+      // ... ALL questions
+    ]
   }
 }
 
@@ -130,13 +151,12 @@ WRITING GUIDELINES:
 2. Be specific - reference actual things the candidate said
 3. Balance positive observations with constructive concerns
 4. Focus on job-relevant insights, not personality
-5. CRITICAL: Each evidence array MUST include ALL interviewer questions and candidate responses. Every Q&A pair must be evaluated for each trait (adaptability, creativity, reasoning).
-6. For each Q&A pair, provide "reasoning" explaining how the answer demonstrates (or fails to demonstrate) that specific trait
-7. For each Q&A pair, provide "answerExcerpt" with the most relevant part of the candidate's response (1-2 sentences)
-8. Assessments should explain what the score means in practice (e.g., "score of 75 indicates...")
-9. Use concrete examples from the conversation
-10. Avoid jargon and buzzwords - be direct
-11. Make the recommendation actionable
+5. For each evidence item, explain how the answer demonstrates (or fails to demonstrate) that specific trait
+6. Include the most relevant part of the candidate's response in answerExcerpt (1-2 sentences)
+7. Assessments should explain what the score means in practice (e.g., "score of 75 indicates...")
+8. Use concrete examples from the conversation
+9. Avoid jargon and buzzwords - be direct
+10. Make the recommendation actionable
 
 Return ONLY the JSON object, no other text.`;
 

@@ -22,6 +22,55 @@ function normalizeSessionId(sessionId: string | string[] | undefined) {
     return sessionId ?? "";
 }
 
+/**
+ * Generates a unified one-liner caption from multiple trait evaluations using OpenAI.
+ * This creates a human-readable caption that synthesizes adaptability, creativity, and reasoning assessments.
+ * The result is stored in the DB and displayed on the CPS page.
+ */
+async function generateUnifiedCaption(
+    openai: OpenAI,
+    traitEvaluations: Array<{ trait: string; evaluation: string }>
+): Promise<string> {
+    const evaluationsText = traitEvaluations
+        .map(t => `${t.trait}: ${t.evaluation}`)
+        .join('\n\n');
+
+    const prompt = `You are creating a concise video caption for an interview assessment.
+
+Given these three trait evaluations for a candidate's response:
+
+${evaluationsText}
+
+Create a single, human-readable sentence (20-30 words) that synthesizes all three evaluations into one cohesive assessment.
+
+Requirements:
+- One sentence only
+- Natural, professional language
+- Capture the overall quality and key insights from all three traits
+- Suitable for display as a video subtitle/caption
+
+Return ONLY the caption sentence, no other text.`;
+
+    const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini", // Using mini for cost efficiency on simple task
+        temperature: 0.3,
+        messages: [
+            {
+                role: "system",
+                content: prompt,
+            },
+        ],
+    });
+
+    const caption = completion.choices[0]?.message?.content?.trim();
+    
+    if (!caption) {
+        throw new Error("OpenAI failed to generate unified caption");
+    }
+
+    return caption;
+}
+
 // GET: Retrieve existing background summary
 export async function GET(request: NextRequest, context: RouteContext) {
     try {
@@ -544,15 +593,27 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 }
             });
 
-            // Create a VideoCaption for each unique timestamp with combined descriptions
+            // TODO: Future optimization - generate unified captions in the main OpenAI call
+            // instead of making separate calls per timestamp. This would reduce API calls
+            // and latency. Consider adding a "unifiedCaption" field to the evidence structure
+            // in the main prompt and generating all captions in one go.
+            
+            // Create a VideoCaption for each unique timestamp with AI-generated unified one-liner
             for (const [timestamp, clips] of clipsByTimestamp.entries()) {
-                const combinedDescription = clips
-                    .map(clip => {
-                        const traitLabel = clip.category.charAt(0) + 
-                            clip.category.slice(1).toLowerCase();
-                        return `${traitLabel}: ${clip.description}`;
-                    })
-                    .join('; ');
+                // Prepare trait evaluations for OpenAI
+                const traitEvaluations = clips.map(clip => {
+                    const traitLabel = clip.category.charAt(0) + 
+                        clip.category.slice(1).toLowerCase();
+                    return {
+                        trait: traitLabel,
+                        evaluation: clip.description
+                    };
+                });
+
+                // Generate unified one-liner caption via OpenAI and store in DB
+                log.info(`[background-summary/POST] Generating unified caption for timestamp ${timestamp}s...`);
+                const unifiedCaption = await generateUnifiedCaption(openai, traitEvaluations);
+                log.info(`[background-summary/POST] Generated unified caption: "${unifiedCaption.substring(0, 80)}..."`);
 
                 // Use the duration from the clips (all clips at this timestamp should have same duration)
                 const duration = clips[0]?.duration || 10;
@@ -560,7 +621,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 await prisma.videoCaption.create({
                     data: {
                         videoChapterId: backgroundChapter.id,
-                        text: combinedDescription,
+                        text: unifiedCaption,
                         startTime: timestamp,
                         endTime: timestamp + duration,
                     },
