@@ -13,6 +13,7 @@ import ScoreBreakdownChart from "./components/ScoreBreakdownChart";
 import CPSDebugPanel from "./components/CPSDebugPanel";
 import ExperienceMetrics from "./components/ExperienceMetrics";
 import { AuthGuard } from "app/shared/components";
+import SfinxSpinner from "app/shared/components/SfinxSpinner";
 import { log } from "app/shared/services";
 import { calculateScore, type ScoringConfiguration, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
 
@@ -352,8 +353,8 @@ function TelemetryContent() {
         return (
             <div className="h-screen bg-gray-50 overflow-hidden flex items-center justify-center">
                 <div className="text-center">
-                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                    <p className="mt-4 text-gray-600">
+                    <SfinxSpinner size="md" />
+                    <p className="mt-4 text-base md:text-lg text-gray-600 dark:text-gray-300">
                         Loading candidate telemetry...
                     </p>
                 </div>
