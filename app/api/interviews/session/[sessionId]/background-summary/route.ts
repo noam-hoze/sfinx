@@ -379,45 +379,87 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         log.info("[background-summary/POST] Found", backgroundEvidenceRecords.length, "background evidence records");
 
-        // Helper function to create evidence clips for a trait
+        /**
+         * Selects the most relevant trait evidence for a background record, preferring
+         * exact question-text matches before position-based alignment.
+         */
+        const pickTraitEvidence = (
+            evidenceArray: Array<{ question: string; answerExcerpt: string; reasoning: string }>,
+            record: any,
+            recordIndex: number
+        ) => {
+            const exactMatch = evidenceArray.find(
+                (evidence) => evidence.question === record.questionText
+            );
+            if (exactMatch) return exactMatch;
+            return evidenceArray[recordIndex] ?? null;
+        };
+
+        /**
+         * Builds a descriptive title for an evidence clip.
+         */
+        const buildClipTitle = (
+            traitName: string,
+            traitEvidence: { answerExcerpt?: string } | null,
+            record: any
+        ) => {
+            const answerSnippet = traitEvidence?.answerExcerpt?.substring(0, 50);
+            if (answerSnippet && answerSnippet.trim()) {
+                return `${traitName}: ${answerSnippet}...`;
+            }
+
+            const questionSnippet = record.questionText?.substring(0, 50);
+            if (questionSnippet && questionSnippet.trim()) {
+                return `${traitName}: ${questionSnippet}...`;
+            }
+
+            return `${traitName}: evidence`;
+        };
+
+        /**
+         * Builds a description for an evidence clip using available context.
+         */
+        const buildClipDescription = (
+            traitEvidence: { reasoning?: string; answerExcerpt?: string } | null,
+            record: any
+        ) => {
+            if (traitEvidence?.reasoning?.trim()) return traitEvidence.reasoning;
+            if (traitEvidence?.answerExcerpt?.trim()) return traitEvidence.answerExcerpt;
+            if (record.answerText?.trim()) return record.answerText;
+            return record.questionText;
+        };
+
+        // Helper function to create evidence clips for a trait across all background evidence
         const createClipsForTrait = async (
             traitName: string,
             category: 'ADAPTABILITY' | 'CREATIVITY' | 'REASONING',
             evidenceArray: Array<{ question: string; answerExcerpt: string; reasoning: string }>
         ) => {
-            for (const evidence of evidenceArray) {
-                // Find matching background evidence by question text
-                const matchingEvidence = backgroundEvidenceRecords.find(
-                    (record) => record.questionText === evidence.question
+            const recordingStart = interviewSession.telemetryData.createdAt;
+
+            for (const [index, record] of backgroundEvidenceRecords.entries()) {
+                const traitEvidence = pickTraitEvidence(evidenceArray, record, index);
+                const startTimeSeconds = Math.floor(
+                    (record.timestamp.getTime() - recordingStart.getTime()) / 1000
                 );
 
-                if (matchingEvidence) {
-                    // Calculate start time in seconds from timestamp
-                    const recordingStart = interviewSession.telemetryData.createdAt;
-                    const startTimeSeconds = Math.floor(
-                        (matchingEvidence.timestamp.getTime() - recordingStart.getTime()) / 1000
-                    );
+                await prisma.evidenceClip.create({
+                    data: {
+                        telemetryDataId: interviewSession.telemetryData.id,
+                        category,
+                        title: buildClipTitle(traitName, traitEvidence, record),
+                        description: buildClipDescription(traitEvidence, record),
+                        startTime: startTimeSeconds,
+                        duration: 10, // Default 10 second clip
+                        thumbnailUrl: null,
+                    },
+                });
 
-                    await prisma.evidenceClip.create({
-                        data: {
-                            telemetryDataId: interviewSession.telemetryData.id,
-                            category,
-                            title: `${traitName}: ${evidence.answerExcerpt.substring(0, 50)}...`,
-                            description: evidence.reasoning,
-                            startTime: startTimeSeconds,
-                            duration: 10, // Default 10 second clip
-                            thumbnailUrl: null,
-                        },
-                    });
-
-                    log.info(`[background-summary/POST] ✅ Created ${category} evidence clip at ${startTimeSeconds}s`);
-                } else {
-                    log.warn(`[background-summary/POST] ⚠️ No matching evidence found for question: "${evidence.question.substring(0, 50)}..."`);
-                }
+                log.info(`[background-summary/POST] ✅ Created ${category} evidence clip at ${startTimeSeconds}s`);
             }
         };
 
-        // Create clips for each trait
+        // Create clips for each trait, covering every background evidence record
         await createClipsForTrait('Adaptability', 'ADAPTABILITY', summaryData.adaptability.evidence);
         await createClipsForTrait('Creativity', 'CREATIVITY', summaryData.creativity.evidence);
         await createClipsForTrait('Reasoning', 'REASONING', summaryData.reasoning.evidence);
@@ -502,4 +544,3 @@ export async function POST(request: NextRequest, context: RouteContext) {
         );
     }
 }
-
