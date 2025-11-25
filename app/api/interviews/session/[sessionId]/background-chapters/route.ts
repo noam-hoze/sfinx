@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "app/shared/services/auth";
 import { log } from "app/shared/services";
-import OpenAI from "openai";
 import prisma from "lib/prisma";
 import { createVideoChapter } from "../../../shared/createVideoChapter";
 import { CHAPTER_TYPES } from "../../../shared/chapterTypes";
@@ -158,95 +157,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
         const startTimeSeconds = (chapterStartTimestamp.getTime() - recordingStartTime.getTime()) / 1000;
         log.info("[background-chapters/POST] Chapter start time:", startTimeSeconds, "seconds");
 
-        // Generate caption using OpenAI
-        log.info("[background-chapters/POST] Generating caption with OpenAI...");
-        const openaiApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-        if (!openaiApiKey) {
-            log.error("[background-chapters/POST] ❌ OpenAI API key not configured");
-            // Use fallback caption
-            const fallbackCaption = "Background interview and candidate experience discussion";
-            log.info("[background-chapters/POST] Using fallback caption:", fallbackCaption);
-            
-            // Create chapter with fallback caption
-            await createChapterWithCaption(telemetryDataId, startTimeSeconds, fallbackCaption);
-            
-            return NextResponse.json(
-                { message: "Background chapter created with fallback caption" },
-                { status: 202 }
-            );
-        }
+        // Create chapter without caption (captions will be created by background-summary based on analysis)
+        await createChapterWithCaption(telemetryDataId, startTimeSeconds);
 
-        const openai = new OpenAI({ apiKey: openaiApiKey });
-
-        // Build conversation summary for OpenAI
-        const conversationSummary = messages
-            .map(m => `${m.speaker}: ${m.text}`)
-            .join('\n')
-            .substring(0, 2000); // Limit to 2000 chars
-
-        const prompt = `You are creating a video caption for a background interview segment.
-
-Conversation Summary:
-${conversationSummary}
-
-Task: Create a single engaging caption (50-100 characters) that summarizes this background interview conversation.
-
-Output JSON:
-{
-  "caption": "..."
-}`;
-
-        try {
-            const completion = await openai.chat.completions.create({
-                model: "gpt-4o-mini",
-                temperature: 0.7,
-                messages: [
-                    {
-                        role: "system",
-                        content: prompt,
-                    },
-                ],
-            });
-
-            const responseText = completion.choices[0]?.message?.content;
-            log.info("[background-chapters/POST] OpenAI response length:", responseText?.length || 0);
-
-            if (!responseText) {
-                throw new Error("Empty response from OpenAI");
-            }
-
-            // Parse response
-            let cleanedResponse = responseText.trim();
-            if (cleanedResponse.startsWith("```json")) {
-                cleanedResponse = cleanedResponse.replace(/^```json\s*/, "").replace(/\s*```$/, "");
-            } else if (cleanedResponse.startsWith("```")) {
-                cleanedResponse = cleanedResponse.replace(/^```\s*/, "").replace(/\s*```$/, "");
-            }
-
-            const captionData = JSON.parse(cleanedResponse);
-            const caption = captionData.caption || "Background interview discussion";
-            log.info("[background-chapters/POST] ✅ Generated caption:", caption);
-
-            // Create chapter
-            await createChapterWithCaption(telemetryDataId, startTimeSeconds, caption);
-
-            return NextResponse.json(
-                { message: "Background chapter created successfully" },
-                { status: 202 }
-            );
-        } catch (error) {
-            log.error("[background-chapters/POST] ❌ OpenAI error:", error);
-            // Use fallback caption
-            const fallbackCaption = "Background interview and candidate experience discussion";
-            log.info("[background-chapters/POST] Using fallback caption due to error:", fallbackCaption);
-            
-            await createChapterWithCaption(telemetryDataId, startTimeSeconds, fallbackCaption);
-            
-            return NextResponse.json(
-                { message: "Background chapter created with fallback caption" },
-                { status: 202 }
-            );
-        }
+        return NextResponse.json(
+            { message: "Background chapter created successfully" },
+            { status: 202 }
+        );
     } catch (error) {
         log.error("❌ Error generating background chapters:", error);
         return NextResponse.json(
@@ -257,12 +174,11 @@ Output JSON:
 }
 
 /**
- * Helper function to create the Background chapter with caption
+ * Helper function to create the Background chapter
  */
 async function createChapterWithCaption(
     telemetryDataId: string,
-    startTimeSeconds: number,
-    caption: string
+    startTimeSeconds: number
 ) {
     log.info("[createChapterWithCaption] Creating Background chapter...");
     
@@ -271,7 +187,7 @@ async function createChapterWithCaption(
         title: CHAPTER_TYPES.BACKGROUND,
         startTime: startTimeSeconds,
         description: "Background interview and experience discussion",
-        caption,
+        // No caption initially - will be populated by background-summary with analysis results
     });
     
     log.info("[createChapterWithCaption] ✅ Background chapter created");

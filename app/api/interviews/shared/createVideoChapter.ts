@@ -7,7 +7,7 @@ interface CreateVideoChapterParams {
     title: string;
     startTime: number;
     description: string;
-    caption: string;
+    caption?: string;
 }
 
 /**
@@ -15,7 +15,7 @@ interface CreateVideoChapterParams {
  * - Problem Presentation chapter (if first event)
  * - Updating previous chapter's endTime
  * - Setting current chapter's endTime based on next chapter
- * - Creating associated caption
+ * - Creating associated caption (if provided)
  * 
  * Handles chronological insertion regardless of API call arrival order.
  */
@@ -124,17 +124,18 @@ export async function createVideoChapter(params: CreateVideoChapterParams) {
         endTime: newChapter.endTime,
     });
 
-    // Create caption for new chapter
-    await prisma.videoCaption.create({
-        data: {
-            videoChapterId: newChapter.id,
-            text: caption,
-            startTime,
-            endTime: newChapterEndTime,
-        },
-    });
-
-    log.info("[createVideoChapter] Created caption");
+    // Create caption for new chapter if provided
+    if (caption) {
+        await prisma.videoCaption.create({
+            data: {
+                videoChapterId: newChapter.id,
+                text: caption,
+                startTime,
+                endTime: newChapterEndTime,
+            },
+        });
+        log.info("[createVideoChapter] Created caption");
+    }
 
     // Log all chapters after creation for debugging
     const allChapters = await prisma.videoChapter.findMany({

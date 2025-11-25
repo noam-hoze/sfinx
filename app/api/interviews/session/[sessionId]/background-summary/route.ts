@@ -424,6 +424,69 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         log.info("[background-summary/POST] ✅ Evidence clips created successfully");
 
+        // Create VideoCaption records from evidence clips (matching external tool usage pattern)
+        log.info("[background-summary/POST] Creating video captions from evidence clips...");
+        
+        // Find the Background video chapter
+        const backgroundChapter = await prisma.videoChapter.findFirst({
+            where: {
+                telemetryDataId: interviewSession.telemetryData.id,
+                title: "Background",
+            },
+        });
+
+        if (backgroundChapter) {
+            // Fetch all background evidence clips we just created
+            const allBackgroundClips = await prisma.evidenceClip.findMany({
+                where: {
+                    telemetryDataId: interviewSession.telemetryData.id,
+                    category: {
+                        in: ['ADAPTABILITY', 'CREATIVITY', 'REASONING'],
+                    },
+                },
+                orderBy: {
+                    startTime: 'asc',
+                },
+            });
+
+            // Group clips by timestamp
+            const clipsByTimestamp = new Map<number, any[]>();
+            allBackgroundClips.forEach(clip => {
+                if (clip.startTime !== null && clip.startTime !== undefined) {
+                    if (!clipsByTimestamp.has(clip.startTime)) {
+                        clipsByTimestamp.set(clip.startTime, []);
+                    }
+                    clipsByTimestamp.get(clip.startTime)!.push(clip);
+                }
+            });
+
+            // Create a VideoCaption for each unique timestamp with combined descriptions
+            for (const [timestamp, clips] of clipsByTimestamp.entries()) {
+                const combinedDescription = clips
+                    .map(clip => {
+                        const traitLabel = clip.category.charAt(0) + 
+                            clip.category.slice(1).toLowerCase();
+                        return `${traitLabel}: ${clip.description}`;
+                    })
+                    .join('; ');
+
+                await prisma.videoCaption.create({
+                    data: {
+                        videoChapterId: backgroundChapter.id,
+                        text: combinedDescription,
+                        startTime: timestamp,
+                        endTime: timestamp + 10, // 10 second caption duration
+                    },
+                });
+
+                log.info(`[background-summary/POST] ✅ Created video caption at ${timestamp}s`);
+            }
+
+            log.info("[background-summary/POST] ✅ Video captions created successfully");
+        } else {
+            log.warn("[background-summary/POST] ⚠️ Background chapter not found, skipping caption creation");
+        }
+
         return NextResponse.json(
             {
                 message: "Background summary generated successfully",
