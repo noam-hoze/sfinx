@@ -2,7 +2,6 @@
 
 import React, { useEffect } from "react";
 import Image from "next/image";
-import RealTimeConversation from "./chat/RealTimeConversation";
 import OpenAIVoiceConversation from "./chat/OpenAIVoiceConversation";
 import OpenAITextConversation from "./chat/OpenAITextConversation";
 import ChatPanel from "./chat/ChatPanel";
@@ -10,9 +9,6 @@ import ChatPanel from "./chat/ChatPanel";
 interface RightPanelProps {
     isInterviewActive: boolean;
     candidateName: string;
-    handleUserTranscript: (transcript: string) => Promise<void>;
-    updateKBVariables: (updates: any) => Promise<void>;
-    kbVariables: any;
     automaticMode: boolean;
     isCodingStarted: boolean;
     onAutoStartCoding: () => void;
@@ -40,10 +36,7 @@ interface RightPanelProps {
 const RightPanel: React.FC<RightPanelProps> = ({
     isInterviewActive,
     candidateName,
-    handleUserTranscript,
     onHighlightPastedCode,
-    updateKBVariables,
-    kbVariables,
     automaticMode,
     isCodingStarted,
     onAutoStartCoding,
@@ -74,28 +67,6 @@ const RightPanel: React.FC<RightPanelProps> = ({
         commMethodRaw === "true" ||
         commMethodRaw === "1" ||
         commMethodRaw === "yes";
-    const voiceEngine = (
-        process.env.NEXT_PUBLIC_VOICE_ENGINE || "elevenlabs"
-    )
-        .toLowerCase()
-        .trim();
-    const isElevenLabsFlow = !isTextMode && voiceEngine !== "openai";
-
-    useEffect(() => {
-        if (!isElevenLabsFlow) {
-            return;
-        }
-        if (typeof codingDurationSeconds !== "number" || codingDurationSeconds <= 0) {
-            return;
-        }
-        updateKBVariables({
-            coding_time_seconds: codingDurationSeconds,
-        }).catch(() => {});
-    }, [
-        codingDurationSeconds,
-        updateKBVariables,
-        isElevenLabsFlow,
-    ]);
 
     return (
         <div className="h-full flex flex-col border-t">
@@ -134,57 +105,30 @@ const RightPanel: React.FC<RightPanelProps> = ({
             {/* Voice mode - show conversation area */}
             {!isTextMode && (
                 <div className="flex-[1] flex flex-col bg-white dark:bg-gray-800 p-4">
-                    {(process.env.NEXT_PUBLIC_VOICE_ENGINE || "elevenlabs") === "openai" ? (
-                        <OpenAIVoiceConversation
-                            ref={realTimeConversationRef}
-                            isInterviewActive={isInterviewActive}
-                            candidateName={candidateName}
-                            handleUserTranscript={handleUserTranscript}
-                            updateKBVariables={updateKBVariables}
-                            kbVariables={kbVariables}
-                            automaticMode={automaticMode}
-                            onAutoStartCoding={onAutoStartCoding}
-                            onStartConversation={() => {
-                                setIsAgentConnected(true);
-                                onStartConversation();
-                            }}
-                            onEndConversation={() => {
-                                try {
-                                    const ref = realTimeConversationRef as any;
-                                    if (ref?.current?.stopConversation) {
-                                        ref.current.stopConversation();
-                                    }
-                                } catch {}
-                                setIsInterviewActive(false);
-                                setIsAgentConnected(false);
-                                onStopTimer();
-                                onEndConversation();
-                            }}
-                            onInterviewConcluded={onInterviewConcluded}
-                        />
-                    ) : (
-                        <RealTimeConversation
-                            ref={realTimeConversationRef}
-                            isInterviewActive={isInterviewActive}
-                            candidateName={candidateName}
-                            handleUserTranscript={handleUserTranscript}
-                            updateKBVariables={updateKBVariables}
-                            kbVariables={kbVariables}
-                            automaticMode={automaticMode}
-                            onAutoStartCoding={onAutoStartCoding}
-                            onStartConversation={() => {
-                                setIsAgentConnected(true);
-                                onStartConversation();
-                            }}
-                            onEndConversation={() => {
-                                setIsInterviewActive(false);
-                                setIsAgentConnected(false);
-                                onStopTimer();
-                                onEndConversation();
-                            }}
-                            onInterviewConcluded={onInterviewConcluded}
-                        />
-                    )}
+                    <OpenAIVoiceConversation
+                        ref={realTimeConversationRef}
+                        isInterviewActive={isInterviewActive}
+                        candidateName={candidateName}
+                        automaticMode={automaticMode}
+                        onAutoStartCoding={onAutoStartCoding}
+                        onStartConversation={() => {
+                            setIsAgentConnected(true);
+                            onStartConversation();
+                        }}
+                        onEndConversation={() => {
+                            try {
+                                const ref = realTimeConversationRef as any;
+                                if (ref?.current?.stopConversation) {
+                                    ref.current.stopConversation();
+                                }
+                            } catch {}
+                            setIsInterviewActive(false);
+                            setIsAgentConnected(false);
+                            onStopTimer();
+                            onEndConversation();
+                        }}
+                        onInterviewConcluded={onInterviewConcluded}
+                    />
                 </div>
             )}
 

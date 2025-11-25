@@ -55,8 +55,6 @@ interface EditorPanelProps {
     onTabSwitch?: (tab: "editor" | "preview") => void;
     onRunCode?: () => void;
     readOnly?: boolean;
-    onElevenLabsUpdate?: (text: string) => Promise<void>;
-    updateKBVariables?: (updates: any) => Promise<void>;
     onPasteDetected?: (pastedCode: string, timestamp: number) => void;
     onHighlightPastedCode?: (pastedCode: string) => void;
     onAskFollowup?: (payload: {
@@ -85,8 +83,6 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     onTabSwitch,
     onRunCode,
     readOnly = false,
-    onElevenLabsUpdate,
-    updateKBVariables,
     onPasteDetected,
     onHighlightPastedCode,
     onAskFollowup,
@@ -255,13 +251,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                     { pastedLength: pastedText.length, timestamp: now }
                 );
                 
-                // Voice mode: update KB variables
-                updateKBVariables?.({
-                    using_ai: true,
-                    ai_added_code: pastedText,
-                });
-                
-                // Text mode: direct callback with timestamp
+                // Direct callback with timestamp
                 onPasteDetected?.(pastedText, now);
             }
         });
@@ -313,7 +303,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                 onCodeChange?.(value);
             }
         },
-        [onCodeChange, updateKBVariables, onPasteDetected]
+        [onCodeChange, onPasteDetected]
     );
 
     const runCode = () => {
