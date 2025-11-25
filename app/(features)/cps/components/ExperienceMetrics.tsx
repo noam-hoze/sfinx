@@ -1,4 +1,7 @@
 import React from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState } from "shared/state/store";
+import { setActiveEvidenceKey } from "shared/state/slices/cpsSlice";
 import MetricRow from "./MetricRow";
 
 interface BackgroundSummary {
@@ -40,6 +43,9 @@ const ExperienceMetrics: React.FC<ExperienceMetricsProps> = ({
     evidenceClips = [],
     onVideoJump,
 }) => {
+    const dispatch = useDispatch();
+    const activeEvidenceKey = useSelector((state: RootState) => state.cps.activeEvidenceKey);
+    
     if (!backgroundSummary) {
         return (
             <div className="text-sm text-gray-500">
@@ -64,70 +70,95 @@ const ExperienceMetrics: React.FC<ExperienceMetricsProps> = ({
         clipsByTimestamp.get(clip.startTime)!.push(clip);
     });
 
-    // Create evidence link objects with combined captions
-    const createEvidenceLinks = (categories: string[]) => {
-        const links: Array<{ timestamp: number; evaluation?: string }> = [];
+    // Create consolidated evidence links - one per unique timestamp with combined captions
+    const consolidatedEvidenceLinks: Array<{ timestamp: number; evaluation?: string }> = [];
+    
+    clipsByTimestamp.forEach((clips, timestamp) => {
+        // Combine descriptions with trait labels for all clips at this timestamp
+        const combinedCaption = clips
+            .map(clip => {
+                const traitLabel = clip.category.charAt(0) + 
+                    clip.category.slice(1).toLowerCase();
+                return `${traitLabel}: ${clip.description}`;
+            })
+            .join('; ');
         
-        clipsByTimestamp.forEach((clips, timestamp) => {
-            // Filter clips that match any of the specified categories
-            const relevantClips = clips.filter(clip => 
-                categories.includes(clip.category)
-            );
-            
-            if (relevantClips.length > 0) {
-                // Combine descriptions with trait labels
-                const combinedCaption = relevantClips
-                    .map(clip => {
-                        const traitLabel = clip.category.charAt(0) + 
-                            clip.category.slice(1).toLowerCase();
-                        return `${traitLabel}: ${clip.description}`;
-                    })
-                    .join('; ');
-                
-                links.push({
-                    timestamp,
-                    evaluation: combinedCaption,
-                });
-            }
+        consolidatedEvidenceLinks.push({
+            timestamp,
+            evaluation: combinedCaption,
         });
-        
-        return links;
-    };
+    });
 
-    // Create evidence links for each trait
-    const adaptabilityLinks = createEvidenceLinks(['ADAPTABILITY']);
-    const creativityLinks = createEvidenceLinks(['CREATIVITY']);
-    const reasoningLinks = createEvidenceLinks(['REASONING']);
+    // Sort by timestamp
+    consolidatedEvidenceLinks.sort((a, b) => a.timestamp - b.timestamp);
 
     return (
-        <div className="divide-y divide-gray-100">
-            <MetricRow
-                label="Adaptability"
-                description="Ability to adjust to new challenges and changing requirements"
-                value={backgroundSummary.adaptability?.score ?? 0}
-                benchmarkLow={0}
-                benchmarkHigh={100}
-                evidenceLinks={adaptabilityLinks}
-                onVideoJump={onVideoJump}
-            />
-            <MetricRow
-                label="Creativity"
-                description="Capacity for innovative thinking and problem-solving"
-                value={backgroundSummary.creativity?.score ?? 0}
-                benchmarkLow={0}
-                benchmarkHigh={100}
-                evidenceLinks={creativityLinks}
-                onVideoJump={onVideoJump}
-            />
-            <MetricRow
-                label="Reasoning"
-                description="Logical thinking and analytical decision-making skills"
-                value={backgroundSummary.reasoning?.score ?? 0}
-                benchmarkLow={0}
-                benchmarkHigh={100}
-                evidenceLinks={reasoningLinks}
-                onVideoJump={onVideoJump}
-            />
+        <div>
+            <div className="divide-y divide-gray-100">
+                <MetricRow
+                    label="Adaptability"
+                    description="Ability to adjust to new challenges and changing requirements"
+                    value={backgroundSummary.adaptability?.score ?? 0}
+                    benchmarkLow={0}
+                    benchmarkHigh={100}
+                    onVideoJump={onVideoJump}
+                />
+                <MetricRow
+                    label="Creativity"
+                    description="Capacity for innovative thinking and problem-solving"
+                    value={backgroundSummary.creativity?.score ?? 0}
+                    benchmarkLow={0}
+                    benchmarkHigh={100}
+                    onVideoJump={onVideoJump}
+                />
+                <MetricRow
+                    label="Reasoning"
+                    description="Logical thinking and analytical decision-making skills"
+                    value={backgroundSummary.reasoning?.score ?? 0}
+                    benchmarkLow={0}
+                    benchmarkHigh={100}
+                    onVideoJump={onVideoJump}
+                />
+            </div>
+
+            {/* Consolidated Evidence Links */}
+            {consolidatedEvidenceLinks.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="text-xs font-semibold text-gray-700 mb-2">
+                        Evidence Clips
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                        {consolidatedEvidenceLinks.map((link, index) => {
+                            const evidenceKey = `${link.timestamp}-${link.evaluation || 'none'}`;
+                            const isActive = activeEvidenceKey === evidenceKey;
+                            
+                            return (
+                                <button
+                                    key={index}
+                                    onClick={() => {
+                                        dispatch(setActiveEvidenceKey(evidenceKey));
+                                        onVideoJump(link.timestamp);
+                                    }}
+                                    className={`relative w-8 h-8 flex items-center justify-center rounded-full transition-all duration-200 !cursor-pointer shadow-sm ${
+                                        isActive
+                                            ? "bg-blue-500 text-white scale-110 shadow-md"
+                                            : "bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:scale-105 hover:shadow"
+                                    }`}
+                                    style={{ cursor: 'pointer' }}
+                                    title={`Jump to ${Math.floor(link.timestamp / 60)}:${(link.timestamp % 60)
+                                        .toString()
+                                        .padStart(2, "0")}`}
+                                >
+                                    {/* Play icon */}
+                                    <svg className="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M8 5v14l11-7z" />
+                                    </svg>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
