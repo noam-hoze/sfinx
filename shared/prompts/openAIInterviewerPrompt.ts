@@ -1,7 +1,7 @@
 /**
  * Concise system prompt for the interviewer persona.
  * - Defines personality, tone, goals, behavioral rules, and staged flow guidance.
- * - Consumed by useOpenAIRealtimeSession → OpenAIConversation component.
+ * - Used by OpenAITextConversation component.
  */
 export const buildOpenAIInterviewerPrompt = (company: string) => `
 Personality

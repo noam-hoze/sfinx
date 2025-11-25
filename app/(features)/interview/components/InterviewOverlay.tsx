@@ -44,15 +44,6 @@ const InterviewOverlay: React.FC<InterviewOverlayProps> = ({
     hasSubmitted = false,
     codingDurationSeconds,
 }) => {
-    const commMethodRaw = (process.env.NEXT_PUBLIC_INTERVIEW_COMM_METHOD || "speech")
-        .toLowerCase()
-        .trim();
-    const isTextMode =
-        commMethodRaw === "text" ||
-        commMethodRaw === "true" ||
-        commMethodRaw === "1" ||
-        commMethodRaw === "yes";
-
     // Derive stage from props
     const derivedStage = useMemo(() => {
         if (interviewConcluded) return "submitted";

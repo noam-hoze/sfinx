@@ -140,14 +140,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
     const realTimeConversationRef = useRef<any>(null);
     const automaticMode = process.env.NEXT_PUBLIC_AUTOMATIC_MODE === "true";
-    const commMethodRaw = (process.env.NEXT_PUBLIC_INTERVIEW_COMM_METHOD || "speech")
-        .toLowerCase()
-        .trim();
-    const isTextMode =
-        commMethodRaw === "text" ||
-        commMethodRaw === "true" ||
-        commMethodRaw === "1" ||
-        commMethodRaw === "yes";
     const timeboxFiredRef = useRef(false);
     const autoStartTriggeredRef = useRef(false);
     const [runCodeClickTime, setRunCodeClickTime] = useState<Date>(new Date());
@@ -262,12 +254,9 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             }
         });
         return () => unsubscribe();
-    }, [automaticMode, handleStartCoding, isTextMode]);
+    }, [automaticMode, handleStartCoding]);
 
     useEffect(() => {
-        if (!isTextMode) {
-            return;
-        }
         const prevStateRef = { current: store.getState().interviewMachine?.state };
         const unsubscribe = store.subscribe(() => {
             const machineState = store.getState().interviewMachine?.state;
@@ -280,7 +269,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             prevStateRef.current = machineState;
         });
         return () => unsubscribe();
-    }, [isTextMode]);
+    }, []);
 
     const handleCodingPromptReady = useCallback(() => {
         setIsChatInputLocked(false);
@@ -515,9 +504,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
         try {
             setIsInterviewLoading(true);
-            if (isTextMode) {
-                setIsChatInputLocked(true);
-            }
+            setIsChatInputLocked(true);
 
             const recordingStart = getActualRecordingStartTime?.();
             if (recordingStart) {
@@ -545,7 +532,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         recordingPermissionGranted,
         mediaRecorderRef,
         interviewSessionId,
-        isTextMode,
         setIsChatInputLocked,
         updateCurrentCode,
         dispatch,
@@ -927,14 +913,12 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                                 onRunCode={handleRunCode}
                                 readOnly={!isCodingStarted}
                                 onPasteDetected={(pastedCode, timestamp) => {
-                                    if (isTextMode) {
-                                        try {
-                                            const ref = realTimeConversationRef.current;
-                                            if (ref?.handlePasteDetected) {
-                                                ref.handlePasteDetected(pastedCode, timestamp);
-                                            }
-                                        } catch {}
-                                    }
+                                    try {
+                                        const ref = realTimeConversationRef.current;
+                                        if (ref?.handlePasteDetected) {
+                                            ref.handlePasteDetected(pastedCode, timestamp);
+                                        }
+                                    } catch {}
                                 }}
                                 onHighlightPastedCode={(pastedCode) => {
                                     if ((window as any).__highlightPastedCode) {

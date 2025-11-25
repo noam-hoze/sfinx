@@ -23,8 +23,6 @@
         "@heygen/streaming-avatar": "^2.0.17",
         "@monaco-editor/react": "^4.7.0",
         "@next-auth/prisma-adapter": "^1.0.7",
-        "@openai/agents": "^0.1.9",
-        "@openai/agents-realtime": "^0.1.8",
         "@prisma/client": "^6.15.0",
         "@react-three/drei": "9.88.13",
         "@react-three/fiber": "8.15.19",
