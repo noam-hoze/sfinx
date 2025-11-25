@@ -102,8 +102,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
             { error: "Failed to retrieve background summary" },
             { status: 500 }
         );
-    } finally {
-        await prisma.$disconnect();
     }
 }
 
@@ -218,11 +216,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         log.info("[background-summary/POST] Request body:", { scores, rationales, companyName, roleName });
 
         if (!scores || typeof scores.adaptability !== "number") {
-            log.warn("[background-summary/POST] ❌ Invalid scores provided:", scores);
-            return NextResponse.json(
-                { error: "Valid trait scores are required" },
-                { status: 400 }
-            );
+            log.warn("[background-summary/POST] ⚠️ No valid scores provided, will ask AI to estimate them.");
+            // Proceed without scores
         }
 
         // Fetch background messages
@@ -256,11 +251,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 text: m.text,
                 timestamp: m.timestamp.getTime(),
             })),
-            scores: {
+            scores: scores ? {
                 adaptability: scores.adaptability,
                 creativity: scores.creativity,
                 reasoning: scores.reasoning,
-            },
+            } : undefined,
             rationales,
             companyName:
                 companyName || interviewSession.application.job.company.name,
@@ -330,35 +325,167 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         // Store in database
         log.info("[background-summary/POST] Saving summary to database...");
-        const backgroundSummary = await prisma.backgroundSummary.create({
-            data: {
+        
+        const summaryDbData = {
+            executiveSummary: summaryData.executiveSummary,
+            executiveSummaryOneLiner: summaryData.executiveSummaryOneLiner,
+            recommendation: summaryData.recommendation,
+            adaptabilityScore: summaryData.adaptability.score,
+            adaptabilityText: summaryData.adaptability.assessment,
+            adaptabilityOneLiner: summaryData.adaptability.oneLiner,
+            creativityScore: summaryData.creativity.score,
+            creativityText: summaryData.creativity.assessment,
+            creativityOneLiner: summaryData.creativity.oneLiner,
+            reasoningScore: summaryData.reasoning.score,
+            reasoningText: summaryData.reasoning.assessment,
+            reasoningOneLiner: summaryData.reasoning.oneLiner,
+            conversationJson: messages.map((m) => ({
+                speaker: m.speaker,
+                text: m.text,
+                timestamp: m.timestamp.getTime(),
+            })),
+            evidenceJson: {
+                adaptability: summaryData.adaptability.evidence,
+                creativity: summaryData.creativity.evidence,
+                reasoning: summaryData.reasoning.evidence,
+            },
+        };
+
+        const backgroundSummary = await prisma.backgroundSummary.upsert({
+            where: {
                 telemetryDataId: interviewSession.telemetryData.id,
-                executiveSummary: summaryData.executiveSummary,
-                executiveSummaryOneLiner: summaryData.executiveSummaryOneLiner,
-                recommendation: summaryData.recommendation,
-                adaptabilityScore: summaryData.adaptability.score,
-                adaptabilityText: summaryData.adaptability.assessment,
-                adaptabilityOneLiner: summaryData.adaptability.oneLiner,
-                creativityScore: summaryData.creativity.score,
-                creativityText: summaryData.creativity.assessment,
-                creativityOneLiner: summaryData.creativity.oneLiner,
-                reasoningScore: summaryData.reasoning.score,
-                reasoningText: summaryData.reasoning.assessment,
-                reasoningOneLiner: summaryData.reasoning.oneLiner,
-                conversationJson: messages.map((m) => ({
-                    speaker: m.speaker,
-                    text: m.text,
-                    timestamp: m.timestamp.getTime(),
-                })),
-                evidenceJson: {
-                    adaptability: summaryData.adaptability.evidence,
-                    creativity: summaryData.creativity.evidence,
-                    reasoning: summaryData.reasoning.evidence,
-                },
+            },
+            update: summaryDbData,
+            create: {
+                telemetryDataId: interviewSession.telemetryData.id,
+                ...summaryDbData,
             },
         });
 
         log.info("[background-summary/POST] ✅ Background summary created successfully. ID:", backgroundSummary.id);
+
+        // Create EvidenceClip records for each trait's evidence
+        log.info("[background-summary/POST] Creating evidence clips...");
+        
+        // Fetch all background evidence for this session to get timestamps
+        const backgroundEvidenceRecords = await prisma.backgroundEvidence.findMany({
+            where: {
+                telemetryDataId: interviewSession.telemetryData.id,
+            },
+            orderBy: {
+                questionNumber: 'asc',
+            },
+        });
+
+        log.info("[background-summary/POST] Found", backgroundEvidenceRecords.length, "background evidence records");
+
+        // Helper function to create evidence clips for a trait
+        const createClipsForTrait = async (
+            traitName: string,
+            category: 'ADAPTABILITY' | 'CREATIVITY' | 'REASONING',
+            evidenceArray: Array<{ question: string; answerExcerpt: string; reasoning: string }>
+        ) => {
+            for (const evidence of evidenceArray) {
+                // Find matching background evidence by question text
+                const matchingEvidence = backgroundEvidenceRecords.find(
+                    (record) => record.questionText === evidence.question
+                );
+
+                if (matchingEvidence) {
+                    // Calculate start time in seconds from timestamp
+                    const recordingStart = interviewSession.telemetryData.createdAt;
+                    const startTimeSeconds = Math.floor(
+                        (matchingEvidence.timestamp.getTime() - recordingStart.getTime()) / 1000
+                    );
+
+                    await prisma.evidenceClip.create({
+                        data: {
+                            telemetryDataId: interviewSession.telemetryData.id,
+                            category,
+                            title: `${traitName}: ${evidence.answerExcerpt.substring(0, 50)}...`,
+                            description: evidence.reasoning,
+                            startTime: startTimeSeconds,
+                            duration: 10, // Default 10 second clip
+                            thumbnailUrl: null,
+                        },
+                    });
+
+                    log.info(`[background-summary/POST] ✅ Created ${category} evidence clip at ${startTimeSeconds}s`);
+                } else {
+                    log.warn(`[background-summary/POST] ⚠️ No matching evidence found for question: "${evidence.question.substring(0, 50)}..."`);
+                }
+            }
+        };
+
+        // Create clips for each trait
+        await createClipsForTrait('Adaptability', 'ADAPTABILITY', summaryData.adaptability.evidence);
+        await createClipsForTrait('Creativity', 'CREATIVITY', summaryData.creativity.evidence);
+        await createClipsForTrait('Reasoning', 'REASONING', summaryData.reasoning.evidence);
+
+        log.info("[background-summary/POST] ✅ Evidence clips created successfully");
+
+        // Create VideoCaption records from evidence clips (matching external tool usage pattern)
+        log.info("[background-summary/POST] Creating video captions from evidence clips...");
+        
+        // Find the Background video chapter
+        const backgroundChapter = await prisma.videoChapter.findFirst({
+            where: {
+                telemetryDataId: interviewSession.telemetryData.id,
+                title: "Background",
+            },
+        });
+
+        if (backgroundChapter) {
+            // Fetch all background evidence clips we just created
+            const allBackgroundClips = await prisma.evidenceClip.findMany({
+                where: {
+                    telemetryDataId: interviewSession.telemetryData.id,
+                    category: {
+                        in: ['ADAPTABILITY', 'CREATIVITY', 'REASONING'],
+                    },
+                },
+                orderBy: {
+                    startTime: 'asc',
+                },
+            });
+
+            // Group clips by timestamp
+            const clipsByTimestamp = new Map<number, any[]>();
+            allBackgroundClips.forEach(clip => {
+                if (clip.startTime !== null && clip.startTime !== undefined) {
+                    if (!clipsByTimestamp.has(clip.startTime)) {
+                        clipsByTimestamp.set(clip.startTime, []);
+                    }
+                    clipsByTimestamp.get(clip.startTime)!.push(clip);
+                }
+            });
+
+            // Create a VideoCaption for each unique timestamp with combined descriptions
+            for (const [timestamp, clips] of clipsByTimestamp.entries()) {
+                const combinedDescription = clips
+                    .map(clip => {
+                        const traitLabel = clip.category.charAt(0) + 
+                            clip.category.slice(1).toLowerCase();
+                        return `${traitLabel}: ${clip.description}`;
+                    })
+                    .join('; ');
+
+                await prisma.videoCaption.create({
+                    data: {
+                        videoChapterId: backgroundChapter.id,
+                        text: combinedDescription,
+                        startTime: timestamp,
+                        endTime: timestamp + 10, // 10 second caption duration
+                    },
+                });
+
+                log.info(`[background-summary/POST] ✅ Created video caption at ${timestamp}s`);
+            }
+
+            log.info("[background-summary/POST] ✅ Video captions created successfully");
+        } else {
+            log.warn("[background-summary/POST] ⚠️ Background chapter not found, skipping caption creation");
+        }
 
         return NextResponse.json(
             {
@@ -373,8 +500,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
             { error: "Failed to generate background summary" },
             { status: 500 }
         );
-    } finally {
-        await prisma.$disconnect();
     }
 }
 

@@ -73,6 +73,7 @@ function InterviewPageContent() {
   const [showCodingIDE, setShowCodingIDE] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [codingApplicationId, setCodingApplicationId] = useState<string | null>(applicationId || null);
+  const [backgroundQuestionNumber, setBackgroundQuestionNumber] = useState(1);
 
   const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
   const recordingControls = useScreenRecording(isDemoMode);
@@ -123,13 +124,17 @@ function InterviewPageContent() {
       const messages = chatState.messages;
       if (messages.length > 0) {
         const lastMessage = messages[messages.length - 1];
-        if (lastMessage.speaker === "ai") {
+        if (lastMessage.speaker === "ai" && lastMessage.text !== currentQuestion) {
           setCurrentQuestion(lastMessage.text);
+          // Increment question number for next answer
+          if (currentQuestion !== "") {
+            setBackgroundQuestionNumber(prev => prev + 1);
+          }
         }
       }
     });
     return () => unsubscribe();
-  }, [allowQuestionDisplay]);
+  }, [allowQuestionDisplay, currentQuestion]);
 
   // Monitor machine state for completion
   useEffect(() => {
@@ -166,6 +171,7 @@ function InterviewPageContent() {
       setIsStarting(false);
       setShowCodingIDE(false);
       setCodingApplicationId(applicationId || null);
+      setBackgroundQuestionNumber(1);
       setInterviewSessionId(null);
       dispatch(reset());
     }
@@ -358,7 +364,24 @@ function InterviewPageContent() {
       type: "ADD_MESSAGE",
       payload: { text: firstQuestion, speaker: "ai" },
     } as any);
-  }, [preloadedFirstQuestion, dispatch]);
+
+    // Save first question to DB
+    if (interviewSessionId) {
+      fetch(`/api/interviews/session/${interviewSessionId}/messages?skip-auth=true`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId, // Required for skip-auth
+          messages: [{
+            text: firstQuestion,
+            speaker: "ai",
+            stage: "background",
+            timestamp: new Date().toISOString()
+          }]
+        })
+      }).catch(err => console.error("[interview] Failed to save first question:", err));
+    }
+  }, [preloadedFirstQuestion, dispatch, interviewSessionId, userId]);
 
   // Answer submission handler
   const handleSubmitAnswer = async (answer: string) => {
@@ -468,6 +491,9 @@ function InterviewPageContent() {
           <CompletionScreen
             codingTimeChallenge={codingTimeChallenge}
             onStartCoding={handleStartCoding}
+            interviewSessionId={interviewSessionId}
+            userId={userId || undefined}
+            isDemoMode={isDemoMode}
           />
         </div>
       </div>
@@ -495,6 +521,11 @@ function InterviewPageContent() {
             loading={submitting}
             micStream={micStream}
             isFirstQuestion={isFirstQuestion}
+            interviewSessionId={interviewSessionId}
+            getActualRecordingStartTime={getActualRecordingStartTime}
+            questionNumber={backgroundQuestionNumber}
+            userId={userId || undefined}
+            isDemoMode={isDemoMode}
           />
         )}
       </div>

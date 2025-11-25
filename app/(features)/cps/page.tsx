@@ -570,6 +570,7 @@ function TelemetryContent() {
                                     <div className="space-y-3">
                                         <ExperienceMetrics
                                             backgroundSummary={backgroundSummary}
+                                            evidenceClips={evidence || []}
                                             onVideoJump={onVideoJump}
                                         />
                                         {backgroundSummary && (

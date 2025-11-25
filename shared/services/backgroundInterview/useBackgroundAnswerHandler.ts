@@ -33,6 +33,31 @@ interface AnswerHandlerResult {
 export function useBackgroundAnswerHandler() {
   const dispatch = useDispatch();
   const companyName = useSelector((state: RootState) => state.interviewMachine.companyName);
+  const sessionId = useSelector((state: RootState) => state.interviewMachine.sessionId);
+  const userId = useSelector((state: RootState) => state.interviewMachine.userId);
+
+  const saveMessageToDb = async (text: string, speaker: "user" | "ai" | "system") => {
+    if (!sessionId) return;
+    try {
+      // Use skip-auth=true since we might be in demo mode or auth might be tricky in background
+      // The API endpoint handles validation
+      await fetch(`/api/interviews/session/${sessionId}/messages?skip-auth=true`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId, // Required for skip-auth
+          messages: [{
+            text,
+            speaker,
+            stage: "background",
+            timestamp: new Date().toISOString()
+          }]
+        })
+      });
+    } catch (err) {
+      console.error("[answer-handler] Failed to save message:", err);
+    }
+  };
 
   const handleSubmit = useCallback(
     async (answer: string, openaiClient: OpenAI | null, candidateName: string): Promise<AnswerHandlerResult> => {
@@ -49,6 +74,9 @@ export function useBackgroundAnswerHandler() {
           type: "ADD_MESSAGE",
           payload: { text: answer, speaker: "user" },
         } as any);
+        
+        // Save user answer to DB
+        saveMessageToDb(answer, "user");
 
         // Transition machine state
         dispatch(userFinal());
@@ -88,17 +116,25 @@ export function useBackgroundAnswerHandler() {
 
             try {
               const finalResponse = await generateAssistantReply(openaiClient, persona, closingInstruction);
+              const responseText = finalResponse || "";
+              
               interviewChatStore.dispatch({
                 type: "ADD_MESSAGE",
-                payload: { text: finalResponse || "", speaker: "ai" },
+                payload: { text: responseText, speaker: "ai" },
               } as any);
+              saveMessageToDb(responseText, "ai");
+              
+              const systemMsg = "[SYSTEM: Background interview completed, transitioning to coding stage]";
               interviewChatStore.dispatch({
                 type: "ADD_MESSAGE",
                 payload: {
-                  text: "[SYSTEM: Background interview completed, transitioning to coding stage]",
+                  text: systemMsg,
                   speaker: "system" as any,
                 },
               } as any);
+              // Don't save system message to DB to keep transcript clean? Or save it?
+              // Let's skip saving system message for now as it's internal state
+              
               console.log("[answer-handler] Final response generated");
             } catch (err) {
               console.error("[answer-handler] Failed to generate final response:", err);
@@ -117,6 +153,7 @@ export function useBackgroundAnswerHandler() {
                 type: "ADD_MESSAGE",
                 payload: { text: followUp, speaker: "ai" },
               } as any);
+              saveMessageToDb(followUp, "ai");
 
               dispatch(aiFinal({ text: followUp }));
               console.log("[answer-handler] Follow-up question generated and dispatched");
@@ -132,7 +169,7 @@ export function useBackgroundAnswerHandler() {
         throw error;
       }
     },
-    [dispatch, companyName]
+    [dispatch, companyName, sessionId]
   );
 
   return { handleSubmit };

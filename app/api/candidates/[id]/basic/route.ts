@@ -59,13 +59,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
             score: matchScore,
         });
     } catch (error) {
-        log.error("Error fetching basic candidate info:", error);
+        console.error('Error fetching candidate basic info:', error);
         return NextResponse.json(
-            { error: "Failed to fetch candidate info" },
+            { error: 'Failed to fetch candidate info' },
             { status: 500 }
         );
-    } finally {
-        await prisma.$disconnect();
     }
 }
-

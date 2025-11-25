@@ -35,7 +35,13 @@ export default function EvidenceReel({
             } else if (playerRef.current.currentTime !== undefined) {
                 playerRef.current.currentTime = jumpToTime;
                 if (playerRef.current.play) {
-                    playerRef.current.play();
+                    const playPromise = playerRef.current.play();
+                    if (playPromise !== undefined) {
+                        playPromise.catch((error: any) => {
+                            // Ignore auto-play errors (e.g. not allowed or not ready)
+                            console.warn("[EvidenceReel] Auto-play prevented:", error);
+                        });
+                    }
                 }
             }
         }

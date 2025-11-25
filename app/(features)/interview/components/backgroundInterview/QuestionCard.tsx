@@ -11,6 +11,11 @@ type QuestionCardProps = {
   loading: boolean;
   micStream: MediaStream | null;
   isFirstQuestion?: boolean;
+  interviewSessionId?: string | null;
+  getActualRecordingStartTime?: () => Date | null;
+  questionNumber?: number;
+  userId?: string;
+  isDemoMode?: boolean;
 };
 
 /**
@@ -37,6 +42,11 @@ export default function QuestionCard({
   loading,
   micStream,
   isFirstQuestion = false,
+  interviewSessionId,
+  getActualRecordingStartTime,
+  questionNumber = 1,
+  userId,
+  isDemoMode = false,
 }: QuestionCardProps) {
   /**
    * Presents a background interview question with TTS playback and text/voice answer capture.
@@ -56,6 +66,8 @@ export default function QuestionCard({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const controlsSoundRef = useRef<HTMLAudioElement | null>(null);
+  const submitClickTimeRef = useRef<Date>(new Date());
+  const VIDEO_EVIDENCE_OFFSET_MS = 1000; // Same as coding stage
 
   // Preload sounds on mount - wait for them to be fully ready (with caching)
   React.useEffect(() => {
@@ -175,9 +187,66 @@ export default function QuestionCard({
     };
   }, [isRecording]);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    // Capture click time BEFORE submitting
+    submitClickTimeRef.current = new Date();
+    
+    // Create evidence link (non-blocking)
+    if (interviewSessionId) {
+      createBackgroundEvidenceLink(answer).catch(err => 
+        console.error('[QuestionCard] Failed to create evidence link:', err)
+      );
+    }
+    
+    // Proceed with normal submission
     onSubmitAnswer(answer);
     setAnswer("");
+  };
+
+  /**
+   * Creates a background evidence link for video timeline
+   */
+  const createBackgroundEvidenceLink = async (answerText: string) => {
+    if (!interviewSessionId) {
+      console.warn('[QuestionCard] No interview session ID for evidence link');
+      return;
+    }
+    
+    const clickTime = submitClickTimeRef.current;
+    const evidenceTimestamp = new Date(clickTime.getTime() - VIDEO_EVIDENCE_OFFSET_MS);
+    
+    console.log('[QuestionCard] Creating evidence link:', {
+      clickTime: clickTime.toISOString(),
+      evidenceTimestamp: evidenceTimestamp.toISOString(),
+      questionNumber,
+    });
+    
+    const url = isDemoMode
+      ? `/api/interviews/session/${interviewSessionId}/background-evidence?skip-auth=true`
+      : `/api/interviews/session/${interviewSessionId}/background-evidence`;
+    
+    const body: Record<string, any> = {
+      timestamp: evidenceTimestamp.toISOString(),
+      questionText: question,
+      answerText: answerText,
+      questionNumber,
+    };
+    
+    if (isDemoMode) {
+      if (userId) {
+        body.userId = userId;
+      } else {
+        console.error("[QuestionCard] ❌ isDemoMode is true but userId is missing! Evidence link creation will fail.");
+      }
+    }
+    
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    
+    console.log('[QuestionCard] Evidence link created successfully');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
