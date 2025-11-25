@@ -43,6 +43,7 @@
 - Rationale: Ensures durable solutions, avoids masking symptoms, and prevents regressions.
 
 ### VII. Observability & Logging for AI‑Assisted Coding
+- ALL logging MUST use the logger service located at `app/shared/services/logger.ts`; direct `console.log`, `console.error`, or other console methods are PROHIBITED.
 - Code MUST emit concise, structured logs at key state transitions, decisions, external I/O, retries, and errors.
 - Logs MUST include correlation context (request/session IDs) and minimal input/output summaries; secrets and PII MUST be redacted.
 - Log levels MUST be consistent (debug/info/warn/error); logs MUST be actionable and avoid noise or duplication.
@@ -90,4 +91,4 @@
 - Prefer targeted edits (`search_replace`) over full file rewrites to minimize token usage.
 - Batch related requests together rather than making separate prompts for connected work.
 
-**Version**: 1.5.0
+**Version**: 1.6.0
