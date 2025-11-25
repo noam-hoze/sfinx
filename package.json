@@ -10,7 +10,8 @@
         "lint": "next lint",
         "test": "vitest run",
         "seed": "tsx server/db-scripts/seed-data.ts",
-        "sync-schema-and-seed": "tsx server/db-scripts/sync-schema-and-seed.ts",
+        "sync-db:dev": "tsx server/db-scripts/sync-schema-and-seed.ts --env=dev",
+        "sync-db:prod": "tsx server/db-scripts/sync-schema-and-seed.ts --env=prod",
         "clean:next": "rm -rf .next .turbo node_modules/.cache",
         "e2e": "playwright test --project=voice-chromium --headed --workers=1"
     },

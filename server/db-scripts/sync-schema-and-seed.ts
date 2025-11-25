@@ -9,19 +9,27 @@ async function syncSchemaAndSeed() {
     log.info("Starting database reset with new schema...");
 
     try {
-        // Hardcoded database URLs
-        const DEV_DATABASE_URL = "postgresql://neondb_owner:npg_QMkL3hFyNI1d@ep-orange-tree-ad4daj41-pooler.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
+        // Parse CLI flag: --env=dev or --env=prod
+        const envArg = process.argv.find(arg => arg.startsWith('--env='));
+        const environment = envArg?.split('=')[1];
         
-        // Detect if we're running locally (check if .env.local exists)
-        const isLocal = fs.existsSync(".env.local");
-        const databaseUrl = isLocal ? DEV_DATABASE_URL : process.env.DATABASE_URL;
-        
-        if (!databaseUrl) {
-            throw new Error("DATABASE_URL is not set");
+        if (!environment || !['dev', 'prod'].includes(environment)) {
+            throw new Error("Please specify --env=dev or --env=prod");
         }
         
-        log.info(`Running on: ${isLocal ? "LOCAL (development DB)" : "PRODUCTION"}`);
+        const databaseUrl = environment === 'dev' 
+            ? process.env.DEV_DATABASE_URL 
+            : process.env.PROD_DATABASE_URL;
+        
+        if (!databaseUrl) {
+            throw new Error(`${environment === 'dev' ? 'DEV_DATABASE_URL' : 'PROD_DATABASE_URL'} is not set in environment variables`);
+        }
+        
+        log.info(`Running on: ${environment.toUpperCase()}`);
         log.info(`Database: ${databaseUrl.split('@')[1]?.split('/')[0]}`);
+        
+        // Set DATABASE_URL in process.env for PrismaClient
+        process.env.DATABASE_URL = databaseUrl;
         
         const execOptions = {
             stdio: "inherit" as const,
