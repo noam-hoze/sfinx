@@ -1,5 +1,8 @@
 # Cursor AI Rules
 
+## Required Context
+- **ALWAYS include @AGENTS.md in every prompt** - no exceptions
+
 ## Git Workflow
 - **NEVER commit changes automatically**
 - **NEVER run git commit unless explicitly asked by the user**
