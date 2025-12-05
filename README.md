@@ -2,7 +2,7 @@
 
 Sfinx is an AI system that conducts, scores, and ranks technical candidates automatically. It delivers consistent, scalable screening interviews that replicate hiring-manager judgment and reduce time spent on early-stage assessments.
 
----
+<img width="1408" height="706" alt="image" src="https://github.com/user-attachments/assets/0a5712cd-2491-4552-ac49-ca6e841c28c9" />
 
 ## **Overview**
 
@@ -12,6 +12,9 @@ Sfinx is an AI system that conducts, scores, and ranks technical candidates auto
 * Outputs standardized evaluation summaries and rankings for hiring teams.
 
 ---
+
+
+
 
 ## **Architecture**
 
