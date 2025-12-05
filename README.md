@@ -1,8 +1,3 @@
-Here is the improved README with an explicit, clear explanation that **the entire project is built in Next.js**.
-Concise. GitHub-appropriate. Bullet-based.
-
----
-
 # **Sfinx AI — Autonomous Technical Screening Interviewers**
 
 Sfinx is an AI system that conducts, scores, and ranks technical candidates automatically. It delivers consistent, scalable screening interviews that replicate hiring-manager judgment and reduce time spent on early-stage assessments.
