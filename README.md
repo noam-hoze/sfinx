@@ -4,6 +4,30 @@ Sfinx is an AI system that conducts, scores, and ranks technical candidates auto
 
 <img width="1408" height="706" alt="image" src="https://github.com/user-attachments/assets/0a5712cd-2491-4552-ac49-ca6e841c28c9" />
 
+## **Demo Flow — `/interview` Page**
+
+* **Session Initialization**
+
+  * Creates a new interview session, loads the interviewer persona, and opens a streaming Realtime API connection.
+
+* **Voice Interaction Loop**
+
+  * Candidate speaks; audio is streamed to the model.
+  * The interviewer responds in real time with adaptive, context-aware follow-ups.
+  * The UI displays transcripts and maintains session state.
+
+* **Dynamic Reasoning Layer**
+
+  * Each turn is processed through the structured-reasoning pipeline.
+  * Follow-up questions depend on candidate answers and retrieved context.
+
+* **Scoring Output**
+
+  * At the end of the session, a scoring pass is triggered.
+  * Generates a structured evaluation summary and ranking score displayed in the UI.
+
+---
+
 ## **Overview**
 
 * Built as a **Next.js application** serving both the frontend UI and backend API routes.
@@ -12,9 +36,6 @@ Sfinx is an AI system that conducts, scores, and ranks technical candidates auto
 * Outputs standardized evaluation summaries and rankings for hiring teams.
 
 ---
-
-
-
 
 ## **Architecture**
 
