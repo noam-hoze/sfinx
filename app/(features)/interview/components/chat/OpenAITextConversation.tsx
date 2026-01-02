@@ -37,7 +37,7 @@ import {
 } from "../../../../shared/services";
 
 // Paste evaluation constants
-const MAX_PASTE_EVAL_ANSWERS = 3;
+export const MAX_PASTE_EVAL_ANSWERS = 7;
 const MIN_CONFIDENCE_TO_EVALUATE = 70;
 
 type Props = {
