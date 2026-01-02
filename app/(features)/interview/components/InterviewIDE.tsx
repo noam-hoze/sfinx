@@ -491,8 +491,10 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
      * Starts the interview using the shared recording session created during the start flow.
      */
     const startInterview = useCallback(async () => {
+        const skipScreenShare = process.env.NEXT_PUBLIC_SKIP_SCREEN_SHARE === "true";
+        
         if (isInterviewActive) return;
-        if (!recordingPermissionGranted || !mediaRecorderRef.current) {
+        if (!skipScreenShare && (!recordingPermissionGranted || !mediaRecorderRef.current)) {
             logger.warn("Recording not initialized; skipping duplicate start prompt");
             return;
         }
