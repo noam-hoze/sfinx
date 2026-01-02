@@ -67,14 +67,27 @@ export type InterviewChatState = {
             timestamp: number;
             videoChapterId?: string;
             aiQuestionTimestamp?: number;
-            confidence: number; // 0-100
-            answerCount: number; // 0-3 (number of user answers)
+            confidence: number; // 0-100 (Phase 2: avg topic coverage)
+            answerCount: number; // 0-7 (number of user answers)
             readyToEvaluate: boolean;
             currentQuestion?: string;
             evaluationReasoning?: string;
             evaluationCaption?: string;
             accountabilityScore?: number; // 0-100
-            questionScores?: Array<{ question: string; answer: string; score: number; reasoning: string; understandingLevel: string }>; // Per-question evaluations
+            questionScores?: Array<{
+                question: string;
+                answer: string;
+                score: number;
+                reasoning: string;
+                understandingLevel: string;
+                topicsAddressed?: string[]; // Phase 2: topics covered by this answer
+            }>;
+            topics?: Array<{ // Phase 2: topic tracking
+                name: string;
+                description: string;
+                percentage: number; // 0-100
+                lastUpdatedBy?: number; // question number
+            }>;
         };
     };
 };
@@ -119,6 +132,11 @@ type Action =
               pastedContent: string;
               timestamp: number;
               videoChapterId?: string;
+              topics?: Array<{
+                  name: string;
+                  description: string;
+                  percentage: number;
+              }>;
           };
       }
     | {
@@ -133,6 +151,20 @@ type Action =
               evaluationReasoning?: string;
               evaluationCaption?: string;
               accountabilityScore?: number;
+              questionScores?: Array<{
+                  question: string;
+                  answer: string;
+                  score: number;
+                  reasoning: string;
+                  understandingLevel: string;
+                  topicsAddressed?: string[];
+              }>;
+              topics?: Array<{
+                  name: string;
+                  description: string;
+                  percentage: number;
+                  lastUpdatedBy?: number;
+              }>;
           };
       }
     | { type: "CODING_CLEAR_PASTE_EVAL" };
@@ -321,6 +353,7 @@ function reducer(
                         readyToEvaluate: false,
                         accountabilityScore: 0, // Default to 0 until evaluation completes
                         questionScores: [], // Initialize empty array for per-question scores
+                        topics: action.payload.topics, // Phase 2: Store topics from identification API
                     },
                 },
             };
@@ -342,6 +375,7 @@ function reducer(
                         evaluationCaption: action.payload.evaluationCaption,
                         accountabilityScore: action.payload.accountabilityScore ?? state.coding.activePasteEvaluation.accountabilityScore,
                         questionScores: action.payload.questionScores ?? state.coding.activePasteEvaluation.questionScores,
+                        topics: action.payload.topics ?? state.coding.activePasteEvaluation.topics,
                     },
                 },
             };

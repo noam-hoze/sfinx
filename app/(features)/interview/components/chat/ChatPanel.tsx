@@ -231,12 +231,19 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
                         }}
                         className="flex items-center gap-2"
                     >
-                        <input
+                        <textarea
                             ref={inputRef}
                             name="chat_input"
                             placeholder="Type your message…"
-                            className="flex-1 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm"
+                            className="flex-1 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm resize-none"
                             disabled={isInputDisabled}
+                            rows={3}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    e.currentTarget.form?.requestSubmit();
+                                }
+                            }}
                         />
                         <button
                             type="submit"
