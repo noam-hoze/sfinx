@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "next/navigation";
 import { Suspense } from "react";
+import { useSession } from "next-auth/react";
 import { store, RootState } from "@/shared/state/store";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import {
@@ -43,6 +44,7 @@ function InterviewPageContent() {
   const router = useRouter();
   const { isMuted } = useMute();
   const dispatch = useDispatch();
+  const { data: session } = useSession();
 
   // Redux state
   const isPageLoading = useSelector((state: RootState) => state.interviewMachine.isPageLoading);
@@ -76,6 +78,7 @@ function InterviewPageContent() {
   const [backgroundQuestionNumber, setBackgroundQuestionNumber] = useState(1);
 
   const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+  const skipToCoding = process.env.NEXT_PUBLIC_SKIP_TO_CODING === "true";
   const recordingControls = useScreenRecording(isDemoMode);
   const { startRecording, interviewSessionId, setInterviewSessionId, getActualRecordingStartTime } = recordingControls;
 
@@ -109,6 +112,46 @@ function InterviewPageContent() {
       setOpenaiClient(new OpenAI({ apiKey, dangerouslyAllowBrowser: true }));
     }
   }, []);
+
+  // Skip preload if going directly to coding
+  useEffect(() => {
+    if (skipToCoding && isPageLoading) {
+      console.log("[interview] Skip-to-coding mode: bypassing preload");
+      
+      const setupUserId = async () => {
+        // Try to use session userId first
+        const sessionUserId = (session?.user as any)?.id;
+        if (sessionUserId) {
+          dispatch(setPreloadedData({ userId: sessionUserId }));
+          console.log("[interview] Set userId from session:", sessionUserId);
+          dispatch(setPageLoading({ isLoading: false }));
+          return;
+        }
+        
+        // Fallback: create demo user if not logged in
+        console.log("[interview] No session, creating demo user for skip-to-coding");
+        try {
+          const demoUserId = `demo-candidate-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          const demoUserResp = await fetch(`/api/users/demo?skip-auth=true`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: demoUserId, name: `Guest-${Date.now()}` }),
+          });
+          
+          if (demoUserResp.ok) {
+            dispatch(setPreloadedData({ userId: demoUserId }));
+            console.log("[interview] Created demo user:", demoUserId);
+          }
+        } catch (err) {
+          console.error("[interview] Failed to create demo user:", err);
+        }
+        
+        dispatch(setPageLoading({ isLoading: false }));
+      };
+      
+      setupUserId();
+    }
+  }, [skipToCoding, isPageLoading, session, dispatch]);
 
   useEffect(() => {
     if (applicationId) {
@@ -177,9 +220,9 @@ function InterviewPageContent() {
     }
   }, [shouldResetFlag, dispatch, applicationId, setInterviewSessionId]);
 
-  // STAGE 1: Preload
+  // STAGE 1: Preload (skip if going directly to coding)
   useEffect(() => {
-    if (!isPageLoading || !openaiClient) return;
+    if (!isPageLoading || !openaiClient || skipToCoding) return;
 
     const executePreload = async () => {
       try {
@@ -277,6 +320,45 @@ function InterviewPageContent() {
     setInterviewSessionId,
     dispatch,
   ]);
+
+  // Auto-skip to coding when flag is set and user is logged in
+  useEffect(() => {
+    console.log("[interview] Auto-skip check:", { skipToCoding, userId, showCodingIDE, isStarting, isPageLoading });
+    
+    if (!skipToCoding || !userId || showCodingIDE || isStarting || isPageLoading) return;
+
+    const initializeCodingSession = async () => {
+      try {
+        setIsStarting(true);
+        console.log("[interview] Skip-to-coding mode: initializing");
+
+        const activeSessionId = await ensureRecordingSession();
+        if (!activeSessionId) {
+          console.error("[interview] Recording required for skip-to-coding");
+          alert("Screen recording is required to start the interview.");
+          setIsStarting(false);
+          return;
+        }
+
+        dispatch(setCompanyContext({
+          companyName: companyName || (companySlug ? companySlug.charAt(0).toUpperCase() + companySlug.slice(1) : "Meta"),
+          companySlug: companySlug || "meta",
+          roleSlug: roleSlug || "frontend-engineer",
+        }));
+        dispatch(forceCoding());
+        interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" } as any);
+        setShowCodingIDE(true);
+        setIsStarting(false);
+        console.log("[interview] Skip-to-coding complete");
+      } catch (error) {
+        console.error("[interview] Skip-to-coding failed:", error);
+        setIsStarting(false);
+        alert("Failed to start coding session. Please refresh and try again.");
+      }
+    };
+
+    initializeCodingSession();
+  }, [skipToCoding, userId, showCodingIDE, isStarting, isPageLoading, ensureRecordingSession, dispatch, companyName, companySlug, roleSlug]);
 
   // STAGE 2: Start interview handler
   const handleStartInterview = async () => {
@@ -427,7 +509,15 @@ function InterviewPageContent() {
     );
   }
 
-  if (!isPageLoading && machineState === "idle") {
+  if (skipToCoding && isStarting) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex items-center justify-center p-4">
+        <SfinxSpinner size="lg" title="Starting coding session" messages="Preparing your interview" />
+      </div>
+    );
+  }
+
+  if (!isPageLoading && machineState === "idle" && !skipToCoding) {
     return (
       <InterviewStageScreen
         onSubmit={handleStartInterview}
