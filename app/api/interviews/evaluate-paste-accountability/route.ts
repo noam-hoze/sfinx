@@ -9,45 +9,39 @@ const openaiClient = new OpenAI({
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { pastedContent, aiQuestion, userAnswer, codingTask } = body;
+        const { pastedContent, question, answer, codingTask, questionNumber } = body;
 
-        if (!pastedContent || !aiQuestion || !userAnswer) {
+        if (!pastedContent || !question || !answer) {
             return NextResponse.json(
-                { error: "Missing required fields" },
+                { error: "Missing required fields: pastedContent, question, answer" },
                 { status: 400 }
             );
         }
 
-        log.info("[Paste Accountability] Evaluating understanding...");
+        log.info(`[Paste Accountability] Evaluating Q${questionNumber || '?'} understanding...`);
 
-        const systemPrompt = `You are evaluating whether a candidate understands code they pasted from an external source during a coding interview.
+        const systemPrompt = `You are evaluating a single question-answer exchange about pasted code in a coding interview.
 
 **Context:**
 - Coding Task: ${codingTask || "Build a React component"}
 - Code Pasted: ${pastedContent}
-- AI's Question: ${aiQuestion}
-- Candidate's Answer: ${userAnswer}
+- Question #${questionNumber || '?'}: ${question}
+- Candidate's Answer: ${answer}
 
 **Your Task:**
-Evaluate if the candidate truly understands the pasted code and can take ownership of it.
+Score ONLY this specific answer to this specific question. Evaluate if the candidate understands what they were asked about.
 
-**Evaluation Criteria:**
-1. **Full Understanding**: Candidate clearly explains the code, understands all key concepts, can modify it independently
-2. **Partial Understanding**: Candidate grasps some parts but struggles with details or key concepts
-3. **No Understanding**: Candidate cannot explain the code, gives vague/incorrect answers, or avoids the question
-
-**Accountability Score (0-100):**
-- 80-100: Can fully own and modify the code independently
-- 50-79: Understands main idea but would need help with modifications
-- 20-49: Surface-level understanding, cannot explain key parts
-- 0-19: No meaningful understanding, just copied code
+**Scoring (0-100):**
+- 80-100: Clear, accurate explanation; demonstrates full understanding of the concept asked
+- 50-79: Mostly correct but missing details or shows some confusion
+- 20-49: Vague, incomplete, or partially incorrect explanation
+- 0-19: Wrong, avoids question, or shows no understanding
 
 Return ONLY valid JSON with this exact structure:
 {
-  "understanding": "full" | "partial" | "none",
-  "accountabilityScore": number (0-100),
-  "reasoning": "Brief explanation of their understanding level",
-  "caption": "Short description for video evidence (e.g., 'Pasted React hook with full understanding')"
+  "score": number (0-100),
+  "reasoning": "Brief explanation of why this answer received this score",
+  "understandingLevel": "full" | "partial" | "none"
 }`;
 
         const completion = await openaiClient.chat.completions.create({
@@ -56,7 +50,7 @@ Return ONLY valid JSON with this exact structure:
                 { role: "system", content: systemPrompt },
                 {
                     role: "user",
-                    content: `Evaluate the candidate's understanding of the pasted code based on their answer.`,
+                    content: `Evaluate this answer and return the score.`,
                 },
             ],
             temperature: 0.3,
@@ -70,17 +64,15 @@ Return ONLY valid JSON with this exact structure:
 
         const result = JSON.parse(content);
         
-        // Validate response structure
         if (
-            !result.understanding ||
-            typeof result.accountabilityScore !== "number" ||
+            typeof result.score !== "number" ||
             !result.reasoning ||
-            !result.caption
+            !result.understandingLevel
         ) {
             throw new Error("Invalid response structure from OpenAI");
         }
 
-        log.info("[Paste Accountability] Evaluation complete:", result);
+        log.info(`[Paste Accountability] Q${questionNumber || '?'} score: ${result.score}`);
 
         return NextResponse.json(result);
     } catch (error: any) {

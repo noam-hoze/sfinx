@@ -17,11 +17,20 @@ interface ControlData {
   readyToEvaluate: boolean;
 }
 
+interface QuestionScore {
+  question: string;
+  answer: string;
+  score: number;
+  reasoning: string;
+  understandingLevel: string;
+}
+
 interface FinalEvaluation {
   understanding: "full" | "partial" | "none";
   accountabilityScore: number;
   reasoning: string;
   caption: string;
+  questionScores?: QuestionScore[];
 }
 
 export default function ExternalToolConversationTest() {
@@ -35,6 +44,7 @@ export default function ExternalToolConversationTest() {
   const [controlData, setControlData] = useState<ControlData | null>(null);
   const [finalEvaluation, setFinalEvaluation] = useState<FinalEvaluation | null>(null);
   const [lastPrompt, setLastPrompt] = useState<string>("");
+  const [questionScores, setQuestionScores] = useState<QuestionScore[]>([]);
   
   const pasteEvaluationId = "test-paste-001";
 
@@ -205,6 +215,41 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
       const finalMessages = [...newMessages, aiMessage];
       setMessages(finalMessages);
 
+      // Evaluate this Q&A pair
+      const lastQuestion = newMessages.filter(m => m.role === "assistant").slice(-1)[0]?.content || aiMessage.content;
+      const lastAnswer = userMessage.content;
+      
+      if (lastQuestion && lastAnswer) {
+        try {
+          const scoreResponse = await fetch("/api/interviews/evaluate-paste-accountability", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              pastedContent: pastedCode,
+              question: lastQuestion,
+              answer: lastAnswer,
+              codingTask: "Building a React component",
+              questionNumber: Math.floor(finalMessages.filter(m => m.role === "user").length),
+            }),
+          });
+          
+          if (scoreResponse.ok) {
+            const score = await scoreResponse.json();
+            const newScore: QuestionScore = {
+              question: lastQuestion,
+              answer: lastAnswer,
+              score: score.score,
+              reasoning: score.reasoning,
+              understandingLevel: score.understandingLevel,
+            };
+            setQuestionScores(prev => [...prev, newScore]);
+            console.log("Question score:", newScore);
+          }
+        } catch (e) {
+          console.error("Failed to score Q&A:", e);
+        }
+      }
+
       // Check if ready to evaluate
       if (control?.readyToEvaluate) {
         await triggerFinalEvaluation(finalMessages);
@@ -219,35 +264,26 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
 
   const triggerFinalEvaluation = async (conversationMessages: Message[]) => {
     try {
-      const userAnswers = conversationMessages
-        .filter(m => m.role === "user")
-        .map(m => m.content)
-        .join(" ");
-
-      const aiQuestions = conversationMessages
-        .filter(m => m.role === "assistant")
-        .map(m => m.content)
-        .join(" ");
-
-      const response = await fetch("/api/interviews/evaluate-paste-accountability", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          pastedContent: pastedCode,
-          aiQuestion: aiQuestions,
-          userAnswer: userAnswers,
-          codingTask: "Building a React component",
-        }),
-      });
-
-      if (response.ok) {
-        const evaluation = await response.json();
-        setFinalEvaluation(evaluation);
-      } else {
-        console.error("Evaluation failed:", await response.text());
-      }
+      // Aggregate per-question scores
+      const avgScore = questionScores.length > 0
+        ? Math.round(questionScores.reduce((sum, qs) => sum + qs.score, 0) / questionScores.length)
+        : 0;
+      
+      const understanding = avgScore >= 80 ? "full" : avgScore >= 50 ? "partial" : "none";
+      const reasoning = questionScores.map((qs, i) => `Q${i + 1} (score: ${qs.score}): ${qs.reasoning}`).join("; ");
+      const caption = `Pasted code evaluation: ${understanding} understanding (avg score: ${avgScore})`;
+      
+      const evaluation: FinalEvaluation = {
+        understanding,
+        accountabilityScore: avgScore,
+        reasoning,
+        caption,
+        questionScores,
+      };
+      
+      setFinalEvaluation(evaluation);
     } catch (error) {
-      console.error("Error triggering evaluation:", error);
+      console.error("Error aggregating evaluation:", error);
     }
   };
 
@@ -390,11 +426,34 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
               )}
             </div>
 
+            {/* Per-Question Scores */}
+            {questionScores.length > 0 && (
+              <div className="bg-blue-50 border-2 border-blue-500 rounded-lg shadow p-6">
+                <h2 className="text-xl font-semibold mb-4 text-blue-800">
+                  Per-Question Scores
+                </h2>
+                <div className="space-y-3">
+                  {questionScores.map((qs, idx) => (
+                    <div key={idx} className="bg-white p-3 rounded border border-blue-200">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="text-sm font-semibold text-blue-700">Q{idx + 1}</div>
+                        <div className="text-lg font-bold text-blue-600">{qs.score}/100</div>
+                      </div>
+                      <div className="text-xs text-gray-600 mb-1">Question: {qs.question}</div>
+                      <div className="text-xs text-gray-600 mb-1">Answer: {qs.answer}</div>
+                      <div className="text-xs text-gray-500">Reasoning: {qs.reasoning}</div>
+                      <div className="text-xs font-medium text-gray-700 mt-1">Level: {qs.understandingLevel}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Final Evaluation */}
             {finalEvaluation && (
               <div className="bg-green-50 border-2 border-green-500 rounded-lg shadow p-6">
                 <h2 className="text-xl font-semibold mb-4 text-green-800">
-                  ✓ Final Evaluation
+                  ✓ Final Aggregated Evaluation
                 </h2>
                 <div className="space-y-3">
                   <div>
@@ -405,7 +464,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
                   </div>
 
                   <div>
-                    <div className="text-sm text-gray-600">Accountability Score</div>
+                    <div className="text-sm text-gray-600">Average Score (from {questionScores.length} questions)</div>
                     <div className="text-3xl font-bold text-green-600">
                       {finalEvaluation.accountabilityScore}/100
                     </div>
@@ -433,6 +492,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
                     setMessages([]);
                     setControlData(null);
                     setFinalEvaluation(null);
+                    setQuestionScores([]);
                   }}
                   className="mt-4 w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
