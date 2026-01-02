@@ -79,6 +79,7 @@ function InterviewPageContent() {
 
   const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
   const skipToCoding = process.env.NEXT_PUBLIC_SKIP_TO_CODING === "true";
+  const skipScreenShare = process.env.NEXT_PUBLIC_SKIP_SCREEN_SHARE === "true";
   const recordingControls = useScreenRecording(isDemoMode);
   const { startRecording, interviewSessionId, setInterviewSessionId, getActualRecordingStartTime } = recordingControls;
 
@@ -151,7 +152,7 @@ function InterviewPageContent() {
       
       setupUserId();
     }
-  }, [skipToCoding, isPageLoading, session, dispatch]);
+  }, [skipToCoding, isPageLoading, session, dispatch, companySlug, roleSlug]);
 
   useEffect(() => {
     if (applicationId) {
@@ -248,7 +249,7 @@ function InterviewPageContent() {
     };
 
     executePreload();
-  }, [isPageLoading, openaiClient, dispatch, preload, generateAnnouncement]);
+  }, [isPageLoading, openaiClient, skipToCoding, companySlug, roleSlug, dispatch, preload, generateAnnouncement]);
 
   /**
    * Ensures an application exists for the coding phase and returns its ID.
@@ -323,7 +324,7 @@ function InterviewPageContent() {
 
   // Auto-skip to coding when flag is set and user is logged in
   useEffect(() => {
-    console.log("[interview] Auto-skip check:", { skipToCoding, userId, showCodingIDE, isStarting, isPageLoading });
+    console.log("[interview] Auto-skip check:", { skipToCoding, userId, showCodingIDE, isStarting, isPageLoading, skipScreenShare });
     
     if (!skipToCoding || !userId || showCodingIDE || isStarting || isPageLoading) return;
 
@@ -332,12 +333,32 @@ function InterviewPageContent() {
         setIsStarting(true);
         console.log("[interview] Skip-to-coding mode: initializing");
 
-        const activeSessionId = await ensureRecordingSession();
-        if (!activeSessionId) {
-          console.error("[interview] Recording required for skip-to-coding");
-          alert("Screen recording is required to start the interview.");
-          setIsStarting(false);
-          return;
+        let activeSessionId = null;
+        
+        if (skipScreenShare) {
+          // Skip recording entirely - just create session without recording
+          console.log("[interview] Skipping screen recording (NEXT_PUBLIC_SKIP_SCREEN_SHARE=true)");
+          const resolvedApplicationId = await resolveApplicationId();
+          if (resolvedApplicationId) {
+            const session = await createInterviewSession({
+              applicationId: resolvedApplicationId,
+              companyId: companySlug || "meta",
+              userId: userId || undefined,
+              isDemoMode,
+            });
+            activeSessionId = session.interviewSession.id;
+            setInterviewSessionId(activeSessionId);
+            dispatch(setSessionId({ sessionId: activeSessionId }));
+          }
+        } else {
+          // Normal flow with recording
+          activeSessionId = await ensureRecordingSession();
+          if (!activeSessionId) {
+            console.error("[interview] Recording required for skip-to-coding");
+            alert("Screen recording is required to start the interview.");
+            setIsStarting(false);
+            return;
+          }
         }
 
         dispatch(setCompanyContext({
@@ -358,7 +379,7 @@ function InterviewPageContent() {
     };
 
     initializeCodingSession();
-  }, [skipToCoding, userId, showCodingIDE, isStarting, isPageLoading, ensureRecordingSession, dispatch, companyName, companySlug, roleSlug]);
+  }, [skipToCoding, userId, showCodingIDE, isStarting, isPageLoading, skipScreenShare, ensureRecordingSession, resolveApplicationId, setInterviewSessionId, dispatch, companyName, companySlug, roleSlug, isDemoMode]);
 
   // STAGE 2: Start interview handler
   const handleStartInterview = async () => {
