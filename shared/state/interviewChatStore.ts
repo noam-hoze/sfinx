@@ -74,6 +74,7 @@ export type InterviewChatState = {
             evaluationReasoning?: string;
             evaluationCaption?: string;
             accountabilityScore?: number; // 0-100
+            questionScores?: Array<{ question: string; answer: string; score: number; reasoning: string; understandingLevel: string }>; // Per-question evaluations
         };
     };
 };
@@ -319,6 +320,7 @@ function reducer(
                         answerCount: 0, // Start at 0 - no user answers yet
                         readyToEvaluate: false,
                         accountabilityScore: 0, // Default to 0 until evaluation completes
+                        questionScores: [], // Initialize empty array for per-question scores
                     },
                 },
             };
@@ -339,6 +341,7 @@ function reducer(
                         evaluationReasoning: action.payload.evaluationReasoning,
                         evaluationCaption: action.payload.evaluationCaption,
                         accountabilityScore: action.payload.accountabilityScore ?? state.coding.activePasteEvaluation.accountabilityScore,
+                        questionScores: action.payload.questionScores ?? state.coding.activePasteEvaluation.questionScores,
                     },
                 },
             };

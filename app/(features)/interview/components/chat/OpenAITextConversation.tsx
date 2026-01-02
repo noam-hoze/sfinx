@@ -808,6 +808,36 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
               }
             }
             
+            // Evaluate this specific Q&A pair immediately
+            const lastQuestion = pasteConversation
+              .filter(m => m.role === "assistant")
+              .slice(-1)[0]?.content || "";
+            const lastAnswer = text;
+            
+            let questionScore = null;
+            if (lastQuestion && lastAnswer) {
+              try {
+                const scoreResponse = await fetch("/api/interviews/evaluate-paste-accountability", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    pastedContent: activePasteEval.pastedContent,
+                    question: lastQuestion,
+                    answer: lastAnswer,
+                    codingTask: codingPrompt,
+                    questionNumber: nextAnswerCount,
+                  }),
+                });
+                
+                if (scoreResponse.ok) {
+                  questionScore = await scoreResponse.json();
+                  /* eslint-disable no-console */ console.log(`[paste_eval][Q${nextAnswerCount}_score]`, questionScore);
+                }
+              } catch (e) {
+                /* eslint-disable no-console */ console.error("[paste_eval] Failed to score Q&A:", e);
+              }
+            }
+            
             // Force evaluation if we've reached max answers
             const shouldEvaluate = (control && control.readyToEvaluate) || nextAnswerCount >= MAX_PASTE_EVAL_ANSWERS;
             
@@ -858,7 +888,25 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                 },
               } as any);
               
-              // Combine conversation for final evaluation
+              // Aggregate scores from per-question evaluations
+              const updatedPasteEval = interviewChatStore.getState().coding?.activePasteEvaluation;
+              const questionScores = updatedPasteEval?.questionScores || [];
+              
+              const avgScore = questionScores.length > 0
+                ? Math.round(questionScores.reduce((sum, qs) => sum + qs.score, 0) / questionScores.length)
+                : 0;
+              
+              const understanding = avgScore >= 80 ? "FULL" : avgScore >= 50 ? "PARTIAL" : "NONE";
+              const reasoning = questionScores.map((qs, i) => `Q${i + 1}: ${qs.reasoning}`).join("; ");
+              const caption = `Pasted code evaluation (limit violated): ${understanding.toLowerCase()} understanding (avg: ${avgScore})`;
+              
+              const evaluation = {
+                understanding,
+                accountabilityScore: avgScore,
+                reasoning,
+                caption,
+              };
+              
               const userAnswers = pasteConversation
                 .filter(m => m.role === "user")
                 .map(m => m.content)
@@ -868,22 +916,7 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                 .map(m => m.content)
                 .join(" ");
               
-              // Call evaluation API
-              const evalPayload = {
-                pastedContent: activePasteEval.pastedContent,
-                aiQuestion: aiQuestions,
-                userAnswer: userAnswers,
-                codingTask: codingPrompt,
-              };
-              
-              const evalResponse = await fetch("/api/interviews/evaluate-paste-accountability", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(evalPayload),
-              });
-              
-              if (evalResponse.ok) {
-                const evaluation = await evalResponse.json();
+              if (evaluation) {
                 
                 // Update debug panel with final evaluation
                 interviewChatStore.dispatch({
@@ -990,8 +1023,13 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                 } catch {}
             }
             
-            // Update debug panel with confidence (use our calculated answer count, not OpenAI's)
+            // Update debug panel with confidence and add question score
             if (control) {
+              const currentScores = activePasteEval.questionScores || [];
+              const updatedScores = questionScore
+                ? [...currentScores, { question: lastQuestion, answer: lastAnswer, score: questionScore.score, reasoning: questionScore.reasoning, understandingLevel: questionScore.understandingLevel }]
+                : currentScores;
+              
               interviewChatStore.dispatch({
                 type: "CODING_UPDATE_PASTE_EVAL",
                 payload: {
@@ -999,10 +1037,11 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                   answerCount: nextAnswerCount,
                   readyToEvaluate: shouldEvaluate,
                   currentQuestion: !shouldEvaluate ? aiText : undefined,
+                  questionScores: updatedScores,
                 },
               } as any);
               
-              // If ready to evaluate, trigger final evaluation
+              // If ready to evaluate, aggregate per-question scores
               if (shouldEvaluate) {
                 try {
                   /* eslint-disable no-console */ console.log("[paste_eval][ready_to_evaluate]", {
@@ -1011,45 +1050,53 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                   });
                 } catch {}
                 
-                // Combine conversation for final evaluation (only paste conversation)
-                const userAnswers = pasteConversation
-                  .filter(m => m.role === "user")
-                  .map(m => m.content)
-                  .join(" ");
-                const aiQuestions = pasteConversation
-                  .filter(m => m.role === "assistant")
-                  .map(m => m.content)
-                  .join(" ");
+                // Get updated state with all question scores
+                const updatedPasteEval = interviewChatStore.getState().coding?.activePasteEvaluation;
+                const questionScores = updatedPasteEval?.questionScores || [];
                 
-                // Call evaluation API
-                const evalPayload = {
-                  pastedContent: activePasteEval.pastedContent,
-                  aiQuestion: aiQuestions,
-                  userAnswer: userAnswers,
-                  codingTask: codingPrompt,
+                // Calculate average score from all Q&A pairs
+                const avgScore = questionScores.length > 0
+                  ? Math.round(questionScores.reduce((sum, qs) => sum + qs.score, 0) / questionScores.length)
+                  : 0;
+                
+                // Determine overall understanding level based on average
+                const understanding = avgScore >= 80 ? "FULL" : avgScore >= 50 ? "PARTIAL" : "NONE";
+                
+                // Combine all reasoning
+                const reasoning = questionScores.map((qs, i) => `Q${i + 1}: ${qs.reasoning}`).join("; ");
+                const caption = `Pasted code evaluation: ${understanding.toLowerCase()} understanding (avg score: ${avgScore})`;
+                
+                const evaluation = {
+                  understanding,
+                  accountabilityScore: avgScore,
+                  reasoning,
+                  caption,
                 };
                 
                 try {
-                  /* eslint-disable no-console */ console.log("[paste_eval][eval_payload]", {
-                    ...evalPayload,
-                    aiQuestion_length: aiQuestions.length,
-                    userAnswer_length: userAnswers.length,
-                    pasteConversation_count: pasteConversation.length
+                  /* eslint-disable no-console */ console.log("[paste_eval][aggregated_evaluation]", {
+                    questionCount: questionScores.length,
+                    scores: questionScores.map(qs => qs.score),
+                    avgScore,
+                    evaluation
                   });
                 } catch {}
                 
-                const evalResponse = await fetch("/api/interviews/evaluate-paste-accountability", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(evalPayload),
-                });
-                
-                if (evalResponse.ok) {
-                  const evaluation = await evalResponse.json();
+                if (evaluation) {
                   
                   try {
                     /* eslint-disable no-console */ console.log("[paste_eval][evaluation_result]", evaluation);
                   } catch {}
+                  
+                  // Combine conversation for DB storage
+                  const userAnswers = pasteConversation
+                    .filter(m => m.role === "user")
+                    .map(m => m.content)
+                    .join(" ");
+                  const aiQuestions = pasteConversation
+                    .filter(m => m.role === "assistant")
+                    .map(m => m.content)
+                    .join(" ");
                   
                   // Update debug panel with final evaluation
                   interviewChatStore.dispatch({
@@ -1072,9 +1119,9 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                       timestamp: activePasteEval.timestamp,
                       pastedContent: activePasteEval.pastedContent,
                       characterCount: activePasteEval.pastedContent.length,
-                      aiQuestion: aiQuestions,
+                      aiQuestion: aiQuestions || "",
                       aiQuestionTimestamp: activePasteEval.aiQuestionTimestamp,
-                      userAnswer: userAnswers,
+                      userAnswer: userAnswers || "",
                       understanding: evaluation.understanding,
                       accountabilityScore: evaluation.accountabilityScore,
                       reasoning: evaluation.reasoning,

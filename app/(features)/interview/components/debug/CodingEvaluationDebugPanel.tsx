@@ -241,6 +241,44 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                                         </div>
                                     )}
                                     
+                                    {/* Per-Question Scores */}
+                                    {activePasteEval?.questionScores && activePasteEval.questionScores.length > 0 && (
+                                        <div className="rounded-[24px] border border-blue-200/70 bg-blue-50/70 px-5 py-4 shadow-sm shadow-slate-900/10 dark:border-blue-700/50 dark:bg-blue-900/20">
+                                            <div className="text-xs uppercase tracking-[0.3em] text-blue-700 dark:text-blue-400 mb-4">
+                                                Per-Question Evaluation
+                                            </div>
+                                            <div className="space-y-3">
+                                                {activePasteEval.questionScores.map((qs, idx) => (
+                                                    <div key={idx} className="rounded-lg border border-blue-200 bg-white/90 px-4 py-3 dark:border-blue-700/40 dark:bg-slate-800/60">
+                                                        <div className="flex justify-between items-start mb-2">
+                                                            <div className="text-sm font-semibold text-blue-700 dark:text-blue-400">
+                                                                Question {idx + 1}
+                                                            </div>
+                                                            <div className="flex items-baseline gap-2">
+                                                                <span className="text-xl font-bold text-blue-900 dark:text-blue-300">
+                                                                    {qs.score}
+                                                                </span>
+                                                                <span className="text-xs text-blue-600 dark:text-blue-400">/100</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-xs text-slate-600 dark:text-slate-300 mb-2">
+                                                            <span className="font-medium">Q:</span> {qs.question}
+                                                        </div>
+                                                        <div className="text-xs text-slate-600 dark:text-slate-300 mb-2">
+                                                            <span className="font-medium">A:</span> {qs.answer}
+                                                        </div>
+                                                        <div className="text-xs text-slate-500 dark:text-slate-400 italic mb-1">
+                                                            {qs.reasoning}
+                                                        </div>
+                                                        <div className="text-xs font-medium text-slate-700 dark:text-slate-300 inline-block px-2 py-1 rounded bg-slate-100 dark:bg-slate-700/50">
+                                                            Level: {qs.understandingLevel}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     {/* Final Evaluation */}
                                     {activePasteEval?.readyToEvaluate && (activePasteEval?.evaluationReasoning || activePasteEval?.evaluationCaption) && (
                                         <div className="rounded-[24px] border border-emerald-200/70 bg-emerald-50/70 px-5 py-4 shadow-sm shadow-slate-900/10 dark:border-emerald-700/50 dark:bg-emerald-900/20">
