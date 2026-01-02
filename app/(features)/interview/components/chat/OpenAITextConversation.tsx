@@ -37,8 +37,7 @@ import {
 } from "../../../../shared/services";
 
 // Paste evaluation constants
-export const MAX_PASTE_EVAL_ANSWERS = 7;
-const MIN_CONFIDENCE_TO_EVALUATE = 70;
+const MAX_NUM_OF_TOPICS = 4; // Cap topics to ensure reasonable evaluation length
 
 type Props = {
   candidateName: string;
@@ -266,17 +265,6 @@ const OpenAITextConversation = forwardRef<any, Props>(
           }
         }
         
-        // Update debug panel - start evaluation
-        interviewChatStore.dispatch({
-          type: "CODING_START_PASTE_EVAL",
-          payload: {
-            pasteEvaluationId,
-            pastedContent: pastedCode,
-            timestamp,
-            videoChapterId,
-          },
-        } as any);
-        
         // Get coding context
         const codingPrompt = scriptRef.current?.codingPrompt;
         
@@ -285,26 +273,66 @@ const OpenAITextConversation = forwardRef<any, Props>(
           return;
         }
         
-        // Build initial question prompt (no CONTROL needed for first question)
-        const initialPrompt = `You are a technical interviewer. A candidate just pasted this code:
+        // Phase 2: Identify topics for this pasted code
+        let topics: Array<{ name: string; description: string; percentage: number }> = [];
+        let initialQuestion = "";
+        
+        try {
+          const topicsResponse = await fetch("/api/interviews/identify-paste-topics", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              pastedContent: pastedCode,
+              codingTask: codingPrompt,
+              maxTopics: MAX_NUM_OF_TOPICS,
+            }),
+          });
+          
+          if (topicsResponse.ok) {
+            const topicsData = await topicsResponse.json();
+            topics = topicsData.topics.map((t: any) => ({ ...t, percentage: 0 }));
+            initialQuestion = topicsData.initialQuestion;
+            /* eslint-disable no-console */ console.log("[paste_eval] Topics identified:", topics.length);
+          } else {
+            /* eslint-disable no-console */ console.warn("[paste_eval] Topic identification failed, using fallback");
+          }
+        } catch (error) {
+          /* eslint-disable no-console */ console.error("[paste_eval] Topic identification error:", error);
+        }
+        
+        // Fallback to simple question if topic identification failed
+        if (!initialQuestion) {
+          const initialPrompt = `You are a technical interviewer. A candidate just pasted this code:
 
 ${pastedCode}
 
 The coding task they're working on: ${codingPrompt}
 
 Ask ONE short, relevant question (1-2 sentences) to understand if they comprehend what they pasted. Don't evaluate yet, just ask.`;
+          
+          initialQuestion = await askViaChatCompletion(
+            openaiClient,
+            initialPrompt,
+            []
+          ) || "";
+        }
         
-        // Generate AI question with EMPTY history (fresh conversation about this paste)
-        const question = await askViaChatCompletion(
-          openaiClient,
-          initialPrompt,
-          []  // No history - focus only on the pasted code
-        );
+        // Update debug panel - start evaluation with topics
+        interviewChatStore.dispatch({
+          type: "CODING_START_PASTE_EVAL",
+          payload: {
+            pasteEvaluationId,
+            pastedContent: pastedCode,
+            timestamp,
+            videoChapterId,
+            topics,
+          },
+        } as any);
         
-        if (question) {
+        if (initialQuestion) {
           const aiQuestionTimestamp = Date.now();
-          post(question, "ai", { isPasteEval: true, pasteEvaluationId });
-          dispatch(machineAiFinal({ text: question }));
+          post(initialQuestion, "ai", { isPasteEval: true, pasteEvaluationId });
+          dispatch(machineAiFinal({ text: initialQuestion }));
           
           // Trigger editor highlight now that AI question is posted
           onHighlightPastedCode?.(pastedCode);
@@ -316,13 +344,13 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
               confidence: 0,
               answerCount: 0,
               readyToEvaluate: false,
-              currentQuestion: question,
+              currentQuestion: initialQuestion,
               aiQuestionTimestamp,
             },
           } as any);
           
           try {
-            /* eslint-disable no-console */ console.log("[paste_eval][question_asked]", { pasteEvaluationId, question });
+            /* eslint-disable no-console */ console.log("[paste_eval][question_asked]", { pasteEvaluationId, question: initialQuestion });
           } catch {}
         }
       },
@@ -718,6 +746,16 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
               .map(m => `${m.role === "user" ? "Candidate" : "AI"}: ${m.content}`)
               .join("\n");
             
+            // Phase 2: Build topic coverage summary for prompt
+            const topics = activePasteEval.topics || [];
+            const topicSummary = topics.length > 0
+              ? topics.map(t => `- ${t.name}: ${t.percentage}% covered`).join("\n")
+              : "No topics identified";
+            const avgTopicCoverage = topics.length > 0
+              ? Math.round(topics.reduce((sum, t) => sum + t.percentage, 0) / topics.length)
+              : 0;
+            const unansweredTopics = topics.filter(t => t.percentage === 0);
+            
             const pasteEvalPrompt = `CRITICAL: YOU MUST START YOUR RESPONSE WITH A CONTROL LINE IN THIS EXACT FORMAT:
 CONTROL: {"type":"PASTE_EVAL_CONTROL","pasteEvaluationId":"${activePasteEval.pasteEvaluationId}","confidence":0-100,"answerCount":${nextAnswerCount},"readyToEvaluate":true/false}
 
@@ -731,16 +769,26 @@ You are evaluating whether a candidate understands code they pasted.
 - Pasted code: ${activePasteEval.pastedContent}
 - Task: ${codingPrompt}
 - Conversation: ${conversationHistory || "Just started"}
-- User answers: ${nextAnswerCount}/${MAX_PASTE_EVAL_ANSWERS}
+- User answers: ${nextAnswerCount}
+
+**Topic Coverage:**
+${topicSummary}
+Unanswered topics: ${unansweredTopics.length} / ${topics.length}
 
 **Your Job:**
-1. Evaluate their understanding (confidence 0-100)
-2. If confidence < ${MIN_CONFIDENCE_TO_EVALUATE}% AND answerCount < ${MAX_PASTE_EVAL_ANSWERS} AND candidate did NOT say "I don't know": Ask ONE short follow-up question (1-2 sentences)
-3. If confidence >= ${MIN_CONFIDENCE_TO_EVALUATE}% OR answerCount >= ${MAX_PASTE_EVAL_ANSWERS} OR candidate said "I don't know": Set readyToEvaluate=true AND send a brief acknowledgment
+1. Calculate confidence as average topic coverage (0-100%)
+2. If there are still unanswered topics (0% coverage) AND candidate did NOT say "I don't know":
+   - Ask ONE short, focused question (1-2 sentences) about an UNANSWERED topic (0%)
+   - Goal: Cover ALL topics before stopping
+3. If ALL topics have been addressed (none at 0%) OR candidate said "I don't know": Set readyToEvaluate=true AND send a brief acknowledgment
+
+**Question Strategy:**
+${unansweredTopics.length > 0 
+  ? `MUST ask about these UNANSWERED topics:\n${unansweredTopics.map(t => `- ${t.name} (NOT YET ADDRESSED)`).join('\n')}`
+  : "All topics addressed! Conclude evaluation."}
 
 **EVALUATION GATES (set readyToEvaluate=true when ANY of these conditions is met):**
-- answerCount = ${MAX_PASTE_EVAL_ANSWERS} (reached question limit)
-- confidence >= ${MIN_CONFIDENCE_TO_EVALUATE}% (high confidence in understanding)
+- ALL topics addressed (none at 0%) - comprehensive coverage achieved
 - Candidate answered "I don't know" (honest admission of not understanding)
 
 **Acknowledgment examples:**
@@ -749,11 +797,11 @@ You are evaluating whether a candidate understands code they pasted.
 
 **Example Responses:**
 
-Continue (answerCount < ${MAX_PASTE_EVAL_ANSWERS}, confidence < ${MIN_CONFIDENCE_TO_EVALUATE}%):
+Continue (unanswered topics exist):
 CONTROL: {"type":"PASTE_EVAL_CONTROL","pasteEvaluationId":"${activePasteEval.pasteEvaluationId}","confidence":45,"answerCount":${nextAnswerCount},"readyToEvaluate":false}
-Could you explain how the useEffect hook works here?
+Could you explain how error handling works in this code?
 
-Done (answerCount = ${MAX_PASTE_EVAL_ANSWERS} OR confidence >= ${MIN_CONFIDENCE_TO_EVALUATE}%):
+Done (all topics addressed):
 CONTROL: {"type":"PASTE_EVAL_CONTROL","pasteEvaluationId":"${activePasteEval.pasteEvaluationId}","confidence":75,"answerCount":${nextAnswerCount},"readyToEvaluate":true}
 Thank you for explaining. Let's continue with the task.
 
@@ -814,6 +862,13 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
               .slice(-1)[0]?.content || "";
             const lastAnswer = text;
             
+            // Phase 2: Get current topic coverage
+            const currentTopics = activePasteEval.topics || [];
+            const currentCoverage = currentTopics.reduce((acc, t) => {
+              acc[t.name] = t.percentage;
+              return acc;
+            }, {} as Record<string, number>);
+            
             let questionScore = null;
             if (lastQuestion && lastAnswer) {
               try {
@@ -826,6 +881,7 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                     answer: lastAnswer,
                     codingTask: codingPrompt,
                     questionNumber: nextAnswerCount,
+                    currentTopicCoverage: currentCoverage,
                   }),
                 });
                 
@@ -838,151 +894,46 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
               }
             }
             
-            // Force evaluation if we've reached max answers
-            const shouldEvaluate = (control && control.readyToEvaluate) || nextAnswerCount >= MAX_PASTE_EVAL_ANSWERS;
+            // Calculate updated topics first (before checking coverage)
+            const currentScoresBeforeUpdate = activePasteEval.questionScores || [];
+            const enhancedQuestionScore = questionScore ? {
+              question: lastQuestion,
+              answer: lastAnswer,
+              score: questionScore.score,
+              reasoning: questionScore.reasoning,
+              understandingLevel: questionScore.understandingLevel,
+              topicsAddressed: questionScore.topicsAddressed || [],
+            } : null;
             
-            // Check if AI violated the 3-answer limit (asked a question when it should have acknowledged)
-            const aiViolatedLimit = nextAnswerCount >= MAX_PASTE_EVAL_ANSWERS && !shouldEvaluate;
+            const updatedScores = enhancedQuestionScore
+              ? [...currentScoresBeforeUpdate, enhancedQuestionScore]
+              : currentScoresBeforeUpdate;
             
-            if (aiViolatedLimit) {
-              // DROP the message - don't show it to user
-              try {
-                /* eslint-disable no-console */ console.log("[paste_eval][message_dropped]", {
-                  reason: "violated_3_answer_limit",
-                  droppedMessage: aiText,
-                  nextAnswerCount
-                });
-              } catch {}
-              
-              // Send system correction to OpenAI
-              const correctionPrompt = `SYSTEM CORRECTION: Your last message was dropped because you violated the 3-answer limit for paste evaluation. You asked a 4th question when you should have acknowledged and ended the evaluation. Respond ONLY with "Got it!" to acknowledge.`;
-              
-              const acknowledgment = await askViaChatCompletion(
-                openaiClient,
-                correctionPrompt,
-                []  // No history needed for this correction
-              );
-              
-              if (acknowledgment) {
-                post(acknowledgment, "ai", { isPasteEval: true, pasteEvaluationId: activePasteEval.pasteEvaluationId });
-                dispatch(machineAiFinal({ text: acknowledgment }));
+            let updatedTopics = currentTopics;
+            if (currentTopics.length > 0 && updatedScores.length > 0) {
+              updatedTopics = currentTopics.map(topic => {
+                const relatedScores = updatedScores
+                  .filter(qs => qs.topicsAddressed?.includes(topic.name))
+                  .map(qs => qs.score);
                 
-                try {
-                  /* eslint-disable no-console */ console.log("[paste_eval][correction_acknowledged]", acknowledgment);
-                } catch {}
-              }
-              
-              clearPendingState();
-              
-              // Force evaluation now with the paste conversation history
-              const ms = store.getState().interviewMachine;
-              
-              // Update state for forced evaluation
-              interviewChatStore.dispatch({
-                type: "CODING_UPDATE_PASTE_EVAL",
-                payload: {
-                  confidence: 0,  // Low confidence since AI misbehaved
-                  answerCount: nextAnswerCount,
-                  readyToEvaluate: true,
-                  currentQuestion: acknowledgment,
-                },
-              } as any);
-              
-              // Aggregate scores from per-question evaluations
-              const updatedPasteEval = interviewChatStore.getState().coding?.activePasteEvaluation;
-              const questionScores = updatedPasteEval?.questionScores || [];
-              
-              const avgScore = questionScores.length > 0
-                ? Math.round(questionScores.reduce((sum, qs) => sum + qs.score, 0) / questionScores.length)
-                : 0;
-              
-              const understanding = avgScore >= 80 ? "FULL" : avgScore >= 50 ? "PARTIAL" : "NONE";
-              const reasoning = questionScores.map((qs, i) => `Q${i + 1}: ${qs.reasoning}`).join("; ");
-              const caption = `Pasted code evaluation (limit violated): ${understanding.toLowerCase()} understanding (avg: ${avgScore})`;
-              
-              const evaluation = {
-                understanding,
-                accountabilityScore: avgScore,
-                reasoning,
-                caption,
-              };
-              
-              const userAnswers = pasteConversation
-                .filter(m => m.role === "user")
-                .map(m => m.content)
-                .join(" ");
-              const aiQuestions = pasteConversation
-                .filter(m => m.role === "assistant")
-                .map(m => m.content)
-                .join(" ");
-              
-              if (evaluation) {
-                
-                // Update debug panel with final evaluation
-                interviewChatStore.dispatch({
-                  type: "CODING_UPDATE_PASTE_EVAL",
-                  payload: {
-                    confidence: 0,
-                    answerCount: nextAnswerCount,
-                    readyToEvaluate: true,
-                    currentQuestion: acknowledgment,
-                    evaluationReasoning: evaluation.reasoning,
-                    evaluationCaption: evaluation.caption,
-                    accountabilityScore: evaluation.accountabilityScore,
-                  },
-                } as any);
-                
-                // Save to DB
-                const sessionId = ms.sessionId;
-                if (sessionId && activePasteEval.aiQuestionTimestamp) {
-                  const dbPayload = {
-                    timestamp: activePasteEval.timestamp,
-                    pastedContent: activePasteEval.pastedContent,
-                    characterCount: activePasteEval.pastedContent.length,
-                    aiQuestion: aiQuestions,
-                    aiQuestionTimestamp: activePasteEval.aiQuestionTimestamp,
-                    userAnswer: userAnswers,
-                    understanding: evaluation.understanding,
-                    accountabilityScore: evaluation.accountabilityScore,
-                    reasoning: evaluation.reasoning,
-                    caption: evaluation.caption,
+                if (relatedScores.length > 0) {
+                  const avgScore = Math.round(
+                    relatedScores.reduce((sum, score) => sum + score, 0) / relatedScores.length
+                  );
+                  return {
+                    ...topic,
+                    percentage: avgScore,
+                    lastUpdatedBy: nextAnswerCount,
                   };
-                  
-                  await fetch(`/api/interviews/session/${sessionId}/external-tools`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(dbPayload),
-                  });
-                  
-                  // Update VideoCaption with accountability evaluation
-                  if (activePasteEval.videoChapterId) {
-                    try {
-                      await fetch(`/api/interviews/video-chapter/${activePasteEval.videoChapterId}/caption`, {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ caption: evaluation.caption }),
-                      });
-                      /* eslint-disable no-console */ console.log("✅ [paste_eval] VideoCaption updated with evaluation");
-                    } catch (error) {
-                      /* eslint-disable no-console */ console.error("❌ Failed to update VideoCaption:", error);
-                    }
-                  }
                 }
-              }
-              
-              // Clear paste evaluation now that it's complete
-              interviewChatStore.dispatch({
-                type: "CODING_CLEAR_PASTE_EVAL",
-              } as any);
-              
-              // Clear editor highlighting
-              if ((window as any).__clearPasteHighlight) {
-                (window as any).__clearPasteHighlight();
-              }
-              
-              setInputLocked?.(false);
-              return;
+                return topic;
+              });
             }
+            
+            // NOW check if all topics are covered using the UPDATED topics
+            const allTopicsCovered = updatedTopics.length > 0 && updatedTopics.every(t => t.percentage > 0);
+            const candidateSaidIDontKnow = text.toLowerCase().includes("i don't know");
+            const shouldEvaluate = allTopicsCovered || candidateSaidIDontKnow;
             
             // Post AI response (either follow-up question or acknowledgment)
             if (aiText) {
@@ -990,11 +941,7 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
               if (shouldEvaluate) {
                 post(aiText, "ai");  // No paste eval ID - normal styling
                 
-                // Clear paste evaluation and highlighting immediately when acknowledgment is posted
-                interviewChatStore.dispatch({
-                  type: "CODING_CLEAR_PASTE_EVAL",
-                } as any);
-                
+                // Clear only the editor highlighting, keep debug panel data visible
                 if ((window as any).__clearPasteHighlight) {
                   (window as any).__clearPasteHighlight();
                 }
@@ -1017,27 +964,38 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                 try {
                   /* eslint-disable no-console */ console.log("[paste_eval][triggering_evaluation]", { 
                     nextAnswerCount, 
-                    controlReady: control?.readyToEvaluate,
-                    forced: nextAnswerCount >= MAX_PASTE_EVAL_ANSWERS
+                    controlReady: control?.readyToEvaluate
                   });
                 } catch {}
             }
             
-            // Update debug panel with confidence and add question score
+            // Update debug panel with confidence (reuse already calculated values)
             if (control) {
-              const currentScores = activePasteEval.questionScores || [];
-              const updatedScores = questionScore
-                ? [...currentScores, { question: lastQuestion, answer: lastAnswer, score: questionScore.score, reasoning: questionScore.reasoning, understandingLevel: questionScore.understandingLevel }]
-                : currentScores;
+              // Calculate confidence as average of all topic percentages
+              const calculatedConfidence = updatedTopics.length > 0
+                ? Math.round(updatedTopics.reduce((sum, t) => sum + t.percentage, 0) / updatedTopics.length)
+                : control.confidence ?? 0;
+              
+              try {
+                /* eslint-disable no-console */ console.log("[paste_eval][confidence_calculation]", {
+                  updatedTopics: updatedTopics.map(t => ({ name: t.name, percentage: t.percentage })),
+                  calculatedConfidence,
+                });
+              } catch {}
+              
+              // Check if all topics are covered (controller decision)
+              const allTopicsCovered = updatedTopics.length > 0 && updatedTopics.every(t => t.percentage > 0);
+              const controllerShouldEvaluate = allTopicsCovered;
               
               interviewChatStore.dispatch({
                 type: "CODING_UPDATE_PASTE_EVAL",
                 payload: {
-                  confidence: control.confidence ?? 0,
+                  confidence: calculatedConfidence,
                   answerCount: nextAnswerCount,
-                  readyToEvaluate: shouldEvaluate,
-                  currentQuestion: !shouldEvaluate ? aiText : undefined,
+                  readyToEvaluate: controllerShouldEvaluate,
+                  currentQuestion: !controllerShouldEvaluate ? aiText : undefined,
                   questionScores: updatedScores,
+                  topics: updatedTopics.length > 0 ? updatedTopics : undefined,
                 },
               } as any);
               
@@ -1050,26 +1008,52 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                   });
                 } catch {}
                 
-                // Get updated state with all question scores
-                const updatedPasteEval = interviewChatStore.getState().coding?.activePasteEvaluation;
-                const questionScores = updatedPasteEval?.questionScores || [];
+                // Use local variables (have latest values before state update)
+                const questionScores = updatedScores;
+                const finalTopics = updatedTopics;
                 
-                // Calculate average score from all Q&A pairs
-                const avgScore = questionScores.length > 0
-                  ? Math.round(questionScores.reduce((sum, qs) => sum + qs.score, 0) / questionScores.length)
+                // Calculate average score from ALL topic percentages (strict)
+                // Questions are just a pipe to feed topic scores
+                const avgScore = finalTopics.length > 0
+                  ? Math.round(finalTopics.reduce((sum, t) => sum + t.percentage, 0) / finalTopics.length)
                   : 0;
                 
-                // Determine overall understanding level based on average
+                // Determine overall understanding level based on topic average
                 const understanding = avgScore >= 80 ? "FULL" : avgScore >= 50 ? "PARTIAL" : "NONE";
                 
-                // Combine all reasoning
-                const reasoning = questionScores.map((qs, i) => `Q${i + 1}: ${qs.reasoning}`).join("; ");
-                const caption = `Pasted code evaluation: ${understanding.toLowerCase()} understanding (avg score: ${avgScore})`;
+                // Call OpenAI for final summary
+                let summary = "";
+                try {
+                  const summaryResponse = await fetch("/api/interviews/generate-paste-summary", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      pastedContent: activePasteEval.pastedContent,
+                      questionAnswers: questionScores,
+                      averageScore: avgScore,
+                    }),
+                  });
+                  
+                  if (summaryResponse.ok) {
+                    const summaryData = await summaryResponse.json();
+                    summary = summaryData.summary;
+                  } else {
+                    // Fallback if summary API fails
+                    summary = `Candidate answered ${questionScores.length} questions with average score ${avgScore}/100`;
+                    /* eslint-disable no-console */ console.warn("[paste_eval] Summary API failed, using fallback");
+                  }
+                } catch (error) {
+                  // Fallback on error
+                  summary = `Candidate answered ${questionScores.length} questions with average score ${avgScore}/100`;
+                  /* eslint-disable no-console */ console.error("[paste_eval] Summary API error:", error);
+                }
+                
+                const caption = `External tool: ${understanding.toLowerCase()} understanding (${avgScore}/100)`;
                 
                 const evaluation = {
                   understanding,
                   accountabilityScore: avgScore,
-                  reasoning,
+                  reasoning: summary,
                   caption,
                 };
                 
@@ -1081,6 +1065,19 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                     evaluation
                   });
                 } catch {}
+                
+                // Validation: ensure we have valid data before DB save
+                if (questionScores.length === 0) {
+                  /* eslint-disable no-console */ console.error("[paste_eval][validation_error] No questions were scored");
+                  setInputLocked?.(false);
+                  return;
+                }
+                
+                if (!summary || summary.trim() === "") {
+                  /* eslint-disable no-console */ console.error("[paste_eval][validation_error] Summary is empty");
+                  // Use fallback summary
+                  evaluation.reasoning = `Candidate answered ${questionScores.length} questions with average score ${avgScore}/100`;
+                }
                 
                 if (evaluation) {
                   
@@ -1102,7 +1099,7 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                   interviewChatStore.dispatch({
                     type: "CODING_UPDATE_PASTE_EVAL",
                     payload: {
-                      confidence: control.confidence ?? 0,
+                      confidence: avgScore,
                       answerCount: nextAnswerCount,
                       readyToEvaluate: true,
                       currentQuestion: aiText,
@@ -1172,20 +1169,6 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                         hasAiTimestamp: !!activePasteEval.aiQuestionTimestamp
                       });
                     } catch {}
-                  }
-                } else {
-                  // Evaluation API returned error
-                  try {
-                    const errorData = await evalResponse.json();
-                    /* eslint-disable no-console */ console.error("[paste_eval][eval_api_error]", {
-                      status: evalResponse.status,
-                      error: errorData
-                    });
-                  } catch (e) {
-                    /* eslint-disable no-console */ console.error("[paste_eval][eval_api_error]", {
-                      status: evalResponse.status,
-                      message: "Could not parse error response"
-                    });
                   }
                 }
                 

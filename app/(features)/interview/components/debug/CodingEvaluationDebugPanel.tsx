@@ -167,64 +167,72 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                                 </div>
 
                                 <div className="grid grid-cols-1 gap-4">
-                                    {/* Confidence and Accountability Score */}
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="rounded-[24px] border border-slate-200/70 bg-white/70 px-5 py-4 shadow-sm shadow-slate-900/10 dark:border-slate-700/50 dark:bg-slate-900/60">
-                                            <div className="flex flex-col gap-3">
-                                                <div className="flex items-baseline gap-3">
-                                                    <span className="text-2xl font-semibold text-slate-900 dark:text-white">
-                                                        {activePasteEval?.confidence ?? 0}%
-                                                    </span>
-                                                    <span className="text-sm text-slate-500 dark:text-slate-400">
-                                                        confidence (real-time)
-                                                    </span>
-                                                </div>
-                                                <div className="w-full bg-slate-200 rounded-full h-2 dark:bg-slate-700">
-                                                    <div
-                                                        className="bg-blue-600 h-2 rounded-full transition-all dark:bg-blue-500"
-                                                        style={{ width: `${activePasteEval?.confidence ?? 0}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
+                                    {/* Final Evaluation Summary - At the very top */}
+                                    {activePasteEval?.readyToEvaluate && activePasteEval?.evaluationReasoning && (
                                         <div className="rounded-[24px] border border-emerald-200/70 bg-emerald-50/70 px-5 py-4 shadow-sm shadow-slate-900/10 dark:border-emerald-700/50 dark:bg-emerald-900/20">
-                                            <div className="flex flex-col gap-3">
-                                                <div className="flex items-baseline gap-3">
-                                                    <span className="text-2xl font-semibold text-emerald-900 dark:text-emerald-300">
-                                                        {activePasteEval?.accountabilityScore ?? 0}%
-                                                    </span>
-                                                    <span className="text-sm text-emerald-700 dark:text-emerald-400">
-                                                        accountability score (final)
-                                                    </span>
+                                            <div className="text-xs uppercase tracking-[0.3em] text-emerald-700 dark:text-emerald-400 mb-3">
+                                                Summary
+                                            </div>
+                                            {activePasteEval?.accountabilityScore !== undefined && (
+                                                <div className="text-2xl font-bold text-emerald-900 dark:text-emerald-300 mb-3">
+                                                    Average Score: {activePasteEval?.accountabilityScore}/100
+                                                    {activePasteEval?.topics && activePasteEval.topics.length > 0 && (
+                                                        <span className="text-sm font-normal text-emerald-700 dark:text-emerald-400 ml-2">
+                                                            (from {activePasteEval.topics.length} {activePasteEval.topics.length === 1 ? 'topic' : 'topics'})
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <div className="w-full bg-emerald-200 rounded-full h-2 dark:bg-emerald-700">
-                                                    <div
-                                                        className="bg-emerald-600 h-2 rounded-full transition-all dark:bg-emerald-500"
-                                                        style={{ width: `${activePasteEval?.accountabilityScore ?? 0}%` }}
-                                                    />
-                                                </div>
+                                            )}
+                                            <div className="text-base text-slate-700 dark:text-slate-200 leading-relaxed">
+                                                {activePasteEval?.evaluationReasoning}
                                             </div>
                                         </div>
-                                    </div>
+                                    )}
 
-                                    {/* Answer Count & Status */}
                                     <div className="grid grid-cols-2 gap-4">
+                                        {/* Topic Coverage Score */}
+                                        {(() => {
+                                            const score = activePasteEval?.confidence ?? 0;
+                                            const isHigh = score >= 80;
+                                            const isMedium = score >= 50 && score < 80;
+                                            const isLow = score < 50;
+                                            
+                                            const bgColor = isHigh ? 'bg-emerald-50/70 dark:bg-emerald-900/20' : isMedium ? 'bg-yellow-50/70 dark:bg-yellow-900/20' : 'bg-red-50/70 dark:bg-red-900/20';
+                                            const borderColor = isHigh ? 'border-emerald-200/70 dark:border-emerald-700/50' : isMedium ? 'border-yellow-200/70 dark:border-yellow-700/50' : 'border-red-200/70 dark:border-red-700/50';
+                                            const textColor = isHigh ? 'text-emerald-900 dark:text-emerald-300' : isMedium ? 'text-yellow-900 dark:text-yellow-300' : 'text-red-900 dark:text-red-300';
+                                            const labelColor = isHigh ? 'text-emerald-700 dark:text-emerald-400' : isMedium ? 'text-yellow-700 dark:text-yellow-400' : 'text-red-700 dark:text-red-400';
+                                            const barBg = isHigh ? 'bg-emerald-200 dark:bg-emerald-700' : isMedium ? 'bg-yellow-200 dark:bg-yellow-700' : 'bg-red-200 dark:bg-red-700';
+                                            const barColor = isHigh ? 'bg-emerald-600 dark:bg-emerald-500' : isMedium ? 'bg-yellow-600 dark:bg-yellow-500' : 'bg-red-600 dark:bg-red-500';
+                                            
+                                            return (
+                                                <div className={`rounded-[24px] border ${borderColor} ${bgColor} px-5 py-4 shadow-sm shadow-slate-900/10`}>
+                                                    <div className="flex flex-col gap-3">
+                                                        <div className="flex items-baseline gap-3">
+                                                            <span className={`text-2xl font-semibold ${textColor}`}>
+                                                                {score}%
+                                                            </span>
+                                                            <span className={`text-sm ${labelColor}`}>
+                                                                topic coverage
+                                                            </span>
+                                                        </div>
+                                                        <div className={`w-full ${barBg} rounded-full h-2`}>
+                                                            <div
+                                                                className={`${barColor} h-2 rounded-full transition-all`}
+                                                                style={{ width: `${score}%` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+                                        
+                                        {/* User Answers Count */}
                                         <div className="rounded-[24px] border border-slate-200/70 bg-white/70 px-5 py-4 shadow-sm shadow-slate-900/10 dark:border-slate-700/50 dark:bg-slate-900/60">
                                             <div className="text-xs uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500 mb-2">
                                                 User Answers
                                             </div>
                                             <div className="text-3xl font-semibold text-slate-900 dark:text-white">
-                                                {activePasteEval?.answerCount ?? 0}/{MAX_PASTE_EVAL_ANSWERS}
-                                            </div>
-                                        </div>
-                                        <div className="rounded-[24px] border border-slate-200/70 bg-white/70 px-5 py-4 shadow-sm shadow-slate-900/10 dark:border-slate-700/50 dark:bg-slate-900/60">
-                                            <div className="text-xs uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500 mb-2">
-                                                Ready to Evaluate
-                                            </div>
-                                            <div className={`text-2xl font-bold ${
-                                                activePasteEval?.readyToEvaluate ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"
-                                            }`}>
-                                                {activePasteEval?.readyToEvaluate ? "✓ YES" : "○ NO"}
+                                                {activePasteEval?.answerCount ?? 0}
                                             </div>
                                         </div>
                                     </div>
@@ -237,6 +245,49 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                                             </div>
                                             <div className="text-base text-slate-700 dark:text-slate-200 leading-relaxed">
                                                 {activePasteEval?.currentQuestion}
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Topic Coverage Panel (Phase 2) */}
+                                    {activePasteEval?.topics && activePasteEval.topics.length > 0 && (
+                                        <div className="rounded-[24px] border border-purple-200/70 bg-purple-50/70 px-5 py-4 shadow-sm shadow-slate-900/10 dark:border-purple-700/50 dark:bg-purple-900/20">
+                                            <div className="text-xs uppercase tracking-[0.3em] text-purple-700 dark:text-purple-400 mb-4">
+                                                Topic Coverage Analysis
+                                            </div>
+                                            <div className="space-y-3">
+                                                {activePasteEval.topics.map((topic, idx) => (
+                                                    <div key={idx}>
+                                                        <div className="flex justify-between items-center mb-1">
+                                                            <div className="text-sm font-medium text-slate-700 dark:text-slate-300">{topic.name}</div>
+                                                            <div className="text-lg font-bold text-purple-900 dark:text-purple-300">{topic.percentage}%</div>
+                                                        </div>
+                                                        <div className="w-full bg-purple-200 rounded-full h-2 dark:bg-purple-800/30">
+                                                            <div
+                                                                className="bg-purple-600 h-2 rounded-full transition-all dark:bg-purple-500"
+                                                                style={{ width: `${topic.percentage}%` }}
+                                                            />
+                                                        </div>
+                                                        {topic.lastUpdatedBy && (
+                                                            <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                                                ↳ Last updated: Q{topic.lastUpdatedBy}
+                                                            </div>
+                                                        )}
+                                                        {topic.description && (
+                                                            <div className="text-xs text-slate-600 dark:text-slate-400 mt-1 italic">
+                                                                {topic.description}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                                <div className="pt-2 border-t border-purple-200 dark:border-purple-700">
+                                                    <div className="text-sm font-semibold text-purple-900 dark:text-purple-300">
+                                                        Overall Topic Coverage: {activePasteEval.confidence}%
+                                                    </div>
+                                                    <div className="text-xs text-slate-600 dark:text-slate-400">
+                                                        (Average of {activePasteEval.topics.length} topics)
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     )}
@@ -273,35 +324,25 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                                                         <div className="text-xs font-medium text-slate-700 dark:text-slate-300 inline-block px-2 py-1 rounded bg-slate-100 dark:bg-slate-700/50">
                                                             Level: {qs.understandingLevel}
                                                         </div>
+                                                        {/* Phase 2: Show topics addressed */}
+                                                        {qs.topicsAddressed && qs.topicsAddressed.length > 0 && (
+                                                            <div className="text-xs text-blue-700 dark:text-blue-400 mt-2 pt-2 border-t border-blue-200 dark:border-blue-700/40">
+                                                                <div className="font-medium mb-1">Topics Addressed:</div>
+                                                                <div className="space-y-1">
+                                                                    {qs.topicsAddressed.map((topic, i) => (
+                                                                        <div key={i} className="ml-2">
+                                                                            ✓ {topic} (score: {qs.score})
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 ))}
                                             </div>
                                         </div>
                                     )}
 
-                                    {/* Final Evaluation */}
-                                    {activePasteEval?.readyToEvaluate && (activePasteEval?.evaluationReasoning || activePasteEval?.evaluationCaption) && (
-                                        <div className="rounded-[24px] border border-emerald-200/70 bg-emerald-50/70 px-5 py-4 shadow-sm shadow-slate-900/10 dark:border-emerald-700/50 dark:bg-emerald-900/20">
-                                            <div className="text-xs uppercase tracking-[0.3em] text-emerald-700 dark:text-emerald-400 mb-3">
-                                                ✓ Evaluation Complete
-                                            </div>
-                                            {activePasteEval?.evaluationCaption && (
-                                                <div className="text-base font-semibold text-slate-900 dark:text-white mb-3">
-                                                    {activePasteEval?.evaluationCaption}
-                                                </div>
-                                            )}
-                                            {activePasteEval?.accountabilityScore !== undefined && (
-                                                <div className="text-2xl font-bold text-emerald-900 dark:text-emerald-300 mb-3">
-                                                    Accountability Score: {activePasteEval?.accountabilityScore}/100
-                                                </div>
-                                            )}
-                                            {activePasteEval?.evaluationReasoning && (
-                                                <div className="text-base text-slate-700 dark:text-slate-200 leading-relaxed">
-                                                    {activePasteEval?.evaluationReasoning}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                     </div>
