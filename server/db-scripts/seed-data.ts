@@ -224,6 +224,36 @@ async function resetDatabase() {
             log.info(`   └─ Created ${companyData.openRoles.length} jobs for ${company.name}`);
         }
 
+        log.info("Creating candidate user...");
+        const candidateUser = await prisma.user.create({
+            data: {
+                id: "candidate-noam-hoze",
+                name: "Noam Hoze",
+                email: "noam.hoze@gmail.com",
+                password: hashedPassword,
+                role: UserRole.CANDIDATE,
+                image: undefined,
+            },
+        });
+
+        // Create candidate profile
+        await prisma.candidateProfile.create({
+            data: {
+                userId: candidateUser.id,
+                jobTitle: "Full Stack Engineer",
+                location: "Tel Aviv, Israel",
+                bio: "Passionate software engineer with experience in full-stack development",
+                skills: ["React", "TypeScript", "Node.js", "Python", "PostgreSQL"],
+                experience: "5 years",
+                linkedin: undefined,
+                github: undefined,
+                portfolio: undefined,
+                resume: undefined,
+            },
+        });
+
+        log.info(`   └─ Created candidate account: ${candidateUser.email}`);
+
         log.info("Seeding shared interview content for all Frontend Engineer roles...");
         const interviewContent = await prisma.interviewContent.upsert({
             where: {

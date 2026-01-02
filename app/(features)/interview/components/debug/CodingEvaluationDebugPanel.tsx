@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
+import { MAX_PASTE_EVAL_ANSWERS } from "../chat/OpenAITextConversation";
 
 interface CodingEvaluationDebugPanelProps {
     evaluationData: {
@@ -166,22 +167,42 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                                 </div>
 
                                 <div className="grid grid-cols-1 gap-4">
-                                    {/* Confidence */}
-                                    <div className="rounded-[24px] border border-slate-200/70 bg-white/70 px-5 py-4 shadow-sm shadow-slate-900/10 dark:border-slate-700/50 dark:bg-slate-900/60">
-                                        <div className="flex flex-col gap-3">
-                                            <div className="flex items-baseline gap-3">
-                                                <span className="text-2xl font-semibold text-slate-900 dark:text-white">
-                                                    {activePasteEval?.confidence ?? 0}%
-                                                </span>
-                                                <span className="text-sm text-slate-500 dark:text-slate-400">
-                                                    confidence
-                                                </span>
+                                    {/* Confidence and Accountability Score */}
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="rounded-[24px] border border-slate-200/70 bg-white/70 px-5 py-4 shadow-sm shadow-slate-900/10 dark:border-slate-700/50 dark:bg-slate-900/60">
+                                            <div className="flex flex-col gap-3">
+                                                <div className="flex items-baseline gap-3">
+                                                    <span className="text-2xl font-semibold text-slate-900 dark:text-white">
+                                                        {activePasteEval?.confidence ?? 0}%
+                                                    </span>
+                                                    <span className="text-sm text-slate-500 dark:text-slate-400">
+                                                        confidence (real-time)
+                                                    </span>
+                                                </div>
+                                                <div className="w-full bg-slate-200 rounded-full h-2 dark:bg-slate-700">
+                                                    <div
+                                                        className="bg-blue-600 h-2 rounded-full transition-all dark:bg-blue-500"
+                                                        style={{ width: `${activePasteEval?.confidence ?? 0}%` }}
+                                                    />
+                                                </div>
                                             </div>
-                                            <div className="w-full bg-slate-200 rounded-full h-2 dark:bg-slate-700">
-                                                <div
-                                                    className="bg-blue-600 h-2 rounded-full transition-all dark:bg-blue-500"
-                                                    style={{ width: `${activePasteEval?.confidence ?? 0}%` }}
-                                                />
+                                        </div>
+                                        <div className="rounded-[24px] border border-emerald-200/70 bg-emerald-50/70 px-5 py-4 shadow-sm shadow-slate-900/10 dark:border-emerald-700/50 dark:bg-emerald-900/20">
+                                            <div className="flex flex-col gap-3">
+                                                <div className="flex items-baseline gap-3">
+                                                    <span className="text-2xl font-semibold text-emerald-900 dark:text-emerald-300">
+                                                        {activePasteEval?.accountabilityScore ?? 0}%
+                                                    </span>
+                                                    <span className="text-sm text-emerald-700 dark:text-emerald-400">
+                                                        accountability score (final)
+                                                    </span>
+                                                </div>
+                                                <div className="w-full bg-emerald-200 rounded-full h-2 dark:bg-emerald-700">
+                                                    <div
+                                                        className="bg-emerald-600 h-2 rounded-full transition-all dark:bg-emerald-500"
+                                                        style={{ width: `${activePasteEval?.accountabilityScore ?? 0}%` }}
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -193,7 +214,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                                                 User Answers
                                             </div>
                                             <div className="text-3xl font-semibold text-slate-900 dark:text-white">
-                                                {activePasteEval?.answerCount ?? 0}/3
+                                                {activePasteEval?.answerCount ?? 0}/{MAX_PASTE_EVAL_ANSWERS}
                                             </div>
                                         </div>
                                         <div className="rounded-[24px] border border-slate-200/70 bg-white/70 px-5 py-4 shadow-sm shadow-slate-900/10 dark:border-slate-700/50 dark:bg-slate-900/60">
