@@ -35,6 +35,7 @@ export function mapJobResponse(job: JobWithCompany, company?: JobWithCompany["co
         description: job.description,
         salary: job.salary,
         requirements: job.requirements,
+        codingCategories: job.codingCategories,
         interviewContent: interview
             ? {
                   id: interview.id,

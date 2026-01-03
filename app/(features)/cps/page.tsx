@@ -55,6 +55,13 @@ function TelemetryContent() {
     // Debug panel
     const [showDebugPanel, setShowDebugPanel] = useState(false);
 
+    // Listen for debug panel toggle from header
+    useEffect(() => {
+        const handleToggleDebug = () => setShowDebugPanel(prev => !prev);
+        window.addEventListener('toggleDebugPanel', handleToggleDebug);
+        return () => window.removeEventListener('toggleDebugPanel', handleToggleDebug);
+    }, []);
+
     useEffect(() => {
         const fetchTelemetryData = async () => {
             if (!candidateId) {
@@ -219,6 +226,8 @@ function TelemetryContent() {
     // Calculate score when we have all necessary data
     useEffect(() => {
         const sessionWorkstyle = activeSession?.workstyle;
+        const jobCodingCategories = activeSession?.application?.job?.codingCategories as Array<{name: string; description: string; weight: number}> | undefined;
+        
         if (!backgroundSummary || !codingSummary || !scoringConfig || !sessionWorkstyle) {
             setCalculatedScore(null);
             setCalculatedExperienceScore(null);
@@ -227,11 +236,27 @@ function TelemetryContent() {
         }
 
         try {
+            // Build category scores from jobSpecificCategories with weights from job
+            const categoryScores: Array<{name: string; score: number; weight: number}> = [];
+            
+            if (codingSummary.jobSpecificCategories && jobCodingCategories) {
+                Object.entries(codingSummary.jobSpecificCategories).forEach(([name, data]: [string, any]) => {
+                    const categoryDef = jobCodingCategories.find((c: any) => c.name === name);
+                    if (categoryDef && categoryDef.weight > 0) {
+                        categoryScores.push({
+                            name,
+                            score: data.score,
+                            weight: categoryDef.weight
+                        });
+                    }
+                });
+            }
+            
             const rawScores: RawScores = {
                 adaptability: backgroundSummary.adaptability?.score ?? 0,
                 creativity: backgroundSummary.creativity?.score ?? 0,
                 reasoning: backgroundSummary.reasoning?.score ?? 0,
-                codeQuality: codingSummary.codeQuality?.score ?? 0,
+                categoryScores,
             };
 
             const workstyleMetrics: WorkstyleMetrics = {
@@ -249,7 +274,7 @@ function TelemetryContent() {
             setCalculatedExperienceScore(null);
             setCalculatedCodingScore(null);
         }
-    }, [backgroundSummary, codingSummary, scoringConfig, activeSession?.workstyle]);
+    }, [backgroundSummary, codingSummary, scoringConfig, activeSession?.workstyle, activeSession?.application?.job?.codingCategories]);
 
     console.log("[CPS] Active session:", activeSession);
     const formatMonthYear = (dateIso?: string) =>
@@ -444,19 +469,6 @@ function TelemetryContent() {
                                         {longStory}
                                     </p>
                                 </div>
-                                
-                                {/* Debug Panel Toggle Button */}
-                                {process.env.NEXT_PUBLIC_DEBUG_MODE === "true" && (
-                                    <button
-                                        onClick={() => setShowDebugPanel(!showDebugPanel)}
-                                        className="rounded-full bg-purple-600 p-3 text-white shadow-lg hover:bg-purple-700 transition-colors flex-shrink-0"
-                                        title={showDebugPanel ? "Hide Debug Panel" : "Show Debug Panel"}
-                                    >
-                                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                                        </svg>
-                                    </button>
-                                )}
                                 
                                 {/* Session Navigation */}
                                 {sessions.length > 1 && (

@@ -21,6 +21,7 @@ interface JobDetailResponse {
     salary: string | null;
     description: string | null;
     requirements: string | null;
+    codingCategories?: CodingCategory[];
     company: {
         id: string;
         name: string;
@@ -47,34 +48,28 @@ interface FormState {
     requirements: string;
 }
 
+interface CodingCategory {
+    name: string;
+    description: string;
+    weight: number;
+}
+
 interface ScoringConfigState {
     adaptabilityWeight: number;
     creativityWeight: number;
     reasoningWeight: number;
-    codeQualityWeight: number;
-    problemSolvingWeight: number;
-    independenceWeight: number;
-    iterationSpeedWeight: number;
     aiAssistWeight: number;
     experienceWeight: number;
     codingWeight: number;
-    iterationSpeedThresholdModerate: number;
-    iterationSpeedThresholdHigh: number;
 }
 
 const defaultScoringConfig: ScoringConfigState = {
     adaptabilityWeight: 33.33,
     creativityWeight: 33.33,
     reasoningWeight: 33.34,
-    codeQualityWeight: 25,
-    problemSolvingWeight: 25,
-    independenceWeight: 25,
-    iterationSpeedWeight: 12.5,
-    aiAssistWeight: 12.5,
+    aiAssistWeight: 25,
     experienceWeight: 50,
     codingWeight: 50,
-    iterationSpeedThresholdModerate: 5,
-    iterationSpeedThresholdHigh: 10,
 };
 
 function optionalString(value: string | null | undefined): string {
@@ -107,6 +102,7 @@ function CompanyJobDetailContent() {
     const [scoringConfig, setScoringConfig] = useState<ScoringConfigState>(defaultScoringConfig);
     const [scoringExpanded, setScoringExpanded] = useState(false);
     const [savingScoring, setSavingScoring] = useState(false);
+    const [codingCategories, setCodingCategories] = useState<CodingCategory[]>([]);
 
     useEffect(() => {
         const fetchDetail = async () => {
@@ -128,6 +124,7 @@ function CompanyJobDetailContent() {
                     description: optionalString(data.description),
                     requirements: optionalString(data.requirements),
                 });
+                setCodingCategories(data.codingCategories || []);
                 if (data.interviewContent) {
                     setInterviewState({
                         backgroundQuestion: optionalString(
@@ -234,6 +231,7 @@ function CompanyJobDetailContent() {
                     formState.requirements.length > 0
                         ? formState.requirements
                         : null,
+                codingCategories: codingCategories.length > 0 ? codingCategories : null,
             };
             const hasInterviewContent =
                 interviewState.backgroundQuestion.trim().length > 0 ||
@@ -281,6 +279,7 @@ function CompanyJobDetailContent() {
                 description: optionalString(updated.description),
                 requirements: optionalString(updated.requirements),
             });
+            setCodingCategories(updated.codingCategories || []);
             if (updated.interviewContent) {
                 setInterviewState({
                     backgroundQuestion:
@@ -538,26 +537,16 @@ function CompanyJobDetailContent() {
 
                     {/* Scoring Configuration Section */}
                     <section className="bg-white/80 backdrop-blur rounded-2xl border border-white/20 p-6 shadow-sm">
-                        <div className="flex items-center justify-between mb-4">
-                            <div>
-                                <h2 className="text-xl font-semibold text-gray-800">
-                                    Scoring Configuration
-                                </h2>
-                                <p className="text-sm text-gray-600 mt-1">
-                                    Configure weights and benchmarks for candidate evaluation
-                                </p>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setScoringExpanded(!scoringExpanded)}
-                                className="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 transition-colors"
-                            >
-                                {scoringExpanded ? "Collapse" : "Expand"}
-                            </button>
+                        <div className="mb-6">
+                            <h2 className="text-xl font-semibold text-gray-800">
+                                Scoring Configuration
+                            </h2>
+                            <p className="text-sm text-gray-600 mt-1">
+                                Configure weights and benchmarks for candidate evaluation
+                            </p>
                         </div>
 
-                        {scoringExpanded && (
-                            <div className="space-y-6">
+                        <div className="space-y-6">
                                 {/* Category Weights */}
                                 <div className="border-t border-gray-200 pt-4">
                                     <h3 className="text-lg font-medium text-gray-800 mb-3">
@@ -641,71 +630,114 @@ function CompanyJobDetailContent() {
                                     </div>
                                 </div>
 
-                                {/* Coding Dimensions */}
-                                <div className="border-t border-gray-200 pt-4">
-                                    <h3 className="text-lg font-medium text-gray-800 mb-3">
-                                        Coding Dimensions
-                                    </h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <label className="flex flex-col text-sm font-medium text-gray-700">
-                                            Code Quality Weight
-                                            <input
-                                                type="number"
-                                                value={scoringConfig.codeQualityWeight}
-                                                onChange={(e) => setScoringConfig({
-                                                    ...scoringConfig,
-                                                    codeQualityWeight: Number(e.target.value)
-                                                })}
-                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                            />
-                                        </label>
-                                        <label className="flex flex-col text-sm font-medium text-gray-700">
-                                            Problem Solving Weight
-                                            <input
-                                                type="number"
-                                                value={scoringConfig.problemSolvingWeight}
-                                                onChange={(e) => setScoringConfig({
-                                                    ...scoringConfig,
-                                                    problemSolvingWeight: Number(e.target.value)
-                                                })}
-                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                            />
-                                        </label>
-                                        <label className="flex flex-col text-sm font-medium text-gray-700">
-                                            Independence Weight
-                                            <input
-                                                type="number"
-                                                value={scoringConfig.independenceWeight}
-                                                onChange={(e) => setScoringConfig({
-                                                    ...scoringConfig,
-                                                    independenceWeight: Number(e.target.value)
-                                                })}
-                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                            />
-                                        </label>
-                                    </div>
-                                </div>
-
                                 {/* Workstyle Metrics */}
                                 <div className="border-t border-gray-200 pt-4">
-                                    <h3 className="text-lg font-medium text-gray-800 mb-3">
-                                        Workstyle Metrics
+                                    <h3 className="text-lg font-semibold text-gray-800 mb-1">
+                                        Coding Dimensions
                                     </h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                        <label className="flex flex-col text-sm font-medium text-gray-700">
-                                            Iteration Speed Weight
-                                            <input
-                                                type="number"
-                                                value={scoringConfig.iterationSpeedWeight}
-                                                onChange={(e) => setScoringConfig({
-                                                    ...scoringConfig,
-                                                    iterationSpeedWeight: Number(e.target.value)
-                                                })}
-                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                            />
-                                        </label>
-                                        <label className="flex flex-col text-sm font-medium text-gray-700">
-                                            AI Assist Weight
+                                    <p className="text-xs text-gray-500 mb-6">
+                                        Define evaluation criteria and weights for coding performance
+                                    </p>
+
+                                    {/* Job-Specific Categories */}
+                                    <div className="mb-6">
+                                        <h4 className="text-sm font-medium text-gray-700 mb-3">
+                                            Job-Specific Categories
+                                        </h4>
+                                        
+                                        <div className="space-y-3">
+                                            {codingCategories.map((category, index) => (
+                                                <div
+                                                    key={index}
+                                                    className="group relative bg-gray-50/50 border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-all"
+                                                >
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const updated = codingCategories.filter((_, i) => i !== index);
+                                                            setCodingCategories(updated);
+                                                        }}
+                                                        className="absolute top-3 right-3 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                        </svg>
+                                                    </button>
+                                                    
+                                                    <div className="space-y-2 pr-6">
+                                                        <input
+                                                            type="text"
+                                                            value={category.name}
+                                                            onChange={(e) => {
+                                                                const updated = [...codingCategories];
+                                                                updated[index].name = e.target.value;
+                                                                setCodingCategories(updated);
+                                                            }}
+                                                            placeholder="Category name (e.g., TypeScript Proficiency)"
+                                                            className="w-full text-sm font-semibold text-gray-900 bg-transparent border-0 px-0 py-0 focus:ring-0 outline-none placeholder:text-gray-400 placeholder:font-normal"
+                                                        />
+                                                        
+                                                        <input
+                                                            type="text"
+                                                            value={category.description}
+                                                            onChange={(e) => {
+                                                                const updated = [...codingCategories];
+                                                                updated[index].description = e.target.value;
+                                                                setCodingCategories(updated);
+                                                            }}
+                                                            placeholder="Description (e.g., Type safety, interfaces, generics)"
+                                                            className="w-full text-xs text-gray-500 bg-transparent border-0 px-0 py-0 focus:ring-0 outline-none placeholder:text-gray-400"
+                                                        />
+                                                        
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs text-gray-500">Weight:</span>
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                max="100"
+                                                                value={category.weight}
+                                                                onChange={(e) => {
+                                                                    const updated = [...codingCategories];
+                                                                    updated[index].weight = Number(e.target.value);
+                                                                    setCodingCategories(updated);
+                                                                }}
+                                                                className="w-16 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded px-2 py-1 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none"
+                                                            />
+                                                            <span className="text-xs text-gray-500">%</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setCodingCategories([...codingCategories, { name: "", description: "", weight: 0 }]);
+                                                }}
+                                                className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:border-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-2"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                                </svg>
+                                                Add Category
+                                            </button>
+                                            
+                                            <div className={`text-xs ${codingCategories.reduce((sum, c) => sum + c.weight, 0) === 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                                Total: {codingCategories.reduce((sum, c) => sum + c.weight, 0)}%
+                                                {codingCategories.reduce((sum, c) => sum + c.weight, 0) !== 100 && ' (should equal 100%)'}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* External Tools Usage */}
+                                    <div>
+                                        <h4 className="text-sm font-medium text-gray-700 mb-3">
+                                            External Tools Usage
+                                        </h4>
+                                        <div className="flex items-center gap-3">
+                                            <label className="text-xs text-gray-500">
+                                                AI Assist Weight:
+                                            </label>
                                             <input
                                                 type="number"
                                                 value={scoringConfig.aiAssistWeight}
@@ -713,37 +745,10 @@ function CompanyJobDetailContent() {
                                                     ...scoringConfig,
                                                     aiAssistWeight: Number(e.target.value)
                                                 })}
-                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                                className="w-20 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none"
                                             />
-                                        </label>
-                                    </div>
-                                    
-                                    <h4 className="text-md font-medium text-gray-700 mb-3">Benchmarks</h4>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <label className="flex flex-col text-sm font-medium text-gray-700">
-                                            Iteration Speed - Moderate Threshold
-                                            <input
-                                                type="number"
-                                                value={scoringConfig.iterationSpeedThresholdModerate}
-                                                onChange={(e) => setScoringConfig({
-                                                    ...scoringConfig,
-                                                    iterationSpeedThresholdModerate: Number(e.target.value)
-                                                })}
-                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                            />
-                                        </label>
-                                        <label className="flex flex-col text-sm font-medium text-gray-700">
-                                            Iteration Speed - High Threshold
-                                            <input
-                                                type="number"
-                                                value={scoringConfig.iterationSpeedThresholdHigh}
-                                                onChange={(e) => setScoringConfig({
-                                                    ...scoringConfig,
-                                                    iterationSpeedThresholdHigh: Number(e.target.value)
-                                                })}
-                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                            />
-                                        </label>
+                                            <span className="text-xs text-gray-500">%</span>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -759,7 +764,6 @@ function CompanyJobDetailContent() {
                                     </button>
                                 </div>
                             </div>
-                        )}
                     </section>
 
                     <div className="flex justify-end gap-3">

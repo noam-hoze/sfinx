@@ -109,6 +109,7 @@ model Job {
   description          String?
   requirements         String?
   isActive             Boolean                  @default(true)
+  codingCategories     Json?
   createdAt            DateTime                 @default(now())
   updatedAt            DateTime                 @updatedAt
   companyId            String
@@ -128,8 +129,6 @@ model ScoringConfiguration {
   adaptabilityWeight               Float    @default(33.33)
   creativityWeight                 Float    @default(33.33)
   reasoningWeight                  Float    @default(33.34)
-  /// Coding dimension weights (sum should equal codingWeight)
-  codeQualityWeight                Float    @default(75)
   /// Workstyle metric weights (part of coding score)
   aiAssistWeight                   Float    @default(25)
   /// Category weights (should sum to 100)
