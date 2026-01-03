@@ -20,8 +20,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         log.info("[Session GET] === FETCH REQUEST RECEIVED ===");
         
         const skipAuth = request.nextUrl.searchParams.get("skip-auth") === "true";
-        const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
-        const shouldSkipAuth = skipAuth || isDemoMode;
+        const shouldSkipAuth = skipAuth;
         
         log.info("[Session GET] Skip auth:", skipAuth);
 
@@ -87,11 +86,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         log.info("[Session PATCH] URL:", request.url);
 
         const skipAuth = request.nextUrl.searchParams.get("skip-auth") === "true";
-        const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
-        const shouldSkipAuth = skipAuth || isDemoMode;
+        const shouldSkipAuth = skipAuth;
         
         log.info("[Session PATCH] Skip auth:", skipAuth);
-        log.info("[Session PATCH] Demo mode (env):", isDemoMode);
         log.info("[Session PATCH] Should skip auth:", shouldSkipAuth);
 
         const session = await getServerSession(authOptions);

@@ -1,8 +1,11 @@
 "use client";
 
+// Demo mode: Access via /interview?demo=true (no auth required)
+// Regular mode: /interview (requires authentication)
+
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { store, RootState } from "@/shared/state/store";
@@ -42,6 +45,7 @@ import {
  */
 function InterviewPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isMuted } = useMute();
   const dispatch = useDispatch();
   const { data: session } = useSession();
@@ -77,7 +81,7 @@ function InterviewPageContent() {
   const [codingApplicationId, setCodingApplicationId] = useState<string | null>(applicationId || null);
   const [backgroundQuestionNumber, setBackgroundQuestionNumber] = useState(1);
 
-  const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+  const isDemoMode = searchParams.get("demo") === "true";
   const skipToCoding = process.env.NEXT_PUBLIC_SKIP_TO_CODING === "true";
   const skipScreenShare = process.env.NEXT_PUBLIC_SKIP_SCREEN_SHARE === "true";
   const recordingControls = useScreenRecording(isDemoMode);
