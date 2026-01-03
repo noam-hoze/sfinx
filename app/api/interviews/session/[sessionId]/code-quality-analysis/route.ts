@@ -40,15 +40,24 @@ export async function GET(request: NextRequest, context: RouteContext) {
             );
         }
 
+        // Return job-specific categories even if detailed analysis not yet generated
         if (!codingSummary.codeQualityAnalysis) {
-            return NextResponse.json(
-                { error: "Code quality analysis not yet generated" },
-                { status: 404 }
-            );
+            return NextResponse.json({
+                analysis: {
+                    positives: [],
+                    improvements: [],
+                    summary: "Detailed code quality analysis not yet generated. Click 'Generate Analysis' to create it.",
+                    jobSpecificCategories: codingSummary.jobSpecificCategories as Record<string, { score: number; text: string }> | undefined,
+                },
+                finalCode: codingSummary.finalCode,
+            });
         }
 
         return NextResponse.json({
-            analysis: codingSummary.codeQualityAnalysis,
+            analysis: {
+                ...codingSummary.codeQualityAnalysis,
+                jobSpecificCategories: codingSummary.jobSpecificCategories as Record<string, { score: number; text: string }> | undefined,
+            },
             finalCode: codingSummary.finalCode,
         });
     } catch (error: any) {

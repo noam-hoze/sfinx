@@ -48,14 +48,11 @@ export async function GET(
                     score: codingSummary.codeQualityScore,
                     text: codingSummary.codeQualityText,
                 },
-                problemSolving: {
-                    score: codingSummary.problemSolvingScore,
-                    text: codingSummary.problemSolvingText,
-                },
                 independence: {
                     score: codingSummary.independenceScore,
                     text: codingSummary.independenceText,
                 },
+                jobSpecificCategories: codingSummary.jobSpecificCategories as Record<string, { score: number; text: string }> | null,
             },
         };
 

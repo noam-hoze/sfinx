@@ -8,7 +8,7 @@ interface CodingEvaluationDebugPanelProps {
     evaluationData: {
         summaryRequest?: any;
         summaryResponse?: any;
-        iterations?: any[];
+        jobSpecificResponse?: any;
         timestamp?: number;
         error?: string;
     } | null;
@@ -17,7 +17,12 @@ interface CodingEvaluationDebugPanelProps {
 }
 
 export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, onTestEvaluation }: CodingEvaluationDebugPanelProps) {
-    const [activeTab, setActiveTab] = useState<"summary" | "codeQuality" | "problemSolving" | "external" | "iterations">("summary");
+    // Get job-specific categories dynamically
+    const jobSpecificCategories = evaluationData?.jobSpecificResponse?.data?.categories;
+    const categoryNames = jobSpecificCategories ? Object.keys(jobSpecificCategories) : [];
+    
+    type TabType = "summary" | "codeQuality" | "external" | string;
+    const [activeTab, setActiveTab] = useState<TabType>("summary");
     
     // Subscribe to paste evaluation state
     const [chatState, setChatState] = useState(() => interviewChatStore.getState());
@@ -112,16 +117,6 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                         Code Quality
                     </button>
                     <button
-                        onClick={() => setActiveTab("problemSolving")}
-                        className={`px-4 py-2 text-sm font-medium transition-colors ${
-                            activeTab === "problemSolving"
-                                ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400"
-                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-                        }`}
-                    >
-                        Problem Solving
-                    </button>
-                    <button
                         onClick={() => setActiveTab("external")}
                         className={`px-4 py-2 text-sm font-medium transition-colors ${
                             activeTab === "external"
@@ -131,16 +126,19 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                     >
                         External Tool Evaluation
                     </button>
-                    <button
-                        onClick={() => setActiveTab("iterations")}
-                        className={`px-4 py-2 text-sm font-medium transition-colors ${
-                            activeTab === "iterations"
-                                ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400"
-                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-                        }`}
-                    >
-                        Iteration Loops
-                    </button>
+                    {categoryNames.map((categoryName) => (
+                        <button
+                            key={categoryName}
+                            onClick={() => setActiveTab(categoryName)}
+                            className={`px-4 py-2 text-sm font-medium transition-colors ${
+                                activeTab === categoryName
+                                    ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400"
+                                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                            }`}
+                        >
+                            {categoryName}
+                        </button>
+                    ))}
                 </div>
 
                 {/* External Tool Tab */}
@@ -463,132 +461,33 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                     </div>
                 )}
 
-                {/* Problem Solving Tab */}
-                {activeTab === "problemSolving" && (
-                    <div className="flex flex-col gap-4">
-                        <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4">
-                            <div className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">
-                                Problem Solving Evaluation
-                            </div>
-                            {evaluationData?.summaryResponse?.data?.summary?.problemSolving ? (
-                                <div className="space-y-4">
-                                    <div className="bg-yellow-50 dark:bg-yellow-900/20 p-6 rounded-lg">
-                                        <div className="text-lg font-semibold text-yellow-700 dark:text-yellow-400 mb-3">
+                {/* Job-Specific Category Tabs */}
+                {categoryNames.map((categoryName) => {
+                    const categoryData = jobSpecificCategories[categoryName];
+                    return activeTab === categoryName ? (
+                        <div key={categoryName} className="flex flex-col gap-4">
+                            <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+                                {categoryData ? (
+                                    <div className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg p-6 border border-purple-200 dark:border-purple-800">
+                                        <div className="text-lg font-semibold text-purple-700 dark:text-purple-400 mb-3">
                                             Score
                                         </div>
-                                        <div className="text-4xl font-bold text-yellow-900 dark:text-yellow-300 mb-4">
-                                            {evaluationData.summaryResponse.data.summary.problemSolving.score}
+                                        <div className="text-4xl font-bold text-purple-900 dark:text-purple-300 mb-4">
+                                            {categoryData.score}
                                         </div>
                                         <div className="text-base text-slate-700 dark:text-slate-300 leading-relaxed">
-                                            {evaluationData.summaryResponse.data.summary.problemSolving.text}
+                                            {categoryData.text}
                                         </div>
                                     </div>
-                                </div>
-                            ) : (
-                                <div className="text-base text-slate-600 dark:text-slate-300 py-8 text-center">
-                                    No problem solving data yet. Click &quot;Test Evaluation&quot; to generate.
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* Iteration Loops Tab */}
-                {activeTab === "iterations" && (
-                    <div className="flex flex-col gap-4">
-                        <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4">
-                            <div className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4">
-                                Code Iteration History
+                                ) : (
+                                    <div className="text-base text-slate-600 dark:text-slate-300 py-8 text-center">
+                                        No {categoryName} data yet. Click &quot;Test Evaluation&quot; to generate.
+                                    </div>
+                                )}
                             </div>
-                            {evaluationData?.iterations && evaluationData.iterations.length > 0 ? (
-                                <div className="space-y-4">
-                                    {evaluationData.iterations.map((iteration: any, idx: number) => (
-                                        <div
-                                            key={iteration.id || idx}
-                                            className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 bg-slate-50 dark:bg-slate-800/50"
-                                        >
-                                            <div className="flex items-center justify-between mb-3">
-                                                <div className="text-base font-semibold text-slate-800 dark:text-slate-200">
-                                                    Iteration #{(evaluationData.iterations?.length ?? 0) - idx}
-                                                </div>
-                                                <div className="text-sm text-slate-500 dark:text-slate-400">
-                                                    {new Date(iteration.timestamp).toLocaleString()}
-                                                </div>
-                                            </div>
-                                            
-                                            <div className="grid grid-cols-2 gap-4 mb-3">
-                                                <div>
-                                                    <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                                                        Evaluation
-                                                    </div>
-                                                    <div className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                                                        iteration.evaluation === "correct"
-                                                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                                                            : iteration.evaluation === "partial"
-                                                            ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
-                                                            : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                                                    }`}>
-                                                        {iteration.evaluation}
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                                                        Match Percentage
-                                                    </div>
-                                                    <div className="text-base font-semibold text-slate-800 dark:text-slate-200">
-                                                        {iteration.matchPercentage}%
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            
-                                            <div className="mb-3">
-                                                <div className="text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                                                    Caption
-                                                </div>
-                                                <div className="text-base text-slate-700 dark:text-slate-300">
-                                                    {iteration.caption}
-                                                </div>
-                                            </div>
-                                            
-                                            {iteration.reasoning && (
-                                                <details className="mt-2">
-                                                    <summary className="text-sm text-slate-600 dark:text-slate-400 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
-                                                        Show reasoning
-                                                    </summary>
-                                                    <div className="text-base text-slate-700 dark:text-slate-300 mt-2 pl-3 border-l-2 border-slate-300 dark:border-slate-600">
-                                                        {iteration.reasoning}
-                                                    </div>
-                                                </details>
-                                            )}
-                                            
-                                            <details className="mt-2">
-                                                <summary className="text-sm text-slate-600 dark:text-slate-400 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
-                                                    Show code snapshot
-                                                </summary>
-                                                <pre className="text-xs bg-slate-100 dark:bg-slate-900 p-3 rounded overflow-x-auto mt-2 whitespace-pre-wrap break-words">
-                                                    {iteration.codeSnapshot}
-                                                </pre>
-                                            </details>
-                                            
-                                            <details className="mt-2">
-                                                <summary className="text-sm text-slate-600 dark:text-slate-400 cursor-pointer hover:text-slate-900 dark:hover:text-slate-200">
-                                                    Show actual output
-                                                </summary>
-                                                <pre className="text-xs bg-slate-100 dark:bg-slate-900 p-3 rounded overflow-x-auto mt-2 whitespace-pre-wrap break-words">
-                                                    {iteration.actualOutput}
-                                                </pre>
-                                            </details>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-base text-slate-600 dark:text-slate-300 py-8 text-center">
-                                    No iteration data yet. Run your code to start tracking iterations.
-                                </div>
-                            )}
                         </div>
-                    </div>
-                )}
+                    ) : null;
+                })}
             </div>
         </div>
     );

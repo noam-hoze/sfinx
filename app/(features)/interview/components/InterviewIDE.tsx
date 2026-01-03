@@ -23,6 +23,7 @@ import {
     useJobApplication,
 } from "../../../shared/contexts";
 import { log } from "../../../shared/services";
+import { FRONTEND_JOB_CATEGORIES } from "../constants/jobCategories";
 import { useCamera } from "./hooks/useCamera";
 import { useInterviewTimer } from "./hooks/useInterviewTimer";
 import { useThemePreference } from "./hooks/useThemePreference";
@@ -367,6 +368,30 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 summaryStatus: debugData.summaryResponse?.status,
             });
             
+            // Test job-specific coding evaluation
+            logger.info("[TEST_EVAL] 🔄 Calling /api/interviews/evaluate-job-specific-coding...");
+            const jobEvalResponse = await fetch("/api/interviews/evaluate-job-specific-coding", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    finalCode: state.currentCode,
+                    codingTask: interviewScript.codingPrompt,
+                    categories: FRONTEND_JOB_CATEGORIES,
+                }),
+            });
+
+            debugData.jobSpecificResponse = {
+                status: jobEvalResponse.status,
+                statusText: jobEvalResponse.statusText,
+                data: jobEvalResponse.ok ? await jobEvalResponse.json() : await jobEvalResponse.text(),
+            };
+            logger.info("[TEST_EVAL] ✅ Job-specific evaluation response:", {
+                status: jobEvalResponse.status,
+                ok: jobEvalResponse.ok,
+            });
+
+            setEvaluationDebugData(debugData);
+            
             // Auto-open debug panel if not visible
             if (!isDebugVisible && isDebugModeEnabled) {
                 setIsDebugVisible(true);
@@ -468,6 +493,48 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                     }
                 } catch (analysisError) {
                     logger.error("Error generating code quality analysis:", analysisError);
+                }
+
+                // Generate job-specific coding evaluation (hardcoded for frontend job)
+                logger.info("Generating job-specific coding evaluation for session:", interviewSessionId);
+                try {
+                    const jobEvalResponse = await fetch("/api/interviews/evaluate-job-specific-coding", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            finalCode: state.currentCode,
+                            codingTask: interviewScript.codingPrompt,
+                            categories: FRONTEND_JOB_CATEGORIES,
+                        }),
+                    });
+                    
+                    if (jobEvalResponse.ok) {
+                        const jobEvalData = await jobEvalResponse.json();
+                        logger.info("✅ Job-specific coding evaluation complete:", jobEvalData);
+                        
+                        // Update coding summary with job-specific categories
+                        const summaryUpdateUrl = isDemoMode
+                            ? `/api/interviews/session/${interviewSessionId}/coding-summary-update?skip-auth=true`
+                            : `/api/interviews/session/${interviewSessionId}/coding-summary-update`;
+                        
+                        const updateResponse = await fetch(summaryUpdateUrl, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                jobSpecificCategories: jobEvalData.categories,
+                            }),
+                        });
+                        
+                        if (updateResponse.ok) {
+                            logger.info("✅ Coding summary updated with job-specific categories");
+                        } else {
+                            logger.error("Failed to update coding summary:", updateResponse.status);
+                        }
+                    } else {
+                        logger.error("Failed to generate job-specific evaluation:", jobEvalResponse.status);
+                    }
+                } catch (jobEvalError) {
+                    logger.error("Error generating job-specific evaluation:", jobEvalError);
                 }
             }
             setIsInterviewLoading(false);

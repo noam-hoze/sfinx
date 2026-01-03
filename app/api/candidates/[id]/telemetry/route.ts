@@ -248,27 +248,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 const evidenceClips = telemetry?.evidenceClips || [];
                 const sessionIterations = iterationsBySession.get(session.id) || [];
 
-                const iterationSpeedLinks: Array<{timestamp: number, evaluation: string}> = [];
                 const aiAssistUsageLinks: number[] = [];
-
-                // Add iteration evidence links using stored VideoChapter.startTime with evaluation status
-                const sessionIterationChapters = iterationVideoChaptersBySession.get(session.id) || [];
-                log.info(`[Telemetry API] Session ${session.id}: Found ${sessionIterationChapters.length} iteration video chapters`);
-                sessionIterationChapters.forEach((chapter: any) => {
-                    log.info(`  - Adding iteration evidence link: ${chapter.title} at ${chapter.startTime}s`);
-                    if (chapter.startTime >= 0) {
-                        // Extract iteration number from title (e.g., "Iteration 1" -> 1)
-                        const iterationNumber = parseInt(chapter.title.replace(/\D/g, ''), 10);
-                        // Find the corresponding iteration (iterations are 1-indexed in the array)
-                        const iteration = sessionIterations[iterationNumber - 1];
-                        const evaluation = iteration?.evaluation || "INCORRECT";
-                        
-                        iterationSpeedLinks.push({
-                            timestamp: chapter.startTime,
-                            evaluation: evaluation
-                        });
-                    }
-                });
 
                 // Add external tool usage evidence links and calculate breakdown
                 const sessionExternalTools = externalToolsBySession.get(session.id) || [];
@@ -313,7 +293,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 
                 const avgAccountabilityScore = sessionExternalTools.length > 0 
                     ? Math.round(totalScore / sessionExternalTools.length) 
-                    : 0;
+                    : null;
 
                 evidenceClips.forEach((clip: any) => {
                     if (clip.startTime === null || clip.startTime === undefined)
@@ -350,10 +330,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
                             sum + (tool.accountabilityScore || 0), 0);
                         const avgAccountabilityScore = sessionExternalTools.length > 0 
                             ? Math.round(totalScore / sessionExternalTools.length) 
-                            : 100;
+                            : undefined;
 
                         const workstyleMetrics: WorkstyleMetrics = {
-                            iterationSpeed: telemetry.workstyleMetrics.iterationSpeed ?? undefined,
                             aiAssistAccountabilityScore: avgAccountabilityScore,
                         };
 
@@ -421,37 +400,25 @@ export async function GET(request: NextRequest, context: RouteContext) {
                     })(),
                     workstyle: telemetry?.workstyleMetrics
                         ? {
-                              iterationSpeed: {
-                                  value: telemetry.workstyleMetrics.iterationSpeed ?? null,
-                                  level:
-                                      (telemetry.workstyleMetrics.iterationSpeed ?? 0) >= 10
-                                          ? "High"
-                                          : (telemetry.workstyleMetrics.iterationSpeed ?? 0) >= 5
-                                          ? "Moderate"
-                                          : "Low",
-                                  color:
-                                      (telemetry.workstyleMetrics.iterationSpeed ?? 0) >= 10
-                                          ? "blue"
-                                          : (telemetry.workstyleMetrics.iterationSpeed ?? 0) >= 5
-                                          ? "yellow"
-                                          : "red",
-                                  evidenceLinks: iterationSpeedLinks,
-                                  tpe: telemetry.workstyleMetrics.iterationSpeed ?? null,
-                              },
                               aiAssistUsage: {
                                   value: telemetry.workstyleMetrics.externalToolUsage ?? 0,
+                                  avgAccountabilityScore: avgAccountabilityScore ?? null,
                                   level:
-                                      avgAccountabilityScore >= 70
+                                      avgAccountabilityScore !== undefined && avgAccountabilityScore >= 70
                                           ? "High"
-                                          : avgAccountabilityScore >= 40
+                                          : avgAccountabilityScore !== undefined && avgAccountabilityScore >= 40
                                           ? "Moderate"
-                                          : "Low",
+                                          : avgAccountabilityScore !== undefined
+                                          ? "Low"
+                                          : "N/A",
                                   color:
-                                      avgAccountabilityScore >= 70
+                                      avgAccountabilityScore !== undefined && avgAccountabilityScore >= 70
                                           ? "blue"
-                                          : avgAccountabilityScore >= 40
+                                          : avgAccountabilityScore !== undefined && avgAccountabilityScore >= 40
                                           ? "yellow"
-                                          : "red",
+                                          : avgAccountabilityScore !== undefined
+                                          ? "red"
+                                          : "gray",
                                   isFairnessFlag:
                                       (telemetry.workstyleMetrics.externalToolUsage ?? 0) > 50,
                                   evidenceLinks: aiAssistUsageLinks,
@@ -461,7 +428,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
                                   fullCount,
                                   partialCount,
                                   noneCount,
-                                  avgAccountabilityScore,
                               },
                           }
                         : null,
@@ -574,11 +540,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
         // Update workstyle metrics if provided
         if (body.workstyle && interviewSession.telemetryData.workstyleMetrics) {
-            const workstyleData: any = {};
-
-            if (body.workstyle.iterationSpeed?.value !== undefined) {
-                workstyleData.iterationSpeed = body.workstyle.iterationSpeed.value;
-            }
+            let workstyleData: any = {};
             if (body.workstyle.aiAssistUsage?.value !== undefined) {
                 workstyleData.externalToolUsage = body.workstyle.aiAssistUsage.value;
             }
@@ -603,10 +565,6 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             // Create new clips from the body
             const workstyleMetricsToUpdate = [
                 {
-                    title: "Iteration Speed",
-                    data: body.workstyle.iterationSpeed,
-                },
-                {
                     title: "AI Assist Usage",
                     data: body.workstyle.aiAssistUsage,
                 },
@@ -616,7 +574,6 @@ export async function PUT(request: NextRequest, context: RouteContext) {
                 if (metric.data && metric.data.evidenceLinks) {
                     for (const timestamp of metric.data.evidenceLinks) {
                         const categoryMap: Record<string, string> = {
-                            "Iteration Speed": "ITERATION_SPEED",
                             "AI Assist Usage": "AI_ASSIST_USAGE",
                         };
                         const category = categoryMap[metric.title];
