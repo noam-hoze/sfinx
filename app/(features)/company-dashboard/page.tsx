@@ -1,20 +1,10 @@
 import { AuthGuard } from "app/shared/components";
-import CompanyDashboardContent from "./content";
-
-function CompanyDashboardContentWrapper() {
-    return (
-        <main className="min-h-screen bg-gray-50 p-8">
-            <div className="max-w-7xl mx-auto">
-                <CompanyDashboardContent />
-            </div>
-        </main>
-    );
-}
+import ApplicantsByJob from "./ApplicantsByJob";
 
 export default function CompanyDashboard() {
     return (
         <AuthGuard requiredRole="COMPANY">
-            <CompanyDashboardContentWrapper />
+            <ApplicantsByJob />
         </AuthGuard>
     );
 }

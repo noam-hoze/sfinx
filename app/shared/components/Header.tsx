@@ -164,7 +164,7 @@ export default function Header() {
                                         : inactiveLinkStyles
                                 }`}
                             >
-                                Candidates
+                                Applicants
                             </Link>
                             <Link
                                 ref={(el) => {

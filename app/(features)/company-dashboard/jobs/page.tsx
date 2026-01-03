@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { AuthGuard } from "app/shared/components";
+import SfinxSpinner from "app/shared/components/SfinxSpinner";
 import { log } from "app/shared/services";
 import { JobGrid, JobGridJob } from "app/shared/components/jobs/JobGrid";
 import type { JobGridCompany } from "app/shared/components/jobs/JobGrid";
@@ -66,6 +67,7 @@ function CompanyJobsContent() {
         useState<InterviewDurationState>(defaultInterviewDurations);
     const [createSubmitting, setCreateSubmitting] = useState(false);
     const [deleteInFlight, setDeleteInFlight] = useState<string | null>(null);
+    const [editingJobId, setEditingJobId] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchJobs = async () => {
@@ -245,17 +247,9 @@ function CompanyJobsContent() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="max-w-7xl mx-auto p-6">
-                <div className="flex items-center justify-between mb-8">
-                    <div>
-                        <h1 className="text-3xl font-semibold text-gray-800 tracking-tight">
-                            {companyName}
-                        </h1>
-                        <p className="text-gray-600">
-                            Manage openings, interview content, and publishing.
-                        </p>
-                    </div>
+        <div className="min-h-screen bg-gray-50 p-12">
+            <div className="max-w-7xl mx-auto">
+                <div className="flex items-center justify-end mb-8">
                     <button
                         type="button"
                         className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors"
@@ -410,49 +404,50 @@ function CompanyJobsContent() {
                     </div>
                 ) : null}
 
-                {loading ? (
-                    <div className="text-center py-12">
-                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                        <p className="mt-4 text-gray-600">Loading jobs...</p>
+                {loading || editingJobId ? (
+                    <div className="flex items-center justify-center py-12">
+                        <SfinxSpinner 
+                            title={editingJobId ? "Opening Job" : "Loading Jobs"} 
+                            messages={editingJobId ? "Preparing job editor..." : "Fetching your job openings..."} 
+                        />
                     </div>
                 ) : (
-                    <JobGrid
-                        items={jobs}
-                        showLogo={false}
-                        showCompanyName={false}
-                        getHref={(job) =>
-                            `/company-dashboard/jobs/${encodeURIComponent(
-                                job.id
-                            )}` as Route
-                        }
-                        renderActions={(job) => (
-                            <>
-                                <button
-                                    type="button"
-                                    className="px-3 py-1 text-sm rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-                                    onClick={() =>
-                                        router.push(
-                                            `/company-dashboard/jobs/${encodeURIComponent(
-                                                job.id
-                                            )}`
-                                        )
-                                    }
-                                >
-                                    Edit
-                                </button>
-                                <button
-                                    type="button"
-                                    className="px-3 py-1 text-sm rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-60"
-                                    onClick={() => handleDeleteJob(job.id)}
-                                    disabled={deleteInFlight === job.id}
-                                >
-                                    {deleteInFlight === job.id
-                                        ? "Deleting..."
-                                        : "Delete"}
-                                </button>
-                            </>
-                        )}
-                    />
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                        {jobs.map((job) => (
+                            <div
+                                key={job.id}
+                                className="group bg-white rounded-2xl border border-gray-200 shadow-sm p-6 hover:shadow-lg transition-all duration-300 ease-out hover:scale-105 flex flex-col relative"
+                            >
+                                <div className="absolute top-4 right-4 flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setEditingJobId(job.id);
+                                            router.push(`/company-dashboard/jobs/${encodeURIComponent(job.id)}`);
+                                        }}
+                                        className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                                        title="Edit"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleDeleteJob(job.id)}
+                                        disabled={deleteInFlight === job.id}
+                                        className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-60"
+                                        title="Delete"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
+                                </div>
+                                <h3 className="text-base font-semibold text-gray-900 pr-16">{job.title}</h3>
+                            </div>
+                        ))}
+                    </div>
                 )}
             </div>
         </div>

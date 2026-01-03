@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { AuthGuard } from "app/shared/components";
+import SfinxSpinner from "app/shared/components/SfinxSpinner";
 import { log } from "app/shared/services";
 import { readResponseError } from "app/shared/utils/http";
 import InterviewContentSection, {
@@ -100,9 +101,10 @@ function CompanyJobDetailContent() {
     const [saving, setSaving] = useState(false);
     const [removingInterview, setRemovingInterview] = useState(false);
     const [scoringConfig, setScoringConfig] = useState<ScoringConfigState>(defaultScoringConfig);
-    const [scoringExpanded, setScoringExpanded] = useState(false);
-    const [savingScoring, setSavingScoring] = useState(false);
     const [codingCategories, setCodingCategories] = useState<CodingCategory[]>([]);
+    const [activeSection, setActiveSection] = useState<string>("details");
+    const [expandedSections, setExpandedSections] = useState<string[]>(["details"]);
+    const [interviewTab, setInterviewTab] = useState<'experience' | 'coding'>('experience');
 
     useEffect(() => {
         const fetchDetail = async () => {
@@ -192,28 +194,6 @@ function CompanyJobDetailContent() {
         fetchScoringConfig();
     }, [jobId]);
 
-    const handleScoringConfigSave = async () => {
-        setSavingScoring(true);
-        try {
-            const resp = await fetch(`/api/company/jobs/${jobId}/scoring-config`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(scoringConfig),
-            });
-            if (!resp.ok) {
-                const detail = await readResponseError(resp);
-                throw new Error(`Failed to save scoring configuration: ${resp.status} ${detail}`);
-            }
-            log.info("✅ Scoring configuration saved");
-        } catch (err) {
-            const message = err instanceof Error ? err.message : "Unknown error";
-            setError(message);
-            log.error("❌ Failed to save scoring configuration:", err);
-        } finally {
-            setSavingScoring(false);
-        }
-    };
-
     const handleSave = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         setSaving(true);
@@ -232,6 +212,7 @@ function CompanyJobDetailContent() {
                         ? formState.requirements
                         : null,
                 codingCategories: codingCategories.length > 0 ? codingCategories : null,
+                scoringConfig,
             };
             const hasInterviewContent =
                 interviewState.backgroundQuestion.trim().length > 0 ||
@@ -361,13 +342,11 @@ function CompanyJobDetailContent() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50">
-                <div className="max-w-4xl mx-auto p-6">
-                    <div className="text-center py-12">
-                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                        <p className="mt-4 text-gray-600">Loading job...</p>
-                    </div>
-                </div>
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <SfinxSpinner 
+                    title="Loading Job" 
+                    messages="Fetching job details..." 
+                />
             </div>
         );
     }
@@ -393,45 +372,153 @@ function CompanyJobDetailContent() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <div className="max-w-4xl mx-auto p-6">
-                <div className="flex items-center justify-between mb-6">
-                    <div>
-                        <p className="text-sm text-blue-600">
-                            {job.company.name}
-                        </p>
+        <div className="min-h-screen bg-gray-50 flex">
+            {/* Sidebar */}
+            <div className="w-64 bg-white border-r border-gray-200 sticky top-0 h-screen flex flex-col">
+                <div className="p-6 border-b border-gray-200">
+                    <Link
+                        href="/company-dashboard/jobs"
+                        className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                    >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                        Back to Jobs
+                    </Link>
+                </div>
+                <nav className="flex-1 p-4 overflow-y-auto">
+                    <div className="space-y-1">
+                        {[
+                            { 
+                                id: "details", 
+                                label: "Job Details",
+                                subItems: [
+                                    { id: "title", label: "Title" },
+                                    { id: "location", label: "Location" },
+                                    { id: "type", label: "Type" },
+                                    { id: "salary", label: "Salary" },
+                                    { id: "description", label: "Description" },
+                                    { id: "requirements", label: "Requirements" },
+                                ]
+                            },
+                            { 
+                                id: "interview", 
+                                label: "Interview Content",
+                                subItems: [
+                                    { id: "background-question", label: "Starter Question", tab: 'experience' as const },
+                                    { id: "coding-prompt", label: "Coding Prompt", tab: 'coding' as const },
+                                    { id: "coding-template", label: "Coding Template", tab: 'coding' as const },
+                                    { id: "coding-answer", label: "Reference Answer", tab: 'coding' as const },
+                                    { id: "expected-output", label: "Expected Output", tab: 'coding' as const },
+                                ]
+                            },
+                            { 
+                                id: "scoring", 
+                                label: "Scoring Configuration",
+                                subItems: [
+                                    { id: "category-weights", label: "Category Weights" },
+                                    { id: "experience-dimensions", label: "Experience Dimensions" },
+                                    { id: "coding-dimensions", label: "Coding Dimensions" },
+                                ]
+                            },
+                        ].map((section) => (
+                            <div key={section.id}>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setActiveSection(section.id);
+                                        if (section.subItems) {
+                                            setExpandedSections(prev => 
+                                                prev.includes(section.id) 
+                                                    ? prev.filter(s => s !== section.id)
+                                                    : [...prev, section.id]
+                                            );
+                                        }
+                                        document.getElementById(section.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                                    }}
+                                    className={`w-full flex items-center justify-between text-left px-3 py-2 rounded-lg text-sm transition-all ${
+                                        activeSection === section.id
+                                            ? "bg-blue-50 text-blue-600 font-medium"
+                                            : "text-gray-700 hover:bg-gray-50 hover:text-gray-900 font-medium"
+                                    }`}
+                                >
+                                    {section.label}
+                                    {section.subItems && (
+                                        <svg 
+                                            className={`w-4 h-4 transition-transform ${expandedSections.includes(section.id) ? 'rotate-90' : ''}`}
+                                            fill="none" 
+                                            stroke="currentColor" 
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    )}
+                                </button>
+                                {expandedSections.includes(section.id) && section.subItems && (
+                                    <div className="ml-3 mt-1 space-y-1 border-l border-gray-200 pl-3">
+                                        {section.subItems.map((subItem: any) => (
+                                            <button
+                                                key={subItem.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    if (subItem.tab) {
+                                                        setInterviewTab(subItem.tab);
+                                                        setTimeout(() => {
+                                                            const element = document.getElementById(subItem.id);
+                                                            element?.scrollIntoView({ behavior: "smooth", block: "center" });
+                                                            setTimeout(() => {
+                                                                const input = element?.querySelector('input, textarea') as HTMLInputElement | HTMLTextAreaElement;
+                                                                input?.focus();
+                                                            }, 300);
+                                                        }, 100);
+                                                    } else {
+                                                        const element = document.getElementById(subItem.id);
+                                                        element?.scrollIntoView({ behavior: "smooth", block: "center" });
+                                                        setTimeout(() => {
+                                                            const input = element?.querySelector('input, textarea') as HTMLInputElement | HTMLTextAreaElement;
+                                                            input?.focus();
+                                                        }, 300);
+                                                    }
+                                                }}
+                                                className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all"
+                                            >
+                                                {subItem.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </nav>
+            </div>
+
+            {/* Main Content */}
+            <div className="flex-1 overflow-y-auto">
+                <div className="max-w-4xl mx-auto p-12">
+                    <div className="mb-8">
                         <h1 className="text-3xl font-semibold text-gray-800">
                             {job.title}
                         </h1>
-                        <p className="text-gray-500 mt-1">
-                            {job.location} • {job.type}
-                        </p>
                     </div>
-                    <Link
-                        href="/company-dashboard/jobs"
-                        className="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 transition-colors"
+
+                    {error ? (
+                        <div className="mb-6 rounded-xl bg-red-50 border border-red-200 p-4 text-red-700">
+                            {error}
+                        </div>
+                    ) : null}
+
+                    <form
+                        className="space-y-8"
+                        onSubmit={handleSave}
+                        noValidate
                     >
-                        Back
-                    </Link>
-                </div>
-
-                {error ? (
-                    <div className="mb-6 rounded-xl bg-red-50 border border-red-200 p-4 text-red-700">
-                        {error}
-                    </div>
-                ) : null}
-
-                <form
-                    className="space-y-8"
-                    onSubmit={handleSave}
-                    noValidate
-                >
-                    <section className="bg-white/80 backdrop-blur rounded-2xl border border-white/20 p-6 shadow-sm">
-                        <h2 className="text-xl font-semibold text-gray-800 mb-4">
-                            Job Details
-                        </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <label className="flex flex-col text-sm font-medium text-gray-700">
+                        <section id="details" className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                            <h2 className="text-xl font-semibold text-gray-800 mb-4">
+                                Job Details
+                            </h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <label id="title" className="flex flex-col text-sm font-medium text-gray-700 scroll-mt-24">
                                 Title
                                 <input
                                     value={formState.title}
@@ -445,7 +532,7 @@ function CompanyJobDetailContent() {
                                     required
                                 />
                             </label>
-                            <label className="flex flex-col text-sm font-medium text-gray-700">
+                            <label id="location" className="flex flex-col text-sm font-medium text-gray-700 scroll-mt-24">
                                 Location
                                 <input
                                     value={formState.location}
@@ -459,7 +546,7 @@ function CompanyJobDetailContent() {
                                     required
                                 />
                             </label>
-                            <label className="flex flex-col text-sm font-medium text-gray-700">
+                            <label id="type" className="flex flex-col text-sm font-medium text-gray-700 scroll-mt-24">
                                 Type
                                 <input
                                     value={formState.type}
@@ -473,7 +560,7 @@ function CompanyJobDetailContent() {
                                     required
                                 />
                             </label>
-                            <label className="flex flex-col text-sm font-medium text-gray-700">
+                            <label id="salary" className="flex flex-col text-sm font-medium text-gray-700 scroll-mt-24">
                                 Salary
                                 <input
                                     value={formState.salary}
@@ -487,7 +574,7 @@ function CompanyJobDetailContent() {
                                     placeholder="$160k - $230k"
                                 />
                             </label>
-                            <label className="flex flex-col text-sm font-medium text-gray-700 md:col-span-2">
+                            <label id="description" className="flex flex-col text-sm font-medium text-gray-700 md:col-span-2 scroll-mt-24">
                                 Description
                                 <textarea
                                     value={formState.description}
@@ -500,7 +587,7 @@ function CompanyJobDetailContent() {
                                     className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all min-h-[120px]"
                                 />
                             </label>
-                            <label className="flex flex-col text-sm font-medium text-gray-700 md:col-span-2">
+                            <label id="requirements" className="flex flex-col text-sm font-medium text-gray-700 md:col-span-2 scroll-mt-24">
                                 Requirements
                                 <textarea
                                     value={formState.requirements}
@@ -516,7 +603,8 @@ function CompanyJobDetailContent() {
                         </div>
                     </section>
 
-                    <InterviewContentSection
+                    <section id="interview">
+                        <InterviewContentSection
                         state={interviewState}
                         onChange={setInterviewState}
                         durations={interviewDurations}
@@ -532,11 +620,14 @@ function CompanyJobDetailContent() {
                             )
                         }
                         removing={removingInterview}
-                        subtitle="Adjust the background conversation, coding prompt, and timers associated with this job."
-                    />
+                            subtitle="Adjust the background conversation, coding prompt, and timers associated with this job."
+                            activeTab={interviewTab}
+                            onTabChange={setInterviewTab}
+                        />
+                    </section>
 
                     {/* Scoring Configuration Section */}
-                    <section className="bg-white/80 backdrop-blur rounded-2xl border border-white/20 p-6 shadow-sm">
+                    <section id="scoring" className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
                         <div className="mb-6">
                             <h2 className="text-xl font-semibold text-gray-800">
                                 Scoring Configuration
@@ -548,7 +639,7 @@ function CompanyJobDetailContent() {
 
                         <div className="space-y-6">
                                 {/* Category Weights */}
-                                <div className="border-t border-gray-200 pt-4">
+                                <div id="category-weights" className="border-t border-gray-200 pt-4 scroll-mt-24">
                                     <h3 className="text-lg font-medium text-gray-800 mb-3">
                                         Category Weights
                                     </h3>
@@ -586,7 +677,7 @@ function CompanyJobDetailContent() {
                                 </div>
 
                                 {/* Experience Dimensions */}
-                                <div className="border-t border-gray-200 pt-4">
+                                <div id="experience-dimensions" className="border-t border-gray-200 pt-4 scroll-mt-24">
                                     <h3 className="text-lg font-medium text-gray-800 mb-3">
                                         Experience Dimensions
                                     </h3>
@@ -631,7 +722,7 @@ function CompanyJobDetailContent() {
                                 </div>
 
                                 {/* Workstyle Metrics */}
-                                <div className="border-t border-gray-200 pt-4">
+                                <div id="coding-dimensions" className="border-t border-gray-200 pt-4 scroll-mt-24">
                                     <h3 className="text-lg font-semibold text-gray-800 mb-1">
                                         Coding Dimensions
                                     </h3>
@@ -751,25 +842,13 @@ function CompanyJobDetailContent() {
                                         </div>
                                     </div>
                                 </div>
-
-                                {/* Save Button */}
-                                <div className="flex justify-end pt-4 border-t border-gray-200">
-                                    <button
-                                        type="button"
-                                        onClick={handleScoringConfigSave}
-                                        className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
-                                        disabled={savingScoring}
-                                    >
-                                        {savingScoring ? "Saving..." : "Save Scoring Configuration"}
-                                    </button>
-                                </div>
                             </div>
                     </section>
 
-                    <div className="flex justify-end gap-3">
+                    <div className="flex justify-end gap-3 sticky bottom-0 bg-gray-50 py-4 border-t border-gray-200">
                         <Link
                             href="/company-dashboard/jobs"
-                            className="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 transition-colors"
+                            className="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 transition-colors bg-white"
                         >
                             Cancel
                         </Link>
@@ -784,6 +863,7 @@ function CompanyJobDetailContent() {
                 </form>
             </div>
         </div>
+    </div>
     );
 }
 
