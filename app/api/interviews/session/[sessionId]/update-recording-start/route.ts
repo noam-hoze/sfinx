@@ -20,8 +20,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         log.info("[Update Recording Start] === REQUEST RECEIVED ===");
         
         const skipAuth = request.nextUrl.searchParams.get("skip-auth") === "true";
-        const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
-        const shouldSkipAuth = skipAuth || isDemoMode;
+        const shouldSkipAuth = skipAuth;
         
         log.info("[Update Recording Start] Skip auth:", skipAuth);
 

@@ -21,7 +21,7 @@ export default function Header() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const isDemoMode = searchParams.get("demo") === "true" || pathname?.startsWith("/demo") || pathname?.startsWith("/interview");
+    const isDemoMode = searchParams.get("demo") === "true";
     const { isMuted, toggleMute } = useMute();
     
     // Get Redux state for page loading and state machine

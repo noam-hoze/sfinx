@@ -106,7 +106,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     const [codingDurationSeconds, setCodingDurationSeconds] = useState(
         DEFAULT_CODING_DURATION_SECONDS
     );
-    const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true" || searchParams.get("demo") === "true";
+    const isDemoMode = searchParams.get("demo") === "true";
     const [demoCandidateName, setDemoCandidateName] = useState<string | null>(null);
     
     const candidateName = isDemoMode 
