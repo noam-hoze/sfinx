@@ -7,8 +7,6 @@ export interface ScoringConfiguration {
     adaptabilityWeight: number;
     creativityWeight: number;
     reasoningWeight: number;
-    // Coding dimension weights
-    codeQualityWeight: number;
     // Workstyle metric weights
     aiAssistWeight: number;
     // Category weights
@@ -21,8 +19,8 @@ export interface RawScores {
     adaptability: number;
     creativity: number;
     reasoning: number;
-    // Coding scores (0-100)
-    codeQuality: number;
+    // Coding category scores with weights
+    categoryScores: Array<{name: string; score: number; weight: number}>;
 }
 
 export interface WorkstyleMetrics {
@@ -62,9 +60,17 @@ export function calculateScore(
         (rawScores.reasoning * config.reasoningWeight)
     ) / totalExperienceWeight;
 
-    // Calculate coding score (weighted average, excluding metrics not applicable)
-    let codingWeightedSum = rawScores.codeQuality * config.codeQualityWeight;
-    let totalCodingWeight = config.codeQualityWeight;
+    // Calculate coding score from category scores with their individual weights
+    let codingWeightedSum = 0;
+    let totalCodingWeight = 0;
+    
+    // Add all category scores with their weights
+    rawScores.categoryScores.forEach(category => {
+        if (category.weight > 0) {
+            codingWeightedSum += category.score * category.weight;
+            totalCodingWeight += category.weight;
+        }
+    });
     
     // Only include AI assist if data exists
     if (hasAiAssistScore) {
@@ -72,7 +78,7 @@ export function calculateScore(
         totalCodingWeight += config.aiAssistWeight;
     }
     
-    const codingScore = codingWeightedSum / totalCodingWeight;
+    const codingScore = totalCodingWeight > 0 ? codingWeightedSum / totalCodingWeight : 0;
 
     // Calculate final score (weighted average of experience and coding)
     const totalCategoryWeight = config.experienceWeight + config.codingWeight;

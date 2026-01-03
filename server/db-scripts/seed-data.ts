@@ -285,6 +285,23 @@ async function resetDatabase() {
             },
             data: {
                 interviewContentId: interviewContent.id,
+                codingCategories: [
+                    {
+                        name: "TypeScript Proficiency",
+                        description: "Type safety, interfaces, generics usage",
+                        weight: 33,
+                    },
+                    {
+                        name: "React Best Practices",
+                        description: "Component composition, hooks usage, lifecycle management",
+                        weight: 33,
+                    },
+                    {
+                        name: "Performance Optimization",
+                        description: "Code splitting, lazy loading, rendering optimization",
+                        weight: 34,
+                    },
+                ],
             },
         });
         if (frontendJobUpdate.count === 0) {

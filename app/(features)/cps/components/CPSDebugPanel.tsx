@@ -27,19 +27,22 @@ export default function CPSDebugPanel({
     const adaptability = backgroundSummary?.adaptability?.score ?? null;
     const creativity = backgroundSummary?.creativity?.score ?? null;
     const reasoning = backgroundSummary?.reasoning?.score ?? null;
-    const codeQuality = codingSummary?.codeQuality?.score ?? null;
-    const problemSolving = codingSummary?.problemSolving?.score ?? null;
+    
+    // Extract job-specific categories
+    const jobSpecificCategories = codingSummary?.jobSpecificCategories || {};
 
     // Extract workstyle raw values
-    const iterationSpeed = workstyle?.iterationSpeed?.value ?? null;
     const aiAssistAccountability = workstyle?.aiAssistUsage?.avgAccountabilityScore ?? null;
 
-    // Calculate experience and coding averages
+    // Calculate experience average
     const experienceAvg = adaptability !== null && creativity !== null && reasoning !== null
         ? Math.round((adaptability + creativity + reasoning) / 3)
         : null;
-    const codingAvg = codeQuality !== null && problemSolving !== null
-        ? Math.round((codeQuality + problemSolving) / 2)
+    
+    // Calculate coding score as average of job-specific categories
+    const categoryScores = Object.values(jobSpecificCategories).map((cat: any) => cat.score).filter((s: number) => typeof s === 'number');
+    const codingScoreFromCategories = categoryScores.length > 0 
+        ? Math.round(categoryScores.reduce((sum: number, score: number) => sum + score, 0) / categoryScores.length)
         : null;
 
     return (
@@ -93,11 +96,17 @@ export default function CPSDebugPanel({
                     {/* Coding Scores */}
                     <div className="rounded-[24px] border border-slate-200/70 bg-white/70 px-5 py-4 shadow-sm shadow-slate-900/10 dark:border-slate-700/50 dark:bg-slate-900/60">
                         <div className="text-[11px] uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500 mb-3">
-                            Coding Scores {codingAvg !== null && `(Avg: ${codingAvg})`}
+                            Coding Scores {codingScoreFromCategories !== null && `(Avg: ${codingScoreFromCategories})`}
                         </div>
                         <div className="space-y-2 text-sm">
-                            <ScoreRow label="Code Quality" value={codeQuality} />
-                            <ScoreRow label="Problem Solving" value={problemSolving} />
+                            {Object.entries(jobSpecificCategories).map(([name, data]: [string, any]) => (
+                                <ScoreRow key={name} label={name} value={data.score} />
+                            ))}
+                            {Object.keys(jobSpecificCategories).length === 0 && (
+                                <div className="text-slate-500 dark:text-slate-400 text-xs">
+                                    No job-specific categories defined
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -107,13 +116,7 @@ export default function CPSDebugPanel({
                     <div className="text-[11px] uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500 mb-3">
                         Workstyle Metrics (Raw Values)
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                        <div>
-                            <span className="text-slate-600 dark:text-slate-300">Iterations to Success:</span>
-                            <span className="ml-2 font-mono font-semibold text-slate-900 dark:text-white">
-                                {iterationSpeed !== null ? iterationSpeed : "N/A"}
-                            </span>
-                        </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                         <div>
                             <span className="text-slate-600 dark:text-slate-300">AI Assist Accountability:</span>
                             <span className="ml-2 font-mono font-semibold text-slate-900 dark:text-white">
@@ -146,24 +149,9 @@ export default function CPSDebugPanel({
                                 </div>
                             </div>
                             <div>
-                                <div className="font-semibold text-slate-700 dark:text-slate-200 mb-2">Coding</div>
-                                <div className="space-y-1">
-                                    <div>Code Quality: <span className="font-mono">{scoringConfig.codeQualityWeight}</span></div>
-                                    <div>Problem Solving: <span className="font-mono">{scoringConfig.problemSolvingWeight}</span></div>
-                                </div>
-                            </div>
-                            <div>
                                 <div className="font-semibold text-slate-700 dark:text-slate-200 mb-2">Workstyle</div>
                                 <div className="space-y-1">
-                                    <div>Iterations to Success: <span className="font-mono">{scoringConfig.iterationSpeedWeight}</span></div>
                                     <div>AI Assist: <span className="font-mono">{scoringConfig.aiAssistWeight}</span></div>
-                                </div>
-                            </div>
-                            <div>
-                                <div className="font-semibold text-slate-700 dark:text-slate-200 mb-2">Thresholds</div>
-                                <div className="space-y-1">
-                                    <div>Iter Moderate: <span className="font-mono">{scoringConfig.iterationSpeedThresholdModerate}</span></div>
-                                    <div>Iter High: <span className="font-mono">{scoringConfig.iterationSpeedThresholdHigh}</span></div>
                                 </div>
                             </div>
                         </div>

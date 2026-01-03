@@ -23,7 +23,6 @@ import {
     useJobApplication,
 } from "../../../shared/contexts";
 import { log } from "../../../shared/services";
-import { FRONTEND_JOB_CATEGORIES } from "../constants/jobCategories";
 import { useCamera } from "./hooks/useCamera";
 import { useInterviewTimer } from "./hooks/useInterviewTimer";
 import { useThemePreference } from "./hooks/useThemePreference";
@@ -370,13 +369,14 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             
             // Test job-specific coding evaluation
             logger.info("[TEST_EVAL] 🔄 Calling /api/interviews/evaluate-job-specific-coding...");
+            const jobCategories = job?.codingCategories as Array<{name: string; description: string; weight: number}> | undefined;
             const jobEvalResponse = await fetch("/api/interviews/evaluate-job-specific-coding", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     finalCode: state.currentCode,
                     codingTask: interviewScript.codingPrompt,
-                    categories: FRONTEND_JOB_CATEGORIES,
+                    categories: jobCategories || [],
                 }),
             });
 
@@ -495,22 +495,35 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                     logger.error("Error generating code quality analysis:", analysisError);
                 }
 
-                // Generate job-specific coding evaluation (hardcoded for frontend job)
+                // Generate job-specific coding evaluation
                 logger.info("Generating job-specific coding evaluation for session:", interviewSessionId);
                 try {
+                    const jobCategories = job?.codingCategories as Array<{name: string; description: string; weight: number}> | undefined;
                     const jobEvalResponse = await fetch("/api/interviews/evaluate-job-specific-coding", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                             finalCode: state.currentCode,
                             codingTask: interviewScript.codingPrompt,
-                            categories: FRONTEND_JOB_CATEGORIES,
+                            categories: jobCategories || [],
                         }),
                     });
                     
                     if (jobEvalResponse.ok) {
                         const jobEvalData = await jobEvalResponse.json();
                         logger.info("✅ Job-specific coding evaluation complete:", jobEvalData);
+                        
+                        // Enrich evaluation data with descriptions from job categories
+                        const enrichedCategories: Record<string, any> = {};
+                        if (jobCategories) {
+                            Object.entries(jobEvalData.categories || {}).forEach(([name, data]: [string, any]) => {
+                                const categoryDef = jobCategories.find((c: any) => c.name === name);
+                                enrichedCategories[name] = {
+                                    ...data,
+                                    description: categoryDef?.description || "",
+                                };
+                            });
+                        }
                         
                         // Update coding summary with job-specific categories
                         const summaryUpdateUrl = isDemoMode
@@ -521,7 +534,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                             method: "PATCH",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
-                                jobSpecificCategories: jobEvalData.categories,
+                                jobSpecificCategories: enrichedCategories,
                             }),
                         });
                         
