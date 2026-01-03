@@ -39,18 +39,76 @@ export async function PATCH(
             );
         }
 
-        // Update coding summary with job-specific categories
+        // Fetch all real-time contributions for this session
+        const allContributions = await prisma.categoryContribution.findMany({
+            where: { interviewSessionId: sessionId },
+            orderBy: { timestamp: "asc" }
+        });
+
+        log.info(`[Coding Summary Update] Found ${allContributions.length} real-time contributions`);
+
+        // Group contributions by category
+        const categoriesByName = new Map<string, any[]>();
+        allContributions.forEach(contrib => {
+            if (!categoriesByName.has(contrib.categoryName)) {
+                categoriesByName.set(contrib.categoryName, []);
+            }
+            categoriesByName.get(contrib.categoryName)!.push(contrib);
+        });
+
+        // Calculate video offset helper
+        const calculateVideoOffset = (timestamp: Date): number => {
+            if (!session.recordingStartedAt) return 0;
+            return Math.floor((timestamp.getTime() - session.recordingStartedAt.getTime()) / 1000);
+        };
+
+        // Merge real-time contributions with final evaluation categories
+        const enrichedCategories: any = { ...jobSpecificCategories };
+
+        for (const [categoryName, categoryData] of Object.entries(jobSpecificCategories as Record<string, any>)) {
+            const contributions = categoriesByName.get(categoryName) || [];
+            
+            if (contributions.length > 0) {
+                // Calculate score from contributions (average strength)
+                const scores = contributions.map(c => c.contributionStrength);
+                const avgScore = Math.round(scores.reduce((sum: number, s: number) => sum + s, 0) / scores.length);
+                
+                // Use contribution-based score if it exists, otherwise use final evaluation score
+                enrichedCategories[categoryName] = {
+                    ...categoryData,
+                    score: avgScore, // Override with contribution-based score
+                    evidenceLinks: contributions.map(c => calculateVideoOffset(c.timestamp)),
+                    contributions: contributions.map(c => ({
+                        timestamp: calculateVideoOffset(c.timestamp),
+                        strength: c.contributionStrength,
+                        explanation: c.explanation
+                    }))
+                };
+
+                log.info(`[Coding Summary Update] ${categoryName}: ${contributions.length} contributions, avg score: ${avgScore}`);
+            } else {
+                // No real-time contributions, keep final evaluation only
+                enrichedCategories[categoryName] = {
+                    ...categoryData,
+                    evidenceLinks: [],
+                    contributions: []
+                };
+            }
+        }
+
+        // Update coding summary with enriched categories
         await prisma.codingSummary.update({
             where: { id: session.telemetryData.codingSummary.id },
             data: {
-                jobSpecificCategories: jobSpecificCategories,
+                jobSpecificCategories: enrichedCategories,
             },
         });
 
-        log.info("[Coding Summary Update] Successfully updated job-specific categories");
+        log.info("[Coding Summary Update] Successfully updated job-specific categories with contribution data");
 
         return NextResponse.json({
             message: "Job-specific categories updated successfully",
+            contributionsProcessed: allContributions.length,
         });
     } catch (error: any) {
         log.error("[Coding Summary Update] Error:", error);

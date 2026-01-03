@@ -21,6 +21,7 @@ import {
     InterviewProvider,
     useInterview,
     useJobApplication,
+    useDebug,
 } from "../../../shared/contexts";
 import { log } from "../../../shared/services";
 import { useCamera } from "./hooks/useCamera";
@@ -45,14 +46,18 @@ const getInitialCode = () => DEFAULT_CODE;
 
 interface InterviewerContentProps {
     isDebugVisible: boolean;
-    setIsDebugVisible: (visible: boolean) => void;
     evaluationDebugData: any;
     setEvaluationDebugData: (data: any) => void;
     isEvaluationLoading: boolean;
     setIsEvaluationLoading: (loading: boolean) => void;
-    toggleDebugPanel: () => void;
     isDebugModeEnabled: boolean;
     onTestEvaluationReady: (callback: () => void) => void;
+    nextEvaluationTime: Date | null;
+    setNextEvaluationTime: (time: Date | null) => void;
+    jobCategories: Array<{name: string; description: string; weight: number}> | null;
+    setJobCategories: (categories: Array<{name: string; description: string; weight: number}> | null) => void;
+    evaluationThrottleMs: number;
+    setEvaluationThrottleMs: (ms: number) => void;
 }
 
 /**
@@ -61,14 +66,18 @@ interface InterviewerContentProps {
  */
 const InterviewerContent: React.FC<InterviewerContentProps> = ({
     isDebugVisible,
-    setIsDebugVisible,
     evaluationDebugData,
     setEvaluationDebugData,
     isEvaluationLoading,
     setIsEvaluationLoading,
-    toggleDebugPanel,
     isDebugModeEnabled,
     onTestEvaluationReady,
+    nextEvaluationTime,
+    setNextEvaluationTime,
+    jobCategories,
+    setJobCategories,
+    evaluationThrottleMs,
+    setEvaluationThrottleMs,
 }) => {
     const {
         state,
@@ -143,6 +152,26 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     const timeboxFiredRef = useRef(false);
     const [runCodeClickTime, setRunCodeClickTime] = useState<Date>(new Date());
     const runCodeClickTimeRef = useRef<Date>(runCodeClickTime);
+
+    // Real-time code evaluation state
+    const CODE_EVALUATION_THROTTLE_MS = evaluationThrottleMs;
+    const [previousCode, setPreviousCode] = useState("");
+    const [codeChangeQueue, setCodeChangeQueue] = useState<Array<{
+        timestamp: Date;
+        code: string;
+        previousCode: string;
+    }>>([]);
+    const evaluationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const editorInstanceRef = useRef<any>(null);
+    
+    // Set throttle from env on mount
+    useEffect(() => {
+        const envValue = process.env.NEXT_PUBLIC_CODE_EVALUATION_THROTTLE_MS;
+        if (!envValue) {
+            throw new Error("NEXT_PUBLIC_CODE_EVALUATION_THROTTLE_MS environment variable is required");
+        }
+        setEvaluationThrottleMs(Number(envValue));
+    }, [setEvaluationThrottleMs]);
 
     // Keep ref in sync with state
     useEffect(() => {
@@ -392,9 +421,9 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
             setEvaluationDebugData(debugData);
             
-            // Auto-open debug panel if not visible
+            // Auto-open debug panel if not visible (dispatch global event)
             if (!isDebugVisible && isDebugModeEnabled) {
-                setIsDebugVisible(true);
+                window.dispatchEvent(new CustomEvent('toggleDebugPanel'));
                 logger.info("[TEST_EVAL] Debug panel auto-opened");
             } else {
                 logger.info("[TEST_EVAL] Debug panel already visible or debug mode disabled");
@@ -407,7 +436,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             setIsEvaluationLoading(false);
             logger.info("[TEST_EVAL] Loading state set to false");
         }
-    }, [interviewSessionId, interviewScript, state.currentCode, isDebugVisible, isDebugModeEnabled, setIsDebugVisible, setEvaluationDebugData, setIsEvaluationLoading, isDemoMode, reduxUserId]);
+    }, [interviewSessionId, interviewScript, state.currentCode, isDebugVisible, isDebugModeEnabled, setEvaluationDebugData, setIsEvaluationLoading, isDemoMode, reduxUserId]);
 
     // Notify parent of handleTestEvaluation when it changes
     useEffect(() => {
@@ -663,6 +692,9 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             .then((data) => {
                 if (mounted) {
                     setJob(data.job);
+                    // Extract and set job categories for debug panel
+                    const categories = data?.job?.codingCategories as Array<{name: string; description: string; weight: number}> | undefined;
+                    setJobCategories(categories || null);
                     try {
                         const interviewContent = data?.job?.interviewContent;
                         if (interviewContent) {
@@ -698,7 +730,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         return () => {
             mounted = false;
         };
-    }, [jobId, dispatch]);
+    }, [jobId, dispatch, setJobCategories]);
 
     /**
      * Initializes editor content with the default snippet if empty.
@@ -723,6 +755,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             const tmpl = String(data?.codingTemplate || "");
             if (tmpl.trim().length > 0) {
                 updateCurrentCode(tmpl);
+                setPreviousCode(tmpl); // Initialize previousCode with template
             }
         })().catch((error) => {
             logger.error("❌ Failed to load interview script:", error);
@@ -791,13 +824,222 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     }, []);
 
     /**
+     * Generates a readable diff between old and new code with context
+     */
+    const generateDiff = useCallback((oldCode: string, newCode: string): string => {
+        const oldLines = oldCode.split('\n');
+        const newLines = newCode.split('\n');
+        const diff: string[] = [];
+        
+        const maxLength = Math.max(oldLines.length, newLines.length);
+        for (let i = 0; i < maxLength; i++) {
+            if (oldLines[i] !== newLines[i]) {
+                if (oldLines[i]) diff.push(`- ${oldLines[i]}`);
+                if (newLines[i]) diff.push(`+ ${newLines[i]}`);
+            }
+        }
+        
+        return diff.join('\n');
+    }, []);
+
+    /**
+     * Checks if code change is substantial enough to evaluate
+     */
+    const isSubstantialChange = useCallback((oldCode: string, newCode: string): boolean => {
+        // Always evaluate - no minimum threshold
+        return oldCode !== newCode;
+    }, []);
+
+    /**
+     * Evaluates code change and creates evidence clips
+     */
+    const evaluateCodeChange = useCallback(async ({
+        previousCode: prevCode,
+        currentCode: currCode,
+        timestamp
+    }: {
+        previousCode: string;
+        currentCode: string;
+        timestamp: Date;
+    }) => {
+        if (!interviewSessionId || !job?.codingCategories) {
+            return;
+        }
+
+        try {
+            const diff = generateDiff(prevCode, currCode);
+            
+            logger.info("[CODE-EVAL] ===== EVALUATION REQUEST =====");
+            logger.info("[CODE-EVAL] Timestamp:", timestamp.toISOString());
+            logger.info("[CODE-EVAL] Previous code length:", prevCode.length);
+            logger.info("[CODE-EVAL] Current code length:", currCode.length);
+            logger.info("[CODE-EVAL] --- FULL CURRENT CODE ---");
+            logger.info(currCode);
+            logger.info("[CODE-EVAL] --- DIFF BEING SENT ---");
+            logger.info(diff);
+            logger.info("[CODE-EVAL] ============================");
+
+            const requestPayload = {
+                sessionId: interviewSessionId,
+                previousCode: prevCode,
+                currentCode: currCode,
+                diff: diff,
+                timestamp: timestamp.toISOString(),
+                jobCategories: job.codingCategories
+            };
+            
+            const response = await fetch("/api/interviews/evaluate-code-change", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(requestPayload)
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                logger.info(`[CODE-EVAL] ✅ Evaluated: ${data.contributionsCount || 0} contributions`);
+                
+                // Update debug panel with real-time contribution data
+                setEvaluationDebugData((prev: any) => ({
+                    ...prev,
+                    realtimeContributions: [
+                        ...(prev?.realtimeContributions || []),
+                        {
+                            timestamp: timestamp.toISOString(),
+                            request: {
+                                currentCode: currCode,
+                                diff: diff,
+                                jobCategories: job.codingCategories
+                            },
+                            response: data
+                        }
+                    ]
+                }));
+            } else {
+                logger.error("[CODE-EVAL] ❌ Failed to evaluate code change:", response.status);
+            }
+        } catch (error) {
+            logger.error("[CODE-EVAL] ❌ Error evaluating code change:", error);
+        }
+    }, [interviewSessionId, job, generateDiff, setEvaluationDebugData]);
+
+    /**
      * Updates editor code state when user edits.
+     * Includes real-time evaluation throttling.
      */
     const handleCodeChange = useCallback(
         (code: string) => {
             updateCurrentCode(code);
+            
+            // Debug logging
+            logger.info("[CODE-CHANGE]", {
+                isCodingStarted,
+                hasJob: !!job,
+                hasCodingCategories: !!job?.codingCategories,
+                categoriesCount: job?.codingCategories?.length
+            });
+            
+            // Only track for real-time evaluation if coding has started
+            if (!isCodingStarted || !job?.codingCategories) {
+                logger.info("[CODE-CHANGE] Skipping evaluation - not ready");
+                return;
+            }
+
+            // CRITICAL: Capture timestamp IMMEDIATELY when code changes
+            const changeTimestamp = new Date();
+            
+            logger.info("[CODE-CHANGE] Adding to queue, timestamp:", changeTimestamp.toISOString());
+            
+            // Store this change with its exact timestamp
+            setCodeChangeQueue(queue => [...queue, {
+                timestamp: changeTimestamp,
+                code: code,
+                previousCode: previousCode
+            }]);
+            
+            // Clear existing timeout
+            if (evaluationTimeoutRef.current) {
+                logger.info("[CODE-CHANGE] Clearing existing timeout");
+                clearTimeout(evaluationTimeoutRef.current);
+            }
+            
+            // Throttle: evaluate after 3 seconds of inactivity
+            const evaluationTime = new Date(Date.now() + CODE_EVALUATION_THROTTLE_MS);
+            setNextEvaluationTime(evaluationTime);
+            logger.info("[CODE-CHANGE] Setting 3-second timeout, will evaluate at:", evaluationTime.toISOString());
+            
+            evaluationTimeoutRef.current = setTimeout(() => {
+                logger.info("[CODE-CHANGE] ⏰ Timeout fired! Evaluating...");
+                
+                // Get the current queue
+                setCodeChangeQueue(currentQueue => {
+                    logger.info("[CODE-CHANGE] Queue length:", currentQueue.length);
+                    
+                    if (currentQueue.length === 0) {
+                        setNextEvaluationTime(null);
+                        return currentQueue;
+                    }
+                    
+                    // Check for Monaco syntax errors before evaluating
+                    if (editorInstanceRef.current) {
+                        const model = editorInstanceRef.current.getModel();
+                        if (model) {
+                            const monaco = (window as any).monaco;
+                            if (monaco) {
+                                const markers = monaco.editor.getModelMarkers({ resource: model.uri });
+                                logger.info("[CODE-CHANGE] Monaco markers found:", markers.length);
+                                
+                                const errors = markers.filter((m: any) => m.severity === monaco.MarkerSeverity.Error);
+                                logger.info("[CODE-CHANGE] Syntax errors found:", errors.length);
+                                
+                                if (errors.length > 0) {
+                                    logger.info("[CODE-CHANGE] ❌ Skipping evaluation - code has syntax errors:", errors.map((e: any) => ({ line: e.startLineNumber, message: e.message })));
+                                    Promise.resolve().then(() => setNextEvaluationTime(null));
+                                    return []; // Clear queue but don't evaluate
+                                }
+                            } else {
+                                logger.info("[CODE-CHANGE] ⚠️ Monaco not available");
+                            }
+                        } else {
+                            logger.info("[CODE-CHANGE] ⚠️ Editor model not available");
+                        }
+                    } else {
+                        logger.info("[CODE-CHANGE] ⚠️ Editor instance not available");
+                    }
+                    
+                    // Get the FIRST change in queue (earliest timestamp) and LAST change (latest code)
+                    const firstChange = currentQueue[0];
+                    const lastChange = currentQueue[currentQueue.length - 1];
+                    
+                    logger.info("[CODE-CHANGE] First change timestamp:", firstChange.timestamp.toISOString());
+                    logger.info("[CODE-CHANGE] Last change code length:", lastChange.code.length);
+                    logger.info("[CODE-CHANGE] Previous code length:", firstChange.previousCode.length);
+                    
+                    // Only evaluate if substantial change
+                    if (isSubstantialChange(firstChange.previousCode, lastChange.code)) {
+                        // Trigger evaluation (non-blocking)
+                        Promise.resolve().then(() => {
+                            evaluateCodeChange({
+                                previousCode: firstChange.previousCode,
+                                currentCode: lastChange.code,
+                                timestamp: firstChange.timestamp,
+                            });
+                        });
+                        
+                        // Update tracking
+                        Promise.resolve().then(() => {
+                            setPreviousCode(lastChange.code);
+                            setNextEvaluationTime(null);
+                        });
+                    } else {
+                        logger.info("[CODE-CHANGE] Change not substantial enough, skipping");
+                        setNextEvaluationTime(null);
+                    }
+                    
+                    return []; // Clear the queue
+                });
+            }, CODE_EVALUATION_THROTTLE_MS);
         },
-        [updateCurrentCode]
+        [updateCurrentCode, isCodingStarted, job, previousCode, codeChangeQueue, isSubstantialChange, evaluateCodeChange]
     );
 
     /**
@@ -969,9 +1211,9 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                             isInterviewActive={Boolean(isInterviewActive)}
                             onStartCoding={handleStartCoding}
                             onSubmit={handleSubmit}
-                            isDebugModeEnabled={isDebugModeEnabled}
-                            isDebugVisible={isDebugVisible}
-                            onToggleDebug={toggleDebugPanel}
+                            isDebugModeEnabled={false}
+                            isDebugVisible={false}
+                            onToggleDebug={() => {}}
                             codingDurationSeconds={codingDurationSeconds}
                         />
                     </div>
@@ -985,6 +1227,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                             <EditorPanel
                                 currentCode={state.currentCode}
                                 onCodeChange={handleCodeChange}
+                                onEditorReady={(editor) => { editorInstanceRef.current = editor; }}
                                 availableTabs={availableTabs}
                                 activeTab={activeTab}
                                 onTabSwitch={handleTabSwitch}
@@ -1098,22 +1341,20 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
  * Wrapper component that renders both the main content and debug panel
  */
 const InterviewIDEWithDebug = () => {
+    const { isDebugVisible } = useDebug();
     const isDebugModeEnabled = process.env.NEXT_PUBLIC_DEBUG_MODE === "true";
-    const debugPanelVisibleEnv = process.env.NEXT_PUBLIC_DEBUG_PANEL_VISIBLE;
-    const [isDebugVisible, setIsDebugVisible] = useState(() => {
-        if (!isDebugModeEnabled) return false;
-        if (debugPanelVisibleEnv === "true") return true;
-        if (debugPanelVisibleEnv === "false") return false;
-        return true;
-    });
     const [evaluationDebugData, setEvaluationDebugData] = useState<any>(null);
     const [isEvaluationLoading, setIsEvaluationLoading] = useState(false);
     const [testEvaluationCallback, setTestEvaluationCallback] = useState<(() => void) | null>(null);
-    
-    const toggleDebugPanel = useCallback(() => {
-        if (!isDebugModeEnabled) return;
-        setIsDebugVisible((prev) => !prev);
-    }, [isDebugModeEnabled]);
+    const [nextEvaluationTime, setNextEvaluationTime] = useState<Date | null>(null);
+    const [jobCategories, setJobCategories] = useState<Array<{name: string; description: string; weight: number}> | null>(null);
+    const [evaluationThrottleMs, setEvaluationThrottleMs] = useState(() => {
+        const envValue = process.env.NEXT_PUBLIC_CODE_EVALUATION_THROTTLE_MS;
+        if (!envValue) {
+            throw new Error("NEXT_PUBLIC_CODE_EVALUATION_THROTTLE_MS environment variable is required");
+        }
+        return Number(envValue);
+    });
     
     const onTestEvaluationReady = useCallback((callback: () => void) => {
         setTestEvaluationCallback(() => callback);
@@ -1129,14 +1370,18 @@ const InterviewIDEWithDebug = () => {
         <div>
             <InterviewerContent 
                 isDebugVisible={isDebugVisible}
-                setIsDebugVisible={setIsDebugVisible}
                 evaluationDebugData={evaluationDebugData}
                 setEvaluationDebugData={setEvaluationDebugData}
                 isEvaluationLoading={isEvaluationLoading}
                 setIsEvaluationLoading={setIsEvaluationLoading}
-                toggleDebugPanel={toggleDebugPanel}
+                nextEvaluationTime={nextEvaluationTime}
+                setNextEvaluationTime={setNextEvaluationTime}
                 isDebugModeEnabled={isDebugModeEnabled}
                 onTestEvaluationReady={onTestEvaluationReady}
+                jobCategories={jobCategories}
+                setJobCategories={setJobCategories}
+                evaluationThrottleMs={evaluationThrottleMs}
+                setEvaluationThrottleMs={setEvaluationThrottleMs}
             />
             
             {/* Debug Panel - below IDE in document flow, scroll down to see it */}
@@ -1146,6 +1391,9 @@ const InterviewIDEWithDebug = () => {
                         evaluationData={evaluationDebugData} 
                         isLoading={isEvaluationLoading}
                         onTestEvaluation={onTestEvaluation}
+                        nextEvaluationTime={nextEvaluationTime}
+                        jobCategories={jobCategories}
+                        evaluationThrottleMs={evaluationThrottleMs}
                     />
                 </div>
             )}
