@@ -49,9 +49,7 @@ function partsToSeconds(hours: number, minutes: number, seconds: number) {
 }
 
 /**
- * Displays a three-column wheel selector (hours / minutes / seconds) inspired by
- * the iOS timer UI. All options are rendered using native selects so the widget
- * remains keyboard and screen-reader accessible.
+ * Displays a compact inline time picker with minimal Apple-style design.
  */
 export function DurationPicker({
     valueSeconds,
@@ -78,10 +76,10 @@ export function DurationPicker({
     };
 
     return (
-        <label className="flex flex-col gap-1.5 text-sm font-medium text-gray-700">
-            <span>{label}</span>
-            <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white px-3 py-2.5 shadow-sm">
-                <WheelSelect
+        <div className="flex items-center gap-4">
+            <span className="text-sm font-medium text-gray-700">{label}</span>
+            <div className="flex items-center gap-2">
+                <CompactSelect
                     ariaLabel="Hours"
                     value={hours}
                     options={HOURS_RANGE}
@@ -89,7 +87,8 @@ export function DurationPicker({
                     onChange={handleHours}
                     disabled={disabled}
                 />
-                <WheelSelect
+                <span className="text-gray-400">:</span>
+                <CompactSelect
                     ariaLabel="Minutes"
                     value={minutes}
                     options={MINUTES_SECONDS_RANGE}
@@ -97,7 +96,8 @@ export function DurationPicker({
                     onChange={handleMinutes}
                     disabled={disabled}
                 />
-                <WheelSelect
+                <span className="text-gray-400">:</span>
+                <CompactSelect
                     ariaLabel="Seconds"
                     value={seconds}
                     options={MINUTES_SECONDS_RANGE}
@@ -111,11 +111,11 @@ export function DurationPicker({
                     {helperText}
                 </span>
             ) : null}
-        </label>
+        </div>
     );
 }
 
-interface WheelSelectProps {
+interface CompactSelectProps {
     ariaLabel: string;
     value: number;
     options: number[];
@@ -124,22 +124,22 @@ interface WheelSelectProps {
     onChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
 }
 
-function WheelSelect({
+function CompactSelect({
     ariaLabel,
     value,
     options,
     unit,
     disabled,
     onChange,
-}: WheelSelectProps) {
+}: CompactSelectProps) {
     return (
-        <div className="flex flex-col items-center">
+        <div className="relative inline-flex items-center">
             <select
                 aria-label={ariaLabel}
                 value={value}
                 onChange={onChange}
                 disabled={disabled}
-                    className="scrollbar-thin h-24 w-16 appearance-none rounded-lg border border-gray-100 bg-gradient-to-b from-white to-gray-100 text-center text-base font-semibold text-gray-800 shadow-inner focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                className="appearance-none bg-white border border-gray-200 rounded-lg px-3 py-1.5 pr-6 text-sm font-medium text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60 hover:bg-gray-50 transition-colors"
             >
                 {options.map((option) => (
                     <option key={option} value={option}>
@@ -147,7 +147,7 @@ function WheelSelect({
                     </option>
                 ))}
             </select>
-            <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+            <span className="absolute right-2 text-[10px] font-medium uppercase text-gray-400 pointer-events-none">
                 {unit}
             </span>
         </div>
