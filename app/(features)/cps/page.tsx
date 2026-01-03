@@ -16,6 +16,7 @@ import { AuthGuard } from "app/shared/components";
 import SfinxSpinner from "app/shared/components/SfinxSpinner";
 import { log } from "app/shared/services";
 import { calculateScore, type ScoringConfiguration, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
+import { useDebug } from "app/shared/contexts";
 
 function TelemetryContent() {
     const searchParams = useSearchParams();
@@ -23,6 +24,7 @@ function TelemetryContent() {
     const isDemoMode = searchParams.get("demo") === "true";
     const candidateId = searchParams.get("candidateId");
     const applicationId = searchParams.get("applicationId");
+    const { isDebugVisible } = useDebug();
 
     const [telemetryData, setTelemetryData] = useState<any>(null);
     const [sessions, setSessions] = useState<any[]>([]);
@@ -51,11 +53,6 @@ function TelemetryContent() {
     const [calculatedScore, setCalculatedScore] = useState<number | null>(null);
     const [calculatedExperienceScore, setCalculatedExperienceScore] = useState<number | null>(null);
     const [calculatedCodingScore, setCalculatedCodingScore] = useState<number | null>(null);
-    
-    // Debug panel
-    const [showDebugPanel, setShowDebugPanel] = useState(false);
-
-    // Listen for debug panel toggle from header
     useEffect(() => {
         const handleToggleDebug = () => setShowDebugPanel(prev => !prev);
         window.addEventListener('toggleDebugPanel', handleToggleDebug);
@@ -650,7 +647,7 @@ function TelemetryContent() {
             )}
             
             {/* Debug Panel - fixed at bottom */}
-            {showDebugPanel && (
+            {isDebugVisible && (
                 <div className="fixed bottom-0 left-0 right-0 z-50 p-4 max-h-[60vh] overflow-y-auto">
                     <CPSDebugPanel
                         backgroundSummary={backgroundSummary}

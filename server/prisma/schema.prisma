@@ -176,24 +176,25 @@ model Application {
 }
 
 model InterviewSession {
-  id                 String                @id @default(cuid())
-  candidateId        String
-  applicationId      String
-  videoUrl           String?
+  id                    String                  @id @default(cuid())
+  candidateId           String
+  applicationId         String
+  videoUrl              String?
   /// Timestamp when screen recording started (for video offset calculation).
-  recordingStartedAt DateTime?
-  startedAt          DateTime              @default(now())
-  completedAt        DateTime?
-  duration           Int?
-  status             String                @default("IN_PROGRESS")
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
-  application        Application           @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  candidate          User                  @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  telemetryData      TelemetryData?
-  messages           ConversationMessage[]
-  iterations         Iteration[]
-  externalToolUsages ExternalToolUsage[]
+  recordingStartedAt    DateTime?
+  startedAt             DateTime                @default(now())
+  completedAt           DateTime?
+  duration              Int?
+  status                String                  @default("IN_PROGRESS")
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  application           Application             @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  candidate             User                    @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  telemetryData         TelemetryData?
+  messages              ConversationMessage[]
+  iterations            Iteration[]
+  externalToolUsages    ExternalToolUsage[]
+  categoryContributions CategoryContribution[]
 }
 
 model TelemetryData {
@@ -252,17 +253,19 @@ model Gap {
 }
 
 model EvidenceClip {
-  id              String            @id @default(cuid())
-  telemetryDataId String
-  title           String
-  thumbnailUrl    String?
-  duration        Int
-  description     String
-  startTime       Int?
-  category        EvidenceCategory?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  telemetryData   TelemetryData     @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
+  id                   String            @id @default(cuid())
+  telemetryDataId      String
+  title                String
+  thumbnailUrl         String?
+  duration             Int
+  description          String
+  startTime            Int?
+  category             EvidenceCategory?
+  categoryName         String?
+  contributionStrength Int?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  telemetryData        TelemetryData     @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)
 }
 
 model VideoChapter {
@@ -468,4 +471,22 @@ enum EvidenceCategory {
   ADAPTABILITY
   CREATIVITY
   REASONING
+  JOB_SPECIFIC_CATEGORY
+}
+
+/// Tracks cumulative contributions to job-specific coding categories during the interview.
+model CategoryContribution {
+  id                   String           @id @default(cuid())
+  interviewSessionId   String
+  categoryName         String
+  timestamp            DateTime
+  codeChange           String           @db.Text
+  explanation          String
+  contributionStrength Int
+  caption              String
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  interviewSession     InterviewSession @relation(fields: [interviewSessionId], references: [id], onDelete: Cascade)
+
+  @@index([interviewSessionId, categoryName])
 }

@@ -57,6 +57,7 @@ interface EditorPanelProps {
     readOnly?: boolean;
     onPasteDetected?: (pastedCode: string, timestamp: number) => void;
     onHighlightPastedCode?: (pastedCode: string) => void;
+    onEditorReady?: (editor: any) => void;
     onAskFollowup?: (payload: {
         added: string;
         removed: string;
@@ -85,6 +86,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     readOnly = false,
     onPasteDetected,
     onHighlightPastedCode,
+    onEditorReady,
     onAskFollowup,
     onExecutionResult,
 }) => {
@@ -228,6 +230,9 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
 
     const handleEditorDidMount = (editor: any, monaco: any) => {
         editorRef.current = editor;
+        
+        // Notify parent that editor is ready
+        onEditorReady?.(editor);
 
         // Initialize timestamps when editor is ready
         lastChangeTimeRef.current = Date.now();

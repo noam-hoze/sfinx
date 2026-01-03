@@ -67,6 +67,7 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                             value={categoryData.score}
                             benchmarkLow={0}
                             benchmarkHigh={100}
+                            evidenceLinks={(categoryData as any).evidenceLinks || []}
                             onVideoJump={onVideoJump}
                         />
                     );
