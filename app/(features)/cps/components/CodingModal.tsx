@@ -11,10 +11,10 @@ interface CodingModalProps {
         score: number;
         text: string;
     };
-    problemSolving: {
+    jobSpecificCategories?: Record<string, {
         score: number;
         text: string;
-    };
+    }>;
 }
 
 export default function CodingModal({
@@ -23,7 +23,6 @@ export default function CodingModal({
     executiveSummary,
     recommendation,
     codeQuality,
-    problemSolving,
 }: CodingModalProps) {
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Coding Summary">
@@ -31,7 +30,6 @@ export default function CodingModal({
                 executiveSummary={executiveSummary}
                 recommendation={recommendation}
                 codeQuality={codeQuality}
-                problemSolving={problemSolving}
             />
         </Modal>
     );

@@ -232,11 +232,9 @@ function TelemetryContent() {
                 creativity: backgroundSummary.creativity?.score ?? 0,
                 reasoning: backgroundSummary.reasoning?.score ?? 0,
                 codeQuality: codingSummary.codeQuality?.score ?? 0,
-                problemSolving: codingSummary.problemSolving?.score ?? 0,
             };
 
             const workstyleMetrics: WorkstyleMetrics = {
-                iterationSpeed: sessionWorkstyle.iterationSpeed?.value,
                 aiAssistAccountabilityScore: sessionWorkstyle.aiAssistUsage?.avgAccountabilityScore,
             };
 
@@ -278,7 +276,6 @@ function TelemetryContent() {
     const topMetricKey = (() => {
         if (!workstyle) return null;
         const metricKeys = [
-            "iterationSpeed",
             "aiAssistUsage",
         ] as const;
         let bestKey: (typeof metricKeys)[number] | null = null;
@@ -294,7 +291,6 @@ function TelemetryContent() {
     })();
 
     const topMetricLabelMap: Record<string, string> = {
-        iterationSpeed: "Iterations to Success",
         aiAssistUsage: "External Tool Usage",
     };
     const topMetricLabel = topMetricKey
@@ -637,10 +633,6 @@ function TelemetryContent() {
                                                     codeQuality={{
                                                         score: codingSummary.codeQuality.score,
                                                         text: codingSummary.codeQuality.text,
-                                                    }}
-                                                    problemSolving={{
-                                                        score: codingSummary.problemSolving.score,
-                                                        text: codingSummary.problemSolving.text,
                                                     }}
                                                 />
             )}

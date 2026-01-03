@@ -12,6 +12,10 @@ interface CodingSummary {
         score: number;
         text: string;
     };
+    jobSpecificCategories?: Record<string, {
+        score: number;
+        text: string;
+    }>;
 }
 
 interface WorkstyleDashboardProps {
@@ -34,7 +38,7 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
     onUpdateWorkstyle,
 }) => {
     // Extract raw values
-    const aiAssistValue = (workstyle.aiAssistUsage as any)?.avgAccountabilityScore ?? 100;
+    const aiAssistValue = (workstyle.aiAssistUsage as any)?.avgAccountabilityScore;
     
     // Modal state
     const [isQualityModalOpen, setIsQualityModalOpen] = useState(false);
@@ -42,15 +46,6 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
     return (
         <>
             <div className="divide-y divide-gray-100">
-                <MetricRow
-                    label="Problem Solving"
-                    description="Ability to identify and resolve coding challenges"
-                    value={codingSummary?.problemSolving?.score ?? 0}
-                    benchmarkLow={0}
-                    benchmarkHigh={100}
-                    evidenceLinks={workstyle.iterationSpeed?.evidenceLinks}
-                    onVideoJump={onVideoJump}
-                />
                 <MetricRow
                     label="External Tools Usage"
                     description="Understanding and accountability for pasted code"
@@ -61,6 +56,29 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                     evidenceLinks={workstyle.aiAssistUsage?.evidenceLinks}
                     onVideoJump={onVideoJump}
                 />
+
+                {/* Job-Specific Categories */}
+                {codingSummary?.jobSpecificCategories && Object.entries(codingSummary.jobSpecificCategories).map(([categoryName, categoryData]) => {
+                    // Static descriptions for each category (not OpenAI text)
+                    const categoryDescriptions: Record<string, string> = {
+                        "TypeScript Proficiency": "Type safety, interfaces, generics usage",
+                        "React Best Practices": "Component composition, hooks usage, lifecycle management",
+                        "Performance Optimization": "Code splitting, lazy loading, rendering optimization"
+                    };
+                    
+                    return (
+                        <MetricRow
+                            key={categoryName}
+                            label={categoryName}
+                            description={categoryDescriptions[categoryName] || "Job-specific coding evaluation"}
+                            value={categoryData.score}
+                            benchmarkLow={0}
+                            benchmarkHigh={100}
+                            onVideoJump={onVideoJump}
+                        />
+                    );
+                })}
+
                 <div className="py-4 px-3 hover:bg-gray-50/30 transition-all duration-200 rounded-lg group">
                     <div className="flex items-start justify-between gap-6">
                         {/* Left: Label and Description */}

@@ -11,7 +11,6 @@ interface CodingSummaryOverlayProps {
     executiveSummary: string;
     recommendation?: string;
     codeQuality: MetricSummary;
-    problemSolving: MetricSummary;
 }
 
 const getScoreColor = (score: number): string => {
@@ -32,16 +31,14 @@ const CodingSummaryOverlay: React.FC<CodingSummaryOverlayProps> = ({
     executiveSummary,
     recommendation,
     codeQuality,
-    problemSolving,
 }) => {
     const [currentSlide, setCurrentSlide] = useState(0);
 
     const metrics = [
         { name: "Code Quality", key: "codeQuality", data: codeQuality },
-        { name: "Problem Solving", key: "problemSolving", data: problemSolving },
     ];
 
-    const totalSlides = 3; // 1 executive + 2 metrics
+    const totalSlides = 2; // 1 executive + 1 metric
 
     const nextSlide = () => {
         setCurrentSlide((prev) => Math.min(prev + 1, totalSlides - 1));

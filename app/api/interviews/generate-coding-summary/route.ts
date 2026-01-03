@@ -120,9 +120,8 @@ export async function POST(request: NextRequest) {
         // OpenAI prompt for summary generation
         const systemPrompt = `You are a technical interviewer analyzing a candidate's coding session performance.
 
-Based on the candidate's coding session data, provide a comprehensive summary with scores across two dimensions:
+Based on the candidate's coding session data, provide a comprehensive summary with scores across one dimension:
 1. Code Quality (structure, best practices, readability)
-2. Problem Solving (approach, iterations, debugging)
 
 Return a JSON response with this exact structure:
 {
@@ -131,10 +130,6 @@ Return a JSON response with this exact structure:
   "codeQuality": {
     "score": 0-100,
     "text": "string (detailed assessment of code quality, structure, and best practices)"
-  },
-  "problemSolving": {
-    "score": 0-100,
-    "text": "string (analysis of problem-solving approach, iterations, and debugging)"
   }
 }
 
@@ -230,10 +225,6 @@ Provide a comprehensive summary and scores for this candidate's coding performan
                 recommendation: parsed.recommendation || null,
                 codeQualityScore: parsed.codeQuality.score,
                 codeQualityText: parsed.codeQuality.text,
-                problemSolvingScore: parsed.problemSolving.score,
-                problemSolvingText: parsed.problemSolving.text,
-                independenceScore: 0,
-                independenceText: "Independence metric removed from evaluation",
                 finalCode: finalCode || null,
             },
         });

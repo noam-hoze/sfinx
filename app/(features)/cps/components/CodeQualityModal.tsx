@@ -17,6 +17,7 @@ interface CodeQualityAnalysis {
     positives: CodeSegment[];
     improvements: CodeSegment[];
     summary: string;
+    jobSpecificCategories?: Record<string, { score: number; text: string }>;
 }
 
 interface CodeQualityModalProps {
@@ -219,15 +220,16 @@ const CodeQualityModal: React.FC<CodeQualityModalProps> = ({
                                 </div>
 
                                 {/* Positives */}
-                                <div className="mb-6">
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                                        <svg className="w-5 h-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                        </svg>
-                                        What's Good
-                                    </h3>
-                                    <div className="space-y-2">
-                                        {analysis.positives.map((item, index) => (
+                                {analysis.positives.length > 0 && (
+                                    <div className="mb-6">
+                                        <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                                            <svg className="w-5 h-5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                            </svg>
+                                            What's Good
+                                        </h3>
+                                        <div className="space-y-2">
+                                            {analysis.positives.map((item, index) => (
                                             <div
                                                 key={index}
                                                 onMouseEnter={() => setHighlightedRange({ start: item.lineStart, end: item.lineEnd })}
@@ -240,21 +242,50 @@ const CodeQualityModal: React.FC<CodeQualityModalProps> = ({
                                                 </div>
                                                 <p className="text-sm mb-1">{item.description}</p>
                                                 <span className="text-xs opacity-75">Lines {item.lineStart}-{item.lineEnd}</span>
-                                            </div>
-                                        ))}
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
+
+                                {/* Job-Specific Categories */}
+                                {analysis.jobSpecificCategories && Object.keys(analysis.jobSpecificCategories).length > 0 && (
+                                    <div className="mb-6">
+                                        <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                                            <svg className="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M6 6V5a3 3 0 013-3h2a3 3 0 013 3v1h2a2 2 0 012 2v3.57A22.952 22.952 0 0110 13a22.95 22.95 0 01-8-1.43V8a2 2 0 012-2h2zm2-1a1 1 0 011-1h2a1 1 0 011 1v1H8V5zm1 5a1 1 0 011-1h.01a1 1 0 110 2H10a1 1 0 01-1-1z" clipRule="evenodd" />
+                                                <path d="M2 13.692V16a2 2 0 002 2h12a2 2 0 002-2v-2.308A24.974 24.974 0 0110 15c-2.796 0-5.487-.46-8-1.308z" />
+                                            </svg>
+                                            Job-Specific Evaluation
+                                        </h3>
+                                        <div className="space-y-2">
+                                            {Object.entries(analysis.jobSpecificCategories).map(([categoryName, categoryData]) => (
+                                                <div
+                                                    key={categoryName}
+                                                    className="p-3 rounded-lg border border-purple-200 bg-purple-50"
+                                                >
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="text-xs font-semibold uppercase text-purple-700">{categoryName}</span>
+                                                        <span className="text-lg font-bold text-purple-900">{categoryData.score}</span>
+                                                    </div>
+                                                    <p className="text-sm text-purple-800">{categoryData.text}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Improvements */}
-                                <div>
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                                        <svg className="w-5 h-5 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                        </svg>
-                                        Improvements
-                                    </h3>
-                                    <div className="space-y-2">
-                                        {analysis.improvements.map((item, index) => (
+                                {analysis.improvements.length > 0 && (
+                                    <div>
+                                        <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                                            <svg className="w-5 h-5 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                            </svg>
+                                            Improvements
+                                        </h3>
+                                        <div className="space-y-2">
+                                            {analysis.improvements.map((item, index) => (
                                             <div
                                                 key={index}
                                                 onMouseEnter={() => setHighlightedRange({ start: item.lineStart, end: item.lineEnd })}
@@ -271,9 +302,10 @@ const CodeQualityModal: React.FC<CodeQualityModalProps> = ({
                                                 )}
                                                 <span className="text-xs opacity-75">Lines {item.lineStart}-{item.lineEnd}</span>
                                             </div>
-                                        ))}
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
                             </div>
                         </>
                     ) : null}
