@@ -87,12 +87,15 @@ export async function PATCH(
 
                 log.info(`[Coding Summary Update] ${categoryName}: ${contributions.length} contributions, avg score: ${avgScore}`);
             } else {
-                // No real-time contributions, keep final evaluation only
+                // No real-time contributions - score should be 0
                 enrichedCategories[categoryName] = {
                     ...categoryData,
+                    score: 0,
                     evidenceLinks: [],
                     contributions: []
                 };
+                
+                log.info(`[Coding Summary Update] ${categoryName}: No contributions, score set to 0`);
             }
         }
 
