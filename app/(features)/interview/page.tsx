@@ -24,6 +24,7 @@ import QuestionCard from "./components/backgroundInterview/QuestionCard";
 import CompletionScreen from "./components/backgroundInterview/CompletionScreen";
 import AnnouncementScreen from "./components/backgroundInterview/AnnouncementScreen";
 import SfinxSpinner from "app/shared/components/SfinxSpinner";
+import Breadcrumbs from "app/shared/components/Breadcrumbs";
 import InterviewStageScreen from "app/shared/components/InterviewStageScreen";
 import { InterviewIDE } from "./components";
 import { useMute } from "app/shared/contexts";
@@ -31,6 +32,7 @@ import { useScreenRecording } from "./components/hooks/useScreenRecording";
 import { InterviewRecordingProvider } from "./components/InterviewRecordingContext";
 import { createInterviewSession } from "./components/services/interviewSessionService";
 import { createApplication } from "./components/services/applicationService";
+import { getBreadcrumbTrail } from "app/shared/config/navigation";
 import OpenAI from "openai";
 import {
   useBackgroundPreload,
@@ -86,6 +88,13 @@ function InterviewPageContent() {
   const skipScreenShare = process.env.NEXT_PUBLIC_SKIP_SCREEN_SHARE === "true";
   const recordingControls = useScreenRecording(isDemoMode);
   const { startRecording, interviewSessionId, setInterviewSessionId, getActualRecordingStartTime } = recordingControls;
+
+  // Build breadcrumb trail
+  const jobTitle = roleSlug?.split("-").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") || "";
+  const breadcrumbTrail = getBreadcrumbTrail("/interview", "CANDIDATE", {
+    companyName: companyName || (companySlug ? companySlug.charAt(0).toUpperCase() + companySlug.slice(1) : ""),
+    jobTitle: jobTitle
+  });
 
   // Refs
   const clickSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -617,6 +626,13 @@ function InterviewPageContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex flex-col relative">
+      {/* Breadcrumbs - fixed at top */}
+      {!isPageLoading && machineState !== "in_coding_session" && (
+        <div className="fixed top-20 left-6 z-10">
+          <Breadcrumbs items={breadcrumbTrail} />
+        </div>
+      )}
+      
       <div className="flex-1 flex items-center justify-center p-4">
         {showHandEmoji && !showAnnouncement && !currentQuestion ? (
           <div className="flex items-start justify-start gap-4 w-full max-w-4xl">

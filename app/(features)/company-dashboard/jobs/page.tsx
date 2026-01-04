@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
-import { AuthGuard } from "app/shared/components";
+import { AuthGuard, DashboardPageLayout, DashboardCard } from "app/shared/components";
 import SfinxSpinner from "app/shared/components/SfinxSpinner";
 import { log } from "app/shared/services";
 import { JobGrid, JobGridJob } from "app/shared/components/jobs/JobGrid";
@@ -68,6 +68,17 @@ function CompanyJobsContent() {
     const [createSubmitting, setCreateSubmitting] = useState(false);
     const [deleteInFlight, setDeleteInFlight] = useState<string | null>(null);
     const [editingJobId, setEditingJobId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('create') === 'true') {
+            setCreateMode(true);
+            // Remove the param from URL
+            params.delete('create');
+            const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+            window.history.replaceState({}, '', newUrl);
+        }
+    }, []);
 
     useEffect(() => {
         const fetchJobs = async () => {
@@ -247,17 +258,10 @@ function CompanyJobsContent() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 p-12">
-            <div className="max-w-7xl mx-auto">
-                <div className="flex items-center justify-end mb-8">
-                    <button
-                        type="button"
-                        className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                        onClick={() => setCreateMode(true)}
-                    >
-                        Create New Job
-                    </button>
-                </div>
+        <DashboardPageLayout
+            title="Job Openings"
+            subtitle="Create and edit your company's job postings"
+        >
 
                 {createMode && (
                     <form
@@ -412,29 +416,23 @@ function CompanyJobsContent() {
                         />
                     </div>
                 ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {jobs.map((job) => (
-                            <div
+                            <DashboardCard
                                 key={job.id}
-                                className="group bg-white rounded-2xl border border-gray-200 shadow-sm p-6 hover:shadow-lg transition-all duration-300 ease-out hover:scale-105 flex flex-col relative"
+                                onClick={() => {
+                                    setEditingJobId(job.id);
+                                    router.push(`/company-dashboard/jobs/${encodeURIComponent(job.id)}`);
+                                }}
+                                className="group flex flex-col relative"
                             >
                                 <div className="absolute top-4 right-4 flex gap-2">
                                     <button
                                         type="button"
-                                        onClick={() => {
-                                            setEditingJobId(job.id);
-                                            router.push(`/company-dashboard/jobs/${encodeURIComponent(job.id)}`);
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteJob(job.id);
                                         }}
-                                        className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-                                        title="Edit"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                        </svg>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => handleDeleteJob(job.id)}
                                         disabled={deleteInFlight === job.id}
                                         className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-60"
                                         title="Delete"
@@ -444,13 +442,12 @@ function CompanyJobsContent() {
                                         </svg>
                                     </button>
                                 </div>
-                                <h3 className="text-base font-semibold text-gray-900 pr-16">{job.title}</h3>
-                            </div>
+                                <h3 className="text-base font-semibold text-gray-900 group-hover:text-blue-600 transition-colors pr-16">{job.title}</h3>
+                            </DashboardCard>
                         ))}
                     </div>
                 )}
-            </div>
-        </div>
+        </DashboardPageLayout>
     );
 }
 

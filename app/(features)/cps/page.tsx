@@ -14,9 +14,11 @@ import CPSDebugPanel from "./components/CPSDebugPanel";
 import ExperienceMetrics from "./components/ExperienceMetrics";
 import { AuthGuard } from "app/shared/components";
 import SfinxSpinner from "app/shared/components/SfinxSpinner";
+import Breadcrumbs from "app/shared/components/Breadcrumbs";
 import { log } from "app/shared/services";
 import { calculateScore, type ScoringConfiguration, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
 import { useDebug } from "app/shared/contexts";
+import { getBreadcrumbTrail } from "app/shared/config/navigation";
 
 function TelemetryContent() {
     const searchParams = useSearchParams();
@@ -413,11 +415,30 @@ function TelemetryContent() {
         );
     }
 
+    // Build breadcrumb trail with job in the middle
+    const jobTitle = activeSession?.application?.job?.title;
+    const jobId = activeSession?.application?.job?.id;
+    
+    const breadcrumbTrail = jobTitle && jobId
+        ? [
+            { label: "Applicants", href: "/company-dashboard" },
+            { label: jobTitle, href: `/company-dashboard/applicants/${jobId}` },
+            { label: candidate?.name || "Candidate", href: `/cps?candidateId=${candidateId}&applicationId=${applicationId}` },
+          ]
+        : [
+            { label: "Applicants", href: "/company-dashboard" },
+            { label: candidate?.name || "Candidate", href: `/cps?candidateId=${candidateId}&applicationId=${applicationId}` },
+          ];
+
     return (
         <div className="bg-gray-50 h-screen overflow-hidden flex flex-col">
             {/* Fixed Header */}
             <div className="bg-gray-50">
                 <div className="max-w-7xl mx-auto px-4 pt-4 pb-2">
+                    {/* Breadcrumbs */}
+                    <div className="mb-3">
+                        <Breadcrumbs items={breadcrumbTrail} />
+                    </div>
                     <div className="grid grid-cols-1 xl:grid-cols-[480px_1fr] gap-3">
                         {/* Left Card: Name and Job Title */}
                         <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 shadow-[0_2px_8px_rgba(0,0,0,0.08)]">
