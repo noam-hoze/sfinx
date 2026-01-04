@@ -85,7 +85,7 @@ export function JobGrid({
                 const href = getHref ? getHref(job) : null;
                 const card = (
                     <div
-                        className={`group bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 hover:bg-white/80 hover:shadow-lg transition-all duration-300 ease-out hover:scale-105`}
+                        className={`group bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200 shadow-sm p-6 hover:bg-white/80 hover:shadow-lg hover:border-gray-300 transition-all duration-300 ease-out hover:scale-105`}
                         onClick={() => {
                             if (onCardClick) {
                                 onCardClick(job);
