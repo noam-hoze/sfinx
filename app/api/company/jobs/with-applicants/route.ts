@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "app/shared/services/auth";
-import { prisma } from "app/shared/services";
+import { authOptions, prisma, getCached, setCached } from "app/shared/services/server";
 
 export async function GET() {
     const session = await getServerSession(authOptions);
@@ -15,6 +14,12 @@ export async function GET() {
 
     if (!companyProfile) {
         return NextResponse.json({ error: "Company profile not found" }, { status: 404 });
+    }
+
+    const cacheKey = `jobs:company:${companyProfile.companyName}:with-applicants`;
+    const cached = await getCached<{ jobs: any[] }>(cacheKey);
+    if (cached) {
+        return NextResponse.json(cached);
     }
 
     const company = await prisma.company.findUnique({
@@ -49,7 +54,6 @@ export async function GET() {
     }
 
     const jobsWithApplicants = company.jobs.map((job) => {
-        // Calculate scores from interview sessions
         const scores = job.applications
             .flatMap(app => app.interviewSessions)
             .map(session => session.telemetryData?.matchScore)
@@ -71,6 +75,8 @@ export async function GET() {
         };
     });
 
-    return NextResponse.json({ jobs: jobsWithApplicants });
+    const result = { jobs: jobsWithApplicants };
+    await setCached(cacheKey, result);
+    return NextResponse.json(result);
 }
 

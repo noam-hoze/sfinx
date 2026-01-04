@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "app/shared/services/auth";
-import { prisma } from "app/shared/services";
 import { log } from "app/shared/services";
+import { authOptions, prisma, getCached, setCached } from "app/shared/services/server";
 
 export async function GET(request: NextRequest) {
     try {
@@ -14,12 +13,64 @@ export async function GET(request: NextRequest) {
         const searchLocation = searchParams.get("location");
         const searchCompany = searchParams.get("company");
 
-        // Fetch companies with their jobs
-        const companies = await (prisma as any).company.findMany({
-            include: {
-                jobs: true,
-            },
+        const filterKey = `${searchRole ?? ""}:${searchLocation ?? ""}:${searchCompany ?? ""}`;
+        const cacheKey = `companies:list:${filterKey}`;
+        const cached = await getCached<any[]>(cacheKey);
+
+        let filteredCompanies: any[];
+        if (cached) {
+            filteredCompanies = cached;
+        } else {
+            // Fetch companies with their jobs
+            const companies = await (prisma as any).company.findMany({
+                include: {
+                    jobs: true,
+                },
+            });
+
+            // Normalize filters
+        const roleFilter = searchRole ? searchRole.toLowerCase() : undefined;
+        const locationFilter = searchLocation
+            ? searchLocation.toLowerCase()
+            : undefined;
+        const companyFilter = searchCompany
+            ? searchCompany.toLowerCase()
+            : undefined;
+
+        // First, filter each company's jobs by role and job.location
+        const companiesWithFilteredJobs = companies.map((company: any) => {
+            const filteredJobs = company.jobs.filter((job: any) => {
+                const roleOk =
+                    !roleFilter || job.title.toLowerCase().includes(roleFilter);
+                if (!locationFilter) {
+                    return roleOk;
+                }
+                if (typeof job.location !== "string") {
+                    return false;
+                }
+                return job.location.toLowerCase().includes(locationFilter);
+            });
+            return { ...company, jobs: filteredJobs };
         });
+
+        // Then, filter companies: must match company filter and (have jobs if role/location provided)
+            filteredCompanies = companiesWithFilteredJobs.filter(
+                (company: any) => {
+                    const companyMatch =
+                        !companyFilter ||
+                        company.name.toLowerCase().includes(companyFilter) ||
+                        (typeof company.industry === "string" &&
+                            company.industry.toLowerCase().includes(companyFilter));
+
+                    const hasMatchingJobs =
+                        company.jobs.length > 0 || (!roleFilter && !locationFilter);
+
+                    return companyMatch && hasMatchingJobs;
+                }
+            );
+
+            await setCached(cacheKey, filteredCompanies);
+        }
 
         // Get user's applied company/job IDs if user is logged in
         let appliedCompanyIds: string[] = [];
@@ -46,47 +97,6 @@ export async function GET(request: NextRequest) {
                 new Set(applications.map((app: any) => app.job.id as string))
             );
         }
-
-        // Normalize filters
-        const roleFilter = searchRole ? searchRole.toLowerCase() : undefined;
-        const locationFilter = searchLocation
-            ? searchLocation.toLowerCase()
-            : undefined;
-        const companyFilter = searchCompany
-            ? searchCompany.toLowerCase()
-            : undefined;
-
-        // First, filter each company's jobs by role and job.location
-        const companiesWithFilteredJobs = companies.map((company: any) => {
-            const filteredJobs = company.jobs.filter((job: any) => {
-                const roleOk =
-                    !roleFilter || job.title.toLowerCase().includes(roleFilter);
-                if (!locationFilter) {
-                    return roleOk;
-                }
-                if (typeof job.location !== "string") {
-                    return false;
-                }
-                return job.location.toLowerCase().includes(locationFilter);
-            });
-            return { ...company, jobs: filteredJobs };
-        });
-
-        // Then, filter companies: must match company filter and (have jobs if role/location provided)
-        const filteredCompanies = companiesWithFilteredJobs.filter(
-            (company: any) => {
-                const companyMatch =
-                    !companyFilter ||
-                    company.name.toLowerCase().includes(companyFilter) ||
-                    (typeof company.industry === "string" &&
-                        company.industry.toLowerCase().includes(companyFilter));
-
-                const hasMatchingJobs =
-                    company.jobs.length > 0 || (!roleFilter && !locationFilter);
-
-                return companyMatch && hasMatchingJobs;
-            }
-        );
 
         // Add applied status to each company
         const companiesWithAppliedStatus = filteredCompanies.map(

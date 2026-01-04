@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "app/shared/services/auth";
+import { authOptions, getCached, setCached } from "app/shared/services/server";
 import prisma from "lib/prisma";
 
 /**
@@ -23,6 +23,12 @@ export async function GET(
     }
 
     const { jobId } = await context.params;
+
+    const cacheKey = `applicants:job:${jobId}`;
+    const cached = await getCached<any>(cacheKey);
+    if (cached) {
+      return NextResponse.json(cached);
+    }
 
     // Fetch job details
     const job = await prisma.job.findUnique({
@@ -116,7 +122,7 @@ export async function GET(
       };
     });
 
-    return NextResponse.json({
+    const result = {
       job: {
         id: job.id,
         title: job.title,
@@ -124,7 +130,10 @@ export async function GET(
         type: job.type,
       },
       applicants,
-    });
+    };
+
+    await setCached(cacheKey, result);
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Error fetching job applicants:", error);
     return NextResponse.json(

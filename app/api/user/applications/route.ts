@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "app/shared/services/auth";
-import { prisma } from "app/shared/services";
 import { log } from "app/shared/services";
+import { authOptions, prisma } from "app/shared/services/server";
 
 export async function GET(request: NextRequest) {
     try {

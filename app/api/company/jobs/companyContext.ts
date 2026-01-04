@@ -1,6 +1,6 @@
 import { Company, CompanyProfile } from "@prisma/client";
-import { prisma } from "app/shared/services/prisma";
 import { log } from "app/shared/services";
+import { prisma } from "app/shared/services/server";
 
 export interface CompanyContext {
     company: Company;

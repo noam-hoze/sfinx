@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
+import { getCached, setCached } from "app/shared/services/server";
 import prisma from "lib/prisma";
 import { calculateScore, type RawScores, type WorkstyleMetrics, type ScoringConfiguration } from "app/shared/utils/calculateScore";
 
@@ -29,6 +30,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
         }
         const applicationId = request.nextUrl.searchParams.get("applicationId");
         log.info("[Telemetry API] applicationId:", applicationId);
+
+        const cacheKey = `telemetry:candidate:${candidateId}:${applicationId ?? "all"}`;
+        const cached = await getCached<any>(cacheKey);
+        if (cached) {
+            return NextResponse.json(cached);
+        }
 
         // Get all interview sessions for this candidate (newest first)
         let interviewSessions = await prisma.interviewSession.findMany({
@@ -459,6 +466,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         log.info("[Telemetry API] Returning sessions count:", sessions.length);
         log.info("[Telemetry API] First session videoUrl:", sessions[0]?.videoUrl);
 
+        await setCached(cacheKey, response);
         return NextResponse.json(response);
     } catch (error) {
         log.error("[Telemetry API GET] Error:", error);

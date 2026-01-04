@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "app/shared/services/auth";
-import { prisma } from "app/shared/services";
 import { log } from "app/shared/services";
+import { authOptions, prisma, invalidate, invalidatePattern } from "app/shared/services/server";
 
 export async function POST(request: NextRequest) {
     try {
@@ -109,6 +108,10 @@ export async function POST(request: NextRequest) {
         });
 
         log.info("✅ Application created:", application.id);
+        
+        invalidate(`applicants:job:${job.id}`);
+        invalidatePattern(`jobs:company:${company.name}`);
+        
         return NextResponse.json({
             message: "Application created successfully",
             application,
