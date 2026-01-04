@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { SfinxSpinner } from "app/shared/components";
 
 export default function Home() {
     const { data: session, status } = useSession();
@@ -29,10 +30,7 @@ export default function Home() {
     if (status === "loading") {
         return (
             <main className="min-h-screen flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-                    <p className="mt-2 text-gray-600">Loading...</p>
-                </div>
+                <SfinxSpinner size="lg" title="Loading" messages="Checking your session..." />
             </main>
         );
     }
@@ -40,10 +38,7 @@ export default function Home() {
     // Show redirecting state while redirect happens
     return (
         <main className="min-h-screen flex items-center justify-center">
-            <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-                <p className="mt-2 text-gray-600">Redirecting...</p>
-            </div>
+            <SfinxSpinner size="lg" title="Redirecting" messages="Taking you to your dashboard..." />
         </main>
     );
 }

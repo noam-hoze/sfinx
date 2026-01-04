@@ -202,32 +202,6 @@ export default function Header() {
                             >
                                 Jobs
                             </Link>
-                            <Link
-                                ref={(el) => {
-                                    linkRefs.current["/practice"] = el;
-                                }}
-                                href="/practice"
-                                className={`${linkStyles} ${
-                                    activeNavPath === "/practice"
-                                        ? activeLinkStyles
-                                        : inactiveLinkStyles
-                                }`}
-                            >
-                                Practice
-                            </Link>
-                            <Link
-                                ref={(el) => {
-                                    linkRefs.current["/mentors"] = el;
-                                }}
-                                href="/mentors"
-                                className={`${linkStyles} ${
-                                    activeNavPath === "/mentors"
-                                        ? activeLinkStyles
-                                        : inactiveLinkStyles
-                                }`}
-                            >
-                                Mentors
-                            </Link>
                         </>
                     )}
                     </nav>

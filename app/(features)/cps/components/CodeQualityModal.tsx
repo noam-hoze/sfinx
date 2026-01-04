@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { createPortal } from "react-dom";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
+import { SfinxSpinner } from "app/shared/components";
 
 interface CodeSegment {
     category: string;
@@ -173,10 +174,7 @@ const CodeQualityModal: React.FC<CodeQualityModalProps> = ({
                 <div className="flex-1 flex overflow-hidden">
                     {loading ? (
                         <div className="flex-1 flex items-center justify-center">
-                            <div className="text-center">
-                                <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-                                <p className="text-gray-600">Analyzing code quality...</p>
-                            </div>
+                            <SfinxSpinner size="lg" title="Analyzing Code" messages="Evaluating code quality..." />
                         </div>
                     ) : error ? (
                         <div className="flex-1 flex items-center justify-center">

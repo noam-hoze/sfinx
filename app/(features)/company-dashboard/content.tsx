@@ -7,6 +7,7 @@ import { JobGrid, JobGridJob } from "app/shared/components/jobs/JobGrid";
 import type { JobGridCompany } from "app/shared/components/jobs/JobGrid";
 import { log } from "app/shared/services";
 import { readResponseError } from "app/shared/utils/http";
+import { SfinxSpinner } from "app/shared/components";
 import InterviewContentSection, {
     InterviewContentState,
     InterviewDurationState,
@@ -408,9 +409,8 @@ function CompanyDashboardContent() {
             ) : null}
 
             {loading ? (
-                <div className="text-center py-12">
-                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                    <p className="mt-4 text-gray-600">Loading jobs...</p>
+                <div className="flex items-center justify-center py-12">
+                    <SfinxSpinner size="lg" title="Loading Jobs" messages="Fetching your job listings..." />
                 </div>
             ) : (
                 <JobGrid

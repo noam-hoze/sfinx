@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import type { Route } from "next";
-import { AuthGuard } from "app/shared/components";
+import { AuthGuard, SfinxSpinner } from "app/shared/components";
 import { log } from "app/shared/services";
 import { JobGrid, JobGridJob } from "app/shared/components/jobs/JobGrid";
 
@@ -206,9 +206,8 @@ function JobSearchContent() {
 
                 {/* Companies Grid */}
                 {loading ? (
-                    <div className="text-center py-12">
-                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                        <p className="mt-4 text-gray-600">Loading companies...</p>
+                    <div className="flex items-center justify-center py-12">
+                        <SfinxSpinner size="lg" title="Finding Opportunities" messages="Loading available positions..." />
                     </div>
                 ) : error ? (
                     <div className="text-center py-12">
