@@ -1,14 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useParams } from "next/navigation";
 import { AuthGuard } from "app/shared/components";
-import SfinxSpinner from "app/shared/components/SfinxSpinner";
-import Breadcrumbs from "app/shared/components/Breadcrumbs";
 import { log } from "app/shared/services";
 import { readResponseError } from "app/shared/utils/http";
-import { getBreadcrumbTrail } from "app/shared/config/navigation";
 import InterviewContentSection, {
     InterviewContentState,
     InterviewDurationState,
@@ -16,33 +13,7 @@ import InterviewContentSection, {
     emptyInterviewContentState,
 } from "../components/InterviewContentSection";
 
-interface JobDetailResponse {
-    id: string;
-    title: string;
-    location: string;
-    type: string;
-    salary: string | null;
-    description: string | null;
-    requirements: string | null;
-    codingCategories?: CodingCategory[];
-    company: {
-        id: string;
-        name: string;
-        industry: string;
-        size: string;
-    };
-    interviewContent: null | {
-        id: string;
-        backgroundQuestion: string | null;
-        codingPrompt: string;
-        codingTemplate: string | null;
-        codingAnswer: string | null;
-        backgroundQuestionTimeSeconds: number;
-        codingQuestionTimeSeconds: number;
-    };
-}
-
-interface FormState {
+interface CreateJobState {
     title: string;
     location: string;
     type: string;
@@ -66,6 +37,15 @@ interface ScoringConfigState {
     codingWeight: number;
 }
 
+const defaultCreateState: CreateJobState = {
+    title: "",
+    location: "",
+    type: "",
+    salary: "",
+    description: "",
+    requirements: "",
+};
+
 const defaultScoringConfig: ScoringConfigState = {
     adaptabilityWeight: 33.33,
     creativityWeight: 33.33,
@@ -75,174 +55,71 @@ const defaultScoringConfig: ScoringConfigState = {
     codingWeight: 50,
 };
 
-function optionalString(value: string | null | undefined): string {
-    if (typeof value === "string") {
-        return value;
-    }
-    return "";
-}
-
-function CompanyJobDetailContent() {
-    const params = useParams<{ jobId: string }>();
-    const jobId = params.jobId;
-    const [loading, setLoading] = useState(true);
+function CreateJobContent() {
+    const router = useRouter();
     const [error, setError] = useState<string | null>(null);
-    const [job, setJob] = useState<JobDetailResponse | null>(null);
-    const [formState, setFormState] = useState<FormState>({
-        title: "",
-        location: "",
-        type: "",
-        salary: "",
-        description: "",
-        requirements: "",
-    });
-    const [interviewState, setInterviewState] =
-        useState<InterviewContentState>(emptyInterviewContentState);
-    const [interviewDurations, setInterviewDurations] =
-        useState<InterviewDurationState>(defaultInterviewDurations);
-    const [saving, setSaving] = useState(false);
-    const [removingInterview, setRemovingInterview] = useState(false);
+    const [createState, setCreateState] = useState<CreateJobState>(defaultCreateState);
+    const [interviewState, setInterviewState] = useState<InterviewContentState>(emptyInterviewContentState);
+    const [interviewDurations, setInterviewDurations] = useState<InterviewDurationState>(defaultInterviewDurations);
+    const [createSubmitting, setCreateSubmitting] = useState(false);
     const [scoringConfig, setScoringConfig] = useState<ScoringConfigState>(defaultScoringConfig);
     const [codingCategories, setCodingCategories] = useState<CodingCategory[]>([]);
     const [activeSection, setActiveSection] = useState<string>("details");
     const [expandedSections, setExpandedSections] = useState<string[]>(["details"]);
     const [interviewTab, setInterviewTab] = useState<'experience' | 'coding'>('experience');
 
-    useEffect(() => {
-        const fetchDetail = async () => {
-            try {
-                const resp = await fetch(`/api/company/jobs/${jobId}`);
-                if (!resp.ok) {
-                    const detail = await readResponseError(resp);
-                    throw new Error(
-                        `Failed to load job: ${resp.status} ${detail}`
-                    );
-                }
-                const data = (await resp.json()) as JobDetailResponse;
-                setJob(data);
-                setFormState({
-                    title: data.title,
-                    location: data.location,
-                    type: data.type,
-                    salary: optionalString(data.salary),
-                    description: optionalString(data.description),
-                    requirements: optionalString(data.requirements),
-                });
-                setCodingCategories(data.codingCategories || []);
-                if (data.interviewContent) {
-                    setInterviewState({
-                        backgroundQuestion: optionalString(
-                            data.interviewContent.backgroundQuestion
-                        ),
-                        codingPrompt: data.interviewContent.codingPrompt,
-                        codingTemplate: optionalString(
-                            data.interviewContent.codingTemplate
-                        ),
-                        codingAnswer: optionalString(
-                            data.interviewContent.codingAnswer
-                        ),
-                    });
-                    const backgroundSecondsRaw = Number(
-                        data.interviewContent.backgroundQuestionTimeSeconds
-                    );
-                    const codingSecondsRaw = Number(
-                        data.interviewContent.codingQuestionTimeSeconds
-                    );
-                    setInterviewDurations({
-                        backgroundSeconds:
-                            Number.isFinite(backgroundSecondsRaw) &&
-                            backgroundSecondsRaw > 0
-                                ? Math.floor(backgroundSecondsRaw)
-                                : defaultInterviewDurations.backgroundSeconds,
-                        codingSeconds:
-                            Number.isFinite(codingSecondsRaw) &&
-                            codingSecondsRaw > 0
-                                ? Math.floor(codingSecondsRaw)
-                                : defaultInterviewDurations.codingSeconds,
-                    });
-                } else {
-                    setInterviewState(emptyInterviewContentState);
-                    setInterviewDurations(defaultInterviewDurations);
-                }
-                setError(null);
-            } catch (err) {
-                const message =
-                    err instanceof Error ? err.message : "Unknown error";
-                setError(message);
-                log.error("❌ Failed to load company job detail:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchDetail().catch((err) => {
-            log.error("❌ Unexpected job detail fetch error:", err);
-        });
-    }, [jobId]);
-
-    useEffect(() => {
-        const fetchScoringConfig = async () => {
-            try {
-                const resp = await fetch(`/api/company/jobs/${jobId}/scoring-config`);
-                if (resp.ok) {
-                    const data = await resp.json();
-                    if (data.config) {
-                        setScoringConfig(data.config);
-                    }
-                }
-            } catch (err) {
-                log.error("❌ Failed to load scoring configuration:", err);
-            }
-        };
-        fetchScoringConfig();
-    }, [jobId]);
-
-    const handleSave = async (event: React.FormEvent<HTMLFormElement>) => {
+    const handleCreateJob = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        setSaving(true);
+        setCreateSubmitting(true);
         try {
-            const payload: any = {
-                title: formState.title,
-                location: formState.location,
-                type: formState.type,
-                salary: formState.salary.length > 0 ? formState.salary : null,
-                description:
-                    formState.description.length > 0
-                        ? formState.description
-                        : null,
-                requirements:
-                    formState.requirements.length > 0
-                        ? formState.requirements
-                        : null,
-                codingCategories: codingCategories.length > 0 ? codingCategories : null,
-                scoringConfig,
-            };
             const hasInterviewContent =
                 interviewState.backgroundQuestion.trim().length > 0 ||
                 interviewState.codingPrompt.trim().length > 0 ||
                 interviewState.codingTemplate.trim().length > 0 ||
                 interviewState.codingAnswer.trim().length > 0;
+
+            if (
+                hasInterviewContent &&
+                interviewState.codingPrompt.trim().length === 0
+            ) {
+                setError(
+                    "Coding prompt is required when adding interview content."
+                );
+                setCreateSubmitting(false);
+                return;
+            }
+
+            const payload: any = {
+                title: createState.title,
+                location: createState.location,
+                type: createState.type,
+                salary: createState.salary.length > 0 ? createState.salary : null,
+                description: createState.description.length > 0 ? createState.description : null,
+                requirements: createState.requirements.length > 0 ? createState.requirements : null,
+                codingCategories: codingCategories.length > 0 ? codingCategories : null,
+                scoringConfig,
+            };
+
             if (hasInterviewContent) {
                 payload.interviewContent = {
                     backgroundQuestion: interviewState.backgroundQuestion,
-                    codingPrompt: interviewState.codingPrompt,
+                    codingPrompt: interviewState.codingPrompt.trim(),
                     codingTemplate:
-                        interviewState.codingTemplate.length > 0
+                        interviewState.codingTemplate.trim().length > 0
                             ? interviewState.codingTemplate
                             : null,
                     codingAnswer:
-                        interviewState.codingAnswer.length > 0
+                        interviewState.codingAnswer.trim().length > 0
                             ? interviewState.codingAnswer
                             : null,
                     backgroundQuestionTimeSeconds:
                         interviewDurations.backgroundSeconds,
                     codingQuestionTimeSeconds: interviewDurations.codingSeconds,
                 };
-            } else {
-                payload.interviewContent = null;
             }
 
-            const resp = await fetch(`/api/company/jobs/${jobId}`, {
-                method: "PUT",
+            const resp = await fetch("/api/company/jobs", {
+                method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
@@ -250,133 +127,22 @@ function CompanyJobDetailContent() {
             });
             if (!resp.ok) {
                 const detail = await readResponseError(resp);
-                throw new Error(`Failed to save job: ${resp.status} ${detail}`);
-            }
-            const updated = (await resp.json()) as JobDetailResponse;
-            setJob(updated);
-            setFormState({
-                title: updated.title,
-                location: updated.location,
-                type: updated.type,
-                salary: optionalString(updated.salary),
-                description: optionalString(updated.description),
-                requirements: optionalString(updated.requirements),
-            });
-            setCodingCategories(updated.codingCategories || []);
-            if (updated.interviewContent) {
-                setInterviewState({
-                    backgroundQuestion:
-                        optionalString(
-                            updated.interviewContent.backgroundQuestion
-                        ),
-                    codingPrompt: updated.interviewContent.codingPrompt,
-                    codingTemplate:
-                        optionalString(
-                            updated.interviewContent.codingTemplate
-                        ),
-                    codingAnswer: optionalString(
-                        updated.interviewContent.codingAnswer
-                    ),
-                });
-                const backgroundSecondsRaw = Number(
-                    updated.interviewContent.backgroundQuestionTimeSeconds
-                );
-                const codingSecondsRaw = Number(
-                    updated.interviewContent.codingQuestionTimeSeconds
-                );
-                setInterviewDurations({
-                    backgroundSeconds:
-                        Number.isFinite(backgroundSecondsRaw) &&
-                        backgroundSecondsRaw > 0
-                            ? Math.floor(backgroundSecondsRaw)
-                            : defaultInterviewDurations.backgroundSeconds,
-                    codingSeconds:
-                        Number.isFinite(codingSecondsRaw) &&
-                        codingSecondsRaw > 0
-                            ? Math.floor(codingSecondsRaw)
-                            : defaultInterviewDurations.codingSeconds,
-                });
-            } else {
-                setInterviewState(emptyInterviewContentState);
-                setInterviewDurations(defaultInterviewDurations);
-            }
-            setError(null);
-        } catch (err) {
-            const message =
-                err instanceof Error ? err.message : "Unknown error";
-            setError(message);
-            log.error("❌ Failed to save company job:", err);
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    const handleRemoveInterviewContent = async () => {
-        setRemovingInterview(true);
-        try {
-            const resp = await fetch(`/api/company/jobs/${jobId}`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ interviewContent: null }),
-            });
-            if (!resp.ok) {
-                const detail = await readResponseError(resp);
                 throw new Error(
-                    `Failed to remove interview content: ${resp.status} ${detail}`
+                    `Failed to create job: ${resp.status} ${detail}`
                 );
             }
-            const updated = (await resp.json()) as JobDetailResponse;
-            setJob(updated);
-            setInterviewState(emptyInterviewContentState);
-            setInterviewDurations(defaultInterviewDurations);
-            setError(null);
+            
+            log.info("Job created successfully");
+            router.push("/company-dashboard/jobs");
         } catch (err) {
             const message =
                 err instanceof Error ? err.message : "Unknown error";
             setError(message);
-            log.error("❌ Failed to remove interview content:", err);
+            log.error("❌ Failed to create job:", err);
         } finally {
-            setRemovingInterview(false);
+            setCreateSubmitting(false);
         }
     };
-
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <SfinxSpinner 
-                    title="Loading Job" 
-                    messages="Fetching job details..." 
-                />
-            </div>
-        );
-    }
-
-    if (!job) {
-        return (
-            <div className="min-h-screen bg-gray-50">
-                <div className="max-w-4xl mx-auto p-6">
-                    {error ? (
-                        <div className="mb-6 rounded-xl bg-red-50 border border-red-200 p-4 text-red-700">
-                            {error}
-                        </div>
-                    ) : null}
-                    <Link
-                        href="/company-dashboard/jobs"
-                        className="text-blue-600 hover:text-blue-700"
-                    >
-                        Back to jobs
-                    </Link>
-                </div>
-            </div>
-        );
-    }
-
-    // Build breadcrumb trail
-    const breadcrumbTrail = getBreadcrumbTrail("/company-dashboard/jobs/[jobId]", "COMPANY", {
-        jobTitle: job.title
-    });
 
     return (
         <div className="min-h-screen bg-gray-50 flex">
@@ -503,26 +269,24 @@ function CompanyJobDetailContent() {
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto">
                 <div className="max-w-4xl mx-auto p-12">
-                    {/* Breadcrumbs */}
-                    <div className="mb-6">
-                        <Breadcrumbs items={breadcrumbTrail} />
-                    </div>
-                    
                     <div className="mb-8">
                         <h1 className="text-3xl font-semibold text-gray-800">
-                            {job.title}
+                            Create New Job
                         </h1>
+                        <p className="text-gray-600 mt-2">
+                            Add a new job opening for your company
+                        </p>
                     </div>
 
-                    {error ? (
+                    {error && (
                         <div className="mb-6 rounded-xl bg-red-50 border border-red-200 p-4 text-red-700">
                             {error}
                         </div>
-                    ) : null}
+                    )}
 
                     <form
                         className="space-y-8"
-                        onSubmit={handleSave}
+                        onSubmit={handleCreateJob}
                         noValidate
                     >
                         <section id="details" className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
@@ -531,125 +295,117 @@ function CompanyJobDetailContent() {
                             </h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <label id="title" className="flex flex-col text-sm font-medium text-gray-700 scroll-mt-24">
-                                Title
-                                <input
-                                    value={formState.title}
-                                    onChange={(event) =>
-                                        setFormState((prev) => ({
-                                            ...prev,
-                                            title: event.target.value,
-                                        }))
-                                    }
-                                    className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                    required
-                                />
-                            </label>
-                            <label id="location" className="flex flex-col text-sm font-medium text-gray-700 scroll-mt-24">
-                                Location
-                                <input
-                                    value={formState.location}
-                                    onChange={(event) =>
-                                        setFormState((prev) => ({
-                                            ...prev,
-                                            location: event.target.value,
-                                        }))
-                                    }
-                                    className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                    required
-                                />
-                            </label>
-                            <label id="type" className="flex flex-col text-sm font-medium text-gray-700 scroll-mt-24">
-                                Type
-                                <input
-                                    value={formState.type}
-                                    onChange={(event) =>
-                                        setFormState((prev) => ({
-                                            ...prev,
-                                            type: event.target.value,
-                                        }))
-                                    }
-                                    className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                    required
-                                />
-                            </label>
-                            <label id="salary" className="flex flex-col text-sm font-medium text-gray-700 scroll-mt-24">
-                                Salary
-                                <input
-                                    value={formState.salary}
-                                    onChange={(event) =>
-                                        setFormState((prev) => ({
-                                            ...prev,
-                                            salary: event.target.value,
-                                        }))
-                                    }
-                                    className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                    placeholder="$160k - $230k"
-                                />
-                            </label>
-                            <label id="description" className="flex flex-col text-sm font-medium text-gray-700 md:col-span-2 scroll-mt-24">
-                                Description
-                                <textarea
-                                    value={formState.description}
-                                    onChange={(event) =>
-                                        setFormState((prev) => ({
-                                            ...prev,
-                                            description: event.target.value,
-                                        }))
-                                    }
-                                    className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all min-h-[120px]"
-                                />
-                            </label>
-                            <label id="requirements" className="flex flex-col text-sm font-medium text-gray-700 md:col-span-2 scroll-mt-24">
-                                Requirements
-                                <textarea
-                                    value={formState.requirements}
-                                    onChange={(event) =>
-                                        setFormState((prev) => ({
-                                            ...prev,
-                                            requirements: event.target.value,
-                                        }))
-                                    }
-                                    className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all min-h-[120px]"
-                                />
-                            </label>
-                        </div>
-                    </section>
+                                    Title
+                                    <input
+                                        value={createState.title}
+                                        onChange={(event) =>
+                                            setCreateState((prev) => ({
+                                                ...prev,
+                                                title: event.target.value,
+                                            }))
+                                        }
+                                        className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                        required
+                                    />
+                                </label>
+                                <label id="location" className="flex flex-col text-sm font-medium text-gray-700 scroll-mt-24">
+                                    Location
+                                    <input
+                                        value={createState.location}
+                                        onChange={(event) =>
+                                            setCreateState((prev) => ({
+                                                ...prev,
+                                                location: event.target.value,
+                                            }))
+                                        }
+                                        className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                        required
+                                    />
+                                </label>
+                                <label id="type" className="flex flex-col text-sm font-medium text-gray-700 scroll-mt-24">
+                                    Type
+                                    <input
+                                        value={createState.type}
+                                        onChange={(event) =>
+                                            setCreateState((prev) => ({
+                                                ...prev,
+                                                type: event.target.value,
+                                            }))
+                                        }
+                                        className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                        placeholder="e.g. full-time"
+                                        required
+                                    />
+                                </label>
+                                <label id="salary" className="flex flex-col text-sm font-medium text-gray-700 scroll-mt-24">
+                                    Salary
+                                    <input
+                                        value={createState.salary}
+                                        onChange={(event) =>
+                                            setCreateState((prev) => ({
+                                                ...prev,
+                                                salary: event.target.value,
+                                            }))
+                                        }
+                                        className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+                                        placeholder="$160k - $230k"
+                                    />
+                                </label>
+                                <label id="description" className="flex flex-col text-sm font-medium text-gray-700 md:col-span-2 scroll-mt-24">
+                                    Description
+                                    <textarea
+                                        value={createState.description}
+                                        onChange={(event) =>
+                                            setCreateState((prev) => ({
+                                                ...prev,
+                                                description: event.target.value,
+                                            }))
+                                        }
+                                        className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all min-h-[120px]"
+                                    />
+                                </label>
+                                <label id="requirements" className="flex flex-col text-sm font-medium text-gray-700 md:col-span-2 scroll-mt-24">
+                                    Requirements
+                                    <textarea
+                                        value={createState.requirements}
+                                        onChange={(event) =>
+                                            setCreateState((prev) => ({
+                                                ...prev,
+                                                requirements: event.target.value,
+                                            }))
+                                        }
+                                        className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all min-h-[120px]"
+                                    />
+                                </label>
+                            </div>
+                        </section>
 
-                    <section id="interview">
-                        <InterviewContentSection
-                        state={interviewState}
-                        onChange={setInterviewState}
-                        durations={interviewDurations}
-                        onDurationChange={setInterviewDurations}
-                        disabled={saving || removingInterview}
-                        onRemove={handleRemoveInterviewContent}
-                        canRemove={
-                            !(
-                                interviewState.backgroundQuestion.trim().length === 0 &&
-                                interviewState.codingPrompt.trim().length === 0 &&
-                                interviewState.codingTemplate.trim().length === 0 &&
-                                interviewState.codingAnswer.trim().length === 0
-                            )
-                        }
-                        removing={removingInterview}
-                            subtitle="Adjust the background conversation, coding prompt, and timers associated with this job."
-                            activeTab={interviewTab}
-                            onTabChange={setInterviewTab}
-                        />
-                    </section>
+                        <section id="interview">
+                            <InterviewContentSection
+                                state={interviewState}
+                                onChange={setInterviewState}
+                                durations={interviewDurations}
+                                onDurationChange={setInterviewDurations}
+                                disabled={createSubmitting}
+                                subtitle="Optional: configure the background conversation, coding prompt, and timers candidates will experience."
+                                allowEmptyCodingPrompt={false}
+                                activeTab={interviewTab}
+                                onTabChange={setInterviewTab}
+                            />
+                        </section>
 
-                    {/* Scoring Configuration Section */}
-                    <section id="scoring" className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                        <div className="mb-6">
-                            <h2 className="text-xl font-semibold text-gray-800">
-                                Scoring Configuration
-                            </h2>
-                            <p className="text-sm text-gray-600 mt-1">
-                                Configure weights and benchmarks for candidate evaluation
-                            </p>
-                        </div>
+                        {/* Scoring Configuration Section */}
+                        <section id="scoring" className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+                            <div className="mb-6">
+                                <h2 className="text-xl font-semibold text-gray-800">
+                                    Scoring Configuration
+                                </h2>
+                                <p className="text-sm text-gray-600 mt-1">
+                                    Configure weights and benchmarks for candidate evaluation
+                                </p>
+                            </div>
 
-                        <div className="space-y-6">
+                            <div className="space-y-6">
                                 {/* Category Weights */}
                                 <div id="category-weights" className="border-t border-gray-200 pt-4 scroll-mt-24">
                                     <h3 className="text-lg font-medium text-gray-800 mb-3">
@@ -733,7 +489,7 @@ function CompanyJobDetailContent() {
                                     </div>
                                 </div>
 
-                                {/* Workstyle Metrics */}
+                                {/* Coding Dimensions */}
                                 <div id="coding-dimensions" className="border-t border-gray-200 pt-4 scroll-mt-24">
                                     <h3 className="text-lg font-semibold text-gray-800 mb-1">
                                         Coding Dimensions
@@ -855,35 +611,34 @@ function CompanyJobDetailContent() {
                                     </div>
                                 </div>
                             </div>
-                    </section>
+                        </section>
 
-                    <div className="flex justify-end gap-3 sticky bottom-0 bg-gray-50 py-4 border-t border-gray-200">
-                        <Link
-                            href="/company-dashboard/jobs"
-                            className="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 transition-colors bg-white"
-                        >
-                            Cancel
-                        </Link>
-                        <button
-                            type="submit"
-                            className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
-                            disabled={saving}
-                        >
-                            {saving ? "Saving..." : "Save Changes"}
-                        </button>
-                    </div>
-                </form>
+                        <div className="flex justify-end gap-3 sticky bottom-0 bg-gray-50 py-4 border-t border-gray-200">
+                            <Link
+                                href="/company-dashboard/jobs"
+                                className="px-4 py-2 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 transition-colors bg-white"
+                            >
+                                Cancel
+                            </Link>
+                            <button
+                                type="submit"
+                                className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
+                                disabled={createSubmitting}
+                            >
+                                {createSubmitting ? "Creating..." : "Create Job"}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
-    </div>
     );
 }
 
-export default function CompanyJobDetailPage() {
+export default function CreateJobPage() {
     return (
         <AuthGuard requiredRole="COMPANY">
-            <CompanyJobDetailContent />
+            <CreateJobContent />
         </AuthGuard>
     );
 }
-

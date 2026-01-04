@@ -6,3 +6,5 @@ export { default as SfinxLogo } from "./SfinxLogo";
 export { default as UnauthGuard } from "./UnauthGuard";
 export { default as InterviewStageScreen } from "./InterviewStageScreen";
 export { default as SfinxSpinner } from "./SfinxSpinner";
+export { default as DashboardPageLayout } from "./DashboardPageLayout";
+export { default as DashboardCard } from "./DashboardCard";

@@ -13,6 +13,7 @@ import { log } from "../services";
 import SfinxLogo from "./SfinxLogo";
 import DemoProgressHeader from "../../../app/(features)/demo/components/DemoProgressHeader";
 import { useMute } from "../contexts";
+import { getActiveNavItem } from "../config/navigation";
 
 const logger = log;
 
@@ -38,6 +39,12 @@ export default function Header() {
     const activeLinkStyles = "text-blue-700 scale-110";
     const inactiveLinkStyles = "text-gray-500 hover:text-gray-900";
 
+    // Get role first before using it
+    const role = (session?.user as any)?.role;
+    
+    // Get active navigation item using hierarchy
+    const activeNavPath = getActiveNavItem(pathname, role === "COMPANY" ? "COMPANY" : "CANDIDATE");
+    
     // Function to update indicator position
     const updateIndicator = useCallback(() => {
         if (!navRef.current) return;
@@ -70,7 +77,7 @@ export default function Header() {
         // Small delay to ensure DOM is ready
         const timer = setTimeout(updateIndicator, 100);
         return () => clearTimeout(timer);
-    }, [pathname, updateIndicator]);
+    }, [pathname, activeNavPath, updateIndicator]);
 
     if (noHeaderPaths.includes(pathname)) {
         return null;
@@ -81,7 +88,6 @@ export default function Header() {
         await signOut({ callbackUrl: "/login" });
     };
 
-    const role = (session?.user as any)?.role;
     const settingsPath = role === "COMPANY" ? "/company-dashboard/settings" : "/settings";
 
     // Get current demo stage based on Redux state machine and pathname
@@ -159,7 +165,7 @@ export default function Header() {
                                 }}
                                 href="/company-dashboard"
                                 className={`${linkStyles} ${
-                                    pathname === "/company-dashboard"
+                                    activeNavPath === "/company-dashboard"
                                         ? activeLinkStyles
                                         : inactiveLinkStyles
                                 }`}
@@ -172,7 +178,7 @@ export default function Header() {
                                 }}
                                 href="/company-dashboard/jobs"
                                 className={`${linkStyles} ${
-                                    pathname === "/company-dashboard/jobs"
+                                    activeNavPath === "/company-dashboard/jobs"
                                         ? activeLinkStyles
                                         : inactiveLinkStyles
                                 }`}
@@ -189,7 +195,7 @@ export default function Header() {
                                 }}
                                 href="/job-search"
                                 className={`${linkStyles} ${
-                                    pathname === "/job-search"
+                                    activeNavPath === "/job-search"
                                         ? activeLinkStyles
                                         : inactiveLinkStyles
                                 }`}
@@ -202,7 +208,7 @@ export default function Header() {
                                 }}
                                 href="/practice"
                                 className={`${linkStyles} ${
-                                    pathname === "/practice"
+                                    activeNavPath === "/practice"
                                         ? activeLinkStyles
                                         : inactiveLinkStyles
                                 }`}
@@ -215,7 +221,7 @@ export default function Header() {
                                 }}
                                 href="/mentors"
                                 className={`${linkStyles} ${
-                                    pathname === "/mentors"
+                                    activeNavPath === "/mentors"
                                         ? activeLinkStyles
                                         : inactiveLinkStyles
                                 }`}
@@ -240,6 +246,19 @@ export default function Header() {
 
                 {/* User Avatar and Menu / Demo Restart Button */}
                 <div className="flex items-center justify-end gap-4">
+                    {/* Create New Job Button (only for companies) */}
+                    {role === "COMPANY" && !isDemoMode && (
+                        <button
+                            type="button"
+                            className="px-6 py-2.5 rounded-xl bg-sfinx-purple text-white hover:bg-opacity-90 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md"
+                            onClick={() => {
+                                router.push('/company-dashboard/jobs/new');
+                            }}
+                        >
+                            Create New Job
+                        </button>
+                    )}
+                    
                     {isDemoMode && (
                         <>
                             <button
