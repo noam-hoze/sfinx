@@ -41,14 +41,6 @@ export const CANDIDATE_NAV_HIERARCHY: Record<string, NavItem> = {
     label: "Jobs",
     breadcrumb: "Jobs"
   },
-  "/practice": {
-    label: "Practice",
-    breadcrumb: "Practice"
-  },
-  "/mentors": {
-    label: "Mentors",
-    breadcrumb: "Mentors"
-  },
   "/interview": {
     label: "Interview",
     parent: "/job-search",

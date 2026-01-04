@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import SfinxSpinner from "./SfinxSpinner";
 
 interface UnauthGuardProps {
     children: React.ReactNode;
@@ -34,7 +35,7 @@ export default function UnauthGuard({ children, fallback }: UnauthGuardProps) {
         return (
             fallback || (
                 <div className="min-h-screen flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <SfinxSpinner size="lg" title="Loading" messages="Preparing your experience..." />
                 </div>
             )
         );

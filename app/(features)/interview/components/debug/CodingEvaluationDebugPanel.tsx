@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import { MAX_PASTE_EVAL_ANSWERS } from "../chat/OpenAITextConversation";
+import { SfinxSpinner } from "app/shared/components";
 
 interface CodingEvaluationDebugPanelProps {
     evaluationData: {
@@ -90,10 +91,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
         return (
             <div className="w-full border border-slate-200 bg-white px-6 py-5 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 rounded-lg">
                 <div className="flex flex-col items-center justify-center gap-4 py-12">
-                    <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 dark:border-blue-400"></div>
-                    <div className="text-base text-slate-600 dark:text-slate-300">
-                        Evaluating with OpenAI...
-                    </div>
+                    <SfinxSpinner size="lg" title="Evaluating" messages="Processing with OpenAI..." />
                 </div>
             </div>
         );
