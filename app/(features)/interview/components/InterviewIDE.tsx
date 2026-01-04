@@ -304,7 +304,46 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     }, []);
 
     const handleInterviewConcluded = useCallback(
-        (delayMs?: number) => {
+        async (delayMs?: number) => {
+            // Check for unanswered paste evaluation before concluding
+            const chatState = interviewChatStore.getState();
+            const activePasteEval = chatState.coding.activePasteEvaluation;
+            
+            if (activePasteEval && !activePasteEval.accountabilityScore && interviewSessionId) {
+                logger.info("📋 [PASTE_EVAL] Saving unanswered paste evaluation with score 0");
+                
+                // Save to DB with score 0 (failed accountability)
+                try {
+                    const dbPayload = {
+                        timestamp: activePasteEval.timestamp,
+                        pastedContent: activePasteEval.pastedContent,
+                        characterCount: activePasteEval.pastedContent.length,
+                        aiQuestion: activePasteEval.topics?.map((t: any) => t.question).join("\n") || "No response provided",
+                        aiQuestionTimestamp: activePasteEval.aiQuestionTimestamp || Date.now(),
+                        userAnswer: "",
+                        understanding: "none",
+                        accountabilityScore: 0,
+                        reasoning: "User submitted without answering paste accountability questions",
+                        caption: "External Tool Usage - No Response",
+                    };
+                    
+                    const response = await fetch(`/api/interviews/session/${interviewSessionId}/external-tools`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(dbPayload),
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(`API returned ${response.status}: ${errorData.error || 'Unknown error'}`);
+                    }
+                    
+                    logger.info("✅ [PASTE_EVAL] Saved unanswered paste with score 0");
+                } catch (error) {
+                    logger.error("❌ [PASTE_EVAL] Failed to save unanswered paste:", error);
+                }
+            }
+            
             if (typeof delayMs === "number" && delayMs > 0) {
                 setRedirectDelayMs(delayMs);
             } else {
@@ -312,7 +351,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             }
             setInterviewConcluded(true);
         },
-        []
+        [interviewSessionId]
     );
 
     /**
