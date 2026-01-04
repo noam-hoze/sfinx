@@ -24,7 +24,6 @@ export default function EvidenceReel({
     chapters = [],
     paused = false,
 }: Props) {
-    console.log("[EvidenceReel] Received chapters:", chapters, "Count:", chapters?.length || 0);
     const playerRef = useRef<any>(null);
 
     useEffect(() => {
@@ -70,16 +69,37 @@ export default function EvidenceReel({
 
     const subtitleTrackUrl = useMemo(() => {
         let vtt = "WEBVTT\n\n";
+        
+        // Group captions by time range, merging text for duplicates
+        const captionsByTimeRange = new Map<string, string[]>();
+        
         chapters.forEach((chapter) => {
             if (chapter.captions) {
                 chapter.captions.forEach((caption: any) => {
-                    vtt += `${formatVttTime(
-                        caption.startTime
-                    )} --> ${formatVttTime(caption.endTime)}\n`;
-                    vtt += `${caption.text}\n\n`;
+                    const timeRange = `${caption.startTime}-${caption.endTime}`;
+                    if (!captionsByTimeRange.has(timeRange)) {
+                        captionsByTimeRange.set(timeRange, []);
+                    }
+                    captionsByTimeRange.get(timeRange)!.push(caption.text);
                 });
             }
         });
+        
+        // Generate VTT cues with merged text for duplicate time ranges
+        Array.from(captionsByTimeRange.entries()).forEach(([timeRange, texts]) => {
+            const [start, end] = timeRange.split('-').map(Number);
+            vtt += `${formatVttTime(start)} --> ${formatVttTime(end)}\n`;
+            
+            // Format merged text: add period to first sentence if needed, then newline, then next sentence
+            const formattedText = texts.map((text, i) => {
+                if (i === texts.length - 1) return text;
+                // Add period if the text doesn't end with punctuation
+                return text.match(/[.!?]$/) ? text : text + '.';
+            }).join('\n');
+            
+            vtt += formattedText + '\n\n';
+        });
+        
         const blob = new Blob([vtt], { type: "text/vtt" });
         return URL.createObjectURL(blob);
     }, [chapters]);
@@ -87,12 +107,25 @@ export default function EvidenceReel({
     // Build a Blob URL for WebVTT chapters
     const chaptersUrl = useMemo(() => {
         let vtt = "WEBVTT\n\n";
+        
+        // Group chapters by time range, merging titles for duplicates
+        const chaptersByTimeRange = new Map<string, string[]>();
+        
         chapters.forEach((chapter) => {
-            vtt += `${formatVttTime(chapter.startTime)} --> ${formatVttTime(
-                chapter.endTime
-            )}\n`;
-            vtt += `${chapter.title}\n\n`;
+            const timeRange = `${chapter.startTime}-${chapter.endTime}`;
+            if (!chaptersByTimeRange.has(timeRange)) {
+                chaptersByTimeRange.set(timeRange, []);
+            }
+            chaptersByTimeRange.get(timeRange)!.push(chapter.title);
         });
+        
+        // Generate VTT chapters with merged titles for duplicate time ranges
+        Array.from(chaptersByTimeRange.entries()).forEach(([timeRange, titles]) => {
+            const [start, end] = timeRange.split('-').map(Number);
+            vtt += `${formatVttTime(start)} --> ${formatVttTime(end)}\n`;
+            vtt += titles.join(' + ') + '\n\n';
+        });
+        
         const blob = new Blob([vtt], { type: "text/vtt" });
         return URL.createObjectURL(blob);
     }, [chapters]);

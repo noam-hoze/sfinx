@@ -386,24 +386,51 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         category: clip.category,
                     })) || [],
                     chapters: (() => {
+                        const rawChapters = telemetry?.videoChapters || [];
+                        
                         log.info(`[Telemetry API] Session ${session.id} chapters:`, {
-                            totalCount: telemetry?.videoChapters?.length || 0,
-                            titles: telemetry?.videoChapters?.map((c: any) => c.title) || [],
-                            startTimes: telemetry?.videoChapters?.map((c: any) => c.startTime) || []
+                            totalCount: rawChapters.length,
+                            titles: rawChapters.map((c: any) => c.title),
+                            startTimes: rawChapters.map((c: any) => c.startTime)
                         });
-                        return telemetry?.videoChapters?.map((chapter: any) => ({
-                            id: chapter.id,
-                            title: chapter.title,
-                            startTime: chapter.startTime,
-                            endTime: chapter.endTime,
-                            description: chapter.description,
-                            thumbnailUrl: chapter.thumbnailUrl,
-                            captions: chapter.captions?.map((caption: any) => ({
-                                text: caption.text,
-                                startTime: caption.startTime,
-                                endTime: caption.endTime,
-                            })) || [],
-                        })) || [];
+                        
+                        // Deduplicate chapters by ID
+                        const seenChapters = new Set<string>();
+                        const filtered = rawChapters.filter((chapter: any) => {
+                            if (seenChapters.has(chapter.id)) {
+                                log.warn(`[Telemetry API] Duplicate chapter ID ${chapter.id} filtered`);
+                                return false;
+                            }
+                            seenChapters.add(chapter.id);
+                            return true;
+                        });
+                        
+                        return filtered.map((chapter: any) => {
+                            // Deduplicate captions by combining startTime and text
+                            const seenCaptions = new Set<string>();
+                            const dedupedCaptions = (chapter.captions || [])
+                                .filter((caption: any) => {
+                                    const key = `${caption.startTime}-${caption.text}`;
+                                    if (seenCaptions.has(key)) return false;
+                                    seenCaptions.add(key);
+                                    return true;
+                                })
+                                .map((caption: any) => ({
+                                    text: caption.text,
+                                    startTime: caption.startTime,
+                                    endTime: caption.endTime,
+                                }));
+                            
+                            return {
+                                id: chapter.id,
+                                title: chapter.title,
+                                startTime: chapter.startTime,
+                                endTime: chapter.endTime,
+                                description: chapter.description,
+                                thumbnailUrl: chapter.thumbnailUrl,
+                                captions: dedupedCaptions,
+                            };
+                        });
                     })(),
                     workstyle: telemetry?.workstyleMetrics
                         ? {
