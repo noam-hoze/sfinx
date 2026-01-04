@@ -52,7 +52,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             !characterCount ||
             !aiQuestion ||
             !aiQuestionTimestamp ||
-            !userAnswer ||
+            userAnswer === undefined ||
             !understanding ||
             typeof accountabilityScore !== "number" ||
             !reasoning ||
