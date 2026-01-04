@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "app/shared/services/auth";
-import { prisma } from "app/shared/services/prisma";
 import { log } from "app/shared/services";
+import { authOptions, prisma, invalidatePattern } from "app/shared/services/server";
 import { loadCompanyForUser } from "./companyContext";
 import { coerceSeconds, mapJobResponse } from "./jobHelpers";
 
@@ -187,6 +186,8 @@ export async function POST(request: NextRequest) {
             },
         });
 
+        invalidatePattern(`jobs:company:${company.name}`);
+        invalidatePattern("companies:list:");
         return NextResponse.json(mapJobResponse(job, job.company));
     } catch (error) {
         log.error("❌ Failed to create company job:", error);

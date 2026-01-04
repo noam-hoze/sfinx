@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "app/shared/services";
+import { prisma } from "app/shared/services/server";
 
 type RouteContext = {
     params: Promise<{ id?: string | string[] }>;

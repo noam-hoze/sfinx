@@ -420,13 +420,9 @@ function CompanyJobsContent() {
                         {jobs.map((job) => (
                             <DashboardCard
                                 key={job.id}
-                                onClick={() => {
-                                    setEditingJobId(job.id);
-                                    router.push(`/company-dashboard/jobs/${encodeURIComponent(job.id)}`);
-                                }}
                                 className="group flex flex-col relative"
                             >
-                                <div className="absolute top-4 right-4 flex gap-2">
+                                <div className="absolute top-4 right-4 flex gap-2 z-10">
                                     <button
                                         type="button"
                                         onClick={(e) => {
@@ -442,7 +438,16 @@ function CompanyJobsContent() {
                                         </svg>
                                     </button>
                                 </div>
-                                <h3 className="text-base font-semibold text-gray-900 group-hover:text-blue-600 transition-colors pr-16">{job.title}</h3>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setEditingJobId(job.id);
+                                        router.push(`/company-dashboard/jobs/${encodeURIComponent(job.id)}`);
+                                    }}
+                                    className="text-left w-full"
+                                >
+                                    <h3 className="text-base font-semibold text-gray-900 group-hover:text-blue-600 transition-colors pr-16">{job.title}</h3>
+                                </button>
                             </DashboardCard>
                         ))}
                     </div>

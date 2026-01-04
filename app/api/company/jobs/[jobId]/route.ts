@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "app/shared/services/auth";
-import { prisma } from "app/shared/services/prisma";
 import { log } from "app/shared/services";
+import { authOptions, prisma, invalidatePattern, invalidate } from "app/shared/services/server";
 import { loadCompanyForUser } from "../companyContext";
 import { mapJobResponse, coerceSeconds } from "../jobHelpers";
 
@@ -242,6 +241,9 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             });
         }
 
+        invalidatePattern(`jobs:company:${company.name}`);
+        invalidate(`applicants:job:${jobId}`);
+        invalidatePattern("companies:list:");
         return NextResponse.json(mapJobResponse(updated, updated.company));
     } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
@@ -296,7 +298,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
             return NextResponse.json({ error: "Job ID is required" }, { status: 400 });
         }
 
-        const { job } = await assertOwnership(userId, jobId);
+        const { job, company } = await assertOwnership(userId, jobId);
         const interviewContentId = job.interviewContentId;
 
         await (prisma as any).job.delete({
@@ -314,6 +316,9 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
             }
         }
 
+        invalidatePattern(`jobs:company:${company.name}`);
+        invalidate(`applicants:job:${jobId}`);
+        invalidatePattern("companies:list:");
         return NextResponse.json({ success: true });
     } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
