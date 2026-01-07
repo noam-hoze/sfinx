@@ -152,28 +152,37 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         const body = await request.json();
         log.info("[Session PATCH] Request body:", JSON.stringify(body));
         
-        const { videoUrl } = body;
+        const { videoUrl, status } = body;
 
-        if (!videoUrl) {
-            log.error("[Session PATCH] ❌ No video URL provided in body");
+        // Build update data object
+        const updateData: any = {};
+        
+        if (videoUrl) {
+            updateData.videoUrl = videoUrl;
+            log.info("[Session PATCH] Video URL to save:", videoUrl);
+        }
+        
+        if (status) {
+            updateData.status = status;
+            log.info("[Session PATCH] Status to save:", status);
+        }
+
+        if (Object.keys(updateData).length === 0) {
+            log.error("[Session PATCH] ❌ No update fields provided");
             return NextResponse.json(
-                { error: "Video URL is required" },
+                { error: "At least one field (videoUrl or status) is required" },
                 { status: 400 }
             );
         }
 
-        log.info("[Session PATCH] Video URL to save:", videoUrl);
-
-        // Update the interview session with the recording URL
+        // Update the interview session
         log.info("[Session PATCH] Executing prisma update...");
         
         const updatedSession = await prisma.interviewSession.update({
             where: {
                 id: sessionId,
             },
-            data: {
-                videoUrl: videoUrl,
-            },
+            data: updateData,
         });
 
         log.info("[Session PATCH] ✅ SUCCESS! Updated session:", {
