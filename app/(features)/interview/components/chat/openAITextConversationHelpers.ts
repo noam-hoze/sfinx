@@ -6,7 +6,7 @@ import {
   buildDeltaControlMessages,
   CONTROL_CONTEXT_TURNS,
   parseControlResult,
-} from "../../../../shared/services";
+} from "app/shared/services";
 
 /** Requests a lightweight chat completion for background follow-ups. */
 export async function askViaChatCompletion(
