@@ -99,6 +99,8 @@ function InterviewPageContent() {
   // Refs
   const clickSoundRef = useRef<HTMLAudioElement | null>(null);
   const startSoundRef = useRef<HTMLAudioElement | null>(null);
+  const interviewSessionIdRef = useRef<string | null>(null);
+  const completedRef = useRef<boolean>(false);
 
   // Extracted services
   const { preload } = useBackgroundPreload();
@@ -193,6 +195,15 @@ function InterviewPageContent() {
     return () => unsubscribe();
   }, [allowQuestionDisplay, currentQuestion]);
 
+  // Keep refs in sync with current values
+  useEffect(() => {
+    interviewSessionIdRef.current = interviewSessionId;
+  }, [interviewSessionId]);
+
+  useEffect(() => {
+    completedRef.current = completed;
+  }, [completed]);
+
   // Monitor machine state for completion
   useEffect(() => {
     if (machineState === "in_coding_session") {
@@ -209,6 +220,79 @@ function InterviewPageContent() {
       }
     };
   }, [micStream]);
+
+  // Session cleanup: terminate session when leaving interview page
+  useEffect(() => {
+    // Only run cleanup on actual unmount, not on dependency changes
+    return () => {
+      const sessionId = interviewSessionIdRef.current;
+      const isCompleted = completedRef.current;
+
+      if (!sessionId || isCompleted) {
+        console.log("[interview] Skipping cleanup - sessionId:", sessionId, "completed:", isCompleted);
+        return;
+      }
+
+      console.log("[interview] Component unmounting - terminating session:", sessionId);
+
+      // Stop recording
+      try {
+        recordingControls.stopRecording();
+      } catch (error) {
+        console.error("[interview] Error stopping recording:", error);
+      }
+
+      // Stop mic stream
+      if (micStream) {
+        micStream.getTracks().forEach((track) => track.stop());
+      }
+
+      // Mark session as abandoned in backend
+      const url = isDemoMode
+        ? `/api/interviews/session/${sessionId}/terminate?skip-auth=true`
+        : `/api/interviews/session/${sessionId}/terminate`;
+
+      // Use fetch without await (fire and forget on unmount)
+      fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      }).catch((error) => {
+        console.error("[interview] Error terminating session:", error);
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Cleanup on page close/refresh
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (!interviewSessionId || completed) return;
+
+      console.log("[interview] Page closing - terminating session");
+
+      // Stop recording synchronously
+      try {
+        recordingControls.stopRecording();
+      } catch (error) {
+        console.error("[interview] Error stopping recording:", error);
+      }
+
+      // Stop mic stream
+      if (micStream) {
+        micStream.getTracks().forEach((track) => track.stop());
+      }
+
+      // Use sendBeacon for reliable delivery as page closes
+      const url = isDemoMode
+        ? `/api/interviews/session/${interviewSessionId}/terminate?skip-auth=true`
+        : `/api/interviews/session/${interviewSessionId}/terminate`;
+
+      navigator.sendBeacon(url, new Blob([], { type: "application/json" }));
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [interviewSessionId, completed, isDemoMode, micStream, recordingControls]);
 
   // Watch for reset trigger
   useEffect(() => {
@@ -244,7 +328,9 @@ function InterviewPageContent() {
         const jobId = companySlug && roleSlug ? `${companySlug}-${roleSlug}` : "meta-frontend-engineer";
         const companyId = companySlug || "meta";
 
-        await preload(jobId, companyId, openaiClient, setCodingTimeChallenge, setBackgroundTimeSeconds);
+        // Pass session userId for authenticated users, null for demo mode
+        const sessionUserId = !isDemoMode ? (session?.user as any)?.id : null;
+        await preload(jobId, companyId, openaiClient, sessionUserId, setCodingTimeChallenge, setBackgroundTimeSeconds);
 
         // Generate announcement
         const jobTitle = roleSlug?.split("-").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") || "Frontend Engineer";
@@ -262,7 +348,7 @@ function InterviewPageContent() {
     };
 
     executePreload();
-  }, [isPageLoading, openaiClient, skipToCoding, companySlug, roleSlug, dispatch, preload, generateAnnouncement]);
+  }, [isPageLoading, openaiClient, skipToCoding, companySlug, roleSlug, dispatch, preload, generateAnnouncement, isDemoMode, session]);
 
   /**
    * Ensures an application exists for the coding phase and returns its ID.
@@ -334,6 +420,65 @@ function InterviewPageContent() {
     setInterviewSessionId,
     dispatch,
   ]);
+
+  // Auto-start interview for authenticated users after preload
+  useEffect(() => {
+    if (isDemoMode || isPageLoading || skipToCoding || isStarting || showAnnouncement || machineState !== "idle") {
+      return;
+    }
+
+    const autoStartAuthenticated = async () => {
+      try {
+        setIsStarting(true);
+        console.log("[interview] Auto-starting interview for authenticated user");
+
+        // Request mic permissions
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
+        setMicStream(stream);
+
+        const activeSessionId = await ensureRecordingSession();
+        if (!activeSessionId) {
+          setIsStarting(false);
+          alert("Screen recording is required.");
+          return;
+        }
+
+        // Get user's name from session
+        const userName = (session?.user as any)?.name || "there";
+        const firstName = userName.trim().split(" ")[0];
+        
+        dispatch(start({ candidateName: firstName }));
+        dispatch(aiFinal({ text: "greeting" }));
+        interviewChatStore.dispatch({ type: "SET_STAGE", payload: "background" } as any);
+
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        if (startSoundRef.current) {
+          try {
+            await new Promise<void>((resolve) => {
+              const startSound = startSoundRef.current!;
+              startSound.volume = isMuted ? 0 : 1;
+              startSound.currentTime = 0;
+              startSound.onended = () => resolve();
+              startSound.onerror = () => resolve();
+              startSound.play().catch(() => resolve());
+            });
+          } catch {}
+        }
+
+        setShowAnnouncement(true);
+        setIsStarting(false);
+      } catch (error) {
+        console.error("[interview] Auto-start failed:", error);
+        setIsStarting(false);
+        alert("Microphone access is required.");
+      }
+    };
+
+    autoStartAuthenticated();
+  }, [isDemoMode, isPageLoading, skipToCoding, isStarting, showAnnouncement, machineState, session, ensureRecordingSession, dispatch, isMuted]);
 
   // Auto-skip to coding when flag is set and user is logged in
   useEffect(() => {
@@ -551,7 +696,7 @@ function InterviewPageContent() {
     );
   }
 
-  if (!isPageLoading && machineState === "idle" && !skipToCoding) {
+  if (!isPageLoading && machineState === "idle" && !skipToCoding && isDemoMode) {
     return (
       <InterviewStageScreen
         onSubmit={handleStartInterview}

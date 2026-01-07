@@ -308,12 +308,12 @@ export const useScreenRecording = (isDemoMode: boolean = false) => {
     }, [isRecording, recordingPermissionGranted, requestRecordingPermission]);
 
     const stopRecording = useCallback(async () => {
-        if (mediaRecorderRef.current && isRecording) {
+        if (mediaRecorderRef.current) {
             if (mediaRecorderRef.current.state === "recording") {
                 mediaRecorderRef.current.requestData();
+                mediaRecorderRef.current.stop();
             }
 
-            mediaRecorderRef.current.stop();
             setIsRecording(false);
 
             if (mediaRecorderRef.current.stream) {
@@ -324,7 +324,7 @@ export const useScreenRecording = (isDemoMode: boolean = false) => {
 
             logger.info("✅ Screen recording stopped");
         }
-    }, [isRecording]);
+    }, []);
 
     const insertRecordingUrl = useCallback(async () => {
         logger.info("🚀 insertRecordingUrl called");
