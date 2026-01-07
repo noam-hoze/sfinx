@@ -203,9 +203,8 @@ function TelemetryContent() {
             }
 
             try {
-                const url = isDemoMode 
-                    ? `/api/company/jobs/${jobId}/scoring-config?skip-auth=true`
-                    : `/api/company/jobs/${jobId}/scoring-config`;
+                // CPS is a viewing page (candidate or demo) - always skip auth
+                const url = `/api/company/jobs/${jobId}/scoring-config?skip-auth=true`;
                 const response = await fetch(url);
                 if (response.ok) {
                     const data = await response.json();
