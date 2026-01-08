@@ -107,6 +107,7 @@ function InterviewPageContent() {
   const interviewSessionIdRef = useRef<string | null>(null);
   const completedRef = useRef<boolean>(false);
   const hasAutoStartedRef = useRef<boolean>(false);
+  const hasPreloadedRef = useRef<boolean>(false);
 
   // Extracted services
   const { preload } = useBackgroundPreload();
@@ -323,16 +324,18 @@ function InterviewPageContent() {
       setBackgroundQuestionNumber(1);
       setInterviewSessionId(null);
       hasAutoStartedRef.current = false;
+      hasPreloadedRef.current = false;
       dispatch(reset());
     }
   }, [shouldResetFlag, dispatch, applicationId, setInterviewSessionId]);
 
   // STAGE 1: Preload (skip if going directly to coding)
   useEffect(() => {
-    if (!isPageLoading || !openaiClient || skipToCoding) return;
+    if (!isPageLoading || !openaiClient || skipToCoding || hasPreloadedRef.current) return;
 
     const executePreload = async () => {
       try {
+        hasPreloadedRef.current = true;
         // Use defaults from Redux store
         const jobId = companySlug && roleSlug ? `${companySlug}-${roleSlug}` : "meta-frontend-engineer";
         const companyId = companySlug || "meta";
