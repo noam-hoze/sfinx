@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "app/shared/services/auth";
 import prisma from "lib/prisma";
 import { log } from "app/shared/services";
+import { loadCompanyForUser } from "../../companyContext";
 
 interface RouteContext {
     params: Promise<{ jobId: string }>;
@@ -59,34 +60,34 @@ export async function GET(request: NextRequest, context: RouteContext) {
             return NextResponse.json({ config });
         }
 
-        // Regular authenticated mode
-        const session = await getServerSession(authOptions);
-        const sessionUser = session?.user as { id?: string; role?: string } | undefined;
-        if (!sessionUser?.id) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-        ensureCompanyRole(session);
-        const userId = String(sessionUser.id);
+    // Regular authenticated mode
+    const session = await getServerSession(authOptions);
+    const sessionUser = session?.user as { id?: string; role?: string } | undefined;
+    if (!sessionUser?.id) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    ensureCompanyRole(session);
+    const userId = String(sessionUser.id);
 
-        // Verify job belongs to user's company
-        const job = await prisma.job.findUnique({
-            where: { id: jobId },
-            include: {
-                company: true,
-                scoringConfiguration: true,
-            },
-        });
+    // Verify job belongs to user's company
+    const { company } = await loadCompanyForUser(userId);
+    const job = await prisma.job.findUnique({
+        where: { id: jobId },
+        include: {
+            scoringConfiguration: true,
+        },
+    });
 
-        if (!job) {
-            return NextResponse.json({ error: "Job not found" }, { status: 404 });
-        }
+    if (!job) {
+        return NextResponse.json({ error: "Job not found" }, { status: 404 });
+    }
 
-        if (job.company.userId !== userId) {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-        }
+    if (job.companyId !== company.id) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
-        // If no configuration exists, create default
-        let config = job.scoringConfiguration;
+    // If no configuration exists, create default
+    let config = job.scoringConfiguration;
         if (!config) {
             config = await prisma.scoringConfiguration.create({
                 data: { jobId },
@@ -126,18 +127,16 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         const body = await request.json();
 
         // Verify job belongs to user's company
+        const { company } = await loadCompanyForUser(userId);
         const job = await prisma.job.findUnique({
             where: { id: jobId },
-            include: {
-                company: true,
-            },
         });
 
         if (!job) {
             return NextResponse.json({ error: "Job not found" }, { status: 404 });
         }
 
-        if (job.company.userId !== userId) {
+        if (job.companyId !== company.id) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 

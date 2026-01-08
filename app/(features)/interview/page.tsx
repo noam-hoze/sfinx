@@ -33,6 +33,8 @@ import { InterviewRecordingProvider } from "./components/InterviewRecordingConte
 import { createInterviewSession } from "./components/services/interviewSessionService";
 import { createApplication } from "./components/services/applicationService";
 import { getBreadcrumbTrail } from "app/shared/config/navigation";
+import { useDebug } from "app/shared/contexts";
+import BackgroundDebugPanel from "app/shared/components/BackgroundDebugPanel";
 import OpenAI from "openai";
 import {
   useBackgroundPreload,
@@ -49,6 +51,7 @@ function InterviewPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isMuted } = useMute();
+  const { isDebugVisible } = useDebug();
   const dispatch = useDispatch();
   const { data: session } = useSession();
 
@@ -75,6 +78,8 @@ function InterviewPageContent() {
   const [completed, setCompleted] = useState(false);
   const [codingTimeChallenge, setCodingTimeChallenge] = useState<number>(30);
   const [backgroundTimeSeconds, setBackgroundTimeSeconds] = useState<number | undefined>(undefined);
+  const [experienceCategories, setExperienceCategories] = useState<Array<{name: string; description: string; weight: number; example?: string}> | null>(null);
+  const [backgroundEvaluations, setBackgroundEvaluations] = useState<Array<{timestamp: string; question: string; answer: string; evaluations: any[]}>>([]);
   const [openaiClient, setOpenaiClient] = useState<OpenAI | null>(null);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
   const [allowQuestionDisplay, setAllowQuestionDisplay] = useState(false);
@@ -101,12 +106,15 @@ function InterviewPageContent() {
   const startSoundRef = useRef<HTMLAudioElement | null>(null);
   const interviewSessionIdRef = useRef<string | null>(null);
   const completedRef = useRef<boolean>(false);
+  const hasAutoStartedRef = useRef<boolean>(false);
 
   // Extracted services
   const { preload } = useBackgroundPreload();
   const { generateAnnouncement } = useAnnouncementGeneration();
   const { clickSoundRef: refClickSound, startSoundRef: refStartSound, soundsReady } = useSoundPreload();
-  const { handleSubmit: submitAnswer } = useBackgroundAnswerHandler();
+  const { handleSubmit: submitAnswer } = useBackgroundAnswerHandler((evalData) => {
+    setBackgroundEvaluations(prev => [...prev, evalData]);
+  });
 
   // Sync service sound refs to local refs
   useEffect(() => {
@@ -314,6 +322,7 @@ function InterviewPageContent() {
       setCodingApplicationId(applicationId || null);
       setBackgroundQuestionNumber(1);
       setInterviewSessionId(null);
+      hasAutoStartedRef.current = false;
       dispatch(reset());
     }
   }, [shouldResetFlag, dispatch, applicationId, setInterviewSessionId]);
@@ -330,7 +339,7 @@ function InterviewPageContent() {
 
         // Pass session userId for authenticated users, null for demo mode
         const sessionUserId = !isDemoMode ? (session?.user as any)?.id : null;
-        await preload(jobId, companyId, openaiClient, sessionUserId, setCodingTimeChallenge, setBackgroundTimeSeconds);
+        await preload(jobId, companyId, openaiClient, sessionUserId, setCodingTimeChallenge, setBackgroundTimeSeconds, setExperienceCategories);
 
         // Generate announcement
         const jobTitle = roleSlug?.split("-").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") || "Frontend Engineer";
@@ -423,12 +432,13 @@ function InterviewPageContent() {
 
   // Auto-start interview for authenticated users after preload
   useEffect(() => {
-    if (isDemoMode || isPageLoading || skipToCoding || isStarting || showAnnouncement || machineState !== "idle") {
+    if (isDemoMode || isPageLoading || skipToCoding || isStarting || showAnnouncement || machineState !== "idle" || hasAutoStartedRef.current) {
       return;
     }
 
     const autoStartAuthenticated = async () => {
       try {
+        hasAutoStartedRef.current = true;
         setIsStarting(true);
         console.log("[interview] Auto-starting interview for authenticated user");
 
@@ -769,6 +779,8 @@ function InterviewPageContent() {
     );
   }
 
+  const isDebugModeEnabled = process.env.NEXT_PUBLIC_DEBUG_MODE === "true";
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex flex-col relative">
       {/* Breadcrumbs - fixed at top */}
@@ -805,6 +817,17 @@ function InterviewPageContent() {
           />
         )}
       </div>
+
+      {/* Debug Panel - below content in document flow, scroll down to see it */}
+      {isDebugVisible && isDebugModeEnabled && !showCodingIDE && (
+        <div className="w-full p-4 max-w-6xl mx-auto">
+          <BackgroundDebugPanel 
+            timeboxMs={backgroundTimeSeconds ? backgroundTimeSeconds * 1000 : undefined}
+            experienceCategories={experienceCategories}
+            realtimeEvaluations={backgroundEvaluations}
+          />
+        </div>
+      )}
     </div>
   );
 }

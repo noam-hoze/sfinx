@@ -1,0 +1,205 @@
+import { NextRequest, NextResponse } from "next/server";
+import { log } from "app/shared/services";
+import prisma from "lib/prisma";
+import OpenAI from "openai";
+import { createVideoChapter } from "../shared/createVideoChapter";
+
+const openai = new OpenAI({
+    apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+});
+
+/**
+ * POST /api/interviews/evaluate-answer
+ * Evaluates background interview answers and creates evidence clips for experience categories
+ */
+export async function POST(request: NextRequest) {
+    try {
+        const body = await request.json();
+        const { sessionId, question, answer, timestamp, experienceCategories } = body;
+
+        if (!sessionId || !question || !answer || !timestamp || !experienceCategories) {
+            return NextResponse.json(
+                { error: "Missing required fields" },
+                { status: 400 }
+            );
+        }
+
+        log.info("[evaluate-answer] Evaluating answer for session:", sessionId);
+
+        // Fetch session with recording data and job
+        const session = await prisma.interviewSession.findUnique({
+            where: { id: sessionId },
+            include: {
+                telemetryData: true,
+                application: {
+                    include: {
+                        job: true,
+                    },
+                },
+            },
+        });
+
+        if (!session || !session.telemetryData) {
+            return NextResponse.json(
+                { error: "Session or telemetry data not found" },
+                { status: 404 }
+            );
+        }
+
+        // Get experience categories from job if not provided
+        let categoriesToEvaluate = experienceCategories;
+        if ((!experienceCategories || experienceCategories.length === 0) && session.application?.job) {
+            categoriesToEvaluate = session.application.job.experienceCategories as any[] || [];
+        }
+
+        if (!categoriesToEvaluate || categoriesToEvaluate.length === 0) {
+            log.info("[evaluate-answer] No experience categories defined for this job - skipping evaluation");
+            return NextResponse.json({
+                success: true,
+                contributionsCount: 0,
+                contributions: [],
+                message: "No experience categories defined",
+            });
+        }
+
+        // Build category descriptions for OpenAI with examples
+        const categoryList = categoriesToEvaluate
+            .map((cat: any) => `- ${cat.name}: ${cat.description}${cat.example ? `\n  Example: ${cat.example}` : ''}`)
+            .join("\n");
+
+        // Call OpenAI to evaluate contributions
+        const evaluationPrompt = `You are a strict interview evaluator.
+
+QUESTION: ${question}
+
+ANSWER: ${answer}
+
+Categories to evaluate:
+${categoryList}
+
+EVALUATION:
+- Assess how well this answer demonstrates each category
+- Consider depth, examples, clarity, and relevance
+- REJECT vague, generic, or off-topic responses
+
+Return your evaluation in JSON format with the following structure for EVERY category:
+{
+  "evaluations": [
+    {
+      "category": "Category Name",
+      "reasoning": "How this answer demonstrates or fails to demonstrate this trait",
+      "strength": 0-100,
+      "accepted": true/false,
+      "caption": "Brief insight (only if accepted)"
+    }
+  ]
+}`;
+
+        log.info("[evaluate-answer] Calling OpenAI for evaluation");
+
+        const completion = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+                {
+                    role: "system",
+                    content: "You are an expert recruiter evaluating candidate responses during technical interviews.",
+                },
+                {
+                    role: "user",
+                    content: evaluationPrompt,
+                },
+            ],
+            response_format: { type: "json_object" },
+        });
+
+        const responseText = completion.choices[0]?.message?.content;
+        if (!responseText) {
+            throw new Error("OpenAI returned empty response");
+        }
+
+        const evaluation = JSON.parse(responseText);
+        log.info("[evaluate-answer] OpenAI evaluation:", evaluation);
+
+        // Process evaluations
+        const acceptedEvaluations: Array<{
+            category: string;
+            strength: number;
+            explanation: string;
+            caption: string;
+        }> = [];
+
+        for (const item of evaluation.evaluations) {
+            if (item.accepted && item.strength > 0) {
+                // Create CategoryContribution
+                const contribution = await prisma.categoryContribution.create({
+                    data: {
+                        interviewSessionId: sessionId,
+                        categoryName: item.category,
+                        timestamp: new Date(timestamp),
+                        codeChange: "", // Not applicable for experience
+                        explanation: item.reasoning,
+                        contributionStrength: item.strength,
+                        caption: item.caption || item.category,
+                    },
+                });
+
+                log.info(`[evaluate-answer] Created contribution for ${item.category}:`, contribution.id);
+
+                // Calculate video offset
+                let videoOffset = 0;
+                if (session.recordingStartedAt) {
+                    const recordingStart = new Date(session.recordingStartedAt).getTime();
+                    const answerTime = new Date(timestamp).getTime();
+                    videoOffset = Math.max(0, Math.floor((answerTime - recordingStart) / 1000));
+                }
+
+                // Create EvidenceClip
+                const evidenceClip = await prisma.evidenceClip.create({
+                    data: {
+                        telemetryDataId: session.telemetryData.id,
+                        title: `${item.category}`,
+                        description: item.caption,
+                        duration: 30, // Default duration
+                        startTime: videoOffset,
+                        category: "EXPERIENCE_CATEGORY",
+                        categoryName: item.category,
+                        contributionStrength: item.strength,
+                    },
+                });
+
+                log.info(`[evaluate-answer] Created evidence clip for ${item.category}:`, evidenceClip.id);
+
+                // Create VideoChapter
+                await createVideoChapter(
+                    session.telemetryData.id,
+                    `${item.category}: ${item.caption}`,
+                    videoOffset,
+                    item.reasoning
+                );
+
+                acceptedEvaluations.push({
+                    category: item.category,
+                    strength: item.strength,
+                    explanation: item.reasoning,
+                    caption: item.caption,
+                });
+            }
+        }
+
+        log.info(`[evaluate-answer] ✅ Evaluation complete. ${acceptedEvaluations.length} contributions accepted.`);
+
+        return NextResponse.json({
+            success: true,
+            contributionsCount: acceptedEvaluations.length,
+            contributions: acceptedEvaluations,
+            allEvaluations: evaluation.evaluations,
+        });
+    } catch (error) {
+        log.error("[evaluate-answer] ❌ Error:", error);
+        return NextResponse.json(
+            { error: error instanceof Error ? error.message : "Unknown error" },
+            { status: 500 }
+        );
+    }
+}
+

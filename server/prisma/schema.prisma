@@ -110,6 +110,7 @@ model Job {
   requirements         String?
   isActive             Boolean                  @default(true)
   codingCategories     Json?
+  experienceCategories Json?
   createdAt            DateTime                 @default(now())
   updatedAt            DateTime                 @updatedAt
   companyId            String
@@ -125,10 +126,6 @@ model Job {
 model ScoringConfiguration {
   id                               String   @id @default(cuid())
   jobId                            String   @unique
-  /// Experience dimension weights (sum should equal experienceWeight)
-  adaptabilityWeight               Float    @default(33.33)
-  creativityWeight                 Float    @default(33.33)
-  reasoningWeight                  Float    @default(33.34)
   /// Workstyle metric weights (part of coding score)
   aiAssistWeight                   Float    @default(25)
   /// Category weights (should sum to 100)
@@ -312,15 +309,7 @@ model BackgroundSummary {
   executiveSummary          String
   executiveSummaryOneLiner  String?
   recommendation            String?
-  adaptabilityScore         Int
-  adaptabilityText          String
-  adaptabilityOneLiner      String?
-  creativityScore           Int
-  creativityText            String
-  creativityOneLiner        String?
-  reasoningScore            Int
-  reasoningText             String
-  reasoningOneLiner         String?
+  experienceCategories      Json?
   conversationJson          Json
   evidenceJson              Json
   generatedAt               DateTime      @default(now())
@@ -472,6 +461,7 @@ enum EvidenceCategory {
   CREATIVITY
   REASONING
   JOB_SPECIFIC_CATEGORY
+  EXPERIENCE_CATEGORY
 }
 
 /// Tracks cumulative contributions to job-specific coding categories during the interview.

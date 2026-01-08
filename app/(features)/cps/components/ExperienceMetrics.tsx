@@ -7,21 +7,12 @@ import MetricRow from "./MetricRow";
 interface BackgroundSummary {
     executiveSummary?: string;
     executiveSummaryOneLiner?: string | null;
-    adaptability?: {
+    experienceCategories?: Record<string, {
         score: number;
         text: string;
-        oneLiner?: string | null;
-    };
-    creativity?: {
-        score: number;
-        text: string;
-        oneLiner?: string | null;
-    };
-    reasoning?: {
-        score: number;
-        text: string;
-        oneLiner?: string | null;
-    };
+        description?: string;
+        evidenceLinks?: number[];
+    }>;
 }
 
 interface EvidenceClip {
@@ -35,30 +26,30 @@ interface EvidenceClip {
 interface ExperienceMetricsProps {
     backgroundSummary: BackgroundSummary | null;
     evidenceClips?: EvidenceClip[];
+    experienceCategories?: Array<{name: string; description: string; weight: number}>;
     onVideoJump: (timestamp: number) => void;
 }
 
 const ExperienceMetrics: React.FC<ExperienceMetricsProps> = ({
     backgroundSummary,
     evidenceClips = [],
+    experienceCategories,
     onVideoJump,
 }) => {
     const dispatch = useDispatch();
     const activeEvidenceKey = useSelector((state: RootState) => state.cps.activeEvidenceKey);
     
-    if (!backgroundSummary) {
+    if (!backgroundSummary || !backgroundSummary.experienceCategories) {
         return (
             <div className="text-sm text-gray-500">
-                No experience data available
+                No experience categories defined for this job
             </div>
         );
     }
 
-    // Filter background evidence clips (exclude coding categories)
+    // Filter experience evidence clips
     const backgroundClips = evidenceClips.filter(clip => 
-        clip.category === 'ADAPTABILITY' || 
-        clip.category === 'CREATIVITY' || 
-        clip.category === 'REASONING'
+        clip.category === 'EXPERIENCE_CATEGORY'
     );
 
     // Group clips by timestamp and combine descriptions
@@ -95,30 +86,21 @@ const ExperienceMetrics: React.FC<ExperienceMetricsProps> = ({
     return (
         <div>
             <div className="divide-y divide-gray-100">
-                <MetricRow
-                    label="Adaptability"
-                    description="Ability to adjust to new challenges and changing requirements"
-                    value={backgroundSummary.adaptability?.score ?? 0}
-                    benchmarkLow={0}
-                    benchmarkHigh={100}
-                    onVideoJump={onVideoJump}
-                />
-                <MetricRow
-                    label="Creativity"
-                    description="Capacity for innovative thinking and problem-solving"
-                    value={backgroundSummary.creativity?.score ?? 0}
-                    benchmarkLow={0}
-                    benchmarkHigh={100}
-                    onVideoJump={onVideoJump}
-                />
-                <MetricRow
-                    label="Reasoning"
-                    description="Logical thinking and analytical decision-making skills"
-                    value={backgroundSummary.reasoning?.score ?? 0}
-                    benchmarkLow={0}
-                    benchmarkHigh={100}
-                    onVideoJump={onVideoJump}
-                />
+                {Object.entries(backgroundSummary.experienceCategories).map(([categoryName, data]) => {
+                    const categoryDef = experienceCategories?.find(c => c.name === categoryName);
+                    return (
+                        <MetricRow
+                            key={categoryName}
+                            label={categoryName}
+                            description={data.description || categoryDef?.description || ""}
+                            value={data.score ?? 0}
+                            benchmarkLow={0}
+                            benchmarkHigh={100}
+                            evidenceLinks={data.evidenceLinks || []}
+                            onVideoJump={onVideoJump}
+                        />
+                    );
+                })}
             </div>
 
             {/* Consolidated Evidence Links */}

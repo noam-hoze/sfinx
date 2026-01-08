@@ -30,11 +30,12 @@ interface AnswerHandlerResult {
  * Handle answer submission: store, control check, gate evaluation, follow-up or completion.
  * Returns gate status and completion flag. Updates Redux/chat store. Logs all transitions.
  */
-export function useBackgroundAnswerHandler() {
+export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) => void) {
   const dispatch = useDispatch();
   const companyName = useSelector((state: RootState) => state.interviewMachine.companyName);
   const sessionId = useSelector((state: RootState) => state.interviewMachine.sessionId);
   const userId = useSelector((state: RootState) => state.interviewMachine.userId);
+  const script = useSelector((state: RootState) => state.interviewMachine.script);
 
   const saveMessageToDb = async (text: string, speaker: "user" | "ai" | "system") => {
     if (!sessionId) return;
@@ -77,6 +78,38 @@ export function useBackgroundAnswerHandler() {
         
         // Save user answer to DB
         saveMessageToDb(answer, "user");
+
+        // Call evaluate-answer API (non-blocking) - API will fetch categories from job
+        const chatState = interviewChatStore.getState();
+        const currentQuestion = chatState.messages?.filter(m => m.speaker === "ai").slice(-1)[0]?.text || "";
+        
+        if (sessionId) {
+          const experienceCategories = script?.experienceCategories || [];
+          const evalTimestamp = new Date().toISOString();
+          fetch(`/api/interviews/evaluate-answer`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sessionId,
+              question: currentQuestion,
+              answer,
+              timestamp: evalTimestamp,
+              experienceCategories,
+            })
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (data.allEvaluations && onEvaluationReceived) {
+              onEvaluationReceived({
+                timestamp: evalTimestamp,
+                question: currentQuestion,
+                answer,
+                evaluations: data.allEvaluations,
+              });
+            }
+          })
+          .catch(err => console.error("[answer-handler] Failed to evaluate answer:", err));
+        }
 
         // Transition machine state
         dispatch(userFinal());
@@ -142,9 +175,49 @@ export function useBackgroundAnswerHandler() {
 
             return { gateReady: true, transitionReason, shouldComplete: true };
           } else {
-            // Generate follow-up question
+            // Generate follow-up question with category-aware guidance
             console.log("[answer-handler] Generating follow-up question...");
-            const persona = buildOpenAIBackgroundPrompt(String(companyName));
+            
+            // Fetch current category coverage
+            let categoryGuidance = "";
+            if (sessionId) {
+              try {
+                const contributionsRes = await fetch(`/api/interviews/session/${sessionId}/contributions`);
+                if (contributionsRes.ok) {
+                  const { categoryStats } = await contributionsRes.json();
+                  const experienceCategories = script?.experienceCategories || [];
+                  
+                  // Build guidance for OpenAI
+                  const coverageInfo = experienceCategories.map((cat: any) => {
+                    const stats = categoryStats?.find((s: any) => s.categoryName === cat.name);
+                    return {
+                      name: cat.name,
+                      description: cat.description,
+                      example: cat.example,
+                      contributionsCount: stats?.count || 0,
+                      avgStrength: stats?.avgStrength || 0,
+                    };
+                  }).sort((a: any, b: any) => a.contributionsCount - b.contributionsCount);
+                  
+                  if (coverageInfo.length > 0) {
+                    categoryGuidance = `\n\nCATEGORY COVERAGE GUIDANCE:
+Your PRIMARY goal is to gather evidence for all experience categories, especially those with fewer contributions.
+
+Current coverage:
+${coverageInfo.map((c: any) => `- ${c.name}: ${c.contributionsCount} contribution${c.contributionsCount !== 1 ? 's' : ''} (avg: ${c.avgStrength}%)${c.contributionsCount === 0 ? ' ⚠️ NEEDS COVERAGE' : ''}`).join('\n')}
+
+PRIORITY: Ask about "${coverageInfo[0].name}" next.
+Example: ${coverageInfo[0].example}
+
+Your question should naturally probe for specific examples and details that demonstrate this category.`;
+                  }
+                }
+              } catch (err) {
+                console.error("[answer-handler] Failed to fetch category coverage:", err);
+              }
+            }
+            
+            const persona = buildOpenAIBackgroundPrompt(String(companyName)) + categoryGuidance;
             const historyMessages = buildControlContextMessages(CONTROL_CONTEXT_TURNS);
             const followUp = await askViaChatCompletion(openaiClient, persona, historyMessages);
 
