@@ -57,19 +57,20 @@ interface CodingCategory {
     weight: number;
 }
 
+interface ExperienceCategory {
+    name: string;
+    description: string;
+    example: string;
+    weight: number;
+}
+
 interface ScoringConfigState {
-    adaptabilityWeight: number;
-    creativityWeight: number;
-    reasoningWeight: number;
     aiAssistWeight: number;
     experienceWeight: number;
     codingWeight: number;
 }
 
 const defaultScoringConfig: ScoringConfigState = {
-    adaptabilityWeight: 33.33,
-    creativityWeight: 33.33,
-    reasoningWeight: 33.34,
     aiAssistWeight: 25,
     experienceWeight: 50,
     codingWeight: 50,
@@ -104,6 +105,7 @@ function CompanyJobDetailContent() {
     const [removingInterview, setRemovingInterview] = useState(false);
     const [scoringConfig, setScoringConfig] = useState<ScoringConfigState>(defaultScoringConfig);
     const [codingCategories, setCodingCategories] = useState<CodingCategory[]>([]);
+    const [experienceCategories, setExperienceCategories] = useState<ExperienceCategory[]>([]);
     const [activeSection, setActiveSection] = useState<string>("details");
     const [expandedSections, setExpandedSections] = useState<string[]>(["details"]);
     const [interviewTab, setInterviewTab] = useState<'experience' | 'coding'>('experience');
@@ -129,6 +131,7 @@ function CompanyJobDetailContent() {
                     requirements: optionalString(data.requirements),
                 });
                 setCodingCategories(data.codingCategories || []);
+                setExperienceCategories(data.experienceCategories || []);
                 if (data.interviewContent) {
                     setInterviewState({
                         backgroundQuestion: optionalString(
@@ -214,8 +217,12 @@ function CompanyJobDetailContent() {
                         ? formState.requirements
                         : null,
                 codingCategories: codingCategories.length > 0 ? codingCategories : null,
+                experienceCategories: experienceCategories.length > 0 ? experienceCategories : null,
                 scoringConfig,
             };
+            // #region agent log
+            fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobs/[jobId]/page.tsx:220',message:'Frontend sending save payload',data:{hasExperienceCategories:!!payload.experienceCategories,experienceCategoriesLength:payload.experienceCategories?.length,experienceCategories:payload.experienceCategories},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A-B'})}).catch(()=>{});
+            // #endregion
             const hasInterviewContent =
                 interviewState.backgroundQuestion.trim().length > 0 ||
                 interviewState.codingPrompt.trim().length > 0 ||
@@ -688,49 +695,124 @@ function CompanyJobDetailContent() {
                                     )}
                                 </div>
 
-                                {/* Experience Dimensions */}
+                                {/* Experience Categories */}
                                 <div id="experience-dimensions" className="border-t border-gray-200 pt-4 scroll-mt-24">
-                                    <h3 className="text-lg font-medium text-gray-800 mb-3">
-                                        Experience Dimensions
+                                    <h3 className="text-lg font-semibold text-gray-800 mb-1">
+                                        Experience Categories
                                     </h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <label className="flex flex-col text-sm font-medium text-gray-700">
-                                            Adaptability Weight
-                                            <input
-                                                type="number"
-                                                value={scoringConfig.adaptabilityWeight}
-                                                onChange={(e) => setScoringConfig({
-                                                    ...scoringConfig,
-                                                    adaptabilityWeight: Number(e.target.value)
-                                                })}
-                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                            />
-                                        </label>
-                                        <label className="flex flex-col text-sm font-medium text-gray-700">
-                                            Creativity Weight
-                                            <input
-                                                type="number"
-                                                value={scoringConfig.creativityWeight}
-                                                onChange={(e) => setScoringConfig({
-                                                    ...scoringConfig,
-                                                    creativityWeight: Number(e.target.value)
-                                                })}
-                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                            />
-                                        </label>
-                                        <label className="flex flex-col text-sm font-medium text-gray-700">
-                                            Reasoning Weight
-                                            <input
-                                                type="number"
-                                                value={scoringConfig.reasoningWeight}
-                                                onChange={(e) => setScoringConfig({
-                                                    ...scoringConfig,
-                                                    reasoningWeight: Number(e.target.value)
-                                                })}
-                                                className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
-                                            />
-                                        </label>
+                                    <p className="text-xs text-gray-500 mb-6">
+                                        Define evaluation criteria and weights for background interview performance
+                                    </p>
+
+                                    <div className="space-y-3">
+                                        {experienceCategories.map((category, index) => (
+                                            <div
+                                                key={index}
+                                                className="group relative bg-gray-50/50 border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-all"
+                                            >
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const updated = experienceCategories.filter((_, i) => i !== index);
+                                                        setExperienceCategories(updated);
+                                                    }}
+                                                    className="absolute top-3 right-3 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                                
+                                                <div className="space-y-2 pr-6">
+                                                    <input
+                                                        type="text"
+                                                        value={category.name}
+                                                        onChange={(e) => {
+                                                            const updated = [...experienceCategories];
+                                                            updated[index].name = e.target.value;
+                                                            setExperienceCategories(updated);
+                                                        }}
+                                                        placeholder="Category name (e.g., Problem Solving)"
+                                                        className="w-full text-sm font-semibold text-gray-900 bg-transparent border-0 px-0 py-0 focus:ring-0 outline-none placeholder:text-gray-400 placeholder:font-normal"
+                                                    />
+                                                    
+                                                    <input
+                                                        type="text"
+                                                        value={category.description}
+                                                        onChange={(e) => {
+                                                            const updated = [...experienceCategories];
+                                                            updated[index].description = e.target.value;
+                                                            setExperienceCategories(updated);
+                                                        }}
+                                                        placeholder="Description (e.g., Analytical thinking, debugging approach)"
+                                                        className="w-full text-xs text-gray-500 bg-transparent border-0 px-0 py-0 focus:ring-0 outline-none placeholder:text-gray-400"
+                                                    />
+                                                    
+                                                    <textarea
+                                                        value={category.example}
+                                                        onChange={(e) => {
+                                                            const updated = [...experienceCategories];
+                                                            updated[index].example = e.target.value;
+                                                            setExperienceCategories(updated);
+                                                        }}
+                                                        placeholder="Example (e.g., Has designed and built large-scale React applications, made architectural decisions...)"
+                                                        rows={2}
+                                                        className="w-full text-xs text-gray-600 bg-white border border-gray-200 rounded px-2 py-1 focus:ring-0 outline-none placeholder:text-gray-400 resize-none"
+                                                    />
+                                                    
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs text-gray-500">Weight:</span>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            max="100"
+                                                            value={category.weight}
+                                                            onChange={(e) => {
+                                                                const updated = [...experienceCategories];
+                                                                updated[index].weight = Number(e.target.value);
+                                                                setExperienceCategories(updated);
+                                                            }}
+                                                            className="w-20 text-xs bg-white border border-gray-300 rounded px-2 py-1 focus:ring-0 outline-none"
+                                                        />
+                                                        <span className="text-xs text-gray-500">%</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setExperienceCategories([
+                                                ...experienceCategories,
+                                                { name: "", description: "", example: "", weight: 0 }
+                                            ]);
+                                        }}
+                                        className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                    >
+                                        + Add Experience Category
+                                    </button>
+
+                                    {experienceCategories.length > 0 && (
+                                        <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="text-gray-600">Total Weight:</span>
+                                                <span className={`font-semibold ${
+                                                    Math.abs(experienceCategories.reduce((sum, cat) => sum + cat.weight, 0) - 100) < 0.01
+                                                        ? 'text-green-600'
+                                                        : 'text-red-600'
+                                                }`}>
+                                                    {experienceCategories.reduce((sum, cat) => sum + cat.weight, 0).toFixed(2)}%
+                                                </span>
+                                            </div>
+                                            {Math.abs(experienceCategories.reduce((sum, cat) => sum + cat.weight, 0) - 100) > 0.01 && (
+                                                <p className="text-xs text-red-600 mt-1">
+                                                    ⚠️ Weights must sum to 100%
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Workstyle Metrics */}

@@ -43,6 +43,8 @@ export async function GET(req: NextRequest) {
             backgroundQuestionTimeSeconds:
                 interview.backgroundQuestionTimeSeconds,
             codingQuestionTimeSeconds: interview.codingQuestionTimeSeconds,
+            codingCategories: job.codingCategories,
+            experienceCategories: job.experienceCategories,
         });
     } catch (error: any) {
         const details = error?.message ? String(error.message) : undefined;

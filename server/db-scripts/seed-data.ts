@@ -302,6 +302,26 @@ async function resetDatabase() {
                         weight: 34,
                     },
                 ],
+                experienceCategories: [
+                    {
+                        name: "React Application Architecture at Scale",
+                        example: "Has designed and owned large React codebases, defined component and state architecture, managed complexity over time, and made trade-offs for performance and maintainability in production systems.",
+                        description: "",
+                        weight: 33,
+                    },
+                    {
+                        name: "Advanced State Management and Data Flow in React",
+                        example: "Has implemented and evolved complex client-side data flows (global state, async data, caching), integrated with APIs, and debugged real user-impacting issues caused by state or rendering behavior.",
+                        description: "",
+                        weight: 33,
+                    },
+                    {
+                        name: "Frontend Performance, Reliability, and Production Ownership",
+                        example: "Has optimized rendering performance, handled frontend errors and monitoring, collaborated with backend teams on contracts, and shipped fixes for production frontend incidents.",
+                        description: "",
+                        weight: 34,
+                    },
+                ],
             },
         });
         if (frontendJobUpdate.count === 0) {

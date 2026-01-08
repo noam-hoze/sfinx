@@ -3,10 +3,6 @@
  */
 
 export interface ScoringConfiguration {
-    // Experience dimension weights
-    adaptabilityWeight: number;
-    creativityWeight: number;
-    reasoningWeight: number;
     // Workstyle metric weights
     aiAssistWeight: number;
     // Category weights
@@ -15,10 +11,8 @@ export interface ScoringConfiguration {
 }
 
 export interface RawScores {
-    // Experience scores (0-100)
-    adaptability: number;
-    creativity: number;
-    reasoning: number;
+    // Experience category scores with weights
+    experienceScores: Array<{name: string; score: number; weight: number}>;
     // Coding category scores with weights
     categoryScores: Array<{name: string; score: number; weight: number}>;
 }
@@ -48,17 +42,18 @@ export function calculateScore(
                               workstyleMetrics.aiAssistAccountabilityScore !== null;
     const normalizedAiAssist = workstyleMetrics.aiAssistAccountabilityScore;
 
-    // Calculate experience score (weighted average of 3 dimensions)
-    const totalExperienceWeight = 
-        config.adaptabilityWeight + 
-        config.creativityWeight + 
-        config.reasoningWeight;
+    // Calculate experience score from dynamic categories (same pattern as coding)
+    let experienceWeightedSum = 0;
+    let totalExperienceWeight = 0;
     
-    const experienceScore = (
-        (rawScores.adaptability * config.adaptabilityWeight) +
-        (rawScores.creativity * config.creativityWeight) +
-        (rawScores.reasoning * config.reasoningWeight)
-    ) / totalExperienceWeight;
+    rawScores.experienceScores.forEach(category => {
+        if (category.weight > 0) {
+            experienceWeightedSum += category.score * category.weight;
+            totalExperienceWeight += category.weight;
+        }
+    });
+    
+    const experienceScore = totalExperienceWeight > 0 ? experienceWeightedSum / totalExperienceWeight : 0;
 
     // Calculate coding score from category scores with their individual weights
     let codingWeightedSum = 0;

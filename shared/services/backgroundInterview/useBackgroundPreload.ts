@@ -34,7 +34,8 @@ export function useBackgroundPreload() {
       openaiClient: OpenAI,
       sessionUserId?: string | null,
       onCodingTimeSet?: (minutes: number) => void,
-      onBackgroundTimeSet?: (seconds: number) => void
+      onBackgroundTimeSet?: (seconds: number) => void,
+      onExperienceCategoriesSet?: (categories: Array<{name: string; description: string; weight: number; example?: string}>) => void
     ) => {
       try {
         console.log("[preload] Starting preload sequence...");
@@ -89,7 +90,8 @@ export function useBackgroundPreload() {
         const sessId = session.interviewSession.id;
 
         // Step 3: Fetch interview script (with cache)
-        const scriptCacheKey = `interview-script-${jobId}`;
+        const SCRIPT_CACHE_VERSION = 'v3'; // Increment to invalidate old caches
+        const scriptCacheKey = `interview-script-${jobId}-${SCRIPT_CACHE_VERSION}`;
         let scriptData: any = null;
 
         try {
@@ -153,6 +155,10 @@ export function useBackgroundPreload() {
             type: "BG_GUARD_SET_TIMEBOX",
             payload: { timeboxMs },
           } as any);
+        }
+
+        if (scriptData.experienceCategories && onExperienceCategoriesSet) {
+          onExperienceCategoriesSet(scriptData.experienceCategories);
         }
 
         console.log("[preload] Preload complete - data stored in Redux");

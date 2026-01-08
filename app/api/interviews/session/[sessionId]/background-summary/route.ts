@@ -375,29 +375,78 @@ export async function POST(request: NextRequest, context: RouteContext) {
         // Store in database
         log.info("[background-summary/POST] Saving summary to database...");
         
+        // Aggregate category contributions (simple averaging)
+        const contributions = await prisma.categoryContribution.findMany({
+            where: {
+                interviewSessionId: sessionId,
+            },
+            include: {
+                interviewSession: {
+                    include: {
+                        application: {
+                            include: {
+                                job: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        const experienceCategoryDefinitions = contributions[0]?.interviewSession?.application?.job?.experienceCategories as Array<{name: string; description: string; weight: number}> | null;
+
+        // Group contributions by category
+        const byCategory = contributions.reduce((acc, c) => {
+            if (!acc[c.categoryName]) acc[c.categoryName] = [];
+            acc[c.categoryName].push(c);
+            return acc;
+        }, {} as Record<string, typeof contributions>);
+
+        // Calculate simple average for each category
+        const experienceCategories: Record<string, any> = {};
+        for (const [categoryName, contribs] of Object.entries(byCategory)) {
+            const avgScore = Math.round(
+                contribs.reduce((sum, c) => sum + c.contributionStrength, 0) / contribs.length
+            );
+            
+            const categoryDef = experienceCategoryDefinitions?.find(c => c.name === categoryName);
+            
+            // Calculate video offsets for evidence links
+            const evidenceLinks = contribs.map(c => {
+                if (interviewSession.recordingStartedAt) {
+                    const recordingStart = new Date(interviewSession.recordingStartedAt).getTime();
+                    const answerTime = new Date(c.timestamp).getTime();
+                    return Math.max(0, Math.floor((answerTime - recordingStart) / 1000));
+                }
+                return 0;
+            });
+
+            experienceCategories[categoryName] = {
+                score: avgScore,
+                text: contribs.map(c => c.explanation).join(" "),
+                description: categoryDef?.description || "",
+                evidenceLinks,
+                contributions: contribs.map(c => ({
+                    timestamp: c.timestamp.toISOString(),
+                    strength: c.contributionStrength,
+                    explanation: c.explanation,
+                })),
+            };
+        }
+
+        log.info("[background-summary/POST] Aggregated experience categories:", Object.keys(experienceCategories));
+        
         const summaryDbData = {
             executiveSummary: summaryData.executiveSummary,
             executiveSummaryOneLiner: summaryData.executiveSummaryOneLiner,
             recommendation: summaryData.recommendation,
-            adaptabilityScore: summaryData.adaptability.score,
-            adaptabilityText: summaryData.adaptability.assessment,
-            adaptabilityOneLiner: summaryData.adaptability.oneLiner,
-            creativityScore: summaryData.creativity.score,
-            creativityText: summaryData.creativity.assessment,
-            creativityOneLiner: summaryData.creativity.oneLiner,
-            reasoningScore: summaryData.reasoning.score,
-            reasoningText: summaryData.reasoning.assessment,
-            reasoningOneLiner: summaryData.reasoning.oneLiner,
+            experienceCategories,
             conversationJson: messages.map((m) => ({
                 speaker: m.speaker,
                 text: m.text,
                 timestamp: m.timestamp.getTime(),
             })),
-            evidenceJson: {
-                adaptability: summaryData.adaptability.evidence,
-                creativity: summaryData.creativity.evidence,
-                reasoning: summaryData.reasoning.evidence,
-            },
+            evidenceJson: summaryData,
         };
 
         const backgroundSummary = await prisma.backgroundSummary.upsert({

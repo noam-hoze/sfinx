@@ -234,7 +234,24 @@ function TelemetryContent() {
         }
 
         try {
-            // Build category scores from jobSpecificCategories with weights from job
+            // Build experience scores from experienceCategories with weights from job
+            const experienceScores: Array<{name: string; score: number; weight: number}> = [];
+            const jobExperienceCategories = activeSession?.application?.job?.experienceCategories as Array<{name: string; description: string; weight: number}> | undefined;
+            
+            if (backgroundSummary.experienceCategories && jobExperienceCategories) {
+                Object.entries(backgroundSummary.experienceCategories).forEach(([name, data]: [string, any]) => {
+                    const categoryDef = jobExperienceCategories.find((c: any) => c.name === name);
+                    if (categoryDef && categoryDef.weight > 0) {
+                        experienceScores.push({
+                            name,
+                            score: data.score,
+                            weight: categoryDef.weight
+                        });
+                    }
+                });
+            }
+            
+            // Build coding scores from jobSpecificCategories with weights from job
             const categoryScores: Array<{name: string; score: number; weight: number}> = [];
             
             if (codingSummary.jobSpecificCategories && jobCodingCategories) {
@@ -251,9 +268,7 @@ function TelemetryContent() {
             }
             
             const rawScores: RawScores = {
-                adaptability: backgroundSummary.adaptability?.score ?? 0,
-                creativity: backgroundSummary.creativity?.score ?? 0,
-                reasoning: backgroundSummary.reasoning?.score ?? 0,
+                experienceScores,
                 categoryScores,
             };
 
@@ -272,7 +287,7 @@ function TelemetryContent() {
             setCalculatedExperienceScore(null);
             setCalculatedCodingScore(null);
         }
-    }, [backgroundSummary, codingSummary, scoringConfig, activeSession?.workstyle, activeSession?.application?.job?.codingCategories]);
+    }, [backgroundSummary, codingSummary, scoringConfig, activeSession?.workstyle, activeSession?.application?.job?.codingCategories, activeSession?.application?.job?.experienceCategories]);
 
     console.log("[CPS] Active session:", activeSession);
     const formatMonthYear = (dateIso?: string) =>
@@ -592,6 +607,7 @@ function TelemetryContent() {
                                         <ExperienceMetrics
                                             backgroundSummary={backgroundSummary}
                                             evidenceClips={evidence || []}
+                                            experienceCategories={activeSession?.application?.job?.experienceCategories as any}
                                             onVideoJump={onVideoJump}
                                         />
                                         {backgroundSummary && (
