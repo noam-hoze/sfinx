@@ -105,7 +105,7 @@ Be strict with 0 scores - use them for noise. But use the full range 1-100 for l
             messages: [
                 {
                     role: "system",
-                    content: "You are an expert code reviewer evaluating incremental coding progress during technical interviews.",
+                    content: "You are an expert code reviewer evaluating incremental coding progress during technical interviews. Respond in JSON format.",
                 },
                 {
                     role: "user",

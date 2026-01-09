@@ -144,6 +144,10 @@ function CompanyJobDetailContent() {
                         codingAnswer: optionalString(
                             data.interviewContent.codingAnswer
                         ),
+                        expectedOutput: optionalString(
+                            data.interviewContent.expectedOutput
+                        ),
+                        codingLanguage: data.interviewContent.codingLanguage || "",
                     });
                     const backgroundSecondsRaw = Number(
                         data.interviewContent.backgroundQuestionTimeSeconds
@@ -284,6 +288,10 @@ function CompanyJobDetailContent() {
                     codingAnswer: optionalString(
                         updated.interviewContent.codingAnswer
                     ),
+                    expectedOutput: optionalString(
+                        updated.interviewContent.expectedOutput
+                    ),
+                    codingLanguage: updated.interviewContent.codingLanguage || "",
                 });
                 const backgroundSecondsRaw = Number(
                     updated.interviewContent.backgroundQuestionTimeSeconds

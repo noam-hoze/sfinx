@@ -7,6 +7,8 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/shared/state/store";
 import RealTimeContributionsView from "./debug/RealTimeContributionsView";
 import { transformBackgroundDataToRealtime } from "./debug/transformers/backgroundDataTransformer";
+import ScoreProgressDisplay from "./debug/ScoreProgressDisplay";
+import { calculateScore } from "app/shared/utils/calculateScore";
 
 interface BackgroundDebugPanelProps {
     timeboxMs?: number;
@@ -260,6 +262,28 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
     // Background stage panel - now with dynamic categories
     const categoryNames = experienceCategories?.map(c => c.name) || [];
 
+    // Calculate real-time scores
+    const experienceScores = useMemo(() => {
+        if (!experienceCategories || !contributionStats) return [];
+        return experienceCategories.map(category => {
+            const stat = contributionStats.find(s => s.categoryName === category.name);
+            return {
+                name: category.name,
+                score: stat?.avgStrength || 0,
+                weight: category.weight
+            };
+        });
+    }, [experienceCategories, contributionStats]);
+
+    const scores = useMemo(() => {
+        const result = calculateScore(
+            { experienceScores, categoryScores: [] },
+            {},
+            { experienceWeight: 50, codingWeight: 50, aiAssistWeight: 25 }
+        );
+        return result;
+    }, [experienceScores]);
+
     return (
         <div className="rounded-[28px] border border-slate-200/70 bg-white/80 px-6 py-5 text-sm shadow-lg shadow-slate-900/5 backdrop-blur-xl dark:border-slate-700/60 dark:bg-slate-900/80 dark:text-slate-100">
             <div className="flex flex-col gap-5">
@@ -300,6 +324,15 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
                         </div>
                     </div>
                 </div>
+
+                {/* Score Progress */}
+                <ScoreProgressDisplay
+                    experienceScore={scores.experienceScore}
+                    codingScore={scores.codingScore}
+                    finalScore={scores.finalScore}
+                    experienceWeight={50}
+                    codingWeight={50}
+                />
 
                 {/* Real-Time Contributions */}
                 <RealTimeContributionsView

@@ -46,6 +46,8 @@ interface EditorPanelProps {
     originalCode?: string;
     modifiedCode?: string;
     currentCode?: string;
+    language?: string;
+    fileName?: string;
     onCodeChange?: (code: string) => void;
     onApplyChanges?: () => void;
     onRejectChanges?: () => void;
@@ -75,6 +77,8 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     originalCode = "",
     modifiedCode = "",
     currentCode: propCurrentCode,
+    language = "javascript",
+    fileName,
     onCodeChange,
     onApplyChanges,
     onRejectChanges,
@@ -400,7 +404,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                                     : "text-gray-600 hover:text-deep-slate hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700"
                             }`}
                         >
-                            {tab === "editor" ? "UserList.tsx" : "Preview"}
+                            {tab === "editor" ? (fileName || "code") : "Preview"}
                         </button>
                     ))}
                 </div>
@@ -420,7 +424,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                 {activeTab === "editor" ? (
                     <Editor
                         height="100%"
-                        language="javascript"
+                        language={language}
                         value={currentCode}
                         theme={editorTheme}
                         onChange={handleCodeChange}

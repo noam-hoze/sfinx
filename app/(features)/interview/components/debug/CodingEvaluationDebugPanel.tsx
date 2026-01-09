@@ -1,11 +1,15 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import { MAX_PASTE_EVAL_ANSWERS } from "../chat/OpenAITextConversation";
 import { SfinxSpinner } from "app/shared/components";
 import RealTimeContributionsView from "app/shared/components/debug/RealTimeContributionsView";
 import { transformCodingDataToRealtime } from "./transformers/codingDataTransformer";
+import ScoreProgressDisplay from "app/shared/components/debug/ScoreProgressDisplay";
+import { calculateScore } from "app/shared/utils/calculateScore";
+import { useSelector } from "react-redux";
+import { RootState } from "@/shared/state/store";
 
 interface CodingEvaluationDebugPanelProps {
     evaluationData: {
@@ -42,7 +46,8 @@ interface CodingEvaluationDebugPanelProps {
 export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, onTestEvaluation, nextEvaluationTime, jobCategories, evaluationThrottleMs }: CodingEvaluationDebugPanelProps) {
     // Get job-specific categories from props first, then fall back to evaluation data
     const jobSpecificCategories = evaluationData?.jobSpecificResponse?.data?.categories;
-    const categoryNames = jobCategories ? jobCategories.map(c => c.name) : (jobSpecificCategories ? Object.keys(jobSpecificCategories) : []);
+    const sessionId = useSelector((state: RootState) => state.interviewMachine.sessionId);
+    const experienceCategories = useSelector((state: RootState) => state.interviewMachine.script?.experienceCategories);
     
     const throttleSeconds = Math.round(evaluationThrottleMs / 1000);
     
@@ -50,10 +55,13 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
     const emptyStateMessage = `Click "Test Evaluation" or start coding (updates every ${throttleSeconds}s of inactivity)`;
     
     type TabType = "summary" | "codeQuality" | "external" | string;
-    const [activeTab, setActiveTab] = useState<TabType>("summary");
+    const [activeTab, setActiveTab] = useState<TabType>("realtime");
     
     // Countdown timer for next evaluation
     const [countdown, setCountdown] = useState<number | null>(null);
+    
+    // Fetch background contributions for experience score
+    const [contributionStats, setContributionStats] = useState<Array<{categoryName: string; avgStrength: number}>>([]);
     
     useEffect(() => {
         if (!nextEvaluationTime) {
@@ -87,6 +95,79 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
 
     const coding = (chatState as any).coding;
     const activePasteEval = coding?.activePasteEvaluation;
+
+    // Fetch background contributions for experience score calculation
+    useEffect(() => {
+        if (!sessionId) return;
+        
+        const fetchBackgroundData = async () => {
+            try {
+                const res = await fetch(`/api/interviews/session/${sessionId}/contributions`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setContributionStats(data.categoryStats || []);
+                }
+            } catch (err) {
+                console.error("[CodingDebug] Failed to fetch background contributions:", err);
+            }
+        };
+        
+        fetchBackgroundData();
+        const interval = setInterval(fetchBackgroundData, 5000);
+        return () => clearInterval(interval);
+    }, [sessionId]);
+
+    // Calculate real-time scores
+    const experienceScores = useMemo(() => {
+        if (!experienceCategories || !contributionStats) return [];
+        return experienceCategories.map((category: any) => {
+            const stat = contributionStats.find(s => s.categoryName === category.name);
+            return {
+                name: category.name,
+                score: stat?.avgStrength || 0,
+                weight: category.weight
+            };
+        });
+    }, [experienceCategories, contributionStats]);
+
+    const codingScores = useMemo(() => {
+        if (!jobCategories || !evaluationData?.realtimeContributions) return [];
+        
+        const TARGET_CONTRIBUTIONS = 5;
+        const categoryContributions = new Map<string, number[]>();
+        
+        evaluationData.realtimeContributions.forEach(contrib => {
+            contrib.response?.contributions?.forEach(c => {
+                if (!categoryContributions.has(c.category)) {
+                    categoryContributions.set(c.category, []);
+                }
+                categoryContributions.get(c.category)!.push(c.strength);
+            });
+        });
+        
+        return jobCategories.map(category => {
+            const strengths = categoryContributions.get(category.name) || [];
+            const rawAvg = strengths.length > 0 
+                ? strengths.reduce((sum, s) => sum + s, 0) / strengths.length 
+                : 0;
+            const confidence = Math.min(1.0, strengths.length / TARGET_CONTRIBUTIONS);
+            const score = Math.round(rawAvg * confidence);
+            
+            return {
+                name: category.name,
+                score,
+                weight: category.weight
+            };
+        });
+    }, [jobCategories, evaluationData?.realtimeContributions]);
+
+    const scores = useMemo(() => {
+        return calculateScore(
+            { experienceScores, categoryScores: codingScores },
+            {},
+            { experienceWeight: 50, codingWeight: 50, aiAssistWeight: 25 }
+        );
+    }, [experienceScores, codingScores]);
 
     // Loading state
     if (isLoading) {
@@ -136,18 +217,17 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                     </div>
                 )}
 
+                {/* Score Progress */}
+                <ScoreProgressDisplay
+                    experienceScore={scores.experienceScore}
+                    codingScore={scores.codingScore}
+                    finalScore={scores.finalScore}
+                    experienceWeight={50}
+                    codingWeight={50}
+                />
+
                 {/* Tab Navigation */}
                 <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700 overflow-x-auto">
-                    <button
-                        onClick={() => setActiveTab("summary")}
-                        className={`px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap ${
-                            activeTab === "summary"
-                                ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400"
-                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-                        }`}
-                    >
-                        Summary Evaluation
-                    </button>
                     <button
                         onClick={() => setActiveTab("realtime")}
                         className={`px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap ${
@@ -164,6 +244,16 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                         )}
                     </button>
                     <button
+                        onClick={() => setActiveTab("external")}
+                        className={`px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap ${
+                            activeTab === "external"
+                                ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400"
+                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                        }`}
+                    >
+                        External Tool Evaluation
+                    </button>
+                    <button
                         onClick={() => setActiveTab("codeQuality")}
                         className={`px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap ${
                             activeTab === "codeQuality"
@@ -174,28 +264,15 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                         Code Quality
                     </button>
                     <button
-                        onClick={() => setActiveTab("external")}
+                        onClick={() => setActiveTab("summary")}
                         className={`px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap ${
-                            activeTab === "external"
+                            activeTab === "summary"
                                 ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400"
                                 : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                         }`}
                     >
-                        External Tool Evaluation
+                        Summary Evaluation
                     </button>
-                    {categoryNames.map((categoryName) => (
-                        <button
-                            key={categoryName}
-                            onClick={() => setActiveTab(categoryName)}
-                            className={`px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap ${
-                                activeTab === categoryName
-                                    ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400"
-                                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
-                            }`}
-                        >
-                            {categoryName}
-                        </button>
-                    ))}
                 </div>
 
                 {/* Real-Time Contributions Tab */}
@@ -528,34 +605,6 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                         </div>
                     </div>
                 )}
-
-                {/* Job-Specific Category Tabs */}
-                {categoryNames.map((categoryName) => {
-                    const categoryData = jobSpecificCategories?.[categoryName];
-                    return activeTab === categoryName ? (
-                        <div key={categoryName} className="flex flex-col gap-4">
-                            <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4">
-                                {categoryData ? (
-                                    <div className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg p-6 border border-purple-200 dark:border-purple-800">
-                                        <div className="text-lg font-semibold text-purple-700 dark:text-purple-400 mb-3">
-                                            Score
-                                        </div>
-                                        <div className="text-4xl font-bold text-purple-900 dark:text-purple-300 mb-4">
-                                            {categoryData.score}
-                                        </div>
-                                        <div className="text-base text-slate-700 dark:text-slate-300 leading-relaxed">
-                                            {categoryData.text}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="text-base text-slate-600 dark:text-slate-300 py-8 text-center">
-                                        {emptyStateMessage}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    ) : null;
-                })}
             </div>
         </div>
     );

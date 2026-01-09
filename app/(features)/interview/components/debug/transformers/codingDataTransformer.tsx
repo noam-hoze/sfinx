@@ -83,12 +83,20 @@ export function transformCodingDataToRealtime(
         });
     });
 
+    const TARGET_CONTRIBUTIONS = 5;
+    
     const categoryBreakdown = Array.from(categoryContributions.entries()).map(([category, contribs]) => {
-        const avgStrength = Math.round(contribs.reduce((sum, c) => sum + c.strength, 0) / contribs.length);
+        const rawAverage = contribs.reduce((sum, c) => sum + c.strength, 0) / contribs.length;
+        const confidence = Math.min(1.0, contribs.length / TARGET_CONTRIBUTIONS);
+        const avgStrength = Math.round(rawAverage * confidence);
+        
         return {
             name: category,
             avgStrength,
             contributionCount: contribs.length,
+            rawAverage: Math.round(rawAverage),
+            confidence,
+            targetContributions: TARGET_CONTRIBUTIONS,
             contributions: contribs
         };
     });

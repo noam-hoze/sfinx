@@ -7,6 +7,7 @@ export interface InterviewContentState {
     codingTemplate: string;
     codingAnswer: string;
     expectedOutput: string;
+    codingLanguage: string;
 }
 
 export interface InterviewDurationState {
@@ -132,7 +133,7 @@ export function InterviewContentSection({
 
             {activeTab === 'coding' && (
                 <div className="space-y-0">
-                    <div className="px-6 py-4 bg-white">
+                    <div className="px-6 py-4 bg-white space-y-4">
                         <DurationPicker
                             label="Time Limit"
                             valueSeconds={durations.codingSeconds}
@@ -144,6 +145,26 @@ export function InterviewContentSection({
                             }
                             disabled={disabled}
                         />
+                        <label className="flex flex-col text-sm font-medium text-gray-700">
+                            Programming Language
+                            <select
+                                value={state.codingLanguage}
+                                onChange={(e) => onChange({ ...state, codingLanguage: e.target.value })}
+                                disabled={disabled}
+                                required
+                                className="mt-2 rounded-xl border border-gray-200 px-4 py-3 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                <option value="">Select language...</option>
+                                <option value="python">Python</option>
+                                <option value="javascript">JavaScript</option>
+                                <option value="typescript">TypeScript</option>
+                                <option value="java">Java</option>
+                                <option value="cpp">C++</option>
+                                <option value="csharp">C#</option>
+                                <option value="go">Go</option>
+                                <option value="rust">Rust</option>
+                            </select>
+                        </label>
                     </div>
                     <div className="px-6 py-4 bg-gray-100">
                         <label id="coding-prompt" className="flex flex-col text-sm font-medium text-gray-700 scroll-mt-24">
@@ -207,6 +228,7 @@ export const emptyInterviewContentState: InterviewContentState = {
     codingTemplate: "",
     codingAnswer: "",
     expectedOutput: "",
+    codingLanguage: "",
 };
 
 export const defaultInterviewDurations: InterviewDurationState = {

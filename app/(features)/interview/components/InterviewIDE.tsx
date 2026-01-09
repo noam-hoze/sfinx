@@ -872,11 +872,47 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         const newLines = newCode.split('\n');
         const diff: string[] = [];
         
-        const maxLength = Math.max(oldLines.length, newLines.length);
-        for (let i = 0; i < maxLength; i++) {
-            if (oldLines[i] !== newLines[i]) {
-                if (oldLines[i]) diff.push(`- ${oldLines[i]}`);
-                if (newLines[i]) diff.push(`+ ${newLines[i]}`);
+        let i = 0, j = 0;
+        while (i < oldLines.length || j < newLines.length) {
+            if (i < oldLines.length && j < newLines.length && oldLines[i] === newLines[j]) {
+                // Lines match - skip (don't show unchanged lines)
+                i++;
+                j++;
+            } else {
+                // Find where lines sync back up
+                let syncFound = false;
+                for (let lookAhead = 1; lookAhead <= 3; lookAhead++) {
+                    if (i + lookAhead < oldLines.length && oldLines[i + lookAhead] === newLines[j]) {
+                        // Deletion - lines were removed
+                        for (let k = 0; k < lookAhead; k++) {
+                            diff.push(`- ${oldLines[i + k]}`);
+                        }
+                        i += lookAhead;
+                        syncFound = true;
+                        break;
+                    }
+                    if (j + lookAhead < newLines.length && oldLines[i] === newLines[j + lookAhead]) {
+                        // Insertion - lines were added
+                        for (let k = 0; k < lookAhead; k++) {
+                            diff.push(`+ ${newLines[j + k]}`);
+                        }
+                        j += lookAhead;
+                        syncFound = true;
+                        break;
+                    }
+                }
+                
+                if (!syncFound) {
+                    // Different lines at same position - show both
+                    if (i < oldLines.length) {
+                        diff.push(`- ${oldLines[i]}`);
+                        i++;
+                    }
+                    if (j < newLines.length) {
+                        diff.push(`+ ${newLines[j]}`);
+                        j++;
+                    }
+                }
             }
         }
         
@@ -1267,6 +1303,8 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                         <div className="h-full border-r bg-white border-light-gray dark:bg-gray-800 dark:border-gray-700 relative">
                             <EditorPanel
                                 currentCode={state.currentCode}
+                                language={interviewScript?.codingLanguage}
+                                fileName={interviewScript?.codingLanguage === "python" ? "main.py" : interviewScript?.codingLanguage === "java" ? "Main.java" : "index.tsx"}
                                 onCodeChange={handleCodeChange}
                                 onEditorReady={(editor) => { editorInstanceRef.current = editor; }}
                                 availableTabs={availableTabs}
