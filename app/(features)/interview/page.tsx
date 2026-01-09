@@ -65,6 +65,7 @@ function InterviewPageContent() {
   const userId = useSelector((state: RootState) => state.interviewMachine.userId);
   const applicationId = useSelector((state: RootState) => state.interviewMachine.applicationId);
   const shouldResetFlag = useSelector((state: RootState) => state.interviewMachine.shouldReset);
+  const reduxSessionId = useSelector((state: RootState) => state.interviewMachine.sessionId);
 
   // Local state
   const [name, setName] = useState("");
@@ -397,30 +398,29 @@ function InterviewPageContent() {
    * Starts recording immediately after the start flow and creates the coding session.
    */
   const ensureRecordingSession = useCallback(async () => {
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:399',message:'ensureRecordingSession ENTRY',data:{interviewSessionId,hasSessionId:!!interviewSessionId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,B'})}).catch(()=>{});
-    // #endregion
+    // Check local state first
     if (interviewSessionId) {
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:400',message:'ensureRecordingSession GUARD PASS - returning existing',data:{interviewSessionId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       return interviewSessionId;
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:401',message:'ensureRecordingSession GUARD FAIL - creating new session',data:{interviewSessionId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,B'})}).catch(()=>{});
-    // #endregion
+    // Check Redux state - preload may have already created it
+    if (reduxSessionId) {
+      // Start recording before syncing
+      const recordingStarted = await startRecording();
+      if (!recordingStarted) return null;
+      
+      // Sync Redux → local state
+      setInterviewSessionId(reduxSessionId);
+      return reduxSessionId;
+    }
 
+    // No existing session - create a new one
     try {
       const recordingStarted = await startRecording();
       if (!recordingStarted) return null;
 
       const resolvedApplicationId = await resolveApplicationId();
       if (!resolvedApplicationId) return null;
-
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:407',message:'BEFORE createInterviewSession',data:{resolvedApplicationId,interviewSessionId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,C'})}).catch(()=>{});
-      // #endregion
 
       const session = await createInterviewSession({
         applicationId: resolvedApplicationId,
@@ -431,16 +431,8 @@ function InterviewPageContent() {
       });
       const newSessionId = session.interviewSession.id;
       
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:416',message:'AFTER createInterviewSession - setting state',data:{newSessionId,oldInterviewSessionId:interviewSessionId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,B'})}).catch(()=>{});
-      // #endregion
-      
       setInterviewSessionId(newSessionId);
       dispatch(setSessionId({ sessionId: newSessionId }));
-      
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:419',message:'ensureRecordingSession EXIT',data:{returnedSessionId:newSessionId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       
       return newSessionId;
     } catch (error) {
@@ -449,6 +441,7 @@ function InterviewPageContent() {
     }
   }, [
     interviewSessionId,
+    reduxSessionId,
     startRecording,
     resolveApplicationId,
     companySlug,
@@ -461,7 +454,8 @@ function InterviewPageContent() {
 
   // Auto-start interview for authenticated users after preload
   useEffect(() => {
-    if (isDemoMode || isPageLoading || skipToCoding || isStarting || showAnnouncement || machineState !== "idle" || hasAutoStartedRef.current) {
+    // CRITICAL: Wait for preload to finish (it sets reduxSessionId)
+    if (isDemoMode || isPageLoading || skipToCoding || isStarting || showAnnouncement || machineState !== "idle" || hasAutoStartedRef.current || !reduxSessionId) {
       return;
     }
 
@@ -517,7 +511,7 @@ function InterviewPageContent() {
     };
 
     autoStartAuthenticated();
-  }, [isDemoMode, isPageLoading, skipToCoding, isStarting, showAnnouncement, machineState, session, ensureRecordingSession, dispatch, isMuted]);
+  }, [isDemoMode, isPageLoading, skipToCoding, isStarting, showAnnouncement, machineState, reduxSessionId, session, ensureRecordingSession, dispatch, isMuted]);
 
   // Auto-skip to coding when flag is set and user is logged in
   useEffect(() => {
