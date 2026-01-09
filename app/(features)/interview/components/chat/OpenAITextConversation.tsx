@@ -48,8 +48,6 @@ type Props = {
   onPasteDetected?: (pastedCode: string) => void;
   onHighlightPastedCode?: (pastedCode: string) => void;
   interviewSessionId?: string | null;
-  isDemoMode?: boolean;
-  userId?: string;
 };
 
 const OpenAITextConversation = forwardRef<any, Props>(
@@ -64,15 +62,10 @@ const OpenAITextConversation = forwardRef<any, Props>(
     onPasteDetected,
     onHighlightPastedCode,
     interviewSessionId,
-    isDemoMode: propIsDemoMode,
-    userId: propUserId,
   }, ref) => {
     if (!candidateName) {
       throw new Error("OpenAITextConversation requires a candidateName");
     }
-    const searchParams = useSearchParams();
-    const isDemoMode = propIsDemoMode ?? (searchParams.get("demo") === "true");
-    const demoUserId = propUserId ?? searchParams.get("userId");
     
     const dispatch = useDispatch();
     const openAIApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
@@ -240,9 +233,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
         let videoChapterId: string | undefined;
         if (interviewSessionId) {
           try {
-            const chapterUrl = isDemoMode
-              ? `/api/interviews/session/${interviewSessionId}/paste-chapter?skip-auth=true`
-              : `/api/interviews/session/${interviewSessionId}/paste-chapter`;
+            const chapterUrl = `/api/interviews/session/${interviewSessionId}/paste-chapter`;
             
             const response = await fetch(chapterUrl, {
               method: "POST",
@@ -352,7 +343,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
           } catch {}
         }
       },
-      [dispatch, openaiClient, post, interviewSessionId, isDemoMode, onHighlightPastedCode]
+      [dispatch, openaiClient, post, interviewSessionId, onHighlightPastedCode]
     );
 
     /** Injects the coding prompt once the guard advances into the coding session. */
@@ -418,14 +409,9 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
                   
                   (async () => {
                     try {
-                      const url = isDemoMode
-                        ? `/api/interviews/session/${sessionId}/messages?skip-auth=true`
-                        : `/api/interviews/session/${sessionId}/messages`;
+                      const url = `/api/interviews/session/${sessionId}/messages`;
                       
                       const body: Record<string, any> = { messages: backgroundMessages };
-                      if (isDemoMode && demoUserId) {
-                        body.userId = demoUserId;
-                      }
                       
                       const messagesRes = await fetch(url, {
                         method: "POST",
@@ -443,18 +429,12 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
                       }
                       
                       // Messages saved successfully, now trigger summary generation
-                      const summaryUrl = isDemoMode
-                        ? `/api/interviews/session/${sessionId}/background-summary?skip-auth=true`
-                        : `/api/interviews/session/${sessionId}/background-summary`;
+                      const summaryUrl = `/api/interviews/session/${sessionId}/background-summary`;
                       
                       const summaryPayload: Record<string, any> = {
                         companyName: ms.companyName,
                         roleName: ms.roleSlug?.replace(/-/g, " "),
                       };
-                      
-                      if (isDemoMode && demoUserId) {
-                        summaryPayload.userId = demoUserId;
-                      }
                       
                       /* eslint-disable no-console */ console.log("[background][persist] Calling POST /background-summary with payload:", summaryPayload);
                       

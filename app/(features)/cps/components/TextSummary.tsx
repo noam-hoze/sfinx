@@ -36,14 +36,16 @@ const TextSummary: React.FC<TextSummaryProps> = ({
     experienceCategories,
     jobExperienceCategories,
 }) => {
-    const traits = jobExperienceCategories.map(category => ({
-        name: category.name,
-        key: category.name,
-        data: {
-            score: experienceCategories[category.name]?.score ?? 0,
-            text: experienceCategories[category.name]?.text ?? "",
-        }
-    }));
+    const traits = jobExperienceCategories
+        .filter(category => category.weight > 0)
+        .map(category => ({
+            name: category.name,
+            key: category.name,
+            data: {
+                score: experienceCategories[category.name]?.score ?? 0,
+                text: experienceCategories[category.name]?.text ?? "",
+            }
+        }));
 
     return (
         <div className="space-y-6 p-6">

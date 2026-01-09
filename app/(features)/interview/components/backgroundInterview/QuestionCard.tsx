@@ -15,7 +15,6 @@ type QuestionCardProps = {
   getActualRecordingStartTime?: () => Date | null;
   questionNumber?: number;
   userId?: string;
-  isDemoMode?: boolean;
 };
 
 /**
@@ -46,7 +45,6 @@ export default function QuestionCard({
   getActualRecordingStartTime,
   questionNumber = 1,
   userId,
-  isDemoMode = false,
 }: QuestionCardProps) {
   /**
    * Presents a background interview question with TTS playback and text/voice answer capture.
@@ -221,9 +219,7 @@ export default function QuestionCard({
       questionNumber,
     });
     
-    const url = isDemoMode
-      ? `/api/interviews/session/${interviewSessionId}/background-evidence?skip-auth=true`
-      : `/api/interviews/session/${interviewSessionId}/background-evidence`;
+    const url = `/api/interviews/session/${interviewSessionId}/background-evidence`;
     
     const body: Record<string, any> = {
       timestamp: evidenceTimestamp.toISOString(),
@@ -231,14 +227,6 @@ export default function QuestionCard({
       answerText: answerText,
       questionNumber,
     };
-    
-    if (isDemoMode) {
-      if (userId) {
-        body.userId = userId;
-      } else {
-        console.error("[QuestionCard] ❌ isDemoMode is true but userId is missing! Evidence link creation will fail.");
-      }
-    }
     
     await fetch(url, {
       method: 'POST',

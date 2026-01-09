@@ -27,8 +27,6 @@ interface RightPanelProps {
     setInputLocked?: (locked: boolean) => void;
     onHighlightPastedCode?: (pastedCode: string) => void;
     interviewSessionId?: string | null;
-    isDemoMode?: boolean;
-    userId?: string;
 }
 
 const RightPanel: React.FC<RightPanelProps> = ({
@@ -54,8 +52,6 @@ const RightPanel: React.FC<RightPanelProps> = ({
     codingDurationSeconds,
     setInputLocked,
     interviewSessionId,
-    isDemoMode,
-    userId,
 }) => {
     return (
         <div className="h-full flex flex-col border-t">
@@ -84,8 +80,6 @@ const RightPanel: React.FC<RightPanelProps> = ({
                     setInputLocked={setInputLocked}
                     onHighlightPastedCode={onHighlightPastedCode}
                     interviewSessionId={interviewSessionId}
-                    isDemoMode={isDemoMode}
-                    userId={userId}
                 />
             </div>
 

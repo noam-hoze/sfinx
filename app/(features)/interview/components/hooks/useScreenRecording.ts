@@ -4,7 +4,7 @@ import { log } from "../../../../shared/services";
 
 const logger = log;
 
-export const useScreenRecording = (isDemoMode: boolean = false) => {
+export const useScreenRecording = () => {
     const [isRecording, setIsRecording] = useState(false);
     const [recordingPermissionGranted, setRecordingPermissionGranted] =
         useState(false);
@@ -67,9 +67,7 @@ export const useScreenRecording = (isDemoMode: boolean = false) => {
                 const recordingUrl = blobResult.url;
                 logger.info("✅ Recording uploaded to Blob:", recordingUrl);
 
-                const updateUrl = isDemoMode 
-                    ? `/api/interviews/session/${interviewSessionIdRef.current}?skip-auth=true`
-                    : `/api/interviews/session/${interviewSessionIdRef.current}`;
+                const updateUrl = `/api/interviews/session/${interviewSessionIdRef.current}`;
 
                 logger.info(
                     "📤 Sending update request to:",
@@ -387,15 +385,11 @@ export const useScreenRecording = (isDemoMode: boolean = false) => {
             const recordingUrl = blobResult.url;
             logger.info("✅ Recording uploaded to Blob:", recordingUrl);
 
-            const updateUrl = isDemoMode 
-                ? `/api/interviews/session/${interviewSessionId}?skip-auth=true`
-                : `/api/interviews/session/${interviewSessionId}`;
+            const updateUrl = `/api/interviews/session/${interviewSessionId}`;
 
             logger.info(
                 "📤 Sending update request to:",
                 updateUrl,
-                "isDemoMode:",
-                isDemoMode,
                 "videoUrl:",
                 recordingUrl
             );

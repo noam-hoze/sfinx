@@ -1,8 +1,5 @@
 "use client";
 
-// Demo mode: Access via /interview?demo=true (no auth required)
-// Regular mode: /interview (requires authentication)
-
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -89,10 +86,9 @@ function InterviewPageContent() {
   const [codingApplicationId, setCodingApplicationId] = useState<string | null>(applicationId || null);
   const [backgroundQuestionNumber, setBackgroundQuestionNumber] = useState(1);
 
-  const isDemoMode = searchParams.get("demo") === "true";
   const skipToCoding = process.env.NEXT_PUBLIC_SKIP_TO_CODING === "true";
   const skipScreenShare = process.env.NEXT_PUBLIC_SKIP_SCREEN_SHARE === "true";
-  const recordingControls = useScreenRecording(isDemoMode);
+  const recordingControls = useScreenRecording();
   const { startRecording, interviewSessionId, setInterviewSessionId, getActualRecordingStartTime } = recordingControls;
 
   // Initialize company and job from URL params
@@ -171,24 +167,6 @@ function InterviewPageContent() {
           console.log("[interview] Set userId from session:", sessionUserId);
           dispatch(setPageLoading({ isLoading: false }));
           return;
-        }
-        
-        // Fallback: create demo user if not logged in
-        console.log("[interview] No session, creating demo user for skip-to-coding");
-        try {
-          const demoUserId = `demo-candidate-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-          const demoUserResp = await fetch(`/api/users/demo?skip-auth=true`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId: demoUserId, name: `Guest-${Date.now()}` }),
-          });
-          
-          if (demoUserResp.ok) {
-            dispatch(setPreloadedData({ userId: demoUserId }));
-            console.log("[interview] Created demo user:", demoUserId);
-          }
-        } catch (err) {
-          console.error("[interview] Failed to create demo user:", err);
         }
         
         dispatch(setPageLoading({ isLoading: false }));
@@ -277,9 +255,7 @@ function InterviewPageContent() {
       }
 
       // Mark session as abandoned in backend
-      const url = isDemoMode
-        ? `/api/interviews/session/${sessionId}/terminate?skip-auth=true`
-        : `/api/interviews/session/${sessionId}/terminate`;
+      const url = `/api/interviews/session/${sessionId}/terminate`;
 
       // Use fetch without await (fire and forget on unmount)
       fetch(url, {
@@ -312,16 +288,14 @@ function InterviewPageContent() {
       }
 
       // Use sendBeacon for reliable delivery as page closes
-      const url = isDemoMode
-        ? `/api/interviews/session/${interviewSessionId}/terminate?skip-auth=true`
-        : `/api/interviews/session/${interviewSessionId}/terminate`;
+      const url = `/api/interviews/session/${interviewSessionId}/terminate`;
 
       navigator.sendBeacon(url, new Blob([], { type: "application/json" }));
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [interviewSessionId, completed, isDemoMode, micStream, recordingControls]);
+  }, [interviewSessionId, completed, micStream, recordingControls]);
 
   // Watch for reset trigger
   useEffect(() => {
@@ -366,8 +340,8 @@ function InterviewPageContent() {
         
         const roleSlugFromUrl = urlJobId.replace(`${urlCompanyId}-`, "");
         
-        // Pass session userId for authenticated users, null for demo mode
-        const sessionUserId = !isDemoMode ? (session?.user as any)?.id : null;
+        // Pass session userId for authenticated users
+        const sessionUserId = (session?.user as any)?.id;
         await preload(urlJobId, urlCompanyId, openaiClient, sessionUserId, setCodingTimeChallenge, setBackgroundTimeSeconds, setExperienceCategories);
 
         // Generate announcement
@@ -386,7 +360,7 @@ function InterviewPageContent() {
     };
 
     executePreload();
-  }, [isPageLoading, openaiClient, skipToCoding, dispatch, preload, generateAnnouncement, isDemoMode, session, searchParams]);
+  }, [isPageLoading, openaiClient, skipToCoding, dispatch, preload, generateAnnouncement, session, searchParams]);
 
   /**
    * Ensures an application exists for the coding phase and returns its ID.
@@ -408,7 +382,6 @@ function InterviewPageContent() {
         companyId,
         jobId,
         userId: userId || undefined,
-        isDemoMode,
       });
       const createdId = application?.application?.id || null;
       if (createdId) {
@@ -420,7 +393,7 @@ function InterviewPageContent() {
       console.error("[interview] Failed to create application:", error);
       return null;
     }
-  }, [codingApplicationId, applicationId, companySlug, roleSlug, userId, isDemoMode, dispatch]);
+  }, [codingApplicationId, applicationId, companySlug, roleSlug, userId, dispatch]);
 
   /**
    * Starts recording immediately after the start flow and creates the coding session.
@@ -454,7 +427,6 @@ function InterviewPageContent() {
         applicationId: resolvedApplicationId,
         companyId: companySlug || "meta",
         userId: userId || undefined,
-        isDemoMode,
         recordingStartedAt: getActualRecordingStartTime() || undefined,
       });
       const newSessionId = session.interviewSession.id;
@@ -474,7 +446,6 @@ function InterviewPageContent() {
     resolveApplicationId,
     companySlug,
     userId,
-    isDemoMode,
     getActualRecordingStartTime,
     setInterviewSessionId,
     dispatch,
@@ -483,7 +454,7 @@ function InterviewPageContent() {
   // Auto-start interview for authenticated users after preload
   useEffect(() => {
     // CRITICAL: Wait for preload to finish (it sets reduxSessionId)
-    if (isDemoMode || isPageLoading || skipToCoding || isStarting || showAnnouncement || machineState !== "idle" || hasAutoStartedRef.current || !reduxSessionId) {
+    if (isPageLoading || skipToCoding || isStarting || showAnnouncement || machineState !== "idle" || hasAutoStartedRef.current || !reduxSessionId) {
       return;
     }
 
@@ -539,7 +510,7 @@ function InterviewPageContent() {
     };
 
     autoStartAuthenticated();
-  }, [isDemoMode, isPageLoading, skipToCoding, isStarting, showAnnouncement, machineState, reduxSessionId, session, ensureRecordingSession, dispatch, isMuted]);
+  }, [isPageLoading, skipToCoding, isStarting, showAnnouncement, machineState, reduxSessionId, session, ensureRecordingSession, dispatch, isMuted]);
 
   // Auto-skip to coding when flag is set and user is logged in
   useEffect(() => {
@@ -566,7 +537,6 @@ function InterviewPageContent() {
               applicationId: resolvedApplicationId,
               companyId: companySlug,
               userId: userId || undefined,
-              isDemoMode,
             });
             activeSessionId = session.interviewSession.id;
             setInterviewSessionId(activeSessionId);
@@ -604,7 +574,7 @@ function InterviewPageContent() {
     };
 
     initializeCodingSession();
-  }, [skipToCoding, userId, showCodingIDE, isStarting, isPageLoading, skipScreenShare, ensureRecordingSession, resolveApplicationId, setInterviewSessionId, dispatch, companyName, companySlug, roleSlug, isDemoMode]);
+  }, [skipToCoding, userId, showCodingIDE, isStarting, isPageLoading, skipScreenShare, ensureRecordingSession, resolveApplicationId, setInterviewSessionId, dispatch, companyName, companySlug, roleSlug]);
 
   // STAGE 2: Start interview handler
   const handleStartInterview = async () => {
@@ -789,55 +759,6 @@ function InterviewPageContent() {
     );
   }
 
-  if (!isPageLoading && machineState === "idle" && !skipToCoding && isDemoMode) {
-    return (
-      <InterviewStageScreen
-        onSubmit={handleStartInterview}
-        ctaText="Start"
-        ctaDisabled={!name.trim() || !soundsReady || isStarting}
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-          <div className="bg-white rounded-2xl p-8 border-2 border-sfinx-purple shadow-sm">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-sfinx-purple text-white flex items-center justify-center font-bold">
-                1
-              </div>
-              <h2 className="text-2xl font-semibold text-gray-900">Candidate</h2>
-            </div>
-            <p className="text-gray-600">Complete a screening interview for a {jobTitle} role</p>
-          </div>
-          <div className="bg-white rounded-2xl p-8 border-2 border-gray-200 shadow-sm">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-gray-300 text-gray-600 flex items-center justify-center font-bold">
-                2
-              </div>
-              <h2 className="text-2xl font-semibold text-gray-900">Company</h2>
-            </div>
-            <p className="text-gray-600">Review results, compare candidates, and see detailed analytics</p>
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-6">
-          <div className="mb-6">
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-              Candidate&apos;s Name
-            </label>
-            <input
-              type="text"
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && name.trim()) handleStartInterview();
-              }}
-              placeholder="Enter your full name"
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-sfinx-purple focus:border-transparent outline-none transition-all"
-            />
-          </div>
-        </div>
-      </InterviewStageScreen>
-    );
-  }
-
   if (machineState === "in_coding_session" && showCodingIDE) {
     return (
       <InterviewRecordingProvider value={recordingControls}>
@@ -855,7 +776,6 @@ function InterviewPageContent() {
             onStartCoding={handleStartCoding}
             interviewSessionId={interviewSessionId}
             userId={userId || undefined}
-            isDemoMode={isDemoMode}
           />
         </div>
       </div>
@@ -896,7 +816,6 @@ function InterviewPageContent() {
             getActualRecordingStartTime={getActualRecordingStartTime}
             questionNumber={backgroundQuestionNumber}
             userId={userId || undefined}
-            isDemoMode={isDemoMode}
           />
         )}
       </div>

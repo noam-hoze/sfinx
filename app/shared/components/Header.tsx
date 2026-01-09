@@ -11,7 +11,6 @@ import { useSelector } from "react-redux";
 import type { RootState } from "@/shared/state/store";
 import { log } from "../services";
 import SfinxLogo from "./SfinxLogo";
-import DemoProgressHeader from "../../../app/(features)/demo/components/DemoProgressHeader";
 import { useMute } from "../contexts";
 import { getActiveNavItem } from "../config/navigation";
 
@@ -22,7 +21,6 @@ export default function Header() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const isDemoMode = searchParams.get("demo") === "true";
     const { isMuted, toggleMute } = useMute();
     
     // Get Redux state for page loading and state machine
@@ -90,36 +88,6 @@ export default function Header() {
 
     const settingsPath = role === "COMPANY" ? "/company-dashboard/settings" : "/settings";
 
-    // Get current demo stage based on Redux state machine and pathname
-    const getDemoStage = (): 1 | 2 | 3 | 4 | 5 | null => {
-        if (!isDemoMode) return null;
-        
-        // Map state machine states to demo stages
-        if (pathname === "/interview" ) {
-            // Stage 1: Welcome (idle, greeting)
-            if (machineState === "idle" || machineState === "greeting_said_by_ai") {
-                return 1;
-            }
-            // Stage 2: Background questions
-            if (machineState === "background_asked_by_ai" || 
-                machineState === "background_answered_by_user") {
-                return 2;
-            }
-            // Stage 3: Coding (completion screen)
-            if (machineState === "in_coding_session") {
-                return 3;
-            }
-            // Default to stage 1 if unknown
-            return 1;
-        }
-        if (pathname === "/interview") return 3;
-        if (pathname === "/demo/company-view") return 4;
-        if (pathname === "/cps") return 5;
-        return null;
-    };
-
-    const demoStage = getDemoStage();
-
     return (
         <header className="bg-white border-b border-gray-200 px-4 py-4 relative">
             <div className="grid grid-cols-[auto_1fr_auto] items-center gap-64">
@@ -132,16 +100,11 @@ export default function Header() {
                     />
                 </Link>
 
-                {/* Center: Demo Breadcrumbs or Primary Navigation */}
-                {demoStage ? (
-                    <div className="flex justify-center">
-                        <DemoProgressHeader currentStage={demoStage} />
-                    </div>
-                ) : (
-                    <nav
-                        ref={navRef}
-                        className="flex items-center gap-24 justify-start relative"
-                    >
+                {/* Center: Primary Navigation */}
+                <nav
+                    ref={navRef}
+                    className="flex items-center gap-24 justify-start relative"
+                >
                     {/* {(session?.user as any)?.role === "COMPANY" && (
                         <Link
                             ref={(el) => {
@@ -205,23 +168,20 @@ export default function Header() {
                         </>
                     )}
                     </nav>
-                )}
 
-                {/* Sliding indicator (only for non-demo mode) */}
-                {!demoStage && (
-                    <div
-                        className="absolute bottom-0 left-0 h-[1px] bg-blue-700 transition-all duration-300 ease-in-out"
-                        style={{
-                            width: indicatorStyle.width,
-                            left: indicatorStyle.left,
-                        }}
-                    />
-                )}
+                {/* Sliding indicator */}
+                <div
+                    className="absolute bottom-0 left-0 h-[1px] bg-blue-700 transition-all duration-300 ease-in-out"
+                    style={{
+                        width: indicatorStyle.width,
+                        left: indicatorStyle.left,
+                    }}
+                />
 
                 {/* User Avatar and Menu / Demo Restart Button */}
                 <div className="flex items-center justify-end gap-4">
                     {/* Create New Job Button (only for companies) */}
-                    {role === "COMPANY" && !isDemoMode && (
+                    {role === "COMPANY" && (
                         <button
                             type="button"
                             className="px-6 py-2.5 rounded-xl bg-sfinx-purple text-white hover:bg-opacity-90 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md"
@@ -249,19 +209,6 @@ export default function Header() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                                 </svg>
                             )}
-                        </button>
-                    )}
-
-                    {isDemoMode && (
-                        <button
-                            onClick={() => {
-                                // Full page refresh to interview (cleanest reset)
-                                window.location.href = '/interview';
-                            }}
-                            disabled={isPageLoading}
-                            className={`px-4 py-2 text-sm font-medium text-sfinx-purple border border-sfinx-purple rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${!isPageLoading ? 'hover:bg-sfinx-purple hover:text-white cursor-pointer' : ''}`}
-                        >
-                            Restart Demo
                         </button>
                     )}
                     

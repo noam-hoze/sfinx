@@ -18,13 +18,8 @@ export default function AuthGuard({
 }: AuthGuardProps) {
     const { data: session, status } = useSession();
     const router = useRouter();
-    const searchParams = useSearchParams();
-
-    const isDemoMode = searchParams.get("demo") === "true";
 
     useEffect(() => {
-        if (isDemoMode) return;
-
         if (status === "loading") return; // Still loading
 
         if (!session) {
@@ -45,11 +40,7 @@ export default function AuthGuard({
             router.push("/login");
             return;
         }
-    }, [session, status, requiredRole, router, isDemoMode]);
-
-    if (isDemoMode) {
-        return <>{children}</>;
-    }
+    }, [session, status, requiredRole, router]);
 
     // Show loading state while checking authentication
     if (status === "loading") {
