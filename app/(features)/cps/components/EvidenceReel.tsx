@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useRef, useEffect, useMemo, useState } from "react";
-import { MediaPlayer, MediaProvider, Track } from "@vidstack/react";
+import { useDispatch } from "react-redux";
+import { setActiveCaption } from "shared/state/slices/cpsSlice";
+import { MediaPlayer, MediaProvider } from "@vidstack/react";
 import {
     DefaultVideoLayout,
     defaultLayoutIcons,
@@ -12,7 +14,7 @@ type Props = {
     jumpToTime?: number;
     jumpKey?: number;
     duration?: number;
-    chapters?: any[];
+    caption?: string | null;
     paused?: boolean;
 };
 
@@ -21,10 +23,12 @@ export default function EvidenceReel({
     jumpToTime,
     jumpKey,
     duration,
-    chapters = [],
+    caption = null,
     paused = false,
 }: Props) {
     const playerRef = useRef<any>(null);
+    const dispatch = useDispatch();
+    const [isFadingOut, setIsFadingOut] = useState(false);
 
     useEffect(() => {
         if (playerRef.current && typeof jumpToTime === "number") {
@@ -61,86 +65,37 @@ export default function EvidenceReel({
         }
     }, [paused]);
 
-    const formatVttTime = (seconds: number) => {
-        const date = new Date(0);
-        date.setSeconds(seconds);
-        return date.toISOString().substr(11, 12);
+    // Auto-hide caption after 8 seconds with fade out
+    useEffect(() => {
+        if (!caption) {
+            setIsFadingOut(false);
+            return;
+        }
+        
+        // Start fade out at 7.5 seconds
+        const fadeTimer = setTimeout(() => {
+            setIsFadingOut(true);
+        }, 7500);
+        
+        // Remove caption at 8 seconds
+        const hideTimer = setTimeout(() => {
+            dispatch(setActiveCaption(null));
+        }, 8000);
+
+        return () => {
+            clearTimeout(fadeTimer);
+            clearTimeout(hideTimer);
+        };
+    }, [caption, dispatch]);
+    
+    const handleCloseCaption = () => {
+        setIsFadingOut(true);
+        setTimeout(() => {
+            dispatch(setActiveCaption(null));
+        }, 300);
     };
 
-    const subtitleTrackUrl = useMemo(() => {
-        let vtt = "WEBVTT\n\n";
-        
-        // Group captions by time range, merging text for duplicates
-        const captionsByTimeRange = new Map<string, string[]>();
-        
-        chapters.forEach((chapter) => {
-            if (chapter.captions) {
-                chapter.captions.forEach((caption: any) => {
-                    const timeRange = `${caption.startTime}-${caption.endTime}`;
-                    if (!captionsByTimeRange.has(timeRange)) {
-                        captionsByTimeRange.set(timeRange, []);
-                    }
-                    captionsByTimeRange.get(timeRange)!.push(caption.text);
-                });
-            }
-        });
-        
-        // Generate VTT cues with merged text for duplicate time ranges
-        Array.from(captionsByTimeRange.entries()).forEach(([timeRange, texts]) => {
-            const [start, end] = timeRange.split('-').map(Number);
-            vtt += `${formatVttTime(start)} --> ${formatVttTime(end)}\n`;
-            
-            // Format merged text: add period to first sentence if needed, then newline, then next sentence
-            const formattedText = texts.map((text, i) => {
-                if (i === texts.length - 1) return text;
-                // Add period if the text doesn't end with punctuation
-                return text.match(/[.!?]$/) ? text : text + '.';
-            }).join('\n');
-            
-            vtt += formattedText + '\n\n';
-        });
-        
-        const blob = new Blob([vtt], { type: "text/vtt" });
-        return URL.createObjectURL(blob);
-    }, [chapters]);
 
-    // Build a Blob URL for WebVTT chapters
-    const chaptersUrl = useMemo(() => {
-        let vtt = "WEBVTT\n\n";
-        
-        // Group chapters by startTime only (Vidstack uses startTime as key)
-        const chaptersByStartTime = new Map<number, { titles: string[], endTime: number | null }>();
-        
-        chapters.forEach((chapter) => {
-            const start = chapter.startTime;
-            if (!chaptersByStartTime.has(start)) {
-                chaptersByStartTime.set(start, { titles: [], endTime: chapter.endTime });
-            }
-            chaptersByStartTime.get(start)!.titles.push(chapter.title);
-            // Use the latest endTime if multiple chapters share the same startTime
-            if (chapter.endTime) {
-                chaptersByStartTime.get(start)!.endTime = chapter.endTime;
-            }
-        });
-        
-        // Generate VTT chapters with merged titles for duplicate startTimes
-        Array.from(chaptersByStartTime.entries()).forEach(([start, data]) => {
-            const end = data.endTime || (start + 10); // Default 10s if no endTime
-            vtt += `${formatVttTime(start)} --> ${formatVttTime(end)}\n`;
-            vtt += data.titles.join(' + ') + '\n\n';
-        });
-        
-        const blob = new Blob([vtt], { type: "text/vtt" });
-        return URL.createObjectURL(blob);
-    }, [chapters]);
-
-    // Cleanup blob URL on unmount
-    useEffect(
-        () => () => {
-            if (chaptersUrl) URL.revokeObjectURL(chaptersUrl);
-        },
-        [chaptersUrl]
-    );
 
     if (!videoUrl)
         return <div className="aspect-video bg-gray-50 rounded-xl" />;
@@ -156,25 +111,46 @@ export default function EvidenceReel({
                     preload="metadata"
                     crossOrigin="anonymous"
                     ref={playerRef}
-                    data-captions
                 >
                     <MediaProvider />
-
-                    {/* Inline chapters track (no public file needed) */}
-                    <Track kind="chapters" src={chaptersUrl} default />
-
-                    {/* Demo subtitles track */}
-                    <Track
-                        kind="subtitles"
-                        src={subtitleTrackUrl}
-                        label="English"
-                        language="en"
-                        default
-                    />
-
-                    {/* Vidstack UI */}
                     <DefaultVideoLayout icons={defaultLayoutIcons} />
                 </MediaPlayer>
+
+                {caption && (
+                    <div 
+                        key={caption}
+                        className={`absolute bottom-16 left-1/2 -translate-x-1/2 w-[90%] px-6 py-3 pr-12 rounded-xl bg-black/50 backdrop-blur-md border border-white/5 shadow-2xl transition-opacity duration-300 ${isFadingOut ? 'opacity-0' : 'opacity-100 animate-fade-in-scale'}`}
+                    >
+                        <button
+                            onClick={handleCloseCaption}
+                            className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors duration-200"
+                            aria-label="Close caption"
+                        >
+                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                        <p className="text-white text-sm sm:text-base font-medium text-center leading-relaxed tracking-wide">
+                            {caption}
+                        </p>
+                    </div>
+                )}
+                
+                <style jsx>{`
+                    @keyframes fade-in-scale {
+                        from {
+                            opacity: 0;
+                            transform: translate(-50%, 0.5rem) scale(0.95);
+                        }
+                        to {
+                            opacity: 1;
+                            transform: translate(-50%, 0) scale(1);
+                        }
+                    }
+                    .animate-fade-in-scale {
+                        animation: fade-in-scale 0.2s ease-out;
+                    }
+                `}</style>
 
                 {duration && (
                     <div className="absolute bottom-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-sm font-mono z-10 pointer-events-none">

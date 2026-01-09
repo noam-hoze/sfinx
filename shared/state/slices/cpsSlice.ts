@@ -2,12 +2,14 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 interface CpsState {
     activeEvidenceTimestamp: number | null;
-    activeEvidenceKey: string | null; // Unique key: `${timestamp}-${evaluation}`
+    activeEvidenceKey: string | null; // Unique key: `${label}-${timestamp}-${index}`
+    activeCaption: string | null;
 }
 
 const initialState: CpsState = {
     activeEvidenceTimestamp: null,
     activeEvidenceKey: null,
+    activeCaption: null,
 };
 
 const cpsSlice = createSlice({
@@ -19,16 +21,12 @@ const cpsSlice = createSlice({
         },
         setActiveEvidenceKey: (state, action: PayloadAction<string | null>) => {
             state.activeEvidenceKey = action.payload;
-            // Also set timestamp for backward compatibility
-            if (action.payload) {
-                const timestamp = parseInt(action.payload.split('-')[0]);
-                state.activeEvidenceTimestamp = timestamp;
-            } else {
-                state.activeEvidenceTimestamp = null;
-            }
+        },
+        setActiveCaption: (state, action: PayloadAction<string | null>) => {
+            state.activeCaption = action.payload;
         },
     },
 });
 
-export const { setActiveEvidenceTimestamp, setActiveEvidenceKey } = cpsSlice.actions;
+export const { setActiveEvidenceTimestamp, setActiveEvidenceKey, setActiveCaption } = cpsSlice.actions;
 export default cpsSlice.reducer;

@@ -1,11 +1,12 @@
 import React from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "shared/state/store";
-import { setActiveEvidenceKey } from "shared/state/slices/cpsSlice";
+import { setActiveEvidenceKey, setActiveCaption } from "shared/state/slices/cpsSlice";
 
 interface EvidenceLink {
     timestamp: number;
     evaluation?: string;
+    caption?: string;
 }
 
 interface MetricRowProps {
@@ -157,6 +158,7 @@ const MetricRow: React.FC<MetricRowProps> = ({
                                 key={evidenceKey}
                                 onClick={() => {
                                     dispatch(setActiveEvidenceKey(evidenceKey));
+                                    dispatch(setActiveCaption(link.caption || ''));
                                     onVideoJump(link.timestamp);
                                 }}
                                 className={`relative w-8 h-8 flex items-center justify-center rounded-full transition-all duration-200 !cursor-pointer shadow-sm ${
