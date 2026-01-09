@@ -13,6 +13,28 @@ interface CodeDiffContextProps {
 }
 
 export default function CodeDiffContext({ diff, currentCode }: CodeDiffContextProps) {
+    const formatDiff = (diffText: string) => {
+        if (!diffText) return <span className="text-slate-500">No diff available</span>;
+        
+        const lines = diffText.split('\n');
+        return lines.map((line, idx) => {
+            if (line.startsWith('- ')) {
+                return (
+                    <div key={idx} className="bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400">
+                        {line}
+                    </div>
+                );
+            } else if (line.startsWith('+ ')) {
+                return (
+                    <div key={idx} className="bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400">
+                        {line}
+                    </div>
+                );
+            }
+            return <div key={idx}>{line}</div>;
+        });
+    };
+
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div>
@@ -20,7 +42,7 @@ export default function CodeDiffContext({ diff, currentCode }: CodeDiffContextPr
                     Code Diff Sent
                 </div>
                 <pre className="text-xs bg-slate-100 dark:bg-slate-800 p-3 rounded overflow-x-auto max-h-40">
-{diff || 'No diff available'}
+{formatDiff(diff)}
                 </pre>
             </div>
             <div>

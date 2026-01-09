@@ -149,6 +149,8 @@ model InterviewContent {
   codingAnswer                  String?
   /// Expected visual output or behavior for iteration evaluation.
   expectedOutput                String?
+  /// Programming language for Monaco editor (e.g., python, javascript, typescript, java).
+  codingLanguage                String
   /// Timebox for answering the background question (seconds).
   backgroundQuestionTimeSeconds Int      @default(900)
   /// Timebox for completing the coding challenge (seconds).

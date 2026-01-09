@@ -119,6 +119,7 @@ Kurtis Weissnat - Telly.Hoeger@billy.biz
 Nicholas Runolfsdottir V - Sherwood@rosamond.me
 Glenna Reichert - Chaim_McDermott@dana.io
 Clementina DuBuque - Rey.Padberg@karina.biz`,
+    codingLanguage: "javascript",
     backgroundQuestionTimeSeconds: 15 * 60,
     codingQuestionTimeSeconds: 7 * 60,
 };
@@ -188,6 +189,7 @@ class QuantumCircuitSimulator:
         return np.random.choice(len(self.state), p=probs)
 `,
     expectedOutput: `Quantum simulator with state vector manipulation and measurement`,
+    codingLanguage: "python",
     backgroundQuestionTimeSeconds: 15 * 60,
     codingQuestionTimeSeconds: 10 * 60,
 };
@@ -334,6 +336,7 @@ async function resetDatabase() {
                 codingTemplate: SHARED_FRONTEND_INTERVIEW.codingTemplate,
                 codingAnswer: SHARED_FRONTEND_INTERVIEW.codingAnswer,
                 expectedOutput: SHARED_FRONTEND_INTERVIEW.expectedOutput,
+                codingLanguage: SHARED_FRONTEND_INTERVIEW.codingLanguage,
                 backgroundQuestionTimeSeconds: SHARED_FRONTEND_INTERVIEW.backgroundQuestionTimeSeconds,
                 codingQuestionTimeSeconds: SHARED_FRONTEND_INTERVIEW.codingQuestionTimeSeconds,
             },
@@ -344,6 +347,7 @@ async function resetDatabase() {
                 codingTemplate: SHARED_FRONTEND_INTERVIEW.codingTemplate,
                 codingAnswer: SHARED_FRONTEND_INTERVIEW.codingAnswer,
                 expectedOutput: SHARED_FRONTEND_INTERVIEW.expectedOutput,
+                codingLanguage: SHARED_FRONTEND_INTERVIEW.codingLanguage,
                 backgroundQuestionTimeSeconds: SHARED_FRONTEND_INTERVIEW.backgroundQuestionTimeSeconds,
                 codingQuestionTimeSeconds: SHARED_FRONTEND_INTERVIEW.codingQuestionTimeSeconds,
             },
@@ -411,6 +415,7 @@ async function resetDatabase() {
                 codingTemplate: QM_PYTHON_INTERVIEW.codingTemplate,
                 codingAnswer: QM_PYTHON_INTERVIEW.codingAnswer,
                 expectedOutput: QM_PYTHON_INTERVIEW.expectedOutput,
+                codingLanguage: QM_PYTHON_INTERVIEW.codingLanguage,
                 backgroundQuestionTimeSeconds: QM_PYTHON_INTERVIEW.backgroundQuestionTimeSeconds,
                 codingQuestionTimeSeconds: QM_PYTHON_INTERVIEW.codingQuestionTimeSeconds,
             },
@@ -421,6 +426,7 @@ async function resetDatabase() {
                 codingTemplate: QM_PYTHON_INTERVIEW.codingTemplate,
                 codingAnswer: QM_PYTHON_INTERVIEW.codingAnswer,
                 expectedOutput: QM_PYTHON_INTERVIEW.expectedOutput,
+                codingLanguage: QM_PYTHON_INTERVIEW.codingLanguage,
                 backgroundQuestionTimeSeconds: QM_PYTHON_INTERVIEW.backgroundQuestionTimeSeconds,
                 codingQuestionTimeSeconds: QM_PYTHON_INTERVIEW.codingQuestionTimeSeconds,
             },
@@ -440,17 +446,12 @@ async function resetDatabase() {
                     {
                         name: "Code Quality and Explainability",
                         description: "Clear decision-making, maintainable code, documentation",
-                        weight: 30,
-                    },
-                    {
-                        name: "Responsible AI Usage",
-                        description: "Transparent tool usage, understanding limitations, human oversight",
-                        weight: 20,
+                        weight: 40,
                     },
                     {
                         name: "Software Development Experience (7+ years)",
                         description: "Professional development experience, architectural knowledge",
-                        weight: 10,
+                        weight: 20,
                     },
                 ],
                 experienceCategories: [

@@ -44,6 +44,8 @@ export function mapJobResponse(job: JobWithCompany, company?: JobWithCompany["co
                   codingPrompt: interview.codingPrompt,
                   codingTemplate: interview.codingTemplate,
                   codingAnswer: interview.codingAnswer,
+                  expectedOutput: interview.expectedOutput,
+                  codingLanguage: interview.codingLanguage,
                   backgroundQuestionTimeSeconds:
                       interview.backgroundQuestionTimeSeconds,
                   codingQuestionTimeSeconds:
