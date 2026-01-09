@@ -149,12 +149,12 @@ const MetricRow: React.FC<MetricRowProps> = ({
             {evidenceLinks && evidenceLinks.length > 0 && onVideoJump && (
                 <div className="mt-3 flex gap-2">
                     {normalizedLinks.map((link, index) => {
-                        // Create unique key for this evidence link
-                        const evidenceKey = `${link.timestamp}-${link.evaluation || 'none'}`;
+                        // Create unique key for this evidence link (include label to prevent duplicates across categories)
+                        const evidenceKey = `${label}-${link.timestamp}-${index}`;
                         const isActive = activeEvidenceKey === evidenceKey;
                         return (
                             <button
-                                key={index}
+                                key={evidenceKey}
                                 onClick={() => {
                                     dispatch(setActiveEvidenceKey(evidenceKey));
                                     onVideoJump(link.timestamp);

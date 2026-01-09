@@ -365,6 +365,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         job: session.application.job ? {
                             id: session.application.job.id,
                             title: session.application.job.title,
+                            codingCategories: session.application.job.codingCategories,
+                            experienceCategories: session.application.job.experienceCategories,
                         } : null,
                     } : null,
                     gaps: {
