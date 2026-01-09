@@ -111,12 +111,12 @@ const ExperienceMetrics: React.FC<ExperienceMetricsProps> = ({
                     </div>
                     <div className="flex gap-2 flex-wrap">
                         {consolidatedEvidenceLinks.map((link, index) => {
-                            const evidenceKey = `${link.timestamp}-${link.evaluation || 'none'}`;
+                            const evidenceKey = `exp-${link.timestamp}-${index}`;
                             const isActive = activeEvidenceKey === evidenceKey;
                             
                             return (
                                 <button
-                                    key={index}
+                                    key={evidenceKey}
                                     onClick={() => {
                                         dispatch(setActiveEvidenceKey(evidenceKey));
                                         onVideoJump(link.timestamp);

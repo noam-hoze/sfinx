@@ -140,6 +140,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                     text: summary.reasoningText,
                     oneLiner: summary.reasoningOneLiner,
                 },
+                experienceCategories: summary.experienceCategories,
                 conversationJson: summary.conversationJson,
                 evidenceJson: summary.evidenceJson,
                 generatedAt: summary.generatedAt,
@@ -402,12 +403,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
             return acc;
         }, {} as Record<string, typeof contributions>);
 
-        // Calculate simple average for each category
+        // Target contributions for full confidence
+        const TARGET_CONTRIBUTIONS = 5;
+        
+        // Calculate average with confidence multiplier based on sample size
         const experienceCategories: Record<string, any> = {};
         for (const [categoryName, contribs] of Object.entries(byCategory)) {
-            const avgScore = Math.round(
-                contribs.reduce((sum, c) => sum + c.contributionStrength, 0) / contribs.length
-            );
+            const rawAverage = 
+                contribs.reduce((sum, c) => sum + c.contributionStrength, 0) / contribs.length;
+            
+            // Apply confidence multiplier: more contributions = more confident in the score
+            const confidence = Math.min(1.0, contribs.length / TARGET_CONTRIBUTIONS);
+            const adjustedScore = Math.round(rawAverage * confidence);
+            
+            log.info(`[background-summary/POST] ${categoryName}: ${contribs.length} contributions, raw avg=${Math.round(rawAverage)}, confidence=${confidence.toFixed(2)}, adjusted=${adjustedScore}`);
             
             const categoryDef = experienceCategoryDefinitions?.find(c => c.name === categoryName);
             
@@ -422,7 +431,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
             });
 
             experienceCategories[categoryName] = {
-                score: avgScore,
+                score: adjustedScore,
+                rawAverage: Math.round(rawAverage),
+                contributionCount: contribs.length,
+                confidence: confidence,
                 text: contribs.map(c => c.explanation).join(" "),
                 description: categoryDef?.description || "",
                 evidenceLinks,

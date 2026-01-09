@@ -108,22 +108,26 @@ export default function EvidenceReel({
     const chaptersUrl = useMemo(() => {
         let vtt = "WEBVTT\n\n";
         
-        // Group chapters by time range, merging titles for duplicates
-        const chaptersByTimeRange = new Map<string, string[]>();
+        // Group chapters by startTime only (Vidstack uses startTime as key)
+        const chaptersByStartTime = new Map<number, { titles: string[], endTime: number | null }>();
         
         chapters.forEach((chapter) => {
-            const timeRange = `${chapter.startTime}-${chapter.endTime}`;
-            if (!chaptersByTimeRange.has(timeRange)) {
-                chaptersByTimeRange.set(timeRange, []);
+            const start = chapter.startTime;
+            if (!chaptersByStartTime.has(start)) {
+                chaptersByStartTime.set(start, { titles: [], endTime: chapter.endTime });
             }
-            chaptersByTimeRange.get(timeRange)!.push(chapter.title);
+            chaptersByStartTime.get(start)!.titles.push(chapter.title);
+            // Use the latest endTime if multiple chapters share the same startTime
+            if (chapter.endTime) {
+                chaptersByStartTime.get(start)!.endTime = chapter.endTime;
+            }
         });
         
-        // Generate VTT chapters with merged titles for duplicate time ranges
-        Array.from(chaptersByTimeRange.entries()).forEach(([timeRange, titles]) => {
-            const [start, end] = timeRange.split('-').map(Number);
+        // Generate VTT chapters with merged titles for duplicate startTimes
+        Array.from(chaptersByStartTime.entries()).forEach(([start, data]) => {
+            const end = data.endTime || (start + 10); // Default 10s if no endTime
             vtt += `${formatVttTime(start)} --> ${formatVttTime(end)}\n`;
-            vtt += titles.join(' + ') + '\n\n';
+            vtt += data.titles.join(' + ') + '\n\n';
         });
         
         const blob = new Blob([vtt], { type: "text/vtt" });

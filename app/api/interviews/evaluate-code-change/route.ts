@@ -67,23 +67,36 @@ ${currentCode || ''}
 Categories to evaluate:
 ${categoryList}
 
+SCORING GUIDELINES (0-100):
+- **0**: Gibberish, syntax errors, completely off-topic, or adds NO meaningful code
+  Examples: random characters, incomplete syntax, trivial whitespace changes
+  
+- **1-30**: Weak code. Compiles but minimal value or very basic changes
+  Examples: single console.log, renaming a variable, copy-paste without understanding
+  
+- **31-60**: Demonstrates basic competence. Code works but limited sophistication
+  
+- **61-80**: Clear demonstration of skill with meaningful implementation
+  
+- **81-100**: Exceptional code showing deep understanding, best practices, or complex solutions
+
 EVALUATION:
 - ONLY credit NEW code in the + lines of the diff
 - Use "CODE BEFORE" and "CODE AFTER" to understand context
-- REJECT gibberish, incomplete syntax, or trivial changes
 
 For EVERY category, return:
 {
   "evaluations": [
     {
       "category": "Category Name",
-      "reasoning": "Explain if the + lines add meaningful NEW code",
+      "reasoning": "Why this score - be specific about what's strong or missing",
       "strength": 0-100,
-      "accepted": true/false,
-      "caption": "Brief description (only if accepted)"
+      "caption": "Brief description if strength > 0, otherwise null"
     }
   ]
-}`;
+}
+
+Be strict with 0 scores - use them for noise. But use the full range 1-100 for legitimate code.`;
 
         log.info("[evaluate-code-change] Calling OpenAI for evaluation");
 
@@ -110,9 +123,9 @@ For EVERY category, return:
 
         const evaluationResult = JSON.parse(responseContent);
         const allEvaluations = evaluationResult.evaluations || [];
-        const acceptedContributions = allEvaluations.filter((e: any) => e.accepted);
+        const contributions = allEvaluations.filter((e: any) => e.strength > 0);
 
-        log.info(`[evaluate-code-change] Found ${acceptedContributions.length} accepted contributions out of ${allEvaluations.length} evaluations`);
+        log.info(`[evaluate-code-change] Found ${contributions.length} contributions with strength > 0 out of ${allEvaluations.length} evaluations`);
 
         // Calculate video offset
         const changeTimestamp = new Date(timestamp);
@@ -123,8 +136,8 @@ For EVERY category, return:
             videoOffset = Math.floor((changeTimestamp.getTime() - recordingStart.getTime()) / 1000);
         }
 
-        // Create evidence clips and contribution records for each ACCEPTED contribution
-        for (const contribution of acceptedContributions) {
+        // Create evidence clips and contribution records for each contribution with strength > 0
+        for (const contribution of contributions) {
             log.info(`[evaluate-code-change] Creating evidence for ${contribution.category} (strength: ${contribution.strength})`);
 
             // 1. Create CategoryContribution record
@@ -171,9 +184,9 @@ For EVERY category, return:
 
         return NextResponse.json({
             message: "Code change evaluated successfully",
-            contributionsCount: acceptedContributions.length,
+            contributionsCount: contributions.length,
             allEvaluations: allEvaluations,
-            contributions: acceptedContributions.map((c: any) => ({
+            contributions: contributions.map((c: any) => ({
                 category: c.category,
                 strength: c.strength,
                 explanation: c.reasoning,

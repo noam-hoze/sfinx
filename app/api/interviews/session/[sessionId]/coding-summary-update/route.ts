@@ -62,6 +62,9 @@ export async function PATCH(
             return Math.floor((timestamp.getTime() - session.recordingStartedAt.getTime()) / 1000);
         };
 
+        // Target contributions for full confidence
+        const TARGET_CONTRIBUTIONS = 5;
+
         // Merge real-time contributions with final evaluation categories
         const enrichedCategories: any = { ...jobSpecificCategories };
 
@@ -69,14 +72,23 @@ export async function PATCH(
             const contributions = categoriesByName.get(categoryName) || [];
             
             if (contributions.length > 0) {
-                // Calculate score from contributions (average strength)
+                // Calculate raw average from contributions
                 const scores = contributions.map(c => c.contributionStrength);
-                const avgScore = Math.round(scores.reduce((sum: number, s: number) => sum + s, 0) / scores.length);
+                const rawAverage = scores.reduce((sum: number, s: number) => sum + s, 0) / scores.length;
                 
-                // Use contribution-based score if it exists, otherwise use final evaluation score
+                // Apply confidence multiplier based on sample size
+                const confidence = Math.min(1.0, contributions.length / TARGET_CONTRIBUTIONS);
+                const adjustedScore = Math.round(rawAverage * confidence);
+                
+                log.info(`[Coding Summary Update] ${categoryName}: ${contributions.length} contributions, raw avg=${Math.round(rawAverage)}, confidence=${confidence.toFixed(2)}, adjusted=${adjustedScore}`);
+                
+                // Use confidence-adjusted score from contributions
                 enrichedCategories[categoryName] = {
                     ...categoryData,
-                    score: avgScore, // Override with contribution-based score
+                    score: adjustedScore,
+                    rawAverage: Math.round(rawAverage),
+                    contributionCount: contributions.length,
+                    confidence: confidence,
                     evidenceLinks: contributions.map(c => calculateVideoOffset(c.timestamp)),
                     contributions: contributions.map(c => ({
                         timestamp: calculateVideoOffset(c.timestamp),
@@ -84,8 +96,6 @@ export async function PATCH(
                         explanation: c.explanation
                     }))
                 };
-
-                log.info(`[Coding Summary Update] ${categoryName}: ${contributions.length} contributions, avg score: ${avgScore}`);
             } else {
                 // No real-time contributions - score should be 0
                 enrichedCategories[categoryName] = {

@@ -77,23 +77,33 @@ ANSWER: ${answer}
 Categories to evaluate:
 ${categoryList}
 
-EVALUATION:
-- Assess how well this answer demonstrates each category
-- Consider depth, examples, clarity, and relevance
-- REJECT vague, generic, or off-topic responses
+SCORING GUIDELINES (0-100):
+- **0**: Answer is off-topic, evasive, generic platitudes, or adds ZERO relevant information
+  Examples: "I have experience", "I worked on projects", "I'm familiar with that"
+  
+- **1-30**: Weak engagement. Vague or superficial, but shows SOME relevant attempt
+  Examples: "I used React hooks" (no details), "I optimized performance once" (no context)
+  
+- **31-60**: Demonstrates basic competence with limited depth or examples
+  
+- **61-80**: Clear demonstration with specific examples and depth
+  
+- **81-100**: Exceptional depth, shows mastery with concrete examples and tradeoffs
 
-Return your evaluation in JSON format with the following structure for EVERY category:
+EVALUATION:
+For EVERY category, return your evaluation in JSON format:
 {
   "evaluations": [
     {
       "category": "Category Name",
-      "reasoning": "How this answer demonstrates or fails to demonstrate this trait",
+      "reasoning": "Why this score (be specific about what's missing or strong)",
       "strength": 0-100,
-      "accepted": true/false,
-      "caption": "Brief insight (only if accepted)"
+      "caption": "Brief insight if strength > 0, otherwise null"
     }
   ]
-}`;
+}
+
+Be strict with 0 scores - use them for noise. But use the full range 1-100 for legitimate attempts.`;
 
         log.info("[evaluate-answer] Calling OpenAI for evaluation");
 
@@ -120,8 +130,8 @@ Return your evaluation in JSON format with the following structure for EVERY cat
         const evaluation = JSON.parse(responseText);
         log.info("[evaluate-answer] OpenAI evaluation:", evaluation);
 
-        // Process evaluations
-        const acceptedEvaluations: Array<{
+        // Process evaluations - only create records for non-zero scores
+        const contributions: Array<{
             category: string;
             strength: number;
             explanation: string;
@@ -129,7 +139,7 @@ Return your evaluation in JSON format with the following structure for EVERY cat
         }> = [];
 
         for (const item of evaluation.evaluations) {
-            if (item.accepted && item.strength > 0) {
+            if (item.strength > 0) {
                 // Create CategoryContribution
                 const contribution = await prisma.categoryContribution.create({
                     data: {
@@ -170,14 +180,15 @@ Return your evaluation in JSON format with the following structure for EVERY cat
                 log.info(`[evaluate-answer] Created evidence clip for ${item.category}:`, evidenceClip.id);
 
                 // Create VideoChapter
-                await createVideoChapter(
-                    session.telemetryData.id,
-                    `${item.category}: ${item.caption}`,
-                    videoOffset,
-                    item.reasoning
-                );
+                await createVideoChapter({
+                    telemetryDataId: session.telemetryData.id,
+                    title: item.category,
+                    startTime: videoOffset,
+                    description: item.reasoning,
+                    caption: item.caption,
+                });
 
-                acceptedEvaluations.push({
+                contributions.push({
                     category: item.category,
                     strength: item.strength,
                     explanation: item.reasoning,
@@ -186,12 +197,12 @@ Return your evaluation in JSON format with the following structure for EVERY cat
             }
         }
 
-        log.info(`[evaluate-answer] ✅ Evaluation complete. ${acceptedEvaluations.length} contributions accepted.`);
+        log.info(`[evaluate-answer] ✅ Evaluation complete. ${contributions.length} contributions with strength > 0.`);
 
         return NextResponse.json({
             success: true,
-            contributionsCount: acceptedEvaluations.length,
-            contributions: acceptedEvaluations,
+            contributionsCount: contributions.length,
+            contributions: contributions,
             allEvaluations: evaluation.evaluations,
         });
     } catch (error) {

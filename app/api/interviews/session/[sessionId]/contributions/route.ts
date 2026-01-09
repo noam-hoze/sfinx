@@ -28,15 +28,25 @@ export async function GET(request: NextRequest, context: RouteContext) {
             byCategory[contrib.categoryName].push(contrib);
         });
 
-        // Calculate stats per category
-        const categoryStats = Object.entries(byCategory).map(([categoryName, contribs]) => ({
-            categoryName,
-            count: contribs.length,
-            avgStrength: Math.round(
-                contribs.reduce((sum, c) => sum + c.contributionStrength, 0) / contribs.length
-            ),
-            latestContribution: contribs[0],
-        }));
+        // Target contributions for full confidence
+        const TARGET_CONTRIBUTIONS = 5;
+        
+        // Calculate stats per category with confidence multiplier
+        const categoryStats = Object.entries(byCategory).map(([categoryName, contribs]) => {
+            const rawAverage = contribs.reduce((sum, c) => sum + c.contributionStrength, 0) / contribs.length;
+            const confidence = Math.min(1.0, contribs.length / TARGET_CONTRIBUTIONS);
+            const adjustedScore = Math.round(rawAverage * confidence);
+            
+            return {
+                categoryName,
+                count: contribs.length,
+                avgStrength: adjustedScore,  // Adjusted score shown as primary
+                rawAverage: Math.round(rawAverage),
+                confidence: confidence,
+                targetContributions: TARGET_CONTRIBUTIONS,
+                latestContribution: contribs[0],
+            };
+        });
 
         log.info(`[contributions/GET] Fetched ${contributions.length} contributions for session ${sessionId}`);
 
