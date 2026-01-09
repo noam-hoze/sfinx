@@ -166,7 +166,9 @@ Be strict with 0 scores - use them for noise. But use the full range 1-100 for l
                 // Create EvidenceClip
                 const evidenceClip = await prisma.evidenceClip.create({
                     data: {
-                        telemetryDataId: session.telemetryData.id,
+                        telemetryData: {
+                            connect: { id: session.telemetryData.id }
+                        },
                         title: `${item.category}`,
                         description: item.caption,
                         duration: 30, // Default duration

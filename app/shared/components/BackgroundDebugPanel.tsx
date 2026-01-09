@@ -64,7 +64,6 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
     const bg = state.background as any;
     const coding = state.coding as any;
     const startedAtMs = bg?.startedAtMs;
-    const consecutiveUselessAnswers = bg?.consecutiveUselessAnswers ?? 0;
     const reason = bg?.reason;
     const activePasteEval = coding?.activePasteEvaluation;
 
@@ -80,6 +79,12 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
     const remainingMs = startedAtMs ? Math.max(0, startedAtMs + limitMs - now) : limitMs;
     const countdown = formatCountdown(remainingMs);
     const reasonLabel = reason ? reason.replace("_", " ") : "—";
+
+    const handleForceTimeExpiry = () => {
+        interviewChatStore.dispatch({
+            type: "BG_FORCE_TIME_EXPIRY"
+        });
+    };
 
     const stageName = typeof stage === "string" ? stage : "";
 
@@ -270,7 +275,7 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
                             </span>
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-slate-600 dark:text-slate-300">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-slate-600 dark:text-slate-300">
                         <div className="flex flex-col gap-1">
                             <span className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500">
                                 Timer
@@ -280,12 +285,12 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
                             </span>
                         </div>
                         <div className="flex flex-col gap-1">
-                            <span className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500">
-                                Guard
-                            </span>
-                            <span>
-                                Useless <span className="font-mono">{consecutiveUselessAnswers}</span>
-                            </span>
+                            <button
+                                onClick={handleForceTimeExpiry}
+                                className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors dark:bg-red-700 dark:hover:bg-red-600"
+                            >
+                                Force Gate
+                            </button>
                         </div>
                         <div className="flex flex-col gap-1">
                             <span className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500">

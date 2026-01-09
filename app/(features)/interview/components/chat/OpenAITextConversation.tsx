@@ -605,35 +605,6 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
             },
           } as any);
           
-          // Note: Gate check now handled in useBackgroundAnswerHandler via CategoryContributions
-          // This code path is for automatic mode - gate will be checked there
-          const gateReady = false; // Always generate follow-up in automatic mode
-          
-          try {
-            /* eslint-disable no-console */ console.log("[background][automatic_mode_followup]", {
-              gateReady,
-              note: "Gate check delegated to useBackgroundAnswerHandler"
-            });
-          } catch {}
-          
-          if (gateReady) {
-            // Gate satisfied - skip follow-up entirely
-            clearPendingState();
-            try {
-              /* eslint-disable no-console */ console.log("[background][gate_satisfied_skip_followup]", {
-                machineStateBefore: store.getState().interviewMachine.state,
-              });
-            } catch {}
-            // Trigger machine to evaluate guard by dispatching aiFinal (simulating AI response)
-            dispatch(machineAiFinal({ text: "" }));
-            try {
-              /* eslint-disable no-console */ console.log("[background][dispatched_aiFinal_to_trigger_guard]", {
-                machineStateAfter: store.getState().interviewMachine.state,
-              });
-            } catch {}
-            return;
-          }
-          
           // Ask for follow-up
           const im = store.getState().interviewMachine;
           if (!im.companyName) {

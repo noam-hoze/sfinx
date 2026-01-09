@@ -98,9 +98,11 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     const reduxUserId = useSelector((state: RootState) => state.interviewMachine.userId);
     const reduxApplicationId = useSelector((state: RootState) => state.interviewMachine.applicationId);
     
-    // Construct companyId and jobId from Redux values
-    const companyId = reduxCompanySlug || "meta";
-    const jobId = reduxCompanySlug && reduxRoleSlug ? `${reduxCompanySlug}-${reduxRoleSlug}` : "meta-frontend-engineer";
+    if (!reduxCompanySlug || !reduxRoleSlug) {
+        throw new Error("Company and role not initialized in Redux");
+    }
+    const companyId = reduxCompanySlug;
+    const jobId = `${reduxCompanySlug}-${reduxRoleSlug}`;
     
     const [job, setJob] = useState<any | null>(null);
     const [codingDurationSeconds, setCodingDurationSeconds] = useState(

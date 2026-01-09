@@ -40,8 +40,7 @@ export type InterviewChatState = {
         transitionedAt?: number;
         // Guard state
         startedAtMs?: number;
-        consecutiveUselessAnswers?: number;
-        reason?: "timebox" | "useless_answers" | "gate";
+        reason?: "timebox";
         timeboxMs?: number;
     };
     // Coding stage fields
@@ -85,10 +84,9 @@ type Action =
     | { type: "SET_STAGE"; payload: InterviewStage }
     | { type: "BG_MARK_TRANSITION" }
     | { type: "BG_GUARD_START_TIMER" }
-    | { type: "BG_GUARD_SET_REASON"; payload: { reason: "timebox" | "useless_answers" | "gate" } }
+    | { type: "BG_GUARD_SET_REASON"; payload: { reason: "timebox" } }
     | { type: "BG_GUARD_SET_TIMEBOX"; payload: { timeboxMs?: number } }
-    | { type: "BG_INCREMENT_USELESS_ANSWERS" }
-    | { type: "BG_RESET_USELESS_ANSWERS" }
+    | { type: "BG_FORCE_TIME_EXPIRY" }
     | {
           type: "SET_PENDING_REPLY";
           payload: { pending: boolean; reason?: string; stage?: InterviewStage };
@@ -170,7 +168,6 @@ function reducer(
                     transitioned: false,
                     transitionedAt: undefined,
                     startedAtMs: undefined,
-                    consecutiveUselessAnswers: undefined,
                     reason: undefined,
                     timeboxMs: undefined,
                 },
@@ -197,7 +194,6 @@ function reducer(
                 background: {
                     ...state.background,
                     startedAtMs: state.background.startedAtMs ?? Date.now(),
-                    consecutiveUselessAnswers: state.background.consecutiveUselessAnswers || 0,
                 },
             };
         case "BG_GUARD_SET_REASON":
@@ -216,22 +212,16 @@ function reducer(
                 },
             };
         }
-        case "BG_INCREMENT_USELESS_ANSWERS":
+        case "BG_FORCE_TIME_EXPIRY": {
+            const limit = state.background.timeboxMs || 7000;
             return {
                 ...state,
                 background: {
                     ...state.background,
-                    consecutiveUselessAnswers: (state.background.consecutiveUselessAnswers || 0) + 1,
+                    startedAtMs: Date.now() - limit,
                 },
             };
-        case "BG_RESET_USELESS_ANSWERS":
-            return {
-                ...state,
-                background: {
-                    ...state.background,
-                    consecutiveUselessAnswers: 0,
-                },
-            };
+        }
         case "SET_PENDING_REPLY":
             if (action.payload.pending) {
                 return {

@@ -95,6 +95,25 @@ function InterviewPageContent() {
   const recordingControls = useScreenRecording(isDemoMode);
   const { startRecording, interviewSessionId, setInterviewSessionId, getActualRecordingStartTime } = recordingControls;
 
+  // Initialize company and job from URL params
+  useEffect(() => {
+    const urlCompanyId = searchParams.get("companyId");
+    const urlJobId = searchParams.get("jobId");
+    
+    if (!urlCompanyId || !urlJobId) {
+      throw new Error("Missing required URL parameters: companyId and jobId");
+    }
+    
+    // Parse role slug from jobId (format: companyId-role-slug)
+    const roleSlugFromUrl = urlJobId.replace(`${urlCompanyId}-`, "");
+    
+    dispatch(setCompanyContext({
+      companyName: "",
+      companySlug: urlCompanyId,
+      roleSlug: roleSlugFromUrl,
+    }));
+  }, [searchParams, dispatch]);
+
   // Build breadcrumb trail
   const jobTitle = roleSlug?.split("-").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") || "";
   const breadcrumbTrail = getBreadcrumbTrail("/interview", "CANDIDATE", {
@@ -337,16 +356,22 @@ function InterviewPageContent() {
     const executePreload = async () => {
       try {
         hasPreloadedRef.current = true;
-        // Use defaults from Redux store
-        const jobId = companySlug && roleSlug ? `${companySlug}-${roleSlug}` : "meta-frontend-engineer";
-        const companyId = companySlug || "meta";
-
+        
+        const urlCompanyId = searchParams.get("companyId");
+        const urlJobId = searchParams.get("jobId");
+        
+        if (!urlCompanyId || !urlJobId) {
+          throw new Error("Missing required URL parameters: companyId and jobId");
+        }
+        
+        const roleSlugFromUrl = urlJobId.replace(`${urlCompanyId}-`, "");
+        
         // Pass session userId for authenticated users, null for demo mode
         const sessionUserId = !isDemoMode ? (session?.user as any)?.id : null;
-        await preload(jobId, companyId, openaiClient, sessionUserId, setCodingTimeChallenge, setBackgroundTimeSeconds, setExperienceCategories);
+        await preload(urlJobId, urlCompanyId, openaiClient, sessionUserId, setCodingTimeChallenge, setBackgroundTimeSeconds, setExperienceCategories);
 
         // Generate announcement
-        const jobTitle = roleSlug?.split("-").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") || "Frontend Engineer";
+        const jobTitle = roleSlugFromUrl.split("-").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
         const { text, audioBlob } = await generateAnnouncement(jobTitle);
         setAnnouncementText(text);
         setAnnouncementAudioBlob(audioBlob);
@@ -361,7 +386,7 @@ function InterviewPageContent() {
     };
 
     executePreload();
-  }, [isPageLoading, openaiClient, skipToCoding, companySlug, roleSlug, dispatch, preload, generateAnnouncement, isDemoMode, session]);
+  }, [isPageLoading, openaiClient, skipToCoding, dispatch, preload, generateAnnouncement, isDemoMode, session, searchParams]);
 
   /**
    * Ensures an application exists for the coding phase and returns its ID.
@@ -374,8 +399,11 @@ function InterviewPageContent() {
     }
 
     try {
-      const jobId = companySlug && roleSlug ? `${companySlug}-${roleSlug}` : "meta-frontend-engineer";
-      const companyId = companySlug || "meta";
+      if (!companySlug || !roleSlug) {
+        throw new Error("Company and role not initialized from URL");
+      }
+      const jobId = `${companySlug}-${roleSlug}`;
+      const companyId = companySlug;
       const application = await createApplication({
         companyId,
         jobId,
@@ -517,7 +545,7 @@ function InterviewPageContent() {
   useEffect(() => {
     console.log("[interview] Auto-skip check:", { skipToCoding, userId, showCodingIDE, isStarting, isPageLoading, skipScreenShare });
     
-    if (!skipToCoding || !userId || showCodingIDE || isStarting || isPageLoading) return;
+    if (!skipToCoding || !userId || showCodingIDE || isStarting || isPageLoading || !companySlug || !roleSlug) return;
 
     const initializeCodingSession = async () => {
       try {
@@ -531,9 +559,12 @@ function InterviewPageContent() {
           console.log("[interview] Skipping screen recording (NEXT_PUBLIC_SKIP_SCREEN_SHARE=true)");
           const resolvedApplicationId = await resolveApplicationId();
           if (resolvedApplicationId) {
+            if (!companySlug) {
+              throw new Error("Company slug not initialized from URL");
+            }
             const session = await createInterviewSession({
               applicationId: resolvedApplicationId,
-              companyId: companySlug || "meta",
+              companyId: companySlug,
               userId: userId || undefined,
               isDemoMode,
             });
@@ -552,10 +583,13 @@ function InterviewPageContent() {
           }
         }
 
+        if (!companySlug || !roleSlug) {
+          throw new Error("Company and role not initialized from URL");
+        }
         dispatch(setCompanyContext({
-          companyName: companyName || (companySlug ? companySlug.charAt(0).toUpperCase() + companySlug.slice(1) : "Meta"),
-          companySlug: companySlug || "meta",
-          roleSlug: roleSlug || "frontend-engineer",
+          companyName: companyName || companySlug.charAt(0).toUpperCase() + companySlug.slice(1),
+          companySlug,
+          roleSlug,
         }));
         dispatch(forceCoding());
         interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" } as any);
@@ -698,13 +732,39 @@ function InterviewPageContent() {
     }
   };
 
+  // Auto-transition when timer expires
+  useEffect(() => {
+    if (machineState !== "background_asked_by_ai" && machineState !== "background_answered_by_user") return;
+    if (completed || submitting) return;
+
+    const checkTimer = () => {
+      const chatState = interviewChatStore.getState();
+      const { startedAtMs, timeboxMs } = chatState.background;
+      
+      if (!startedAtMs) return;
+      
+      const limit = timeboxMs || (backgroundTimeSeconds ? backgroundTimeSeconds * 1000 : 7000);
+      const elapsed = Date.now() - startedAtMs;
+      
+      if (elapsed >= limit) {
+        console.log("[interview] Timer expired - auto-completing background stage");
+        setCompleted(true);
+      }
+    };
+
+    const interval = setInterval(checkTimer, 1000);
+    return () => clearInterval(interval);
+  }, [machineState, completed, submitting, backgroundTimeSeconds]);
+
   // Start coding handler
   const handleStartCoding = () => {
-    // Dispatch company context (already in Redux from preload, but ensure it's set)
+    if (!companySlug || !roleSlug) {
+      throw new Error("Company and role not initialized from URL");
+    }
     dispatch(setCompanyContext({
-      companyName: companyName || (companySlug ? companySlug.charAt(0).toUpperCase() + companySlug.slice(1) : "Meta"),
-      companySlug: companySlug || "meta",
-      roleSlug: roleSlug || "frontend-engineer",
+      companyName: companyName || companySlug.charAt(0).toUpperCase() + companySlug.slice(1),
+      companySlug,
+      roleSlug,
     }));
     dispatch(forceCoding());
     interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" } as any);
@@ -744,7 +804,7 @@ function InterviewPageContent() {
               </div>
               <h2 className="text-2xl font-semibold text-gray-900">Candidate</h2>
             </div>
-            <p className="text-gray-600">Complete a screening interview for a Frontend Engineer role</p>
+            <p className="text-gray-600">Complete a screening interview for a {jobTitle} role</p>
           </div>
           <div className="bg-white rounded-2xl p-8 border-2 border-gray-200 shadow-sm">
             <div className="flex items-center gap-3 mb-4">

@@ -1,13 +1,11 @@
 /** Background session guard helpers and constants. */
 
 export const TIMEBOX_MS = 7 * 1000; // 4:00 default fallback; overridden per interview
-export const CONSECUTIVE_USELESS_LIMIT = 2;
 
-export type GuardReason = "timebox" | "useless_answers" | "gate";
+export type GuardReason = "timebox";
 
 export interface GuardState {
   startedAtMs?: number;
-  consecutiveUselessAnswers: number;
   timeboxMs?: number;
 }
 
@@ -34,13 +32,9 @@ export function formatCountdown(remainingMs: number): string {
   return `${m}:${s}`;
 }
 
-export function incConsecutiveUseless(consecutive: number, isZeroTriplet: boolean): number {
-  return isZeroTriplet ? consecutive + 1 : 0;
-}
-
 export function shouldTransition(
   gs: GuardState,
-  opts: { gateReady: boolean; clockMs?: number; timeboxMs?: number }
+  opts: { clockMs?: number; timeboxMs?: number }
 ): GuardReason | null {
   const tMs = elapsedMs(gs, opts.clockMs);
   const limit =
@@ -50,8 +44,6 @@ export function shouldTransition(
       ? opts.timeboxMs
       : TIMEBOX_MS;
   if (tMs >= limit) return "timebox";
-  if (gs.consecutiveUselessAnswers >= CONSECUTIVE_USELESS_LIMIT) return "useless_answers";
-  if (opts.gateReady) return "gate";
   return null;
 }
 

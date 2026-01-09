@@ -34,41 +34,15 @@ describe("backgroundSessionGuard", () => {
   it("Timebox: should transition when elapsed >= TIMEBOX_MS", () => {
     const t0 = 1_000_000;
     setNow(t0);
-    let gs: GuardState = { consecutiveUselessAnswers: 0 };
+    let gs: GuardState = {};
     gs = ensureTimerStarted(gs, t0);
     expect(elapsedMs(gs, t0)).toBe(0);
 
     setNow(t0 + TIMEBOX_MS - 1);
-    expect(shouldTransition(gs, { gateReady: false, clockMs: t0 + TIMEBOX_MS - 1 })).toBeNull();
+    expect(shouldTransition(gs, { clockMs: t0 + TIMEBOX_MS - 1 })).toBeNull();
 
     setNow(t0 + TIMEBOX_MS);
-    expect(shouldTransition(gs, { gateReady: false, clockMs: t0 + TIMEBOX_MS })).toBe("timebox");
-  });
-
-  it("Useless answers: triggers when consecutiveUselessAnswers >= 2 (gate false, not timebox)", () => {
-    const t0 = 2_000_000;
-    setNow(t0);
-    const gs: GuardState = { startedAtMs: t0, consecutiveUselessAnswers: 2 };
-    // before timebox expires
-    expect(shouldTransition(gs, { gateReady: false, clockMs: t0 + 1000 })).toBe("useless_answers");
-  });
-
-  it("Consecutive useless answers counter increments and resets", () => {
-    // Simulate two consecutive useless answers
-    interviewChatStore.dispatch({ type: "BG_INCREMENT_USELESS_ANSWERS" });
-    expect(interviewChatStore.getState().background.consecutiveUselessAnswers).toBe(1);
-
-    interviewChatStore.dispatch({ type: "BG_INCREMENT_USELESS_ANSWERS" });
-    expect(interviewChatStore.getState().background.consecutiveUselessAnswers).toBe(2);
-
-    // Reset on meaningful contribution
-    interviewChatStore.dispatch({ type: "BG_RESET_USELESS_ANSWERS" });
-    expect(interviewChatStore.getState().background.consecutiveUselessAnswers).toBe(0);
-  });
-
-  it("consecutiveUselessAnswers initializes to 0 on background start timer", () => {
-    interviewChatStore.dispatch({ type: "BG_GUARD_START_TIMER" });
-    expect(interviewChatStore.getState().background.consecutiveUselessAnswers).toBe(0);
+    expect(shouldTransition(gs, { clockMs: t0 + TIMEBOX_MS })).toBe("timebox");
   });
 });
 

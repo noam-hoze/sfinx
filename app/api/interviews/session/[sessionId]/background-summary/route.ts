@@ -595,7 +595,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
                 await prisma.evidenceClip.create({
                     data: {
-                        telemetryDataId: interviewSession.telemetryData.id,
+                        telemetryData: {
+                            connect: { id: interviewSession.telemetryData.id }
+                        },
                         category: 'EXPERIENCE_CATEGORY',
                         categoryName: categoryName,
                         title: buildClipTitle(categoryName, categoryEvidence, record),
