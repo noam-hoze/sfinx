@@ -12,16 +12,16 @@ graph TD
     FinalScore --> Experience[Experience Score]
     FinalScore --> Coding[Coding Score]
     
-    Experience --> Adapt[Adaptability]
-    Experience --> Creative[Creativity]
-    Experience --> Reason[Reasoning]
+    Experience --> ExpCat1[Experience Category 1]
+    Experience --> ExpCat2[Experience Category 2]
+    Experience --> ExpCatN[Experience Category N]
     
     Coding --> JobCat[Job-Specific Categories]
     Coding --> AIAssist[AI Assist Accountability]
     
-    JobCat --> Cat1[Category 1]
-    JobCat --> Cat2[Category 2]
-    JobCat --> CatN[Category N]
+    JobCat --> CodCat1[Coding Category 1]
+    JobCat --> CodCat2[Coding Category 2]
+    JobCat --> CodCatN[Coding Category N]
 ```
 
 ## Formula
@@ -40,19 +40,19 @@ finalScore = (
 
 ### Experience Score
 ```typescript
-experienceScore = (
-  (adaptability × adaptabilityWeight) +
-  (creativity × creativityWeight) +
-  (reasoning × reasoningWeight)
-) / (adaptabilityWeight + creativityWeight + reasoningWeight)
+experienceScore = sum(
+  experienceCategory[i].score × experienceCategory[i].weight
+) / sum(experienceCategory[i].weight)
 ```
 
-**Default weights**:
-- `adaptabilityWeight = 33.33%`
-- `creativityWeight = 33.33%`
-- `reasoningWeight = 33.34%`
+**Categories**: Defined per job in `job.experienceCategories` JSON field
 
-**Data source**: Background interview summary (AI-evaluated from conversation)
+**Example categories**:
+- Technical Depth & Problem-Solving (weight: 40)
+- System Design & Architecture (weight: 30)
+- Communication & Collaboration (weight: 30)
+
+**Data source**: Background interview summary (AI-evaluated from conversation against job-defined categories)
 
 ### Coding Score
 ```typescript
@@ -72,52 +72,43 @@ codingScore = (
 
 ## Score Components
 
-### Experience Dimensions
+### Experience Categories (Dynamic)
 
-#### 1. Adaptability (0-100)
-**Measures**: Flexibility, learning agility, handling change
+**Configured per job** in `job.experienceCategories` JSON field. Each job defines custom experience areas that align with role requirements.
 
-**Evaluated from**: Background conversation about past experiences
+**Structure**:
+```json
+[
+  {
+    "name": "Technical Depth & Problem-Solving",
+    "description": "Deep technical knowledge, complex problem decomposition, debugging",
+    "weight": 40
+  },
+  {
+    "name": "System Design & Architecture",
+    "description": "Architectural decisions, scalability, design patterns",
+    "weight": 30
+  },
+  {
+    "name": "Communication & Collaboration",
+    "description": "Technical communication, team collaboration, knowledge sharing",
+    "weight": 30
+  }
+]
+```
 
-**Example prompts**:
-- "Tell me about a time you had to learn a new technology quickly"
-- "Describe a project where requirements changed mid-development"
+**Evaluation Process**:
+1. Interviewer asks about concrete past projects
+2. AI evaluates each answer against defined categories in real-time
+3. Each meaningful response creates a `CategoryContribution` record (0-100 score)
+4. Final category score = weighted average of all contributions for that category
 
-**Scoring criteria**:
-- 90-100: Demonstrates exceptional adaptability across contexts
-- 75-89: Strong evidence of learning and pivoting
-- 60-74: Adequate flexibility, some resistance to change
-- Below 60: Limited adaptability or growth mindset
-
-#### 2. Creativity (0-100)
-**Measures**: Innovation, problem-solving originality, novel approaches
-
-**Evaluated from**: Background conversation about technical solutions
-
-**Example prompts**:
-- "Describe a technical challenge you solved in an unconventional way"
-- "Tell me about a feature you designed from scratch"
-
-**Scoring criteria**:
-- 90-100: Highly innovative solutions, thinks outside constraints
-- 75-89: Good creative problem-solving with practical outcomes
-- 60-74: Some creativity, mostly follows standard patterns
-- Below 60: Limited creative thinking
-
-#### 3. Reasoning (0-100)
-**Measures**: Analytical thinking, logical decision-making, technical depth
-
-**Evaluated from**: Background conversation about technical decisions
-
-**Example prompts**:
-- "Walk me through your architectural decisions on a complex project"
-- "How did you debug a challenging issue?"
-
-**Scoring criteria**:
-- 90-100: Exceptional logical thinking, deep technical reasoning
-- 75-89: Strong analytical skills, sound decision-making
-- 60-74: Adequate reasoning, some logical gaps
-- Below 60: Weak analytical approach
+**Scoring Scale (0-100 per contribution)**:
+- **0**: Off-topic, evasive, or no relevant information
+- **1-30**: Vague or superficial, minimal relevant content
+- **31-60**: Basic competence with limited depth
+- **61-80**: Clear demonstration with specific examples
+- **81-100**: Exceptional depth with concrete examples and tradeoffs
 
 ### Coding Dimensions
 
@@ -166,35 +157,39 @@ codingScore = (
 model ScoringConfiguration {
   jobId String @unique
   
-  // Category weights (must sum to 100)
+  // Main dimension weights (must sum to 100)
   experienceWeight Float @default(50)
   codingWeight Float @default(50)
   
-  // Experience dimension weights (must sum to experienceWeight)
-  adaptabilityWeight Float @default(33.33)
-  creativityWeight Float @default(33.33)
-  reasoningWeight Float @default(33.34)
-  
-  // Workstyle metric weights
+  // Workstyle metric weight (part of coding score)
   aiAssistWeight Float @default(25)
+}
+
+model Job {
+  // ... other fields
+  
+  // Dynamic experience categories with weights
+  experienceCategories Json?  // Array of {name, description, weight}
+  
+  // Dynamic coding categories with weights
+  codingCategories Json?  // Array of {name, description, weight}
 }
 ```
 
 ### Per-Job Configuration
 
-Companies can configure weights in the Job edit form:
+Companies can configure categories and weights in the Job edit form:
 
 **Scoring Configuration Section**:
-1. **Category Weights**: Experience vs Coding split
-2. **Experience Dimensions**: How to weight adaptability, creativity, reasoning
-3. **Coding Dimensions**: 
-   - Job-specific categories (inline management)
-   - AI Assist weight
+1. **Main Weights**: Experience vs Coding split (must sum to 100%)
+2. **Experience Categories**: Define custom categories with individual weights (must sum to 100%)
+3. **Coding Categories**: Define job-specific coding criteria with individual weights (must sum to 100%)
+4. **AI Assist Weight**: How much paste accountability contributes to coding score
 
 **Validation**:
-- Experience dimensions must sum to 100%
-- Job-specific categories must sum to 100%
-- Category + Coding weights must sum to 100%
+- Main dimension weights (experience + coding) must sum to 100%
+- Within experience: category weights must sum to 100%
+- Within coding: category weights must sum to 100%
 
 ## Calculation Implementation
 
@@ -203,9 +198,13 @@ Companies can configure weights in the Job edit form:
 ### Interface
 ```typescript
 interface RawScores {
-  adaptability: number;
-  creativity: number;
-  reasoning: number;
+  // Experience category scores with weights
+  experienceScores: Array<{
+    name: string;
+    score: number;
+    weight: number;
+  }>;
+  // Coding category scores with weights
   categoryScores: Array<{
     name: string;
     score: number;
@@ -240,9 +239,11 @@ export function calculateScore(
 **Input**:
 ```typescript
 rawScores = {
-  adaptability: 85,
-  creativity: 90,
-  reasoning: 80,
+  experienceScores: [
+    { name: "Technical Depth", score: 85, weight: 40 },
+    { name: "System Design", score: 90, weight: 30 },
+    { name: "Communication", score: 80, weight: 30 }
+  ],
   categoryScores: [
     { name: "TypeScript", score: 75, weight: 33 },
     { name: "React", score: 80, weight: 33 },
@@ -255,17 +256,14 @@ workstyle = {
 config = {
   experienceWeight: 50,
   codingWeight: 50,
-  adaptabilityWeight: 33.33,
-  creativityWeight: 33.33,
-  reasoningWeight: 33.34,
   aiAssistWeight: 25
 };
 ```
 
 **Step 1: Experience Score**
 ```
-= (85 × 33.33 + 90 × 33.33 + 80 × 33.34) / 100
-= (2833 + 3000 + 2667) / 100
+= (85 × 40 + 90 × 30 + 80 × 30) / 100
+= (3400 + 2700 + 2400) / 100
 = 85
 ```
 

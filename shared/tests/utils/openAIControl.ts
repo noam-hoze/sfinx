@@ -2,9 +2,9 @@ import OpenAI from "openai";
 import { log as logger } from "../../../app/shared/services";
 
 export type ControlResult = {
-  pillars: { adaptability: number; creativity: number; reasoning: number };
+  categories: Record<string, number>;
   rationale: string;
-  pillarRationales: { adaptability: string; creativity: string; reasoning: string };
+  categoryRationales: Record<string, string>;
 };
 
 const client = new OpenAI({ apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY });
@@ -14,14 +14,31 @@ export async function requestControlDeltaOnly(opts: {
   role: string;
   lastQ: string;
   lastA: string;
-  readOnlyHistory?: string; // optional text block
+  experienceCategories: Array<{name: string; description: string; weight?: number}>;
+  readOnlyHistory?: string;
   timeoutMs?: number;
 }): Promise<ControlResult> {
-  const { company, role, lastQ, lastA, readOnlyHistory = "", timeoutMs = 5000 } = opts;
-  const system = `You are the evaluation module for a technical interview at ${company} for the ${role} position.\nStage: Background.\n\nCRITICAL RULES:\n- Score ONLY the last user answer that follows.\n- Use the read-only history for understanding terms only; DO NOT award credit for past turns.\n- If the last user answer contains no concrete, attributable evidence for a pillar, output 0 for that pillar.\n- Every non-zero pillar MUST be justified with a short rationale referencing exact phrases from the last answer.\n- DO NOT initiate or suggest moving to coding; that decision is external and controlled by the system.\n\n${readOnlyHistory}\n\nOutput: STRICT JSON only (no preface) with fields: pillars {adaptability, creativity, reasoning} (0-100), rationale (string), pillarRationales {adaptability: string, creativity: string, reasoning: string}.`;
+  const { company, role, lastQ, lastA, experienceCategories, readOnlyHistory = "", timeoutMs = 5000 } = opts;
+  
+  const categoryList = experienceCategories
+    .map(cat => `- ${cat.name}: ${cat.description}`)
+    .join("\n");
+  
+  const system = `You are the evaluation module for a technical interview at ${company} for the ${role} position.\nStage: Background.\n\nCRITICAL RULES:\n- Score ONLY the last user answer that follows.\n- Use the read-only history for understanding terms only; DO NOT award credit for past turns.\n- If the last user answer contains no concrete, attributable evidence for a category, output 0 for that category.\n- Every non-zero category MUST be justified with a short rationale referencing exact phrases from the last answer.\n- DO NOT initiate or suggest moving to coding; that decision is external and controlled by the system.\n\nCategories to evaluate:\n${categoryList}\n\n${readOnlyHistory}\n\nOutput: STRICT JSON only (no preface) with fields: categories (object with category names as keys, scores 0-100 as values), rationale (string), categoryRationales (object with category names as keys, rationale strings as values).`;
+  
   try {
     logger.info("[tests][CONTROL] prompt", { lastQ, lastA, system });
   } catch {}
+
+  const categoryProperties: Record<string, any> = {};
+  const categoryRationaleProperties: Record<string, any> = {};
+  const requiredCategories: string[] = [];
+  
+  experienceCategories.forEach(cat => {
+    categoryProperties[cat.name] = { type: "number" };
+    categoryRationaleProperties[cat.name] = { type: "string" };
+    requiredCategories.push(cat.name);
+  });
 
   const run = client.chat.completions.create({
     model: "gpt-4o-mini",
@@ -39,29 +56,21 @@ export async function requestControlDeltaOnly(opts: {
           type: "object",
           additionalProperties: false,
           properties: {
-            pillars: {
+            categories: {
               type: "object",
               additionalProperties: false,
-              properties: {
-                adaptability: { type: "number" },
-                creativity: { type: "number" },
-                reasoning: { type: "number" },
-              },
-              required: ["adaptability", "creativity", "reasoning"],
+              properties: categoryProperties,
+              required: requiredCategories,
             },
             rationale: { type: "string" },
-            pillarRationales: {
+            categoryRationales: {
               type: "object",
               additionalProperties: false,
-              properties: {
-                adaptability: { type: "string" },
-                creativity: { type: "string" },
-                reasoning: { type: "string" },
-              },
-              required: ["adaptability", "creativity", "reasoning"],
+              properties: categoryRationaleProperties,
+              required: requiredCategories,
             },
           },
-          required: ["pillars", "rationale", "pillarRationales"],
+          required: ["categories", "rationale", "categoryRationales"],
         },
         strict: true,
       } as any,
@@ -79,5 +88,4 @@ export async function requestControlDeltaOnly(opts: {
   } catch {}
   return JSON.parse(text) as ControlResult;
 }
-
 

@@ -21,7 +21,6 @@ describe("backgroundSessionGuard", () => {
     // clear background fields by reinitializing via internal reducer defaults
     const init = {
       confidence: 0,
-      questionsAsked: 0,
       transitioned: false,
     } as any;
     (interviewChatStore as any).dispatch({
@@ -54,25 +53,16 @@ describe("backgroundSessionGuard", () => {
     expect(shouldTransition(gs, { gateReady: false, clockMs: t0 + 1000 })).toBe("useless_answers");
   });
 
-  it("Consecutive useless answers counter increments on 0/0/0 and resets on non-zero", () => {
-    // Simulate two consecutive zero triplets
-    interviewChatStore.dispatch({
-      type: "BG_ACCUMULATE_CONTROL_RESULT",
-      payload: { pillars: { adaptability: 0, creativity: 0, reasoning: 0 } },
-    });
+  it("Consecutive useless answers counter increments and resets", () => {
+    // Simulate two consecutive useless answers
+    interviewChatStore.dispatch({ type: "BG_INCREMENT_USELESS_ANSWERS" });
     expect(interviewChatStore.getState().background.consecutiveUselessAnswers).toBe(1);
 
-    interviewChatStore.dispatch({
-      type: "BG_ACCUMULATE_CONTROL_RESULT",
-      payload: { pillars: { adaptability: 0, creativity: 0, reasoning: 0 } },
-    });
+    interviewChatStore.dispatch({ type: "BG_INCREMENT_USELESS_ANSWERS" });
     expect(interviewChatStore.getState().background.consecutiveUselessAnswers).toBe(2);
 
-    // Non-zero should reset
-    interviewChatStore.dispatch({
-      type: "BG_ACCUMULATE_CONTROL_RESULT",
-      payload: { pillars: { adaptability: 10, creativity: 0, reasoning: 0 } },
-    });
+    // Reset on meaningful contribution
+    interviewChatStore.dispatch({ type: "BG_RESET_USELESS_ANSWERS" });
     expect(interviewChatStore.getState().background.consecutiveUselessAnswers).toBe(0);
   });
 

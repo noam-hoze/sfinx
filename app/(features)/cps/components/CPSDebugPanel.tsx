@@ -23,10 +23,8 @@ export default function CPSDebugPanel({
         return null;
     }
 
-    // Extract raw scores
-    const adaptability = backgroundSummary?.adaptability?.score ?? null;
-    const creativity = backgroundSummary?.creativity?.score ?? null;
-    const reasoning = backgroundSummary?.reasoning?.score ?? null;
+    // Extract experience categories (dynamic)
+    const experienceCategories = backgroundSummary?.experienceCategories || {};
     
     // Extract job-specific categories
     const jobSpecificCategories = codingSummary?.jobSpecificCategories || {};
@@ -34,9 +32,10 @@ export default function CPSDebugPanel({
     // Extract workstyle raw values
     const aiAssistAccountability = workstyle?.aiAssistUsage?.avgAccountabilityScore ?? null;
 
-    // Calculate experience average
-    const experienceAvg = adaptability !== null && creativity !== null && reasoning !== null
-        ? Math.round((adaptability + creativity + reasoning) / 3)
+    // Calculate experience average from dynamic categories
+    const experienceScores = Object.values(experienceCategories).map((cat: any) => cat.score).filter((s: number) => typeof s === 'number');
+    const experienceAvg = experienceScores.length > 0
+        ? Math.round(experienceScores.reduce((sum: number, score: number) => sum + score, 0) / experienceScores.length)
         : null;
     
     // Calculate coding score as average of job-specific categories
@@ -87,9 +86,14 @@ export default function CPSDebugPanel({
                             Experience Scores {experienceAvg !== null && `(Avg: ${experienceAvg})`}
                         </div>
                         <div className="space-y-2 text-sm">
-                            <ScoreRow label="Adaptability" value={adaptability} />
-                            <ScoreRow label="Creativity" value={creativity} />
-                            <ScoreRow label="Reasoning" value={reasoning} />
+                            {Object.entries(experienceCategories).map(([name, data]: [string, any]) => (
+                                <ScoreRow key={name} label={name} value={data.score} />
+                            ))}
+                            {Object.keys(experienceCategories).length === 0 && (
+                                <div className="text-slate-500 dark:text-slate-400 text-xs">
+                                    No experience categories defined
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -141,11 +145,9 @@ export default function CPSDebugPanel({
                                 </div>
                             </div>
                             <div>
-                                <div className="font-semibold text-slate-700 dark:text-slate-200 mb-2">Experience</div>
-                                <div className="space-y-1">
-                                    <div>Adaptability: <span className="font-mono">{scoringConfig.adaptabilityWeight}</span></div>
-                                    <div>Creativity: <span className="font-mono">{scoringConfig.creativityWeight}</span></div>
-                                    <div>Reasoning: <span className="font-mono">{scoringConfig.reasoningWeight}</span></div>
+                                <div className="font-semibold text-slate-700 dark:text-slate-200 mb-2">Experience (Dynamic)</div>
+                                <div className="space-y-1 text-slate-500 dark:text-slate-400">
+                                    Weights defined per job category
                                 </div>
                             </div>
                             <div>

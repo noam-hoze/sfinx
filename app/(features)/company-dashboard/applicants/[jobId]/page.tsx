@@ -161,7 +161,13 @@ function JobApplicantsContent() {
                     {/* Score */}
                     {applicant.matchScore !== null && (
                       <div className="pt-3 border-t border-gray-100">
-                        <div className="text-2xl font-bold text-green-600 tabular-nums">
+                        <div className={`text-2xl font-bold tabular-nums ${
+                          applicant.matchScore >= 75
+                            ? "text-emerald-600"
+                            : applicant.matchScore >= 50
+                            ? "text-amber-600"
+                            : "text-red-600"
+                        }`}>
                           {Math.round(applicant.matchScore)}
                         </div>
                         <div className="text-xs text-gray-500 mt-1">Score</div>

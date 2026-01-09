@@ -25,11 +25,9 @@ import {
   buildOpenAIInterviewerPrompt,
 } from "@/shared/prompts/openAIInterviewerPrompt";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
-import { stopCheck } from "@/shared/services/weightedMean/scorer";
 import {
   askViaChatCompletion,
   generateAssistantReply,
-  runBackgroundControl,
 } from "./openAITextConversationHelpers";
 import {
   buildControlContextMessages,
@@ -445,31 +443,22 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
                       }
                       
                       // Messages saved successfully, now trigger summary generation
-                      const scorer = chatSnapshot.background?.scorer;
-                      /* eslint-disable no-console */ console.log("[background][persist] scorer:", scorer);
+                      const summaryUrl = isDemoMode
+                        ? `/api/interviews/session/${sessionId}/background-summary?skip-auth=true`
+                        : `/api/interviews/session/${sessionId}/background-summary`;
                       
-                      if (scorer) {
-                        const summaryUrl = isDemoMode
-                          ? `/api/interviews/session/${sessionId}/background-summary?skip-auth=true`
-                          : `/api/interviews/session/${sessionId}/background-summary`;
-                        
-                        const summaryPayload: Record<string, any> = {
-                          scores: {
-                            adaptability: Math.round((scorer.A?.S ?? 0) * 100),
-                            creativity: Math.round((scorer.C?.S ?? 0) * 100),
-                            reasoning: Math.round((scorer.R?.S ?? 0) * 100),
-                          },
-                          rationales: chatSnapshot.background?.rationales,
-                          companyName: ms.companyName,
-                          roleName: ms.roleSlug?.replace(/-/g, " "),
-                        };
-                        
-                        if (isDemoMode && demoUserId) {
-                          summaryPayload.userId = demoUserId;
-                        }
-                        
-                        /* eslint-disable no-console */ console.log("[background][persist] Calling POST /background-summary with payload:", summaryPayload);
-                        
+                      const summaryPayload: Record<string, any> = {
+                        companyName: ms.companyName,
+                        roleName: ms.roleSlug?.replace(/-/g, " "),
+                      };
+                      
+                      if (isDemoMode && demoUserId) {
+                        summaryPayload.userId = demoUserId;
+                      }
+                      
+                      /* eslint-disable no-console */ console.log("[background][persist] Calling POST /background-summary with payload:", summaryPayload);
+                      
+                      try {
                         const summaryRes = await fetch(summaryUrl, {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
@@ -479,8 +468,8 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
                         /* eslint-disable no-console */ console.log("[background][persist] POST /background-summary response:", summaryRes.status, summaryRes.statusText);
                         const summaryData = await summaryRes.json();
                         /* eslint-disable no-console */ console.log("[background][persist] POST /background-summary data:", summaryData);
-                      } else {
-                        /* eslint-disable no-console */ console.warn("[background][persist] No scorer found, skipping summary generation");
+                      } catch (summaryErr) {
+                        /* eslint-disable no-console */ console.error("[background][persist] Failed to generate summary:", summaryErr);
                       }
                     } catch (err) {
                       /* eslint-disable no-console */ console.error("[background][persist] Error in persistence flow:", err);
@@ -585,7 +574,8 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
           const expectedQ = scriptRef.current?.backgroundQuestion;
           if (expectedQ) {
             const persona = buildOpenAIBackgroundPrompt(
-              String(ms.companyName || "Company")
+              String(ms.companyName || "Company"),
+              scriptRef.current?.experienceCategories
             );
             const instruction = `Ask exactly: "${String(expectedQ)}"`;
             const reply = await deliverAssistantPrompt({
@@ -614,20 +604,15 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
               stage: pendingStage,
             },
           } as any);
-          // Run CONTROL
-          await runBackgroundControl(openaiClient);
           
-          // Check if gate is satisfied immediately (same logic as machine slice)
-          const chatState = interviewChatStore.getState();
-          const scorer = chatState.background?.scorer;
-          const coverage = chatState.background?.coverage;
-          const gateReady = !!(scorer && coverage && stopCheck(scorer, coverage));
+          // Note: Gate check now handled in useBackgroundAnswerHandler via CategoryContributions
+          // This code path is for automatic mode - gate will be checked there
+          const gateReady = false; // Always generate follow-up in automatic mode
           
           try {
-            /* eslint-disable no-console */ console.log("[background][after_control_check]", {
+            /* eslint-disable no-console */ console.log("[background][automatic_mode_followup]", {
               gateReady,
-              scorer: !!scorer,
-              coverage,
+              note: "Gate check delegated to useBackgroundAnswerHandler"
             });
           } catch {}
           
@@ -654,7 +639,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
           if (!im.companyName) {
             throw new Error("Interview machine missing companyName");
           }
-          const persona = buildOpenAIBackgroundPrompt(String(im.companyName));
+          const persona = buildOpenAIBackgroundPrompt(String(im.companyName), scriptRef.current?.experienceCategories);
           const follow = await askViaChatCompletion(openaiClient, persona, [
             {
               role: "assistant",

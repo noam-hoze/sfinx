@@ -58,11 +58,6 @@ function TelemetryContent() {
     const [calculatedScore, setCalculatedScore] = useState<number | null>(null);
     const [calculatedExperienceScore, setCalculatedExperienceScore] = useState<number | null>(null);
     const [calculatedCodingScore, setCalculatedCodingScore] = useState<number | null>(null);
-    useEffect(() => {
-        const handleToggleDebug = () => setShowDebugPanel(prev => !prev);
-        window.addEventListener('toggleDebugPanel', handleToggleDebug);
-        return () => window.removeEventListener('toggleDebugPanel', handleToggleDebug);
-    }, []);
 
     useEffect(() => {
         const fetchTelemetryData = async () => {
@@ -652,24 +647,11 @@ function TelemetryContent() {
                 <ExperienceModal
                     isOpen={experienceModalOpen}
                     onClose={() => setExperienceModalOpen(false)}
-                                                    executiveSummary={backgroundSummary.executiveSummary}
-                                                    recommendation={backgroundSummary.recommendation}
-                                                    adaptability={{
-                                                        score: backgroundSummary.adaptability.score,
-                                                        text: backgroundSummary.adaptability.text,
-                                                        evidence: backgroundSummary.evidenceJson?.adaptability || [],
-                                                    }}
-                                                    creativity={{
-                                                        score: backgroundSummary.creativity.score,
-                                                        text: backgroundSummary.creativity.text,
-                                                        evidence: backgroundSummary.evidenceJson?.creativity || [],
-                                                    }}
-                                                    reasoning={{
-                                                        score: backgroundSummary.reasoning.score,
-                                                        text: backgroundSummary.reasoning.text,
-                                                        evidence: backgroundSummary.evidenceJson?.reasoning || [],
-                                                    }}
-                                                />
+                    executiveSummary={backgroundSummary.executiveSummary}
+                    recommendation={backgroundSummary.recommendation}
+                    experienceCategories={backgroundSummary.experienceCategories}
+                    jobExperienceCategories={activeSession?.application?.job?.experienceCategories as any}
+                />
             )}
             
             {codingSummary && (

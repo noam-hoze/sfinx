@@ -57,17 +57,16 @@ model CategoryContribution {
 ```prisma
 model EvidenceClip {
   // ... existing fields
-  category            EvidenceCategory @default(COMMUNICATION)
-  categoryName        String?  // NEW: "TypeScript Proficiency" for JOB_SPECIFIC_CATEGORY
-  contributionStrength Int?    // NEW: 0-100 for job-specific contributions
+  category            EvidenceCategory
+  categoryName        String?  // "TypeScript Proficiency" for JOB_SPECIFIC_CATEGORY or EXPERIENCE_CATEGORY
+  contributionStrength Int?    // 0-100 for dynamic category contributions
 }
 
 enum EvidenceCategory {
-  COMMUNICATION
-  REASONING
-  ADAPTABILITY
-  CREATIVITY
-  JOB_SPECIFIC_CATEGORY  // NEW
+  AI_ASSIST_USAGE         // External tool usage (paste detection)
+  EXTERNAL_TOOL_USAGE     // Same as above (legacy)
+  JOB_SPECIFIC_CATEGORY   // Dynamic coding categories from job config
+  EXPERIENCE_CATEGORY     // Dynamic experience categories from job config
 }
 ```
 

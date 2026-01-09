@@ -12,13 +12,12 @@ import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import { userFinal, aiFinal } from "@/shared/state/slices/interviewMachineSlice";
 import {
   askViaChatCompletion,
-  runBackgroundControl,
   generateAssistantReply,
 } from "app/(features)/interview/components/chat/openAITextConversationHelpers";
-import { stopCheck } from "@/shared/services/weightedMean/scorer";
 import { shouldTransition } from "@/shared/services/backgroundSessionGuard";
 import { buildOpenAIBackgroundPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
 import { buildControlContextMessages, CONTROL_CONTEXT_TURNS } from "app/shared/services";
+import { checkCategoryGate, type CategoryCoverageStats } from "./categoryGateCheck";
 
 interface AnswerHandlerResult {
   gateReady: boolean;
@@ -99,6 +98,19 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
           })
           .then(res => res.json())
           .then(data => {
+            // Track useless answers based on evaluation (replaces old scorer BG_ACCUMULATE_CONTROL_RESULT logic)
+            if (data.contributionsCount !== undefined) {
+              if (data.contributionsCount === 0) {
+                interviewChatStore.dispatch({
+                  type: "BG_INCREMENT_USELESS_ANSWERS"
+                });
+              } else {
+                interviewChatStore.dispatch({
+                  type: "BG_RESET_USELESS_ANSWERS"
+                });
+              }
+            }
+            
             if (data.allEvaluations && onEvaluationReceived) {
               onEvaluationReceived({
                 timestamp: evalTimestamp,
@@ -117,18 +129,35 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
         console.log("[answer-handler] Machine state after userFinal:", ms.state);
 
         if (ms.state === "background_answered_by_user") {
-          // Run control checks
-          console.log("[answer-handler] Running control checks...");
-          await runBackgroundControl(openaiClient);
+          // Check gate using category contributions
+          console.log("[answer-handler] Checking category gate...");
+          
+          let gateReady = false;
+          let gateReason = "";
+          
+          if (sessionId) {
+            try {
+              const contributionsRes = await fetch(`/api/interviews/session/${sessionId}/contributions`);
+              if (contributionsRes.ok) {
+                const { categoryStats } = await contributionsRes.json();
+                const experienceCategories = script?.experienceCategories || [];
+                
+                const gateResult = checkCategoryGate(categoryStats as CategoryCoverageStats[], experienceCategories);
+                gateReady = gateResult.gateReady;
+                gateReason = gateResult.reason || "";
+                
+                console.log("[answer-handler] Category gate check:", { gateReady, gateReason, categoryStats });
+              }
+            } catch (err) {
+              console.error("[answer-handler] Failed to check category gate:", err);
+            }
+          }
 
-          // Check gate
           const chatState = interviewChatStore.getState();
-          const scorer = chatState.background?.scorer;
-          const coverage = chatState.background?.coverage;
           const consecutiveUselessAnswers = chatState.background.consecutiveUselessAnswers;
           const timeboxMs = chatState.background.timeboxMs;
           const startedAtMs = chatState.background.startedAtMs;
-          const gateReady = !!(scorer && coverage && stopCheck(scorer, coverage));
+          
           const transitionReason = shouldTransition(
             {
               startedAtMs,
@@ -138,12 +167,13 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
             { gateReady, timeboxMs }
           );
 
-          console.log("[answer-handler] Gate check:", { gateReady, transitionReason });
+          console.log("[answer-handler] Gate check:", { gateReady, transitionReason, gateReason });
 
           if (transitionReason) {
             // Gate satisfied - generate closing response
             console.log(`[answer-handler] Gate satisfied (${transitionReason})`);
-            const persona = buildOpenAIBackgroundPrompt(String(companyName));
+            console.log(`[answer-handler] Category gate reason: ${gateReason}`);
+            const persona = buildOpenAIBackgroundPrompt(String(companyName), script?.experienceCategories);
             const firstName = candidateName.split(" ")[0] || "Candidate";
             const closingInstruction = `Say exactly: "Thank you so much ${firstName}, the next steps will be shared with you shortly."`;
 
@@ -157,7 +187,7 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
               } as any);
               saveMessageToDb(responseText, "ai");
               
-              const systemMsg = "[SYSTEM: Background interview completed, transitioning to coding stage]";
+              const systemMsg = `[SYSTEM: Background interview completed (${gateReason}), transitioning to coding stage]`;
               interviewChatStore.dispatch({
                 type: "ADD_MESSAGE",
                 payload: {
@@ -165,8 +195,7 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
                   speaker: "system" as any,
                 },
               } as any);
-              // Don't save system message to DB to keep transcript clean? Or save it?
-              // Let's skip saving system message for now as it's internal state
+              // Don't save system message to DB to keep transcript clean
               
               console.log("[answer-handler] Final response generated");
             } catch (err) {
@@ -217,7 +246,7 @@ Your question should naturally probe for specific examples and details that demo
               }
             }
             
-            const persona = buildOpenAIBackgroundPrompt(String(companyName)) + categoryGuidance;
+            const persona = buildOpenAIBackgroundPrompt(String(companyName), script?.experienceCategories) + categoryGuidance;
             const historyMessages = buildControlContextMessages(CONTROL_CONTEXT_TURNS);
             const followUp = await askViaChatCompletion(openaiClient, persona, historyMessages);
 

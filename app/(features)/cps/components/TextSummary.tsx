@@ -2,24 +2,18 @@
 
 import React from "react";
 
-interface Evidence {
-    question: string;
-    answerExcerpt: string;
-    reasoning: string;
-}
-
-interface TraitSummary {
-    score: number;
-    text: string;
-    evidence?: Evidence[];
-}
-
 interface TextSummaryProps {
     executiveSummary: string;
     recommendation?: string;
-    adaptability: TraitSummary;
-    creativity: TraitSummary;
-    reasoning: TraitSummary;
+    experienceCategories: Record<string, {
+        score: number;
+        text: string;
+    }>;
+    jobExperienceCategories: Array<{
+        name: string;
+        description: string;
+        weight: number;
+    }>;
 }
 
 const getScoreColor = (score: number): string => {
@@ -39,15 +33,17 @@ const getScoreBadge = (score: number): string => {
 const TextSummary: React.FC<TextSummaryProps> = ({
     executiveSummary,
     recommendation,
-    adaptability,
-    creativity,
-    reasoning,
+    experienceCategories,
+    jobExperienceCategories,
 }) => {
-    const traits = [
-        { name: "Adaptability", key: "adaptability", data: adaptability },
-        { name: "Creativity", key: "creativity", data: creativity },
-        { name: "Reasoning", key: "reasoning", data: reasoning },
-    ];
+    const traits = jobExperienceCategories.map(category => ({
+        name: category.name,
+        key: category.name,
+        data: {
+            score: experienceCategories[category.name]?.score ?? 0,
+            text: experienceCategories[category.name]?.text ?? "",
+        }
+    }));
 
     return (
         <div className="space-y-6 p-6">
@@ -102,39 +98,6 @@ const TextSummary: React.FC<TextSummaryProps> = ({
                     <div className="prose prose-sm max-w-none text-gray-700 mb-4 whitespace-pre-wrap">
                         {trait.data.text}
                     </div>
-
-                    {/* Evidence Section */}
-                    {trait.data.evidence && trait.data.evidence.length > 0 && (
-                        <div className="mt-6 pt-4 border-t border-gray-200">
-                            <h4 className="text-sm font-semibold text-gray-600 mb-3">
-                                Supporting Evidence
-                            </h4>
-                            <div className="space-y-4">
-                                {trait.data.evidence.map((ev, idx) => (
-                                    <div
-                                        key={idx}
-                                        className="bg-gray-50 rounded-lg p-4"
-                                    >
-                                        <p className="text-sm font-medium text-gray-900 mb-2">
-                                            <span className="text-gray-500">
-                                                Q:
-                                            </span>{" "}
-                                            {ev.question}
-                                        </p>
-                                        <p className="text-sm text-gray-700 mb-2 italic border-l-2 border-blue-300 pl-3">
-                                            &quot;{ev.answerExcerpt}&quot;
-                                        </p>
-                                        <p className="text-xs text-gray-600">
-                                            <span className="font-medium">
-                                                Analysis:
-                                            </span>{" "}
-                                            {ev.reasoning}
-                                        </p>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
                 </div>
             ))}
         </div>
