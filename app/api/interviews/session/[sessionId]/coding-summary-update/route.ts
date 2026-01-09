@@ -89,7 +89,10 @@ export async function PATCH(
                     rawAverage: Math.round(rawAverage),
                     contributionCount: contributions.length,
                     confidence: confidence,
-                    evidenceLinks: contributions.map(c => calculateVideoOffset(c.timestamp)),
+                    evidenceLinks: contributions.map(c => ({
+                        timestamp: calculateVideoOffset(c.timestamp),
+                        caption: c.caption
+                    })),
                     contributions: contributions.map(c => ({
                         timestamp: calculateVideoOffset(c.timestamp),
                         strength: c.contributionStrength,

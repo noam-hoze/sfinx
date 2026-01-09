@@ -279,7 +279,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         log.info(`  [${index + 1}] Offset:`, videoOffset, "seconds");
                         
                         if (videoOffset >= 0) {
-                            aiAssistUsageLinks.push(videoOffset);
+                            aiAssistUsageLinks.push({
+                                timestamp: videoOffset,
+                                caption: tool.caption
+                            });
                         } else {
                             log.warn(`  [${index + 1}] ⚠️ NEGATIVE OFFSET - skipping!`);
                         }
