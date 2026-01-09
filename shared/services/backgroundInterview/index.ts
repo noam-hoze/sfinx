@@ -9,4 +9,3 @@ export { useBackgroundPreload } from "./useBackgroundPreload";
 export { useAnnouncementGeneration } from "./useAnnouncementGeneration";
 export { useSoundPreload } from "./useSoundPreload";
 export { useBackgroundAnswerHandler } from "./useBackgroundAnswerHandler";
-export { checkCategoryGate, type CategoryCoverageStats, type GateCheckResult } from "./categoryGateCheck";

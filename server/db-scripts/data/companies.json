@@ -10,5 +10,17 @@
     "openRoles": [
       { "title": "Frontend Engineer", "type": "full-time", "location": "Menlo Park, CA", "salary": "$160k - $230k" }
     ]
+  },
+  {
+    "id": "qm",
+    "name": "QM",
+    "logo": "/logos/qm-logo.png",
+    "industry": "Quantum Computing",
+    "locations": ["Tel Aviv, Israel", "Remote"],
+    "size": "startup",
+    "cultureTags": ["Innovation", "Research-driven", "Cutting-edge Technology", "Open Source"],
+    "openRoles": [
+      { "title": "Senior Python Engineer", "type": "full-time", "location": "Tel Aviv, Israel", "salary": "$140k - $200k" }
+    ]
   }
 ]

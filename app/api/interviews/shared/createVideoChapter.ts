@@ -41,7 +41,9 @@ export async function createVideoChapter(params: CreateVideoChapterParams) {
     if (existingChapters.length === 0 && startTime > 0) {
         const problemPresentationChapter = await prisma.videoChapter.create({
             data: {
-                telemetryDataId,
+                telemetryData: {
+                    connect: { id: telemetryDataId }
+                },
                 title: CHAPTER_TYPES.PROBLEM_PRESENTATION,
                 startTime: 0,
                 endTime: startTime,
@@ -108,7 +110,9 @@ export async function createVideoChapter(params: CreateVideoChapterParams) {
     // Create new chapter
     const newChapter = await prisma.videoChapter.create({
         data: {
-            telemetryDataId,
+            telemetryData: {
+                connect: { id: telemetryDataId }
+            },
             title,
             startTime,
             endTime: newChapterEndTime,

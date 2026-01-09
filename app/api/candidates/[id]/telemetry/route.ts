@@ -632,7 +632,9 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
                         await prisma.evidenceClip.create({
                             data: {
-                                telemetryDataId: telemetryId,
+                                telemetryData: {
+                                    connect: { id: telemetryId }
+                                },
                                 title: metric.title,
                                 startTime: timestamp,
                                 description: `Evidence for ${metric.title}`, // Placeholder
