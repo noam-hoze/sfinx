@@ -35,38 +35,39 @@ async function generateUnifiedCaption(
         .map(t => `${t.trait}: ${t.evaluation}`)
         .join('\n\n');
 
-    const prompt = `You are creating a concise video caption for an interview assessment.
-
-Given these three trait evaluations for a candidate's response:
+    const prompt = `ONE SENTENCE. 10 WORDS MAX. NO MORE.
 
 ${evaluationsText}
 
-Create a single, human-readable sentence (20-30 words) that synthesizes all three evaluations into one cohesive assessment.
-
-Requirements:
-- One sentence only
-- Natural, professional language
-- Capture the overall quality and key insights from all three traits
-- Suitable for display as a video subtitle/caption
-
-Return ONLY the caption sentence, no other text.`;
+Write ONE short sentence summarizing this. MAX 10 WORDS. DO NOT EXCEED.`;
 
     const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini", // Using mini for cost efficiency on simple task
-        temperature: 0.3,
+        model: "gpt-4o-mini",
+        temperature: 0.1,
+        max_tokens: 25,
         messages: [
             {
                 role: "system",
+                content: "Generate ONLY short captions. MAX 10 WORDS. Any response over 10 words is REJECTED.",
+            },
+            {
+                role: "user",
                 content: prompt,
             },
         ],
     });
 
-    const caption = completion.choices[0]?.message?.content?.trim();
+    let caption = completion.choices[0]?.message?.content?.trim();
     
     if (!caption) {
         throw new Error("OpenAI failed to generate unified caption");
     }
+
+    // Remove trailing period if present
+    caption = caption.replace(/\.$/, '');
+    
+    // Ensure it's one line (remove line breaks)
+    caption = caption.replace(/[\r\n]+/g, ' ').trim();
 
     return caption;
 }
@@ -420,15 +421,26 @@ export async function POST(request: NextRequest, context: RouteContext) {
             
             const categoryDef = experienceCategoryDefinitions?.find(c => c.name === categoryName);
             
-            // Calculate video offsets for evidence links
-            const evidenceLinks = contribs.map(c => {
+            // Calculate video offsets for evidence links with short caption
+            const evidenceLinks = await Promise.all(contribs.map(async c => {
+                let timestamp = 0;
                 if (interviewSession.recordingStartedAt) {
                     const recordingStart = new Date(interviewSession.recordingStartedAt).getTime();
                     const answerTime = new Date(c.timestamp).getTime();
-                    return Math.max(0, Math.floor((answerTime - recordingStart) / 1000));
+                    timestamp = Math.max(0, Math.floor((answerTime - recordingStart) / 1000));
                 }
-                return 0;
-            });
+                
+                // Generate short caption from explanation
+                const shortCaption = await generateUnifiedCaption(openai, [{
+                    trait: categoryName,
+                    evaluation: c.explanation
+                }]);
+                
+                return {
+                    timestamp,
+                    caption: shortCaption
+                };
+            }));
 
             experienceCategories[categoryName] = {
                 score: adjustedScore,
@@ -617,84 +629,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         await createClipsForTrait('Reasoning', 'REASONING', summaryData.reasoning.evidence);
 
         log.info("[background-summary/POST] ✅ Evidence clips created successfully");
-
-        // Create VideoCaption records from evidence clips (matching external tool usage pattern)
-        log.info("[background-summary/POST] Creating video captions from evidence clips...");
-        
-        // Find the Background video chapter
-        const backgroundChapter = await prisma.videoChapter.findFirst({
-            where: {
-                telemetryDataId: interviewSession.telemetryData.id,
-                title: "Background",
-            },
-        });
-
-        if (backgroundChapter) {
-            // Fetch all background evidence clips we just created
-            const allBackgroundClips = await prisma.evidenceClip.findMany({
-                where: {
-                    telemetryDataId: interviewSession.telemetryData.id,
-                    category: {
-                        in: ['ADAPTABILITY', 'CREATIVITY', 'REASONING'],
-                    },
-                },
-                orderBy: {
-                    startTime: 'asc',
-                },
-            });
-
-            // Group clips by timestamp
-            const clipsByTimestamp = new Map<number, any[]>();
-            allBackgroundClips.forEach(clip => {
-                if (clip.startTime !== null && clip.startTime !== undefined) {
-                    if (!clipsByTimestamp.has(clip.startTime)) {
-                        clipsByTimestamp.set(clip.startTime, []);
-                    }
-                    clipsByTimestamp.get(clip.startTime)!.push(clip);
-                }
-            });
-
-            // TODO: Future optimization - generate unified captions in the main OpenAI call
-            // instead of making separate calls per timestamp. This would reduce API calls
-            // and latency. Consider adding a "unifiedCaption" field to the evidence structure
-            // in the main prompt and generating all captions in one go.
-            
-            // Create a VideoCaption for each unique timestamp with AI-generated unified one-liner
-            for (const [timestamp, clips] of clipsByTimestamp.entries()) {
-                // Prepare trait evaluations for OpenAI
-                const traitEvaluations = clips.map(clip => {
-                    const traitLabel = clip.category.charAt(0) + 
-                        clip.category.slice(1).toLowerCase();
-                    return {
-                        trait: traitLabel,
-                        evaluation: clip.description
-                    };
-                });
-
-                // Generate unified one-liner caption via OpenAI and store in DB
-                log.info(`[background-summary/POST] Generating unified caption for timestamp ${timestamp}s...`);
-                const unifiedCaption = await generateUnifiedCaption(openai, traitEvaluations);
-                log.info(`[background-summary/POST] Generated unified caption: "${unifiedCaption.substring(0, 80)}..."`);
-
-                // Use the duration from the clips (all clips at this timestamp should have same duration)
-                const duration = clips[0]?.duration || 10;
-
-                await prisma.videoCaption.create({
-                    data: {
-                        videoChapterId: backgroundChapter.id,
-                        text: unifiedCaption,
-                        startTime: timestamp,
-                        endTime: timestamp + duration,
-                    },
-                });
-
-                log.info(`[background-summary/POST] ✅ Created video caption at ${timestamp}s`);
-            }
-
-            log.info("[background-summary/POST] ✅ Video captions created successfully");
-        } else {
-            log.warn("[background-summary/POST] ⚠️ Background chapter not found, skipping caption creation");
-        }
+        log.info("[background-summary/POST] ✅ Short captions already generated in evidenceLinks");
 
         return NextResponse.json(
             {

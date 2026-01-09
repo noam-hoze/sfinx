@@ -1,9 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
+import { useSelector } from "react-redux";
+import { RootState } from "shared/state/store";
 import EvidenceReel from "./components/EvidenceReel";
 import CollapsibleSection from "./components/CollapsibleSection";
 import ExperienceModal from "./components/ExperienceModal";
@@ -27,6 +29,7 @@ function TelemetryContent() {
     const candidateId = searchParams.get("candidateId");
     const applicationId = searchParams.get("applicationId");
     const { isDebugVisible } = useDebug();
+    const activeCaption = useSelector((state: RootState) => state.cps.activeCaption);
 
     const [telemetryData, setTelemetryData] = useState<any>(null);
     const [sessions, setSessions] = useState<any[]>([]);
@@ -383,6 +386,7 @@ function TelemetryContent() {
         setJumpKey((k) => k + 1);
     };
 
+
     if (loading) {
         return (
             <div className="h-screen bg-gray-50 overflow-hidden flex items-center justify-center">
@@ -606,7 +610,6 @@ function TelemetryContent() {
                                     <div className="space-y-3">
                                         <ExperienceMetrics
                                             backgroundSummary={backgroundSummary}
-                                            evidenceClips={evidence || []}
                                             experienceCategories={activeSession?.application?.job?.experienceCategories as any}
                                             onVideoJump={onVideoJump}
                                         />
@@ -631,7 +634,7 @@ function TelemetryContent() {
                                     jumpKey={jumpKey}
                                     videoUrl={videoUrl}
                                     duration={duration}
-                                    chapters={chapters}
+                                    caption={activeCaption}
                                     paused={false}
                                 />
                             ) : (
