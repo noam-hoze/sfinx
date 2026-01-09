@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const { sessionId, question, answer, timestamp, experienceCategories } = body;
 
-        if (!sessionId || !question || !answer || !timestamp || !experienceCategories) {
+        if (!sessionId || !question || answer === undefined || !timestamp || !experienceCategories) {
             return NextResponse.json(
                 { error: "Missing required fields" },
                 { status: 400 }

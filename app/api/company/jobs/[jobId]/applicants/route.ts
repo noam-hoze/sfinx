@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions, getCached, setCached } from "app/shared/services/server";
 import prisma from "lib/prisma";
+import { calculateScore, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
 
 /**
  * GET /api/company/jobs/[jobId]/applicants
@@ -33,12 +34,8 @@ export async function GET(
     // Fetch job details
     const job = await prisma.job.findUnique({
       where: { id: jobId },
-      select: {
-        id: true,
-        title: true,
-        location: true,
-        type: true,
-        companyId: true,
+      include: {
+        scoringConfiguration: true,
       },
     });
 
@@ -91,8 +88,9 @@ export async function GET(
             id: true,
             createdAt: true,
             telemetryData: {
-              select: {
-                matchScore: true,
+              include: {
+                backgroundSummary: true,
+                codingSummary: true,
               },
             },
           },
@@ -110,12 +108,43 @@ export async function GET(
     // Transform to applicant format
     const applicants = applications.map((app) => {
       const latestSession = app.interviewSessions[0];
+      let matchScore: number | null = null;
+
+      if (latestSession?.telemetryData && job.scoringConfiguration) {
+        const telemetry = latestSession.telemetryData;
+        try {
+          const jobExperienceCategories = (job.experienceCategories as any) || [];
+          const backgroundExperienceCategories = (telemetry.backgroundSummary?.experienceCategories as any) || {};
+          const experienceScores = jobExperienceCategories.map((cat: any) => ({
+            name: cat.name,
+            score: backgroundExperienceCategories[cat.name]?.score || 0,
+            weight: cat.weight || 1
+          }));
+
+          const jobCodingCategories = (job.codingCategories as any) || [];
+          const codingCategoriesData = (telemetry.codingSummary?.jobSpecificCategories as any) || {};
+          const categoryScores = jobCodingCategories.map((cat: any) => ({
+            name: cat.name,
+            score: codingCategoriesData[cat.name]?.score || 0,
+            weight: cat.weight || 1
+          }));
+
+          const rawScores: RawScores = { experienceScores, categoryScores };
+          const workstyleMetrics: WorkstyleMetrics = { aiAssistAccountabilityScore: undefined };
+
+          const result = calculateScore(rawScores, workstyleMetrics, job.scoringConfiguration as any);
+          matchScore = Math.round(result.finalScore);
+        } catch (error) {
+          console.error('[applicants] Score calculation error:', error);
+        }
+      }
+
       return {
         id: app.candidate.id,
         name: app.candidate.name || "Unknown",
         email: app.candidate.email,
         image: app.candidate.image,
-        matchScore: latestSession?.telemetryData?.matchScore ?? null,
+        matchScore,
         appliedAt: app.appliedAt.toISOString(),
         interviewCompleted: !!latestSession,
         applicationId: app.id,

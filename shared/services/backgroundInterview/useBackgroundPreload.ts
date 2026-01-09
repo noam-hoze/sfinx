@@ -115,7 +115,7 @@ export function useBackgroundPreload() {
         // Step 4: Generate first OpenAI question
         console.log("[preload] Generating first question...");
         const companyNameFromScript = scriptData.companyName || companySlug.charAt(0).toUpperCase() + companySlug.slice(1);
-        const persona = buildOpenAIBackgroundPrompt(companyNameFromScript);
+        const persona = buildOpenAIBackgroundPrompt(companyNameFromScript, scriptData.experienceCategories);
         const instruction = `Ask exactly: "${String(scriptData.backgroundQuestion)}"`;
         const firstQuestion = await generateAssistantReply(openaiClient, persona, instruction);
 

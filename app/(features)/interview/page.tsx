@@ -397,7 +397,19 @@ function InterviewPageContent() {
    * Starts recording immediately after the start flow and creates the coding session.
    */
   const ensureRecordingSession = useCallback(async () => {
-    if (interviewSessionId) return interviewSessionId;
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:399',message:'ensureRecordingSession ENTRY',data:{interviewSessionId,hasSessionId:!!interviewSessionId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,B'})}).catch(()=>{});
+    // #endregion
+    if (interviewSessionId) {
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:400',message:'ensureRecordingSession GUARD PASS - returning existing',data:{interviewSessionId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+      return interviewSessionId;
+    }
+
+    // #region agent log
+    fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:401',message:'ensureRecordingSession GUARD FAIL - creating new session',data:{interviewSessionId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,B'})}).catch(()=>{});
+    // #endregion
 
     try {
       const recordingStarted = await startRecording();
@@ -405,6 +417,10 @@ function InterviewPageContent() {
 
       const resolvedApplicationId = await resolveApplicationId();
       if (!resolvedApplicationId) return null;
+
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:407',message:'BEFORE createInterviewSession',data:{resolvedApplicationId,interviewSessionId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,C'})}).catch(()=>{});
+      // #endregion
 
       const session = await createInterviewSession({
         applicationId: resolvedApplicationId,
@@ -414,8 +430,18 @@ function InterviewPageContent() {
         recordingStartedAt: getActualRecordingStartTime() || undefined,
       });
       const newSessionId = session.interviewSession.id;
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:416',message:'AFTER createInterviewSession - setting state',data:{newSessionId,oldInterviewSessionId:interviewSessionId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,B'})}).catch(()=>{});
+      // #endregion
+      
       setInterviewSessionId(newSessionId);
       dispatch(setSessionId({ sessionId: newSessionId }));
+      
+      // #region agent log
+      fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:419',message:'ensureRecordingSession EXIT',data:{returnedSessionId:newSessionId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      
       return newSessionId;
     } catch (error) {
       console.error("[interview] Failed to create recording session:", error);

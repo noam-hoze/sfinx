@@ -110,7 +110,7 @@ await page.click('button:has-text("Submit")');
 **Rationale**: Recording permission prompt blocks automated testing
 
 ### Background Evaluation Missing
-- Experience scores (adaptability, creativity, reasoning) will be N/A
+- Experience category scores will be N/A
 - Final score calculation only uses coding dimension
 - Score breakdown won't show experience component
 

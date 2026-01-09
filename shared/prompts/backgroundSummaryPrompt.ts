@@ -1,6 +1,6 @@
 /**
  * Builds OpenAI prompt for generating AI-written background interview summaries.
- * Takes conversation transcript and trait scores, returns structured assessment for hiring managers.
+ * Takes conversation transcript and dynamic experience categories, returns structured assessment for hiring managers.
  */
 
 export interface ConversationMessage {
@@ -9,64 +9,51 @@ export interface ConversationMessage {
     timestamp: number;
 }
 
-export interface TraitScores {
-    adaptability: number;
-    creativity: number;
-    reasoning: number;
+export interface ExperienceCategory {
+    name: string;
+    description: string;
+    weight: number;
 }
 
-export interface TraitRationales {
-    adaptability?: string;
-    creativity?: string;
-    reasoning?: string;
+export interface CategoryScores {
+    [categoryName: string]: number;
+}
+
+export interface CategoryRationales {
+    [categoryName: string]: string;
 }
 
 export interface SummaryInput {
     messages: ConversationMessage[];
-    scores?: TraitScores;
-    rationales?: TraitRationales;
+    experienceCategories: ExperienceCategory[];
+    scores?: CategoryScores;
+    rationales?: CategoryRationales;
     companyName: string;
     roleName: string;
+}
+
+export interface CategoryOutput {
+    score: number;
+    assessment: string;
+    oneLiner: string;
+    evidence: Array<{
+        question: string;
+        answerExcerpt: string;
+        reasoning: string;
+    }>;
 }
 
 export interface SummaryOutput {
     executiveSummary: string;
     executiveSummaryOneLiner: string;
     recommendation: string;
-    adaptability: {
-        score: number;
-        assessment: string;
-        oneLiner: string;
-        evidence: Array<{
-            question: string;
-            answerExcerpt: string;
-            reasoning: string;
-        }>;
-    };
-    creativity: {
-        score: number;
-        assessment: string;
-        oneLiner: string;
-        evidence: Array<{
-            question: string;
-            answerExcerpt: string;
-            reasoning: string;
-        }>;
-    };
-    reasoning: {
-        score: number;
-        assessment: string;
-        oneLiner: string;
-        evidence: Array<{
-            question: string;
-            answerExcerpt: string;
-            reasoning: string;
-        }>;
+    experienceCategories: {
+        [categoryName: string]: CategoryOutput;
     };
 }
 
 export function buildBackgroundSummaryPrompt(input: SummaryInput): string {
-    const { messages, scores, rationales, companyName, roleName } = input;
+    const { messages, experienceCategories, scores, rationales, companyName, roleName } = input;
 
     // Format conversation transcript
     const transcript = messages
@@ -79,18 +66,52 @@ export function buildBackgroundSummaryPrompt(input: SummaryInput): string {
 
     const scoresProvided = !!scores;
 
+    // Build category list
+    const categoryList = experienceCategories
+        .map(cat => `  * ${cat.name}: ${cat.description}`)
+        .join('\n');
+
+    // Build scores section if provided
+    const scoresSection = scoresProvided
+        ? `- AI Evaluation Scores:\n${experienceCategories.map(cat => `  * ${cat.name}: ${scores?.[cat.name] ?? 'N/A'}/100`).join('\n')}`
+        : `- You must estimate scores (0-100) for these categories based on the conversation evidence.`;
+
+    // Build rationales section if provided
+    const rationalesSection = rationales
+        ? `- AI Evaluation Notes:\n${experienceCategories.map(cat => `  * ${cat.name}: ${rationales[cat.name] || "N/A"}`).join('\n')}`
+        : '';
+
+    // Build JSON structure for each category
+    const categoryJsonStructure = experienceCategories
+        .map(cat => `  "${cat.name}": {
+    "score": ${scoresProvided && scores?.[cat.name] !== undefined ? scores[cat.name] : 0},
+    "assessment": "2-3 paragraph detailed assessment of the candidate's ${cat.name.toLowerCase()}. Explain what the score means in practical terms for the role.",
+    "oneLiner": "Single sentence (15-25 words) capturing the key finding about ${cat.name.toLowerCase()}.",
+    "evidence": [
+      {
+        "question": "The exact first question the interviewer asked",
+        "answerExcerpt": "Key excerpt from candidate's answer (1-2 sentences)",
+        "reasoning": "How this demonstrates or fails to demonstrate ${cat.name.toLowerCase()}"
+      },
+      {
+        "question": "The exact second question the interviewer asked",
+        "answerExcerpt": "Key excerpt from candidate's answer (1-2 sentences)",
+        "reasoning": "How this demonstrates or fails to demonstrate ${cat.name.toLowerCase()}"
+      }
+      // ... MUST include ALL ${questionCount} questions
+    ]
+  }`).join(',\n');
+
     const system = `You are an executive recruiter writing a candidate assessment report for hiring managers at ${companyName}.
 
 Your task is to analyze this background interview conversation and create a comprehensive, professional assessment that helps the hiring manager make an informed decision about the candidate for the ${roleName} position.
 
 CONTEXT:
 - This was the background stage of a technical interview
-- The AI interviewer assessed three key traits: Adaptability, Creativity, and Reasoning
-${scoresProvided ? `- AI Evaluation Scores: Adaptability (${scores.adaptability}/100), Creativity (${scores.creativity}/100), Reasoning (${scores.reasoning}/100)` : "- You must estimate scores (0-100) for these traits based on the conversation evidence."}
-${rationales ? `- AI Evaluation Notes:
-  * Adaptability: ${rationales.adaptability || "N/A"}
-  * Creativity: ${rationales.creativity || "N/A"}
-  * Reasoning: ${rationales.reasoning || "N/A"}` : ""}
+- The AI interviewer assessed the following experience categories:
+${categoryList}
+${scoresSection}
+${rationalesSection}
 
 CONVERSATION TRANSCRIPT:
 ${transcript}
@@ -99,50 +120,15 @@ OUTPUT REQUIREMENTS:
 Return a JSON object with this exact structure.
 IMPORTANT: 
 - All "score" fields MUST be numbers (0-100). Do NOT use "undefined" or "null".
-- CRITICAL: The transcript contains ${questionCount} interviewer questions. EACH of the three evidence arrays (adaptability, creativity, reasoning) MUST contain EXACTLY ${questionCount} evidence objects - one for every single question asked.
+- CRITICAL: The transcript contains ${questionCount} interviewer questions. EACH category's evidence array MUST contain EXACTLY ${questionCount} evidence objects - one for every single question asked.
 - Every evidence object MUST have all three fields: "question", "answerExcerpt", and "reasoning". NO empty strings or null values.
 
 {
   "executiveSummary": "2-3 paragraph overview of the candidate's overall performance, key strengths, and any concerns. Written for busy executives.",
   "executiveSummaryOneLiner": "Single sentence (15-25 words) capturing the most critical insight from the executive summary.",
   "recommendation": "Clear recommendation: 'Strong Hire', 'Hire', 'Maybe', or 'No Hire' with 1 sentence rationale",
-  "adaptability": {
-    "score": ${scoresProvided ? scores.adaptability : 0},
-    "assessment": "2-3 paragraph detailed assessment of the candidate's adaptability. Explain what the score means in practical terms for the role.",
-    "oneLiner": "Single sentence (15-25 words) capturing the key finding about adaptability.",
-    "evidence": [
-      {
-        "question": "The exact first question the interviewer asked",
-        "answerExcerpt": "Key excerpt from candidate's answer (1-2 sentences)",
-        "reasoning": "How this demonstrates or fails to demonstrate adaptability"
-      },
-      {
-        "question": "The exact second question the interviewer asked",
-        "answerExcerpt": "Key excerpt from candidate's answer (1-2 sentences)",
-        "reasoning": "How this demonstrates or fails to demonstrate adaptability"
-      }
-      // ... MUST include ALL ${questionCount} questions
-    ]
-  },
-  "creativity": {
-    "score": ${scoresProvided ? scores.creativity : 0},
-    "assessment": "2-3 paragraph detailed assessment of the candidate's creativity.",
-    "oneLiner": "Single sentence (15-25 words) capturing the key finding about creativity.",
-    "evidence": [
-      // MUST include ALL ${questionCount} questions with same structure as adaptability
-      { "question": "...", "answerExcerpt": "...", "reasoning": "..." },
-      // ... ALL questions
-    ]
-  },
-  "reasoning": {
-    "score": ${scoresProvided ? scores.reasoning : 0},
-    "assessment": "2-3 paragraph detailed assessment of the candidate's reasoning ability.",
-    "oneLiner": "Single sentence (15-25 words) capturing the key finding about reasoning.",
-    "evidence": [
-      // MUST include ALL ${questionCount} questions with same structure as adaptability
-      { "question": "...", "answerExcerpt": "...", "reasoning": "..." },
-      // ... ALL questions
-    ]
+  "experienceCategories": {
+${categoryJsonStructure}
   }
 }
 
@@ -151,7 +137,7 @@ WRITING GUIDELINES:
 2. Be specific - reference actual things the candidate said
 3. Balance positive observations with constructive concerns
 4. Focus on job-relevant insights, not personality
-5. For each evidence item, explain how the answer demonstrates (or fails to demonstrate) that specific trait
+5. For each evidence item, explain how the answer demonstrates (or fails to demonstrate) that specific category
 6. Include the most relevant part of the candidate's response in answerExcerpt (1-2 sentences)
 7. Assessments should explain what the score means in practice (e.g., "score of 75 indicates...")
 8. Use concrete examples from the conversation

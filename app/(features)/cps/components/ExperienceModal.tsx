@@ -7,21 +7,15 @@ interface ExperienceModalProps {
     onClose: () => void;
     executiveSummary: string;
     recommendation: string;
-    adaptability: {
+    experienceCategories: Record<string, {
         score: number;
         text: string;
-        evidence: any[];
-    };
-    creativity: {
-        score: number;
-        text: string;
-        evidence: any[];
-    };
-    reasoning: {
-        score: number;
-        text: string;
-        evidence: any[];
-    };
+    }>;
+    jobExperienceCategories: Array<{
+        name: string;
+        description: string;
+        weight: number;
+    }>;
 }
 
 export default function ExperienceModal({
@@ -29,18 +23,16 @@ export default function ExperienceModal({
     onClose,
     executiveSummary,
     recommendation,
-    adaptability,
-    creativity,
-    reasoning,
+    experienceCategories,
+    jobExperienceCategories,
 }: ExperienceModalProps) {
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Experience Summary">
             <SummaryOverlay
                 executiveSummary={executiveSummary}
                 recommendation={recommendation}
-                adaptability={adaptability}
-                creativity={creativity}
-                reasoning={reasoning}
+                experienceCategories={experienceCategories}
+                jobExperienceCategories={jobExperienceCategories}
             />
         </Modal>
     );

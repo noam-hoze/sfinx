@@ -17,9 +17,15 @@ interface TraitSummary {
 interface SummaryOverlayProps {
     executiveSummary: string;
     recommendation?: string;
-    adaptability: TraitSummary;
-    creativity: TraitSummary;
-    reasoning: TraitSummary;
+    experienceCategories: Record<string, {
+        score: number;
+        text: string;
+    }>;
+    jobExperienceCategories: Array<{
+        name: string;
+        description: string;
+        weight: number;
+    }>;
 }
 
 const getScoreColor = (score: number): string => {
@@ -39,19 +45,22 @@ const getScoreBadge = (score: number): string => {
 const SummaryOverlay: React.FC<SummaryOverlayProps> = ({
     executiveSummary,
     recommendation,
-    adaptability,
-    creativity,
-    reasoning,
+    experienceCategories,
+    jobExperienceCategories,
 }) => {
     const [currentSlide, setCurrentSlide] = useState(0);
 
-    const traits = [
-        { name: "Adaptability", key: "adaptability", data: adaptability },
-        { name: "Creativity", key: "creativity", data: creativity },
-        { name: "Reasoning", key: "reasoning", data: reasoning },
-    ];
+    const traits = jobExperienceCategories.map(category => ({
+        name: category.name,
+        key: category.name,
+        data: {
+            score: experienceCategories[category.name]?.score ?? 0,
+            text: experienceCategories[category.name]?.text ?? "",
+            evidence: [],
+        }
+    }));
 
-    const totalSlides = 4; // 1 executive + 3 traits
+    const totalSlides = 1 + traits.length; // 1 executive + dynamic categories
 
     const nextSlide = () => {
         setCurrentSlide((prev) => Math.min(prev + 1, totalSlides - 1));
@@ -163,9 +172,7 @@ const SummaryOverlay: React.FC<SummaryOverlayProps> = ({
                 {/* Slide Content */}
                 <div className="flex-1 overflow-y-auto py-4 md:py-8">
                     {currentSlide === 0 && renderExecutiveSummary()}
-                    {currentSlide === 1 && renderTraitSlide(traits[0])}
-                    {currentSlide === 2 && renderTraitSlide(traits[1])}
-                    {currentSlide === 3 && renderTraitSlide(traits[2])}
+                    {currentSlide > 0 && traits[currentSlide - 1] && renderTraitSlide(traits[currentSlide - 1])}
                 </div>
 
                 {/* Navigation Controls */}

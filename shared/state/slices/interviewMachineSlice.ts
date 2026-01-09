@@ -1,7 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { interviewChatStore } from "@/shared/state/interviewChatStore";
-import { stopCheck } from "@/shared/services/weightedMean/scorer";
-import { shouldTransition } from "@/shared/services/backgroundSessionGuard";
 
 export type InterviewState =
     | "idle"
@@ -94,47 +92,11 @@ const interviewMachineSlice = createSlice({
                     }
                 } catch {}
             } else if (state.state === "background_answered_by_user") {
-                // Evaluate guard: timebox/consecutive useless answers/stopCheck
-                try {
-                    const s = interviewChatStore.getState();
-                    const scorer = s?.background?.scorer;
-                    const coverage = s?.background?.coverage;
-                    const gateReady = !!(scorer && coverage && stopCheck(scorer, coverage));
-                    const consecutiveUselessAnswers = s.background.consecutiveUselessAnswers;
-                    if (consecutiveUselessAnswers === undefined) {
-                        throw new Error("Background guard missing consecutiveUselessAnswers");
-                    }
-                    const timeboxMs = s.background.timeboxMs;
-                    const reason = shouldTransition(
-                        {
-                            startedAtMs: s.background.startedAtMs,
-                            consecutiveUselessAnswers,
-                            timeboxMs,
-                        },
-                        { gateReady, timeboxMs }
-                    );
-                    if (reason) {
-                        interviewChatStore.dispatch({ type: "BG_GUARD_SET_REASON", payload: { reason } });
-                        const prev = state.state;
-                        state.state = "in_coding_session";
-                        logStageTransition(prev, state.state, `guard reason: ${reason}`);
-                    } else {
-                        const prev = state.state;
-                        state.state = "background_asked_by_ai";
-                        logStageTransition(prev, state.state, "guard not satisfied");
-                        // Ensure timer started on any entry to background mode
-                        try {
-                            const st = interviewChatStore.getState();
-                            if (!st.background.startedAtMs) {
-                                interviewChatStore.dispatch({ type: "BG_GUARD_START_TIMER" });
-                            }
-                        } catch {}
-                    }
-                } catch {
-                    const prev = state.state;
-                    state.state = "background_asked_by_ai";
-                    logStageTransition(prev, state.state, "guard error path");
-                }
+                // Gate check now handled in useBackgroundAnswerHandler
+                // This reducer just transitions to next question
+                const prev = state.state;
+                state.state = "background_asked_by_ai";
+                logStageTransition(prev, state.state, "guard not satisfied");
             }
         },
         userFinal: (state) => {

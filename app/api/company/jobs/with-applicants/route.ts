@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions, prisma, getCached, setCached } from "app/shared/services/server";
+import { calculateScore, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
 
 export async function GET() {
     const session = await getServerSession(authOptions);
@@ -30,13 +31,15 @@ export async function GET() {
                     _count: {
                         select: { applications: true },
                     },
+                    scoringConfiguration: true,
                     applications: {
                         include: {
                             interviewSessions: {
                                 include: {
                                     telemetryData: {
-                                        select: {
-                                            matchScore: true,
+                                        include: {
+                                            backgroundSummary: true,
+                                            codingSummary: true,
                                         },
                                     },
                                 },
@@ -56,10 +59,42 @@ export async function GET() {
     const jobsWithApplicants = company.jobs.map((job) => {
         const scores = job.applications
             .flatMap(app => app.interviewSessions)
-            .map(session => session.telemetryData?.matchScore)
+            .map(session => {
+                const telemetry = session.telemetryData;
+                if (!telemetry?.backgroundSummary || !telemetry?.codingSummary || !job.scoringConfiguration) {
+                    return null;
+                }
+
+                try {
+                    const jobExperienceCategories = (job.experienceCategories as any) || [];
+                    const backgroundExperienceCategories = (telemetry.backgroundSummary.experienceCategories as any) || {};
+                    const experienceScores = jobExperienceCategories.map((cat: any) => ({
+                        name: cat.name,
+                        score: backgroundExperienceCategories[cat.name]?.score || 0,
+                        weight: cat.weight || 1
+                    }));
+
+                    const jobCodingCategories = (job.codingCategories as any) || [];
+                    const codingCategoriesData = (telemetry.codingSummary.jobSpecificCategories as any) || {};
+                    const categoryScores = jobCodingCategories.map((cat: any) => ({
+                        name: cat.name,
+                        score: codingCategoriesData[cat.name]?.score || 0,
+                        weight: cat.weight || 1
+                    }));
+
+                    const rawScores: RawScores = { experienceScores, categoryScores };
+                    const workstyleMetrics: WorkstyleMetrics = { aiAssistAccountabilityScore: undefined };
+
+                    const result = calculateScore(rawScores, workstyleMetrics, job.scoringConfiguration as any);
+                    return result.finalScore;
+                } catch (error) {
+                    console.error('[with-applicants] Score calculation error:', error);
+                    return null;
+                }
+            })
             .filter((score): score is number => score !== null && score !== undefined);
 
-        const highestScore = scores.length > 0 ? Math.max(...scores) : null;
+        const highestScore = scores.length > 0 ? Math.round(Math.max(...scores)) : null;
         const averageScore = scores.length > 0 
             ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length)
             : null;

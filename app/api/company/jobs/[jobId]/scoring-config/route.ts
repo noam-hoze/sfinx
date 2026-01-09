@@ -142,13 +142,6 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
         // Validate weights are positive numbers
         const weightFields = [
-            'adaptabilityWeight',
-            'creativityWeight',
-            'reasoningWeight',
-            'codeQualityWeight',
-            'problemSolvingWeight',
-            'independenceWeight',
-            'iterationSpeedWeight',
             'aiAssistWeight',
             'experienceWeight',
             'codingWeight',

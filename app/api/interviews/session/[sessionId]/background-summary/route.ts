@@ -23,8 +23,8 @@ function normalizeSessionId(sessionId: string | string[] | undefined) {
 }
 
 /**
- * Generates a unified one-liner caption from multiple trait evaluations using OpenAI.
- * This creates a human-readable caption that synthesizes adaptability, creativity, and reasoning assessments.
+ * Generates a unified one-liner caption from multiple category evaluations using OpenAI.
+ * This creates a human-readable caption that synthesizes experience category assessments.
  * The result is stored in the DB and displayed on the CPS page.
  */
 async function generateUnifiedCaption(
@@ -126,21 +126,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 executiveSummary: summary.executiveSummary,
                 executiveSummaryOneLiner: summary.executiveSummaryOneLiner,
                 recommendation: summary.recommendation,
-                adaptability: {
-                    score: summary.adaptabilityScore,
-                    text: summary.adaptabilityText,
-                    oneLiner: summary.adaptabilityOneLiner,
-                },
-                creativity: {
-                    score: summary.creativityScore,
-                    text: summary.creativityText,
-                    oneLiner: summary.creativityOneLiner,
-                },
-                reasoning: {
-                    score: summary.reasoningScore,
-                    text: summary.reasoningText,
-                    oneLiner: summary.reasoningOneLiner,
-                },
                 experienceCategories: summary.experienceCategories,
                 conversationJson: summary.conversationJson,
                 evidenceJson: summary.evidenceJson,
@@ -266,10 +251,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         log.info("[background-summary/POST] Request body:", { scores, rationales, companyName, roleName });
 
-        if (!scores || typeof scores.adaptability !== "number") {
-            log.warn("[background-summary/POST] ⚠️ No valid scores provided, will ask AI to estimate them.");
-            // Proceed without scores
+        // Get experience categories from job
+        const experienceCategoryDefinitions = (interviewSession.application.job.experienceCategories as any) || [];
+        
+        if (!experienceCategoryDefinitions || experienceCategoryDefinitions.length === 0) {
+            log.error("[background-summary/POST] ❌ No experience categories defined for job");
+            return NextResponse.json(
+                { error: "Job must have experience categories defined" },
+                { status: 400 }
+            );
         }
+
+        log.info("[background-summary/POST] Experience categories:", experienceCategoryDefinitions.map((c: any) => c.name).join(', '));
 
         // Fetch background messages
         log.info("[background-summary/POST] Fetching conversation messages...");
@@ -302,11 +295,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 text: m.text,
                 timestamp: m.timestamp.getTime(),
             })),
-            scores: scores ? {
-                adaptability: scores.adaptability,
-                creativity: scores.creativity,
-                reasoning: scores.reasoning,
-            } : undefined,
+            experienceCategories: experienceCategoryDefinitions,
+            scores,
             rationales,
             companyName:
                 companyName || interviewSession.application.job.company.name,
@@ -394,8 +384,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 },
             },
         });
-
-        const experienceCategoryDefinitions = contributions[0]?.interviewSession?.application?.job?.experienceCategories as Array<{name: string; description: string; weight: number}> | null;
 
         // Group contributions by category
         const byCategory = contributions.reduce((acc, c) => {
@@ -491,18 +479,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
         
         // Log what OpenAI gave us for evidence
         log.info("[background-summary/POST] OpenAI Evidence Summary:");
-        log.info("  - Adaptability evidence count:", summaryData.adaptability.evidence.length);
-        log.info("  - Creativity evidence count:", summaryData.creativity.evidence.length);
-        log.info("  - Reasoning evidence count:", summaryData.reasoning.evidence.length);
-        summaryData.adaptability.evidence.forEach((ev, idx) => {
-            log.info(`  - Adaptability[${idx}]: question="${ev.question?.substring(0, 50)}...", hasReasoning=${!!ev.reasoning}, hasAnswerExcerpt=${!!ev.answerExcerpt}`);
-        });
-        summaryData.creativity.evidence.forEach((ev, idx) => {
-            log.info(`  - Creativity[${idx}]: question="${ev.question?.substring(0, 50)}...", hasReasoning=${!!ev.reasoning}, hasAnswerExcerpt=${!!ev.answerExcerpt}`);
-        });
-        summaryData.reasoning.evidence.forEach((ev, idx) => {
-            log.info(`  - Reasoning[${idx}]: question="${ev.question?.substring(0, 50)}...", hasReasoning=${!!ev.reasoning}, hasAnswerExcerpt=${!!ev.answerExcerpt}`);
-        });
+        if (summaryData.experienceCategories) {
+            for (const [categoryName, categoryData] of Object.entries(summaryData.experienceCategories)) {
+                const evidence = (categoryData as any).evidence;
+                if (evidence && Array.isArray(evidence)) {
+                    log.info(`  - ${categoryName} evidence count:`, evidence.length);
+                    evidence.forEach((ev: any, idx: number) => {
+                        log.info(`  - ${categoryName}[${idx}]: question="${ev.question?.substring(0, 50)}...", hasReasoning=${!!ev.reasoning}, hasAnswerExcerpt=${!!ev.answerExcerpt}`);
+                    });
+                }
+            }
+        }
         
         // Fetch all background evidence for this session to get timestamps
         const backgroundEvidenceRecords = await prisma.backgroundEvidence.findMany({
@@ -573,25 +560,24 @@ export async function POST(request: NextRequest, context: RouteContext) {
             );
         };
 
-        // Helper function to create evidence clips for a trait across all background evidence
-        const createClipsForTrait = async (
-            traitName: string,
-            category: 'ADAPTABILITY' | 'CREATIVITY' | 'REASONING',
+        // Helper function to create evidence clips for a category across all background evidence
+        const createClipsForCategory = async (
+            categoryName: string,
             evidenceArray: Array<{ question: string; answerExcerpt: string; reasoning: string }>
         ) => {
             const recordingStart = interviewSession.telemetryData.createdAt;
 
             // Create clips for ALL background records (OpenAI should provide evidence for each)
             for (const [index, record] of backgroundEvidenceRecords.entries()) {
-                const traitEvidence = pickTraitEvidence(evidenceArray, record, index);
+                const categoryEvidence = pickTraitEvidence(evidenceArray, record, index);
                 const startTimeSeconds = Math.floor(
                     (record.timestamp.getTime() - recordingStart.getTime()) / 1000
                 );
                 
-                log.info(`[background-summary/POST] ${category}[${index}]: Matching record Q="${record.questionText.substring(0, 50)}..." with evidence:`, {
-                    matched: traitEvidence ? `"${traitEvidence.question.substring(0, 50)}..."` : 'null',
-                    hasReasoning: traitEvidence?.reasoning ? true : false,
-                    hasAnswerExcerpt: traitEvidence?.answerExcerpt ? true : false,
+                log.info(`[background-summary/POST] ${categoryName}[${index}]: Matching record Q="${record.questionText.substring(0, 50)}..." with evidence:`, {
+                    matched: categoryEvidence ? `"${categoryEvidence.question.substring(0, 50)}..."` : 'null',
+                    hasReasoning: categoryEvidence?.reasoning ? true : false,
+                    hasAnswerExcerpt: categoryEvidence?.answerExcerpt ? true : false,
                 });
 
                 // Calculate duration based on next evidence timestamp
@@ -603,15 +589,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
                     clipDuration = Math.floor(durationMs / 1000);
                 }
                 
-                const description = buildClipDescription(traitEvidence, record, category);
+                const description = buildClipDescription(categoryEvidence, record, categoryName);
                 
-                log.info(`[background-summary/POST] ${category}[${index}]: Using description="${description.substring(0, 100)}..."`);
+                log.info(`[background-summary/POST] ${categoryName}[${index}]: Using description="${description.substring(0, 100)}..."`);
 
                 await prisma.evidenceClip.create({
                     data: {
                         telemetryDataId: interviewSession.telemetryData.id,
-                        category,
-                        title: buildClipTitle(traitName, traitEvidence, record),
+                        category: 'EXPERIENCE_CATEGORY',
+                        categoryName: categoryName,
+                        title: buildClipTitle(categoryName, categoryEvidence, record),
                         description: description,
                         startTime: startTimeSeconds,
                         duration: clipDuration,
@@ -619,14 +606,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
                     },
                 });
 
-                log.info(`[background-summary/POST] ✅ Created ${category} evidence clip at ${startTimeSeconds}s with duration ${clipDuration}s`);
+                log.info(`[background-summary/POST] ✅ Created ${categoryName} evidence clip at ${startTimeSeconds}s with duration ${clipDuration}s`);
             }
         };
 
-        // Create clips for each trait, covering every background evidence record
-        await createClipsForTrait('Adaptability', 'ADAPTABILITY', summaryData.adaptability.evidence);
-        await createClipsForTrait('Creativity', 'CREATIVITY', summaryData.creativity.evidence);
-        await createClipsForTrait('Reasoning', 'REASONING', summaryData.reasoning.evidence);
+        // Create clips for each dynamic experience category
+        if (summaryData.experienceCategories) {
+            for (const [categoryName, categoryData] of Object.entries(summaryData.experienceCategories)) {
+                if ((categoryData as any).evidence && Array.isArray((categoryData as any).evidence)) {
+                    await createClipsForCategory(categoryName, (categoryData as any).evidence);
+                }
+            }
+        }
 
         log.info("[background-summary/POST] ✅ Evidence clips created successfully");
         log.info("[background-summary/POST] ✅ Short captions already generated in evidenceLinks");

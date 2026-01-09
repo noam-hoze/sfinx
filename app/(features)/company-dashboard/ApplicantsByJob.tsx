@@ -63,8 +63,8 @@ export default function ApplicantsByJob() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                             </svg>
                         </div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">No job openings yet</h3>
-                        <p className="text-gray-600 mb-4">Create a job posting to start receiving applications</p>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No jobs with applicants yet</h3>
+                        <p className="text-gray-600 mb-4">Create a job posting and wait for candidates to apply</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -99,7 +99,15 @@ export default function ApplicantsByJob() {
 
                                     {/* Top Score */}
                                     <div>
-                                        <div className="text-2xl font-bold text-green-600">
+                                        <div className={`text-2xl font-bold ${
+                                            job.highestScore !== null
+                                                ? job.highestScore >= 75
+                                                    ? "text-emerald-600"
+                                                    : job.highestScore >= 50
+                                                    ? "text-amber-600"
+                                                    : "text-red-600"
+                                                : "text-gray-400"
+                                        }`}>
                                             {job.highestScore ?? '—'}
                                         </div>
                                         <div className="text-xs text-gray-500 mt-1">Top Score</div>
@@ -107,7 +115,15 @@ export default function ApplicantsByJob() {
 
                                     {/* Avg Score */}
                                     <div>
-                                        <div className="text-2xl font-bold text-gray-700">
+                                        <div className={`text-2xl font-bold ${
+                                            job.averageScore !== null
+                                                ? job.averageScore >= 75
+                                                    ? "text-emerald-600"
+                                                    : job.averageScore >= 50
+                                                    ? "text-amber-600"
+                                                    : "text-red-600"
+                                                : "text-gray-400"
+                                        }`}>
                                             {job.averageScore ?? '—'}
                                         </div>
                                         <div className="text-xs text-gray-500 mt-1">Avg Score</div>
