@@ -73,16 +73,6 @@ export async function POST(request: NextRequest) {
         }
         log.info("✅ Application verified");
 
-        // DEMO MODE: Delete all existing sessions for this application to keep data clean
-        const isDemoMode = url.searchParams.get("demo") === "true";
-        if (isDemoMode) {
-            log.info("🧹 [DEMO MODE] Deleting existing sessions for application:", applicationId);
-            const deletedSessions = await prisma.interviewSession.deleteMany({
-                where: { applicationId },
-            });
-            log.info(`🗑️ [DEMO MODE] Deleted ${deletedSessions.count} existing session(s)`);
-        }
-
         // Create interview session AND zeroed telemetry in a single transaction
         log.info(
             "🚀 Creating interview session and zeroed telemetry (transaction)..."

@@ -21,9 +21,9 @@ interface CodingSummary {
 interface WorkstyleDashboardProps {
     workstyle: WorkstyleMetrics;
     codingSummary?: CodingSummary | null;
+    codingCategories?: Array<{name: string; description: string; weight: number}>;
     onVideoJump: (timestamp: number) => void;
     sessionId?: string;
-    isDemoMode?: boolean;
     editMode?: boolean;
     onUpdateWorkstyle?: (workstyle: WorkstyleMetrics) => void;
 }
@@ -31,9 +31,9 @@ interface WorkstyleDashboardProps {
 const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
     workstyle,
     codingSummary,
+    codingCategories,
     onVideoJump,
     sessionId,
-    isDemoMode = false,
     editMode = false,
     onUpdateWorkstyle,
 }) => {
@@ -58,20 +58,23 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                 />
 
                 {/* Job-Specific Categories */}
-                {codingSummary?.jobSpecificCategories && Object.entries(codingSummary.jobSpecificCategories).map(([categoryName, categoryData]) => {
-                    return (
-                        <MetricRow
-                            key={categoryName}
-                            label={categoryName}
-                            description={(categoryData as any).description || "Job-specific coding evaluation"}
-                            value={categoryData.score}
-                            benchmarkLow={0}
-                            benchmarkHigh={100}
-                            evidenceLinks={(categoryData as any).evidenceLinks || []}
-                            onVideoJump={onVideoJump}
-                        />
-                    );
-                })}
+                {codingCategories
+                    ?.filter(categoryDef => categoryDef.weight > 0)
+                    .map(categoryDef => {
+                        const data = codingSummary?.jobSpecificCategories?.[categoryDef.name];
+                        return (
+                            <MetricRow
+                                key={categoryDef.name}
+                                label={categoryDef.name}
+                                description={data?.description || categoryDef.description || "Job-specific coding evaluation"}
+                                value={data?.score ?? 0}
+                                benchmarkLow={0}
+                                benchmarkHigh={100}
+                                evidenceLinks={(data as any)?.evidenceLinks || []}
+                                onVideoJump={onVideoJump}
+                            />
+                        );
+                    })}
 
                 {/* View Analysis Button */}
                 {sessionId && (
@@ -95,7 +98,6 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                     isOpen={isQualityModalOpen}
                     onClose={() => setIsQualityModalOpen(false)}
                     sessionId={sessionId}
-                    isDemoMode={isDemoMode}
                 />
             )}
         </>

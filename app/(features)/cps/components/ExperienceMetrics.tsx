@@ -34,21 +34,23 @@ const ExperienceMetrics: React.FC<ExperienceMetricsProps> = ({
     return (
         <div>
             <div className="divide-y divide-gray-100">
-                {Object.entries(backgroundSummary.experienceCategories).map(([categoryName, data]) => {
-                    const categoryDef = experienceCategories?.find(c => c.name === categoryName);
-                    return (
-                        <MetricRow
-                            key={categoryName}
-                            label={categoryName}
-                            description={data.description || categoryDef?.description || ""}
-                            value={data.score ?? 0}
-                            benchmarkLow={0}
-                            benchmarkHigh={100}
-                            evidenceLinks={data.evidenceLinks || []}
-                            onVideoJump={onVideoJump}
-                        />
-                    );
-                })}
+                {experienceCategories
+                    ?.filter(categoryDef => categoryDef.weight > 0)
+                    .map(categoryDef => {
+                        const data = backgroundSummary.experienceCategories?.[categoryDef.name];
+                        return (
+                            <MetricRow
+                                key={categoryDef.name}
+                                label={categoryDef.name}
+                                description={data?.description || categoryDef.description || ""}
+                                value={data?.score ?? 0}
+                                benchmarkLow={0}
+                                benchmarkHigh={100}
+                                evidenceLinks={data?.evidenceLinks || []}
+                                onVideoJump={onVideoJump}
+                            />
+                        );
+                    })}
             </div>
         </div>
     );

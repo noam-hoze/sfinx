@@ -2,27 +2,19 @@ interface CreateApplicationParams {
     companyId: string;
     jobId: string | null;
     userId?: string;
-    isDemoMode?: boolean;
 }
 
 export const createApplication = async ({
     companyId,
     jobId,
     userId,
-    isDemoMode = false,
 }: CreateApplicationParams) => {
-    const url = isDemoMode
-        ? "/api/applications/create?skip-auth=true"
-        : "/api/applications/create";
+    const url = "/api/applications/create";
 
     const body: Record<string, any> = {
         companyId,
         jobId,
     };
-
-    if (isDemoMode && userId) {
-        body.userId = userId;
-    }
 
     const response = await fetch(url, {
         method: "POST",

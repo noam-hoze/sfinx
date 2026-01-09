@@ -50,15 +50,17 @@ const SummaryOverlay: React.FC<SummaryOverlayProps> = ({
 }) => {
     const [currentSlide, setCurrentSlide] = useState(0);
 
-    const traits = jobExperienceCategories.map(category => ({
-        name: category.name,
-        key: category.name,
-        data: {
-            score: experienceCategories[category.name]?.score ?? 0,
-            text: experienceCategories[category.name]?.text ?? "",
-            evidence: [],
-        }
-    }));
+    const traits = jobExperienceCategories
+        .filter(category => category.weight > 0)
+        .map(category => ({
+            name: category.name,
+            key: category.name,
+            data: {
+                score: experienceCategories[category.name]?.score ?? 0,
+                text: experienceCategories[category.name]?.text ?? "",
+                evidence: [],
+            }
+        }));
 
     const totalSlides = 1 + traits.length; // 1 executive + dynamic categories
 

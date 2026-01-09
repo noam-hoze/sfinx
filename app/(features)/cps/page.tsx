@@ -25,7 +25,6 @@ import { getBreadcrumbTrail } from "app/shared/config/navigation";
 function TelemetryContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
-    const isDemoMode = searchParams.get("demo") === "true";
     const candidateId = searchParams.get("candidateId");
     const applicationId = searchParams.get("applicationId");
     const { isDebugVisible } = useDebug();
@@ -217,7 +216,7 @@ function TelemetryContent() {
         };
 
         fetchScoringConfig();
-    }, [activeSession?.application?.job?.id, isDemoMode]);
+    }, [activeSession?.application?.job?.id]);
 
     // Calculate score when we have all necessary data
     useEffect(() => {
@@ -577,9 +576,9 @@ function TelemetryContent() {
                                     <WorkstyleDashboard
                                         workstyle={workstyle}
                                         codingSummary={codingSummary}
+                                        codingCategories={activeSession?.application?.job?.codingCategories as any}
                                         onVideoJump={onVideoJump}
                                         sessionId={activeSession?.id}
-                                        isDemoMode={isDemoMode}
                                     />
                                 )}
                                 {codingSummary && (

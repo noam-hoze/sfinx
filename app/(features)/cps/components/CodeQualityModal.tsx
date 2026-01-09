@@ -25,14 +25,12 @@ interface CodeQualityModalProps {
     isOpen: boolean;
     onClose: () => void;
     sessionId: string;
-    isDemoMode?: boolean;
 }
 
 const CodeQualityModal: React.FC<CodeQualityModalProps> = ({
     isOpen,
     onClose,
     sessionId,
-    isDemoMode = false,
 }) => {
     const [analysis, setAnalysis] = useState<CodeQualityAnalysis | null>(null);
     const [code, setCode] = useState<string>("");
@@ -75,9 +73,7 @@ const CodeQualityModal: React.FC<CodeQualityModalProps> = ({
             setLoading(true);
             setError(null);
 
-            const url = isDemoMode
-                ? `/api/interviews/session/${sessionId}/code-quality-analysis?skip-auth=true`
-                : `/api/interviews/session/${sessionId}/code-quality-analysis`;
+            const url = `/api/interviews/session/${sessionId}/code-quality-analysis`;
 
             const response = await fetch(url, {
                 method: "GET",

@@ -108,12 +108,8 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     const [codingDurationSeconds, setCodingDurationSeconds] = useState(
         DEFAULT_CODING_DURATION_SECONDS
     );
-    const isDemoMode = searchParams.get("demo") === "true";
-    const [demoCandidateName, setDemoCandidateName] = useState<string | null>(null);
     
-    const candidateName = isDemoMode 
-        ? (demoCandidateName || "Candidate")
-        : ((session?.user as any)?.name || "Candidate");
+    const candidateName = (session?.user as any)?.name || "Candidate";
 
     /**
      * Queues a user-visible chat message to be sent to the agent.
@@ -205,23 +201,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             setApplicationId(reduxApplicationId);
         }
     }, [reduxApplicationId]);
-
-    /**
-     * Fetch demo candidate name when in demo mode.
-     */
-    useEffect(() => {
-        if (isDemoMode && reduxUserId) {
-            fetch(`/api/candidates/${reduxUserId}/basic?skip-auth=true`)
-                .then((res) => res.json())
-                .then((data) => {
-                    if (data.name) {
-                        setDemoCandidateName(data.name);
-                        logger.info("Demo candidate name fetched:", data.name);
-                    }
-                })
-                .catch((err) => logger.error("Failed to fetch demo candidate name:", err));
-        }
-    }, [isDemoMode, reduxUserId]);
 
     // Background timer removed - background phase handled in separate page
 
@@ -411,9 +390,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
             // Fetch iterations
             logger.info("[TEST_EVAL] 📝 Fetching iterations...");
-            const iterationsUrl = isDemoMode
-                ? `/api/interviews/session/${interviewSessionId}/iterations?skip-auth=true`
-                : `/api/interviews/session/${interviewSessionId}/iterations`;
+            const iterationsUrl = `/api/interviews/session/${interviewSessionId}/iterations`;
             
             const iterationsResponse = await fetch(iterationsUrl);
             if (iterationsResponse.ok) {
@@ -477,7 +454,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             setIsEvaluationLoading(false);
             logger.info("[TEST_EVAL] Loading state set to false");
         }
-    }, [interviewSessionId, interviewScript, state.currentCode, isDebugVisible, isDebugModeEnabled, setEvaluationDebugData, setIsEvaluationLoading, isDemoMode, reduxUserId]);
+    }, [interviewSessionId, interviewScript, state.currentCode, isDebugVisible, isDebugModeEnabled, setEvaluationDebugData, setIsEvaluationLoading, reduxUserId]);
 
     // Notify parent of handleTestEvaluation when it changes
     useEffect(() => {
@@ -546,9 +523,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 // Generate code quality analysis
                 logger.info("Generating code quality analysis for session:", interviewSessionId);
                 try {
-                    const url = isDemoMode
-                        ? `/api/interviews/session/${interviewSessionId}/code-quality-analysis?skip-auth=true`
-                        : `/api/interviews/session/${interviewSessionId}/code-quality-analysis`;
+                    const url = `/api/interviews/session/${interviewSessionId}/code-quality-analysis`;
                     
                     const analysisResponse = await fetch(url, {
                         method: "POST",
@@ -596,9 +571,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                         }
                         
                         // Update coding summary with job-specific categories
-                        const summaryUpdateUrl = isDemoMode
-                            ? `/api/interviews/session/${interviewSessionId}/coding-summary-update?skip-auth=true`
-                            : `/api/interviews/session/${interviewSessionId}/coding-summary-update`;
+                        const summaryUpdateUrl = `/api/interviews/session/${interviewSessionId}/coding-summary-update`;
                         
                         const updateResponse = await fetch(summaryUpdateUrl, {
                             method: "PATCH",
@@ -834,14 +807,10 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 const delay = typeof redirectDelayMs === "number" ? redirectDelayMs : 4000;
                 setTimeout(() => {
                     try {
-                        const destination = isDemoMode
-                            ? `/demo/company-view?candidateId=${reduxUserId}&applicationId=${applicationId}`
-                            : "/job-search";
+                        const destination = "/job-search";
                         window.location.href = destination;
                     } catch {
-                        const destination = isDemoMode
-                            ? `/demo/company-view?candidateId=${reduxUserId}&applicationId=${applicationId}`
-                            : "/job-search";
+                        const destination = "/job-search";
                         router.push(destination as any);
                     }
                 }, delay);
@@ -1166,9 +1135,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 logger.info("✅ [ITERATION] Evaluation result:", evaluation);
 
                 // Save iteration to DB (all iterations are evidence-worthy)
-                const url = isDemoMode
-                    ? `/api/interviews/session/${interviewSessionId}/iterations?skip-auth=true`
-                    : `/api/interviews/session/${interviewSessionId}/iterations`;
+                const url = `/api/interviews/session/${interviewSessionId}/iterations`;
 
                 // Use the Run button click time for accurate video timing
                 const clickTime = runCodeClickTimeRef.current;
@@ -1189,10 +1156,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                     matchPercentage: evaluation.matchPercentage,
                     caption: evaluation.caption,
                 };
-
-                if (isDemoMode && reduxUserId) {
-                    body.userId = reduxUserId;
-                }
 
                 logger.info("💾 [ITERATION] Saving to DB:", {
                     url,
@@ -1226,7 +1189,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             }
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
-        [interviewSessionId, interviewScript, isDemoMode, reduxUserId]
+        [interviewSessionId, interviewScript, reduxUserId]
         // Note: runCodeClickTime intentionally omitted to prevent re-execution on state change
     );
 
@@ -1397,7 +1360,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                                 }
                             }}
                             interviewSessionId={interviewSessionId}
-                            isDemoMode={isDemoMode}
                             userId={reduxUserId || undefined}
                         />
                     </Panel>

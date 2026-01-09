@@ -44,38 +44,22 @@ export function useBackgroundPreload() {
         const companySlug = parts[0];
         const roleSlug = parts.slice(1).join("-");
 
-        const isDemoMode = !sessionUserId;
-        let userId: string;
-        let createdApplicationId: string;
-
-        if (isDemoMode) {
-          // Step 1a: Create demo user + application
-          console.log("[preload] Creating demo user...");
-          const demoUserId = `demo-candidate-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-          const demoUserResp = await fetch(`/api/users/demo?skip-auth=true`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId: demoUserId, name: `Guest-${Date.now()}` }),
-          });
-
-          if (!demoUserResp.ok) throw new Error("Failed to create demo user");
-          const demoData = await demoUserResp.json();
-          userId = demoUserId;
-          createdApplicationId = demoData.applicationId;
-        } else {
-          // Step 1b: Create application for authenticated user
-          console.log("[preload] Creating application for authenticated user...");
-          userId = sessionUserId!;
-          const appResp = await fetch(`/api/applications/create`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ companyId, jobId }),
-          });
-
-          if (!appResp.ok) throw new Error("Failed to create application");
-          const appData = await appResp.json();
-          createdApplicationId = appData.application.id;
+        if (!sessionUserId) {
+          throw new Error("Authentication required");
         }
+
+        // Step 1: Create application for authenticated user
+        console.log("[preload] Creating application for authenticated user...");
+        const userId = sessionUserId;
+        const appResp = await fetch(`/api/applications/create`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ companyId, jobId }),
+        });
+
+        if (!appResp.ok) throw new Error("Failed to create application");
+        const appData = await appResp.json();
+        const createdApplicationId = appData.application.id;
 
         // Step 2: Create interview session
         console.log("[preload] Creating interview session...");
@@ -83,7 +67,6 @@ export function useBackgroundPreload() {
           applicationId: createdApplicationId,
           companyId,
           userId,
-          isDemoMode,
         });
 
         if (!session?.interviewSession?.id) throw new Error("Failed to create interview session");

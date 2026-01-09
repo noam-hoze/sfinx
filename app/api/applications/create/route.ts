@@ -15,19 +15,19 @@ export async function POST(request: NextRequest) {
         log.info("🔍 Skip auth:", skipAuth);
 
         const body = await request.json();
-        const { companyId, jobId, userId: demoUserId } = body;
+        const { companyId, jobId, userId: bodyUserId } = body;
 
         let userId: string;
 
         if (skipAuth) {
-            if (!demoUserId) {
+            if (!bodyUserId) {
                 log.warn("❌ skip-auth mode but no userId provided in request");
                 return NextResponse.json(
                     { error: "userId required when skip-auth=true" },
                     { status: 400 }
                 );
             }
-            userId = demoUserId;
+            userId = bodyUserId;
             log.info("✅ Skip auth - User ID from request:", userId);
         } else {
             if (!(session?.user as any)?.id) {
