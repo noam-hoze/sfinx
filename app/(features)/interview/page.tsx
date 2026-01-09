@@ -805,10 +805,10 @@ function InterviewPageContent() {
   const isDebugModeEnabled = process.env.NEXT_PUBLIC_DEBUG_MODE === "true";
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex flex-col relative">
-      {/* Breadcrumbs - fixed at top */}
+    <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex flex-col">
+      {/* Breadcrumbs */}
       {!isPageLoading && machineState !== "in_coding_session" && (
-        <div className="fixed top-20 left-6 z-10">
+        <div className="pt-8 px-6">
           <Breadcrumbs items={breadcrumbTrail} />
         </div>
       )}
