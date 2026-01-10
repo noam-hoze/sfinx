@@ -190,7 +190,7 @@ class QuantumCircuitSimulator:
 `,
     expectedOutput: `Quantum simulator with state vector manipulation and measurement`,
     codingLanguage: "python",
-    backgroundQuestionTimeSeconds: 15 * 60,
+    backgroundQuestionTimeSeconds: 5 * 60,
     codingQuestionTimeSeconds: 10 * 60,
 };
 

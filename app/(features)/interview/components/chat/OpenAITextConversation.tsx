@@ -33,7 +33,6 @@ import {
 import {
   buildOpenAIBackgroundPrompt,
   buildOpenAICodingPrompt,
-  buildOpenAIInterviewerPrompt,
 } from "@/shared/prompts/openAIInterviewerPrompt";
 import { log as logger } from "app/shared/services";
 import {
