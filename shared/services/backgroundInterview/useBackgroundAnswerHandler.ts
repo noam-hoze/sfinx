@@ -113,12 +113,29 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
           const timeboxMs = backgroundState.timeboxMs;
           const startedAtMs = backgroundState.startedAtMs;
           
+          // Fetch current category confidence scores
+          let categories: Array<{name: string; confidence: number}> = [];
+          if (sessionId) {
+            try {
+              const contributionsRes = await fetch(`/api/interviews/session/${sessionId}/contributions`);
+              if (contributionsRes.ok) {
+                const { categoryStats } = await contributionsRes.json();
+                categories = categoryStats.map((stat: any) => ({
+                  name: stat.categoryName,
+                  confidence: stat.confidence * 100
+                }));
+              }
+            } catch (err) {
+              console.error("[answer-handler] Failed to fetch contributions:", err);
+            }
+          }
+          
           const transitionReason = shouldTransition(
             { startedAtMs, timeboxMs },
-            { timeboxMs }
+            { timeboxMs, categories }
           );
 
-          console.log("[answer-handler] Time gate check:", { transitionReason });
+          console.log("[answer-handler] Time gate check:", { transitionReason, categories });
 
           if (transitionReason) {
             // Time limit reached - generate closing response
@@ -134,7 +151,9 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
               dispatch(addMessage({ text: responseText, speaker: "ai" }));
               saveMessageToDb(responseText, "ai");
               
-              const systemMsg = `[SYSTEM: Background interview time limit reached, transitioning to coding stage]`;
+              const systemMsg = transitionReason === "all_topics_complete" 
+                ? `[SYSTEM: All topics reached 100% confidence, transitioning to coding stage]`
+                : `[SYSTEM: Background interview time limit reached, transitioning to coding stage]`;
               dispatch(addMessage({ text: systemMsg, speaker: "system" as any }));
               // Don't save system message to DB to keep transcript clean
               
