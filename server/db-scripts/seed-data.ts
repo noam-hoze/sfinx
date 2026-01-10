@@ -508,7 +508,7 @@ async function resetDatabase() {
             await prisma.scoringConfiguration.create({
                 data: {
                     jobId: job.id,
-                    aiAssistWeight: 25,
+                    aiAssistWeight: 75,
                     experienceWeight: 50,
                     codingWeight: 50,
                 },
