@@ -14,7 +14,8 @@
     "sync-db:prod": "tsx server/db-scripts/sync-schema-and-seed.ts --env=prod",
     "clean:next": "rm -rf .next .turbo node_modules/.cache",
     "e2e": "playwright test --project=voice-chromium --headed --workers=1",
-    "studio": "prisma studio"
+    "studio": "prisma studio",
+    "studio:dev": "export $(grep ^DATABASE_URL .env.local | xargs) && prisma studio"
   },
   "dependencies": {
     "@google-cloud/dialogflow-cx": "^5.3.0",

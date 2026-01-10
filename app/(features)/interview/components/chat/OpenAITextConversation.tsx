@@ -222,30 +222,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
           });
         } catch {}
         
-        // Create video chapter IMMEDIATELY at paste detection
-        let videoChapterId: string | undefined;
-        if (interviewSessionId) {
-          try {
-            const chapterUrl = `/api/interviews/session/${interviewSessionId}/paste-chapter`;
-            
-            const response = await fetch(chapterUrl, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                timestamp,
-                caption: "External tool usage detected",
-              }),
-            });
-            
-            if (response.ok) {
-              const data = await response.json();
-              videoChapterId = data.chapterId;
-              /* eslint-disable no-console */ console.log("✅ [paste_eval] Chapter created at paste detection", { videoChapterId });
-            }
-          } catch (error) {
-            /* eslint-disable no-console */ console.error("❌ Failed to create paste chapter:", error);
-          }
-        }
+        // VideoChapter removed - evidence links use aiQuestionTimestamp from ExternalToolUsage
         
         // Get coding context
         const codingPrompt = scriptRef.current?.codingPrompt;
@@ -304,12 +281,12 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
           pasteEvaluationId,
           pastedContent: pastedCode,
           timestamp,
-          videoChapterId,
           topics,
         }));
         
         if (initialQuestion) {
-          const aiQuestionTimestamp = Date.now();
+          // Use paste detection timestamp for evidence link (when green highlight appears)
+          const aiQuestionTimestamp = timestamp;
           post(initialQuestion, "ai", { isPasteEval: true, pasteEvaluationId });
           
           // Trigger editor highlight now that AI question is posted
@@ -319,7 +296,6 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
           dispatch(setPasteQuestion(initialQuestion));
           dispatch(updatePasteVideoMetadata({
             aiQuestionTimestamp,
-            videoChapterId,
           }));
           
           try {
@@ -952,20 +928,6 @@ Generate your question now:`;
                       try {
                         /* eslint-disable no-console */ console.log("[paste_eval][saved_to_db]");
                       } catch {}
-                      
-                      // Update VideoCaption with accountability evaluation
-                      if (activePasteEval.videoChapterId) {
-                        try {
-                          await fetch(`/api/interviews/video-chapter/${activePasteEval.videoChapterId}/caption`, {
-                            method: "PATCH",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ caption: evaluation.caption }),
-                          });
-                          /* eslint-disable no-console */ console.log("✅ [paste_eval] VideoCaption updated with evaluation");
-                        } catch (error) {
-                          /* eslint-disable no-console */ console.error("❌ Failed to update VideoCaption:", error);
-                        }
-                      }
                     } else {
                       try {
                         const errorData = await dbResponse.json();
