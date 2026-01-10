@@ -3,7 +3,8 @@
  * - Encodes Greeting → Background → Coding → Submission → Wrap‑up.
  * - Sends system nudges via session.transport; exposes minimal stage API.
  */
-import { interviewChatStore } from "@/shared/state/interviewChatStore";
+import { setPendingReply } from "@/shared/state/slices/codingSlice";
+import type { AppDispatch } from "@/shared/state/store";
 
 export type FlowStage =
     | "greeting"
@@ -12,7 +13,7 @@ export type FlowStage =
     | "submission"
     | "wrapup";
 
-export function openAIFlowController() {
+export function openAIFlowController(dispatch: AppDispatch) {
     let stage: FlowStage = "greeting";
 
     const getStage = () => stage;
@@ -70,10 +71,7 @@ export function openAIFlowController() {
                 },
             });
             session?.transport?.sendEvent?.({ type: "response.create" });
-            interviewChatStore.dispatch({
-                type: "SET_PENDING_REPLY",
-                payload: { pending: true, reason: `flow:${stage}` },
-            } as any);
+            dispatch(setPendingReply({ pending: true, reason: `flow:${stage}` }));
         } catch {}
     };
 

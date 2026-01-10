@@ -11,20 +11,26 @@ import React, {
 import { useSearchParams } from "next/navigation";
 import OpenAI from "openai";
 import { useDispatch } from "react-redux";
-import { addMessage } from "@/shared/state/slices/interviewChatSlice";
+import {
+  addMessage,
+  setPendingReply,
+  startPasteEvaluation,
+  updatePasteEvaluation,
+  clearPasteEvaluation,
+} from "@/shared/state/slices/codingSlice";
 import { store } from "@/shared/state/store";
 import {
   setExpectedBackgroundQuestion,
   start as machineStart,
-  aiFinal as machineAiFinal,
-  userFinal as machineUserFinal,
-} from "@/shared/state/slices/interviewMachineSlice";
+  interviewerMessage as machineInterviewerMessage,
+  candidateMessage as machineCandidateMessage,
+  setStage,
+} from "@/shared/state/slices/interviewSlice";
 import {
   buildOpenAIBackgroundPrompt,
   buildOpenAICodingPrompt,
   buildOpenAIInterviewerPrompt,
 } from "@/shared/prompts/openAIInterviewerPrompt";
-import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import {
   askViaChatCompletion,
   generateAssistantReply,
@@ -88,28 +94,19 @@ const OpenAITextConversation = forwardRef<any, Props>(
     const post = useCallback(
       (text: string, speaker: "user" | "ai", metadata?: { isPasteEval?: boolean; pasteEvaluationId?: string }) => {
         if (!text) return;
-        dispatch(addMessage({ text, speaker, pasteEvaluationId: metadata?.pasteEvaluationId }));
-        try {
-          interviewChatStore.dispatch({
-            type: "ADD_MESSAGE",
-            payload: { 
-              text, 
-              speaker, 
-              isPasteEval: metadata?.isPasteEval,
-              pasteEvaluationId: metadata?.pasteEvaluationId,
-            },
-          } as any);
-        } catch {}
+        dispatch(addMessage({ 
+          text, 
+          speaker, 
+          isPasteEval: metadata?.isPasteEval,
+          pasteEvaluationId: metadata?.pasteEvaluationId 
+        }));
       },
       [dispatch]
     );
 
     const clearPendingState = useCallback(() => {
-      interviewChatStore.dispatch({
-        type: "SET_PENDING_REPLY",
-        payload: { pending: false },
-      } as any);
-    }, []);
+      dispatch(setPendingReply({ pending: false }));
+    }, [dispatch]);
 
     const clearPendingAndThrow = useCallback(
       (message: string): never => {
@@ -120,7 +117,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
     );
 
     const cancelPendingBackgroundReply = useCallback(() => {
-      const pendingContext = interviewChatStore.getState().pendingReplyContext;
+      const pendingContext = store.getState().coding.pendingReplyContext;
       if (!pendingContext) return;
       try {
         /* eslint-disable no-console */ console.log("[coding][pending_cancelled]", pendingContext);
@@ -142,26 +139,19 @@ const OpenAITextConversation = forwardRef<any, Props>(
         autoPost?: boolean;
         managePending?: boolean;
       }) => {
-        const stageSnapshot = interviewChatStore.getState().stage;
         if (pendingReason) {
-          interviewChatStore.dispatch({
-            type: "SET_PENDING_REPLY",
-            payload: { pending: true, reason: pendingReason, stage: stageSnapshot },
-          } as any);
+          dispatch(setPendingReply({ pending: true, reason: pendingReason }));
         }
         try {
         const answer = await generateAssistantReply(openaiClient, persona, instruction);
         if (!answer) {
           if (pendingReason && !managePending) {
-            interviewChatStore.dispatch({
-              type: "SET_PENDING_REPLY",
-              payload: { pending: false },
-            } as any);
+            dispatch(setPendingReply({ pending: false }));
           }
           return null;
         }
           if (autoPost) {
-          const machineState = store.getState().interviewMachine.state;
+          const machineState = store.getState().interview.state;
           if (
             machineState === "in_coding_session" &&
             pendingReason &&
@@ -173,26 +163,19 @@ const OpenAITextConversation = forwardRef<any, Props>(
                 stage: machineState,
               });
             } catch {}
-            interviewChatStore.dispatch({
-              type: "SET_PENDING_REPLY",
-              payload: {
-                pending: true,
-                reason: `${pendingReason}_discarded`,
-                stage: machineState,
-              },
-            } as any);
+            dispatch(setPendingReply({
+              pending: true,
+              reason: `${pendingReason}_discarded`,
+            }));
             return answer;
           }
         post(answer, "ai");
-        dispatch(machineAiFinal({ text: answer }));
+        dispatch(machineInterviewerMessage({ text: answer }));
           // Unlock input when AI responds
           setInputLocked?.(false);
           }
           if (pendingReason && !managePending) {
-            interviewChatStore.dispatch({
-              type: "SET_PENDING_REPLY",
-              payload: { pending: false },
-            } as any);
+            dispatch(setPendingReply({ pending: false }));
           }
           if (autoPost && onGreetingDelivered && instruction.includes("I'll be the one interviewing today!")) {
           try {
@@ -202,10 +185,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
         return answer;
         } catch (error) {
           if (pendingReason && !managePending) {
-            interviewChatStore.dispatch({
-              type: "SET_PENDING_REPLY",
-              payload: { pending: false },
-            } as any);
+            dispatch(setPendingReply({ pending: false }));
           }
           throw error;
         }
@@ -216,7 +196,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
     /** Handle paste detection during coding stage - Start evaluation flow */
     const handlePasteDetected = useCallback(
       async (pastedCode: string, timestamp: number) => {
-        const ms = store.getState().interviewMachine;
+        const ms = store.getState().interview;
         if (ms.state !== "in_coding_session") return;
         
         const pasteEvaluationId = `paste-${Date.now()}-${Math.random().toString(36).substring(7)}`;
@@ -307,36 +287,31 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
         }
         
         // Update debug panel - start evaluation with topics
-        interviewChatStore.dispatch({
-          type: "CODING_START_PASTE_EVAL",
-          payload: {
-            pasteEvaluationId,
-            pastedContent: pastedCode,
-            timestamp,
-            videoChapterId,
-            topics,
-          },
-        } as any);
+        dispatch(startPasteEvaluation({
+          pasteEvaluationId,
+          pastedContent: pastedCode,
+          timestamp,
+          videoChapterId,
+          topics,
+        }));
         
         if (initialQuestion) {
           const aiQuestionTimestamp = Date.now();
           post(initialQuestion, "ai", { isPasteEval: true, pasteEvaluationId });
-          dispatch(machineAiFinal({ text: initialQuestion }));
+          dispatch(machineInterviewerMessage({ text: initialQuestion }));
           
           // Trigger editor highlight now that AI question is posted
           onHighlightPastedCode?.(pastedCode);
           
           // Update debug panel with question (answerCount still 0 - no answers yet)
-          interviewChatStore.dispatch({
-            type: "CODING_UPDATE_PASTE_EVAL",
-            payload: {
-              confidence: 0,
-              answerCount: 0,
-              readyToEvaluate: false,
-              currentQuestion: initialQuestion,
-              aiQuestionTimestamp,
-            },
-          } as any);
+          dispatch(updatePasteEvaluation({
+            confidence: 0,
+            answerCount: 0,
+            readyToEvaluate: false,
+            currentQuestion: initialQuestion,
+            aiQuestionTimestamp,
+            videoChapterId,
+          }));
           
           try {
             /* eslint-disable no-console */ console.log("[paste_eval][question_asked]", { pasteEvaluationId, question: initialQuestion });
@@ -349,12 +324,12 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
     /** Injects the coding prompt once the guard advances into the coding session. */
     useEffect(() => {
       const unsubscribe = store.subscribe(() => {
-        const ms = store.getState().interviewMachine;
+        const ms = store.getState().interview;
         if (ms.state !== "in_coding_session" || codingPromptSentRef.current) return;
         codingPromptSentRef.current = true;
         
-        // Update interviewChatStore stage to "coding" so debug panel reflects it
-        interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" } as any);
+        // Update stage to "coding" so debug panel reflects it
+        dispatch(setStage({ stage: "coding" }));
         
         if (!ms.companyName) {
           throw new Error("Interview machine missing companyName for coding prompt");
@@ -373,18 +348,19 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
         } catch {}
         void (async () => {
           try {
-            const chatSnapshot = interviewChatStore.getState();
-            const hadPending = chatSnapshot.pendingReply;
+            const codingSnapshot = store.getState().coding;
+            const hadPending = codingSnapshot.pendingReply;
             if (hadPending) {
               cancelPendingBackgroundReply();
             }
-            const reason = chatSnapshot.background?.reason;
+            const backgroundState = store.getState().background;
+            const reason = backgroundState.reason;
             
             // Persist background messages and trigger summary generation (fire-and-forget)
             // Note: Session ID needs to be passed from parent component or obtained from URL/context
             try {
               /* eslint-disable no-console */ console.log("[background][persist] Starting persistence flow");
-              const backgroundMessages = chatSnapshot.messages.filter((msg) => {
+              const backgroundMessages = backgroundState.messages.filter((msg) => {
                 // Filter messages from background stage
                 // For now, include all messages before this point (could enhance with explicit stage tracking)
                 return true;
@@ -491,21 +467,15 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
             }
             const finalAnswer = answer!;
             post(finalAnswer, "ai");
-            dispatch(machineAiFinal({ text: finalAnswer }));
-            interviewChatStore.dispatch({
-              type: "SET_PENDING_REPLY",
-              payload: { pending: false },
-            } as any);
+            dispatch(machineInterviewerMessage({ text: finalAnswer }));
+            dispatch(setPendingReply({ pending: false }));
             if (automaticMode && onCodingPromptReady) {
             try {
               onCodingPromptReady();
             } catch {}
             }
           } catch (error) {
-            interviewChatStore.dispatch({
-              type: "SET_PENDING_REPLY",
-              payload: { pending: false },
-            } as any);
+            dispatch(setPendingReply({ pending: false }));
             codingExpectedMessageRef.current = null;
             throw error;
           } finally {
@@ -531,8 +501,8 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
         } catch {}
         
         // Check if we're in active paste evaluation to tag message
-        const chatState = interviewChatStore.getState();
-        const activePasteEval = chatState.coding?.activePasteEvaluation;
+        const codingState = store.getState().coding;
+        const activePasteEval = codingState.activePasteEvaluation;
         const isPasteEvalActive = !!activePasteEval;
         
         post(text, "user", { 
@@ -541,16 +511,16 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
         });
         // Lock input when user sends message
         setInputLocked?.(true);
-        dispatch(machineUserFinal());
+        dispatch(machineCandidateMessage());
         try {
           /* eslint-disable no-console */ console.log(
             "[text][after userFinal]",
-            { state: store.getState().interviewMachine.state }
+            { state: store.getState().interview.state }
           );
         } catch {}
 
-        const ms = store.getState().interviewMachine;
-        if (ms.state === "greeting_responded_by_user") {
+        const ms = store.getState().interview;
+        if (ms.state === "greeting_said_by_ai") {
           const expectedQ = scriptRef.current?.backgroundQuestion;
           if (expectedQ) {
             const persona = buildOpenAIBackgroundPrompt(
@@ -564,10 +534,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
               pendingReason: "background_question",
             });
             if (reply) {
-              interviewChatStore.dispatch({
-                type: "SET_STAGE",
-                payload: "background",
-              } as any);
+              dispatch(setStage({ stage: "background" }));
             }
             return;
           }
@@ -575,18 +542,13 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
 
         if (ms.state === "background_answered_by_user") {
           // Set pending state BEFORE control run
-          const pendingStage = interviewChatStore.getState().stage;
-          interviewChatStore.dispatch({
-            type: "SET_PENDING_REPLY",
-            payload: {
-              pending: true,
-              reason: "background_followup",
-              stage: pendingStage,
-            },
-          } as any);
+          dispatch(setPendingReply({
+            pending: true,
+            reason: "background_followup",
+          }));
           
           // Ask for follow-up
-          const im = store.getState().interviewMachine;
+          const im = store.getState().interview;
           if (!im.companyName) {
             throw new Error("Interview machine missing companyName");
           }
@@ -599,16 +561,12 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
             { role: "user", content: text },
           ]);
           if (follow) {
-            const machineState = store.getState().interviewMachine.state;
+            const machineState = store.getState().interview.state;
             if (machineState === "in_coding_session") {
-              interviewChatStore.dispatch({
-                type: "SET_PENDING_REPLY",
-                payload: {
-                  pending: true,
-                  reason: "background_followup_discarded",
-                  stage: machineState,
-                },
-              } as any);
+              dispatch(setPendingReply({
+                pending: true,
+                reason: "background_followup_discarded",
+              }));
               try {
                 /* eslint-disable no-console */ console.log("[background][followup_dropped]", {
                   follow,
@@ -618,7 +576,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
               return;
             }
             post(follow, "ai");
-            dispatch(machineAiFinal({ text: follow }));
+            dispatch(machineInterviewerMessage({ text: follow }));
             // Unlock input when AI responds
             setInputLocked?.(false);
             clearPendingState();
@@ -635,8 +593,8 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
           } catch {}
           
           // Check if we're in an active paste evaluation
-          const chatState = interviewChatStore.getState();
-          const activePasteEval = chatState.coding?.activePasteEvaluation;
+          const codingState = store.getState().coding;
+          const activePasteEval = codingState.activePasteEvaluation;
           
           if (activePasteEval) {
             // Handle paste evaluation flow with CONTROL messages
@@ -660,7 +618,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
             
             // Build paste evaluation prompt with CONTROL format
             // Get raw messages directly from store (not filtered by buildControlContextMessages)
-            const rawMessages = interviewChatStore.getState().messages;
+            const rawMessages = store.getState().coding.messages;
             
             // Only get paste eval messages AFTER the paste timestamp
             const pasteConversation = rawMessages
@@ -747,10 +705,10 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
             const historyMessages = pasteConversation;
             
             // Set pending state before API call
-            interviewChatStore.dispatch({
-              type: "SET_PENDING_REPLY",
-              payload: { pending: true, reason: "paste_eval_followup", stage: "coding" },
-            } as any);
+            dispatch(setPendingReply({
+              pending: true,
+              reason: "paste_eval_followup",
+            }));
             
             // Generate AI response with CONTROL
             const fullResponse = await askViaChatCompletion(
@@ -892,7 +850,7 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                 // Follow-up question - keep green highlighting
                 post(aiText, "ai", { isPasteEval: true, pasteEvaluationId: activePasteEval.pasteEvaluationId });
               }
-              dispatch(machineAiFinal({ text: aiText }));
+              dispatch(machineInterviewerMessage({ text: aiText }));
               clearPendingState();
             }
             
@@ -923,17 +881,14 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
               const allTopicsCovered = updatedTopics.length > 0 && updatedTopics.every(t => t.percentage > 0);
               const controllerShouldEvaluate = allTopicsCovered;
               
-              interviewChatStore.dispatch({
-                type: "CODING_UPDATE_PASTE_EVAL",
-                payload: {
+              dispatch(updatePasteEvaluation({
                   confidence: calculatedConfidence,
                   answerCount: nextAnswerCount,
                   readyToEvaluate: controllerShouldEvaluate,
                   currentQuestion: !controllerShouldEvaluate ? aiText : undefined,
                   questionScores: updatedScores,
                   topics: updatedTopics.length > 0 ? updatedTopics : undefined,
-                },
-              } as any);
+              }));
               
               // If ready to evaluate, aggregate per-question scores
               if (shouldEvaluate) {
@@ -1032,9 +987,7 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                     .join(" ");
                   
                   // Update debug panel with final evaluation
-                  interviewChatStore.dispatch({
-                    type: "CODING_UPDATE_PASTE_EVAL",
-                    payload: {
+                  dispatch(updatePasteEvaluation({
                       confidence: avgScore,
                       answerCount: nextAnswerCount,
                       readyToEvaluate: true,
@@ -1042,8 +995,7 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                       evaluationReasoning: evaluation.reasoning,
                       evaluationCaption: evaluation.caption,
                       accountabilityScore: evaluation.accountabilityScore,
-                    },
-                  } as any);
+                  }));
                   
                   // Save to DB
                   const sessionId = ms.sessionId;
@@ -1150,10 +1102,10 @@ The candidate is working on this task. Respond to their question while following
           const historyMessages = buildControlContextMessages(CONTROL_CONTEXT_TURNS);
           
           // Set pending state before API call
-          interviewChatStore.dispatch({
-            type: "SET_PENDING_REPLY",
-            payload: { pending: true, reason: "coding_question", stage: "coding" },
-          } as any);
+          dispatch(setPendingReply({
+            pending: true,
+            reason: "coding_question",
+          }));
           
           // Generate AI response using chat completions
           const reply = await askViaChatCompletion(
@@ -1164,7 +1116,7 @@ The candidate is working on this task. Respond to their question while following
           
           if (reply) {
             post(reply, "ai");
-            dispatch(machineAiFinal({ text: reply }));
+            dispatch(machineInterviewerMessage({ text: reply }));
             clearPendingState();
             setInputLocked?.(false);
             try {
@@ -1184,7 +1136,7 @@ The candidate is working on this task. Respond to their question while following
     const startConversation = useCallback(async () => {
       if (readyRef.current) return;
       readyRef.current = true;
-      const ms = store.getState().interviewMachine;
+      const ms = store.getState().interview;
       const { companySlug, roleSlug } = ms;
       if (!companySlug) {
         throw new Error("Interview machine missing companySlug");

@@ -29,8 +29,7 @@ import { useInterviewTimer } from "./hooks/useInterviewTimer";
 import { useThemePreference } from "./hooks/useThemePreference";
 import { fetchJobById } from "./services/jobService";
 import { useDispatch, useSelector } from "react-redux";
-import { forceCoding, setCompanyContext, setSessionId } from "@/shared/state/slices/interviewMachineSlice";
-import { interviewChatStore } from "@/shared/state/interviewChatStore";
+import { forceCoding, setCompanyContext, setSessionId, setStage } from "@/shared/state/slices/interviewSlice";
 import { store, RootState } from "@/shared/state/store";
 import { useInterviewRecording } from "./InterviewRecordingContext";
 
@@ -93,10 +92,10 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     const searchParams = useSearchParams();
     const { data: session } = useSession();
     const dispatch = useDispatch();
-    const reduxCompanySlug = useSelector((state: RootState) => state.interviewMachine.companySlug);
-    const reduxRoleSlug = useSelector((state: RootState) => state.interviewMachine.roleSlug);
-    const reduxUserId = useSelector((state: RootState) => state.interviewMachine.userId);
-    const reduxApplicationId = useSelector((state: RootState) => state.interviewMachine.applicationId);
+    const reduxCompanySlug = useSelector((state: RootState) => state.interview.companySlug);
+    const reduxRoleSlug = useSelector((state: RootState) => state.interview.roleSlug);
+    const reduxUserId = useSelector((state: RootState) => state.interview.userId);
+    const reduxApplicationId = useSelector((state: RootState) => state.interview.applicationId);
     
     if (!reduxCompanySlug || !reduxRoleSlug) {
         throw new Error("Company and role not initialized in Redux");
@@ -256,7 +255,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         }
         const unsubscribe = store.subscribe(() => {
             const state = store.getState();
-            const machineState = state.interviewMachine?.state;
+            const machineState = state.interview?.state;
             const currentCodingStarted = isCodingStarted; // Capture current state
             if (machineState === "in_coding_session" && !currentCodingStarted) {
                 void handleStartCoding();
@@ -266,9 +265,9 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     }, [automaticMode, handleStartCoding]);
 
     useEffect(() => {
-        const prevStateRef = { current: store.getState().interviewMachine?.state };
+        const prevStateRef = { current: store.getState().interview?.state };
         const unsubscribe = store.subscribe(() => {
-            const machineState = store.getState().interviewMachine?.state;
+            const machineState = store.getState().interview?.state;
             if (
                 machineState === "in_coding_session" &&
                 prevStateRef.current !== "in_coding_session"
@@ -287,8 +286,8 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     const handleInterviewConcluded = useCallback(
         async (delayMs?: number) => {
             // Check for unanswered paste evaluation before concluding
-            const chatState = interviewChatStore.getState();
-            const activePasteEval = chatState.coding.activePasteEvaluation;
+            const codingState = store.getState().coding;
+            const activePasteEval = codingState.activePasteEvaluation;
             
             if (activePasteEval && !activePasteEval.accountabilityScore && interviewSessionId) {
                 logger.info("📋 [PASTE_EVAL] Saving unanswered paste evaluation with score 0");
@@ -641,7 +640,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             await realTimeConversationRef.current?.startConversation();
 
             dispatch(forceCoding());
-            interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" } as any);
+            dispatch(setStage({ stage: "coding" }));
             logger.info("✅ State machine transitioned to coding stage");
 
             setIsInterviewActive(true);
@@ -1328,10 +1327,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                                 logger.info("Conversation started");
                                 setIsInterviewLoading(false);
                                     try {
-                                        interviewChatStore.dispatch({
-                                            type: "SET_STAGE",
-                                            payload: "greeting",
-                                        } as any);
+                                        dispatch(setStage({ stage: "greeting" }));
                                     } catch {}
                             }}
                             onEndConversation={() => {

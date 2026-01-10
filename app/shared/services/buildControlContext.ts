@@ -1,11 +1,12 @@
-import { interviewChatStore } from "../../../shared/state/interviewChatStore";
+import { store } from "../../../shared/state/store";
+import type { ChatMessage } from "../../../shared/state/slices/backgroundSlice";
 
 /**
  * Build up to the last K messages (overall, not per-speaker), preserving
  * chronological order, mapped to Chat Completions roles.
  */
 export function buildControlContextMessages(k: number) {
-    const { messages } = interviewChatStore.getState();
+    const { messages } = store.getState().background;
     // Filter out paste evaluation messages to keep main interview context clean
     const filtered = messages.filter(m => !m.isPasteEval);
     const slice = filtered.slice(-Math.max(1, k));
@@ -22,7 +23,7 @@ export function buildControlContextMessages(k: number) {
  * - The only scorable content is the last user answer; the assistant turn is the last AI question
  */
 export function buildDeltaControlMessages(k: number) {
-    const { messages } = interviewChatStore.getState();
+    const { messages } = store.getState().background;
     if (!messages.length) return { system: "", assistant: "", user: "" };
 
     // Find last user answer

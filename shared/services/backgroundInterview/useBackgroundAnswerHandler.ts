@@ -8,8 +8,8 @@ import { useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import OpenAI from "openai";
 import { store, RootState } from "@/shared/state/store";
-import { interviewChatStore } from "@/shared/state/interviewChatStore";
-import { userFinal, aiFinal } from "@/shared/state/slices/interviewMachineSlice";
+import { addMessage } from "@/shared/state/slices/backgroundSlice";
+import { candidateMessage, interviewerMessage } from "@/shared/state/slices/interviewSlice";
 import {
   askViaChatCompletion,
   generateAssistantReply,
@@ -29,10 +29,10 @@ interface AnswerHandlerResult {
  */
 export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) => void) {
   const dispatch = useDispatch();
-  const companyName = useSelector((state: RootState) => state.interviewMachine.companyName);
-  const sessionId = useSelector((state: RootState) => state.interviewMachine.sessionId);
-  const userId = useSelector((state: RootState) => state.interviewMachine.userId);
-  const script = useSelector((state: RootState) => state.interviewMachine.script);
+  const companyName = useSelector((state: RootState) => state.interview.companyName);
+  const sessionId = useSelector((state: RootState) => state.interview.sessionId);
+  const userId = useSelector((state: RootState) => state.interview.userId);
+  const script = useSelector((state: RootState) => state.interview.script);
 
   const saveMessageToDb = async (text: string, speaker: "user" | "ai" | "system") => {
     if (!sessionId) return;
@@ -68,17 +68,14 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
 
       try {
         // Add to chat store
-        interviewChatStore.dispatch({
-          type: "ADD_MESSAGE",
-          payload: { text: answer, speaker: "user" },
-        } as any);
+        dispatch(addMessage({ text: answer, speaker: "user" }));
         
         // Save user answer to DB
         saveMessageToDb(answer, "user");
 
         // Call evaluate-answer API (non-blocking) - API will fetch categories from job
-        const chatState = interviewChatStore.getState();
-        const currentQuestion = chatState.messages?.filter(m => m.speaker === "ai").slice(-1)[0]?.text || "";
+        const backgroundState = store.getState().background;
+        const currentQuestion = backgroundState.messages?.filter(m => m.speaker === "ai").slice(-1)[0]?.text || "";
         
         if (sessionId) {
           const experienceCategories = script?.experienceCategories || [];
@@ -109,14 +106,14 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
         }
 
         // Transition machine state
-        dispatch(userFinal());
-        const ms = store.getState().interviewMachine;
-        console.log("[answer-handler] Machine state after userFinal:", ms.state);
+        dispatch(candidateMessage());
+        const ms = store.getState().interview;
+        console.log("[answer-handler] Machine state after candidateMessage:", ms.state);
 
         if (ms.state === "background_answered_by_user") {
-          const chatState = interviewChatStore.getState();
-          const timeboxMs = chatState.background.timeboxMs;
-          const startedAtMs = chatState.background.startedAtMs;
+          const backgroundState = store.getState().background;
+          const timeboxMs = backgroundState.timeboxMs;
+          const startedAtMs = backgroundState.startedAtMs;
           
           const transitionReason = shouldTransition(
             { startedAtMs, timeboxMs },
@@ -136,20 +133,11 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
               const finalResponse = await generateAssistantReply(openaiClient, persona, closingInstruction);
               const responseText = finalResponse || "";
               
-              interviewChatStore.dispatch({
-                type: "ADD_MESSAGE",
-                payload: { text: responseText, speaker: "ai" },
-              } as any);
+              dispatch(addMessage({ text: responseText, speaker: "ai" }));
               saveMessageToDb(responseText, "ai");
               
               const systemMsg = `[SYSTEM: Background interview time limit reached, transitioning to coding stage]`;
-              interviewChatStore.dispatch({
-                type: "ADD_MESSAGE",
-                payload: {
-                  text: systemMsg,
-                  speaker: "system" as any,
-                },
-              } as any);
+              dispatch(addMessage({ text: systemMsg, speaker: "system" as any }));
               // Don't save system message to DB to keep transcript clean
               
               console.log("[answer-handler] Final response generated");
@@ -206,13 +194,10 @@ Your question should naturally probe for specific examples and details that demo
             const followUp = await askViaChatCompletion(openaiClient, persona, historyMessages);
 
             if (followUp) {
-              interviewChatStore.dispatch({
-                type: "ADD_MESSAGE",
-                payload: { text: followUp, speaker: "ai" },
-              } as any);
+              dispatch(addMessage({ text: followUp, speaker: "ai" }));
               saveMessageToDb(followUp, "ai");
 
-              dispatch(aiFinal({ text: followUp }));
+              dispatch(interviewerMessage({ text: followUp }));
               console.log("[answer-handler] Follow-up question generated and dispatched");
             }
 

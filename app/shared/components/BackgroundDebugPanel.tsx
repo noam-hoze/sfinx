@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import { TIMEBOX_MS, formatCountdown } from "@/shared/services/backgroundSessionGuard";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/shared/state/store";
+import { forceTimeExpiry } from "@/shared/state/slices/backgroundSlice";
 import RealTimeContributionsView from "./debug/RealTimeContributionsView";
 import { transformBackgroundDataToRealtime } from "./debug/transformers/backgroundDataTransformer";
 import ScoreProgressDisplay from "./debug/ScoreProgressDisplay";
@@ -25,20 +25,9 @@ interface ContributionStats {
 
 export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienceCategories, realtimeEvaluations = [] }: BackgroundDebugPanelProps) {
     const debugEnabled = process.env.NEXT_PUBLIC_DEBUG_MODE === "true";
-    const sessionId = useSelector((state: RootState) => state.interviewMachine.sessionId);
-
-    const [state, setState] = useState(() => interviewChatStore.getState());
+    const sessionId = useSelector((state: RootState) => state.interview.sessionId);
+    const backgroundState = useSelector((state: RootState) => state.background);
     const [contributionStats, setContributionStats] = useState<ContributionStats[]>([]);
-    
-    useEffect(() => {
-        if (!debugEnabled) return;
-        const unsub = interviewChatStore.subscribe(() => {
-            setState(interviewChatStore.getState());
-        });
-        return () => {
-            if (unsub) unsub();
-        };
-    }, [debugEnabled]);
 
     // Poll for contributions every 3 seconds
     useEffect(() => {
@@ -62,12 +51,10 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
         return () => clearInterval(interval);
     }, [debugEnabled, sessionId]);
 
-    const stage = state.stage as any;
-    const bg = state.background as any;
-    const coding = state.coding as any;
-    const startedAtMs = bg?.startedAtMs;
-    const reason = bg?.reason;
-    const activePasteEval = coding?.activePasteEvaluation;
+    const stage = useSelector((state: RootState) => state.interview.stage);
+    const startedAtMs = backgroundState.startedAtMs;
+    const reason = backgroundState.reason;
+    const activePasteEval = useSelector((state: RootState) => state.coding.activePasteEvaluation);
 
     // Force a repaint every second so countdown updates live
     const [, setTick] = useState(0);
@@ -77,15 +64,14 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
     }, []);
 
     const now = Date.now();
-    const limitMs = Number.isFinite(timeboxMs) && timeboxMs > 0 ? timeboxMs : TIMEBOX_MS;
+    const limitMs = Number.isFinite(backgroundState.timeboxMs) && backgroundState.timeboxMs! > 0 ? backgroundState.timeboxMs : TIMEBOX_MS;
     const remainingMs = startedAtMs ? Math.max(0, startedAtMs + limitMs - now) : limitMs;
     const countdown = formatCountdown(remainingMs);
     const reasonLabel = reason ? reason.replace("_", " ") : "—";
 
+    const dispatch = useDispatch();
     const handleForceTimeExpiry = () => {
-        interviewChatStore.dispatch({
-            type: "BG_FORCE_TIME_EXPIRY"
-        });
+        dispatch(forceTimeExpiry());
     };
 
     const stageName = typeof stage === "string" ? stage : "";

@@ -5,7 +5,6 @@ import { useSelector } from "react-redux";
 import type { RootState } from "@/shared/state/store";
 import { MessageSquare, Mic, MicOff } from "lucide-react";
 import TypingIndicator from "./TypingIndicator";
-import { interviewChatStore } from "@/shared/state/interviewChatStore";
 
 interface TranscriptionMessage {
     id: string;
@@ -25,49 +24,41 @@ interface ChatPanelProps {
 }
 
 const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisabled = false, isInterviewActive = false, isAgentConnected = false }: ChatPanelProps) => {
-    const chat = useSelector((s: RootState) => s.interviewChat);
-    const transcriptions: TranscriptionMessage[] = chat.messages.map((m) => ({
+    const messages = useSelector((s: RootState) => s.coding.messages);
+    const transcriptions: TranscriptionMessage[] = messages.map((m) => ({
         id: m.id,
         text: m.text,
         speaker: m.speaker,
         timestamp: new Date(m.timestamp),
         pasteEvaluationId: m.pasteEvaluationId,
     }));
-    const isRecording = chat.isRecording;
-    const [isPendingReply, setIsPendingReply] = useState(false);
+    const isRecording = useSelector((s: RootState) => s.interview.isRecording);
+    const isPendingReply = useSelector((s: RootState) => s.coding.pendingReply);
+    const activePasteEval = useSelector((s: RootState) => s.coding.activePasteEvaluation);
     const [activePasteEvalId, setActivePasteEvalId] = useState<string | undefined>();
     const [showQuickReply, setShowQuickReply] = useState(false);
     const [buttonClicked, setButtonClicked] = useState(false);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
-    // Subscribe to interviewChatStore for pendingReply state and active paste evaluation
+    // Track active paste evaluation changes
     useEffect(() => {
-        const updateState = () => {
-            const state = interviewChatStore.getState();
-            setIsPendingReply(state.pendingReply);
-            
-            const activePasteEval = state.coding?.activePasteEvaluation;
-            const newActivePasteEvalId = activePasteEval?.pasteEvaluationId;
-            
-            // Reset buttonClicked if paste eval ID changed (new paste)
-            if (newActivePasteEvalId !== activePasteEvalId) {
-                setButtonClicked(false);
-            }
-            setActivePasteEvalId(newActivePasteEvalId);
-            
-            // Show quick reply if there's an active paste eval, user hasn't answered yet, and button wasn't clicked
-            setShowQuickReply(
-                !!activePasteEval && 
-                activePasteEval.answerCount === 0 && 
-                !!activePasteEval.currentQuestion &&
-                !buttonClicked
-            );
-        };
-        updateState();
-        const unsubscribe = interviewChatStore.subscribe(updateState);
-        return unsubscribe;
-    }, [activePasteEvalId, buttonClicked]);
+        const newActivePasteEvalId = activePasteEval?.pasteEvaluationId;
+        
+        // Reset buttonClicked if paste eval ID changed (new paste)
+        if (newActivePasteEvalId !== activePasteEvalId) {
+            setButtonClicked(false);
+        }
+        setActivePasteEvalId(newActivePasteEvalId);
+        
+        // Show quick reply if there's an active paste eval, user hasn't answered yet, and button wasn't clicked
+        setShowQuickReply(
+            !!activePasteEval && 
+            activePasteEval.answerCount === 0 && 
+            !!activePasteEval.currentQuestion &&
+            !buttonClicked
+        );
+    }, [activePasteEval, activePasteEvalId, buttonClicked]);
 
     useEffect(() => {}, [transcriptions, isRecording]);
 
@@ -86,7 +77,7 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
                 behavior: "smooth",
             });
         }
-    }, [chat.messages.length, isPendingReply]);
+    }, [messages.length, isPendingReply]);
 
     return (
         <div className="h-full flex flex-col bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
