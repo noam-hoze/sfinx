@@ -26,7 +26,7 @@ graph LR
 
 ### Process
 
-1. Extracts up to **4 key concepts** from pasted code
+1. Extracts key concepts from pasted code (configurable via `NEXT_PUBLIC_MAX_PASTE_TOPICS`)
 2. Generates initial question for first topic
 3. Initializes topic coverage tracking
 
@@ -79,7 +79,8 @@ systemPrompt: `
 
 ### Constants
 ```typescript
-MAX_NUM_OF_TOPICS = 4  // Maximum topics per paste event
+// Configured via environment variables (REQUIRED, no fallbacks)
+NEXT_PUBLIC_MAX_PASTE_TOPICS  // Number of topics to extract per paste event
 ```
 
 ## Phase 2: Q&A Scoring (Per Question)
@@ -130,30 +131,33 @@ MAX_NUM_OF_TOPICS = 4  // Maximum topics per paste event
 ### Scoring Logic
 
 **Answer Quality** (0-100):
-- **90-100**: Exceptional - demonstrates deep understanding, mentions edge cases
+- **90-100**: Exceptional - demonstrates deep understanding, mentions edge cases, best practices
 - **75-89**: Strong - accurate explanation with good detail
 - **60-74**: Adequate - basic understanding, some gaps
 - **40-59**: Weak - superficial or partially incorrect
 - **0-39**: Poor - fundamental misunderstanding
 
 **Coverage Score**:
-- Each topic starts at 0
-- Updated to answer score when addressed
+- Each topic starts at 0%
+- Updated based on answer scores when topic is addressed
 - Multiple questions on same topic: average of scores
+- **Goal**: Maximize each topic to 100%
 
 ### Question Generation Strategy
 
-```typescript
-// AI determines:
-1. Which topics have low coverage (< 60)?
-2. Which topic is most critical?
-3. Generate targeted question for that topic
-```
+**Progressive Deepening Approach**:
+- AI targets topics with scores < 100%
+- Priority: lowest-scoring topics first
+- Question difficulty increases to challenge candidate toward mastery
+- Context provided: "Question X of Y" to manage depth
 
-**Stopping Criteria**:
-- All topics covered (score > 0)
-- OR 4+ questions asked
-- OR candidate explicitly asks to move on
+**Stopping Criteria** (first condition to occur):
+1. **All topics reach 100%** - Complete mastery achieved
+2. **Question limit reached** (configurable via `NEXT_PUBLIC_MAX_PASTE_QUESTIONS`) - Save partial scores
+3. **Candidate says "I don't know"** - Escape hatch, save current scores
+
+**Exit Message** (static, applies to all conditions):
+> "Thanks for explaining. Let's continue with your implementation."
 
 ## Phase 3: Generate Summary
 
@@ -278,8 +282,13 @@ const concludeEvaluation = async () => {
     overallScore
   });
   
-  // 3. AI transitions back to coding
-  await sendMessage("Let's continue with your implementation...");
+  // 3. Post static exit message and clear highlighting
+  const exitMessage = "Thanks for explaining. Let's continue with your implementation.";
+  post(exitMessage, "ai");
+  
+  if ((window as any).__clearPasteHighlight) {
+    (window as any).__clearPasteHighlight();
+  }
 };
 ```
 
@@ -410,29 +419,44 @@ Shows:
 
 ## Configuration
 
+### Environment Variables (REQUIRED)
+
+```bash
+# External Tool Evaluation Configuration
+NEXT_PUBLIC_MAX_PASTE_TOPICS=3      # Number of topics to extract per paste
+NEXT_PUBLIC_MAX_PASTE_QUESTIONS=5   # Question limit before exit
+
+# NO FALLBACKS - System will throw errors if these are not set
+```
+
+**Validation**:
+- Both variables must be defined
+- Both must be positive integers
+- Validation occurs at runtime in:
+  - `app/api/interviews/identify-paste-topics/route.ts`
+  - `app/api/interviews/evaluate-paste-accountability/route.ts`
+  - `app/(features)/interview/components/chat/OpenAITextConversation.tsx`
+
 ### Tunable Parameters
 
 ```typescript
-// Max topics per paste
-MAX_NUM_OF_TOPICS = 4;
+// Configured via environment variables
+NEXT_PUBLIC_MAX_PASTE_TOPICS;      // Topics per paste (e.g., 3)
+NEXT_PUBLIC_MAX_PASTE_QUESTIONS;   // Question limit (e.g., 5)
 
-// Scoring weights (in ScoringConfiguration)
-aiAssistWeight = 25;  // 25% of coding score
-
-// Coverage threshold for "needs more questions"
-COVERAGE_THRESHOLD = 60;
-
-// Max questions per paste event
-MAX_QUESTIONS = 4;
+// Scoring weights (in ScoringConfiguration model)
+aiAssistWeight = 25;  // 25% of coding score (configurable per job)
 ```
 
 ### Customization Points
 
-1. **Topic extraction logic**: Edit OpenAI prompt in `identify-paste-topics/route.ts`
-2. **Scoring rubric**: Edit guidelines in `evaluate-paste-accountability/route.ts`
-3. **Question strategy**: Modify next-question logic in accountability route
-4. **Summary format**: Customize prompt in `generate-paste-summary/route.ts`
-5. **Weight in final score**: Adjust `aiAssistWeight` in scoring configuration
+1. **Topic count**: Set `NEXT_PUBLIC_MAX_PASTE_TOPICS` environment variable
+2. **Question limit**: Set `NEXT_PUBLIC_MAX_PASTE_QUESTIONS` environment variable
+3. **Topic extraction logic**: Edit OpenAI prompt in `identify-paste-topics/route.ts`
+4. **Scoring rubric**: Edit guidelines in `evaluate-paste-accountability/route.ts`
+5. **Exit message**: Modify static message in `OpenAITextConversation.tsx` (line ~813)
+6. **Summary format**: Customize prompt in `generate-paste-summary/route.ts`
+7. **Weight in final score**: Adjust `aiAssistWeight` in job's scoring configuration
 
 ## Future Enhancements
 

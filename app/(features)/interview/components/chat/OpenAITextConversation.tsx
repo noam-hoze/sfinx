@@ -83,6 +83,16 @@ const OpenAITextConversation = forwardRef<any, Props>(
     if (!openAIApiKey) {
       throw new Error("NEXT_PUBLIC_OPENAI_API_KEY is required");
     }
+
+    const MAX_PASTE_QUESTIONS = process.env.NEXT_PUBLIC_MAX_PASTE_QUESTIONS;
+    if (!MAX_PASTE_QUESTIONS) {
+      throw new Error("NEXT_PUBLIC_MAX_PASTE_QUESTIONS is required");
+    }
+    const questionsLimit = parseInt(MAX_PASTE_QUESTIONS, 10);
+    if (isNaN(questionsLimit) || questionsLimit <= 0) {
+      throw new Error("NEXT_PUBLIC_MAX_PASTE_QUESTIONS must be a positive integer");
+    }
+
     const openaiClient = useMemo(
       () =>
         new OpenAI({
@@ -628,105 +638,34 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
               : 0;
             const unansweredTopics = topics.filter(t => t.percentage === 0);
             
-            const pasteEvalPrompt = `CRITICAL: YOU MUST START YOUR RESPONSE WITH A CONTROL LINE IN THIS EXACT FORMAT:
-CONTROL: {"type":"PASTE_EVAL_CONTROL","pasteEvaluationId":"${activePasteEval.pasteEvaluationId}","confidence":0-100,"answerCount":${nextAnswerCount},"readyToEvaluate":true/false}
-
-After the CONTROL line, add your conversational response to the candidate.
-
----
-
-You are evaluating whether a candidate understands code they pasted.
+            const pasteEvalPrompt = `You are helping evaluate a candidate's understanding of code they pasted during an interview.
 
 **Context:**
 - Pasted code: ${activePasteEval.pastedContent}
 - Task: ${codingPrompt}
-- Conversation: ${conversationHistory || "Just started"}
-- User answers: ${nextAnswerCount}
+- Conversation so far: ${conversationHistory || "Just started"}
+- This is question ${nextAnswerCount} of ${questionsLimit}
 
-**Topic Coverage:**
-${topicSummary}
-Unanswered topics: ${unansweredTopics.length} / ${topics.length}
+**Current Topic Coverage:**
+${topics.length > 0 
+  ? topics.map(t => `- ${t.name}: ${t.percentage}% (goal: 100%)`).join('\n')
+  : "No topics identified"}
 
 **Your Job:**
-1. Calculate confidence as average topic coverage (0-100%)
-2. If there are still unanswered topics (0% coverage) AND candidate did NOT say "I don't know":
-   - Ask ONE short, focused question (1-2 sentences) about an UNANSWERED topic (0%)
-   - Goal: Cover ALL topics before stopping
-3. If ALL topics have been addressed (none at 0%) OR candidate said "I don't know": Set readyToEvaluate=true AND send a brief acknowledgment
+Generate ONE short, focused follow-up question (1-2 sentences max) to deepen their understanding.
+- Target the topic with the LOWEST percentage to maximize learning
+- Ask progressively harder questions to push toward 100% mastery
+- Be conversational and encouraging
 
-**Question Strategy:**
-${unansweredTopics.length > 0 
-  ? `MUST ask about these UNANSWERED topics:\n${unansweredTopics.map(t => `- ${t.name} (NOT YET ADDRESSED)`).join('\n')}`
-  : "All topics addressed! Conclude evaluation."}
+**Example Questions:**
+"Can you elaborate on how the exponential growth affects memory usage?"
+"What happens if you need to support more qubits?"
+"How would you optimize this for larger state vectors?"
 
-**EVALUATION GATES (set readyToEvaluate=true when ANY of these conditions is met):**
-- ALL topics addressed (none at 0%) - comprehensive coverage achieved
-- Candidate answered "I don't know" (honest admission of not understanding)
-
-**Acknowledgment examples:**
-- For "I don't know": "Thank you for your honesty. Let's continue with the task."
-- For other cases: "Thank you for explaining. Let's continue with the task."
-
-**Example Responses:**
-
-Continue (unanswered topics exist):
-CONTROL: {"type":"PASTE_EVAL_CONTROL","pasteEvaluationId":"${activePasteEval.pasteEvaluationId}","confidence":45,"answerCount":${nextAnswerCount},"readyToEvaluate":false}
-Could you explain how error handling works in this code?
-
-Done (all topics addressed):
-CONTROL: {"type":"PASTE_EVAL_CONTROL","pasteEvaluationId":"${activePasteEval.pasteEvaluationId}","confidence":75,"answerCount":${nextAnswerCount},"readyToEvaluate":true}
-Thank you for explaining. Let's continue with the task.
-
-REMEMBER: ALWAYS start with CONTROL line first!`;
+Generate your question now:`;
             
             // Get conversation history (only messages AFTER paste)
             const historyMessages = pasteConversation;
-            
-            // Set pending state before API call
-            logger.info("[coding] Setting pending for paste eval followup");
-            dispatch(setPendingReply({
-              pending: true,
-            }));
-            
-            // Generate AI response with CONTROL
-            const fullResponse = await askViaChatCompletion(
-              openaiClient,
-              pasteEvalPrompt,
-              historyMessages
-            );
-            
-            if (!fullResponse) {
-              clearPendingState();
-              setInputLocked?.(false);
-              return;
-            }
-            
-            try {
-              /* eslint-disable no-console */ console.log("[paste_eval][raw_response]", fullResponse);
-            } catch {}
-            
-            // Parse CONTROL message
-            let aiText = fullResponse;
-            let control: any = null;
-            
-            const controlMatch = fullResponse.match(/CONTROL:\s*(\{[\s\S]*?\})/);
-            
-            try {
-              /* eslint-disable no-console */ console.log("[paste_eval][controlMatch]", controlMatch ? "FOUND" : "NOT FOUND");
-            } catch {}
-            
-            if (controlMatch) {
-              try {
-                control = JSON.parse(controlMatch[1]);
-                aiText = fullResponse.replace(/CONTROL:\s*\{[\s\S]*?\}\s*\n?/, "").trim();
-                
-                try {
-                  /* eslint-disable no-console */ console.log("[paste_eval][control]", control);
-                } catch {}
-              } catch (e) {
-                /* eslint-disable no-console */ console.error("[paste_eval] Failed to parse CONTROL:", e);
-              }
-            }
             
             // Evaluate this specific Q&A pair immediately
             const lastQuestion = pasteConversation
@@ -802,81 +741,89 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
               });
             }
             
-            // NOW check if all topics are covered using the UPDATED topics
-            const allTopicsCovered = updatedTopics.length > 0 && updatedTopics.every(t => t.percentage > 0);
+            // Check if all topics are covered using the UPDATED topics
+            const allTopicsMaximized = updatedTopics.length > 0 && updatedTopics.every(t => t.percentage === 100);
+            const questionLimitReached = nextAnswerCount >= questionsLimit;
             const candidateSaidIDontKnow = text.toLowerCase().includes("i don't know");
-            const shouldEvaluate = allTopicsCovered || candidateSaidIDontKnow;
+            const shouldEvaluate = allTopicsMaximized || questionLimitReached || candidateSaidIDontKnow;
             
-            // Post AI response (either follow-up question or acknowledgment)
-            if (aiText) {
-              // If evaluation complete (acknowledgment), post without green highlighting
-              if (shouldEvaluate) {
-                post(aiText, "ai");  // No paste eval ID - normal styling
-                
-                // Clear only the editor highlighting, keep debug panel data visible
-                if ((window as any).__clearPasteHighlight) {
-                  (window as any).__clearPasteHighlight();
-                }
-                
-                try {
-                  /* eslint-disable no-console */ console.log("[paste_eval][acknowledgment_sent]", {
-                    text: aiText,
-                    reason: "evaluation_complete"
-                  });
-                } catch {}
-              } else {
-                // Follow-up question - keep green highlighting
-                post(aiText, "ai", { isPasteEval: true, pasteEvaluationId: activePasteEval.pasteEvaluationId });
-              }
-              clearPendingState();
-            }
-            
+            // If evaluation complete, post static message and exit
             if (shouldEvaluate) {
-                try {
-                  /* eslint-disable no-console */ console.log("[paste_eval][triggering_evaluation]", { 
-                    nextAnswerCount, 
-                    controlReady: control?.readyToEvaluate
-                  });
-                } catch {}
-            }
-            
-            // Update debug panel with pasteAccountabilityScore (reuse already calculated values)
-            if (control) {
-              // Calculate pasteAccountabilityScore as average of all topic percentages
-              const calculatedScore = updatedTopics.length > 0
-                ? Math.round(updatedTopics.reduce((sum, t) => sum + t.percentage, 0) / updatedTopics.length)
-                : control.pasteAccountabilityScore ?? 0;
+              const exitMessage = "Thanks for explaining. Let's continue with your implementation.";
+              post(exitMessage, "ai");  // No paste eval ID - normal styling
+              
+              // Clear only the editor highlighting, keep debug panel data visible
+              if ((window as any).__clearPasteHighlight) {
+                (window as any).__clearPasteHighlight();
+              }
               
               try {
-                /* eslint-disable no-console */ console.log("[paste_eval][score_calculation]", {
-                  updatedTopics: updatedTopics.map(t => ({ name: t.name, percentage: t.percentage })),
-                  calculatedScore,
+                /* eslint-disable no-console */ console.log("[paste_eval][acknowledgment_sent]", {
+                  text: exitMessage,
+                  reason: allTopicsMaximized ? "all_topics_100" : questionLimitReached ? "question_limit" : "i_dont_know"
                 });
               } catch {}
               
-              // Check if all topics are covered (controller decision)
-              const allTopicsCovered = updatedTopics.length > 0 && updatedTopics.every(t => t.percentage > 0);
-              const controllerShouldEvaluate = allTopicsCovered;
+              clearPendingState();
+            } else {
+              // Continue evaluation - generate next question from OpenAI
+              // Set pending state before API call
+              logger.info("[coding] Setting pending for paste eval followup");
+              dispatch(setPendingReply({
+                pending: true,
+              }));
               
-              dispatch(setPasteScore(calculatedScore));
-              dispatch(incrementPasteAnswer());
-              dispatch(setPasteReadyToEvaluate(controllerShouldEvaluate));
-              if (!controllerShouldEvaluate) {
-                dispatch(setPasteQuestion(aiText));
-              }
-              dispatch(updatePasteQuestionScores(updatedScores));
-              if (updatedTopics.length > 0) {
-                dispatch(updatePasteTopics(updatedTopics));
+              // Generate AI follow-up question
+              const aiQuestion = await askViaChatCompletion(
+                openaiClient,
+                pasteEvalPrompt,
+                historyMessages
+              );
+              
+              if (!aiQuestion) {
+                clearPendingState();
+                setInputLocked?.(false);
+                return;
               }
               
-              // If ready to evaluate, aggregate per-question scores
-              if (shouldEvaluate) {
-                try {
-                  /* eslint-disable no-console */ console.log("[paste_eval][ready_to_evaluate]", {
-                    id: activePasteEval.pasteEvaluationId,
-                    pasteAccountabilityScore: control.pasteAccountabilityScore,
-                  });
-                } catch {}
+              try {
+                /* eslint-disable no-console */ console.log("[paste_eval][question]", aiQuestion);
+              } catch {}
+              
+              // Post follow-up question - keep green highlighting
+              post(aiQuestion, "ai", { isPasteEval: true, pasteEvaluationId: activePasteEval.pasteEvaluationId });
+              clearPendingState();
+            }
+            
+            // Update state regardless of exit or continue
+            // Calculate pasteAccountabilityScore as average of all topic percentages
+            const calculatedScore = updatedTopics.length > 0
+              ? Math.round(updatedTopics.reduce((sum, t) => sum + t.percentage, 0) / updatedTopics.length)
+              : 0;
+            
+            try {
+              /* eslint-disable no-console */ console.log("[paste_eval][score_calculation]", {
+                updatedTopics: updatedTopics.map(t => ({ name: t.name, percentage: t.percentage })),
+                calculatedScore,
+              });
+            } catch {}
+            
+            dispatch(setPasteScore(calculatedScore));
+            dispatch(incrementPasteAnswer());
+            dispatch(setPasteReadyToEvaluate(shouldEvaluate));
+            dispatch(updatePasteQuestionScores(updatedScores));
+            if (updatedTopics.length > 0) {
+              dispatch(updatePasteTopics(updatedTopics));
+            }
+            
+            // If ready to evaluate, aggregate per-question scores
+            if (shouldEvaluate) {
+              try {
+                /* eslint-disable no-console */ console.log("[paste_eval][ready_to_evaluate]", {
+                  id: activePasteEval.pasteEvaluationId,
+                  pasteAccountabilityScore: calculatedScore,
+                });
+              } catch {}
                 
                 // Use local variables (have latest values before state update)
                 const questionScores = updatedScores;
@@ -969,7 +916,6 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                   dispatch(setPasteScore(avgScore));
                   dispatch(incrementPasteAnswer());
                   dispatch(setPasteReadyToEvaluate(true));
-                  dispatch(setPasteQuestion(aiText));
                   dispatch(setPasteEvaluationSummary({
                     reasoning: evaluation.reasoning,
                     caption: evaluation.caption,
@@ -1041,7 +987,6 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                 
                 // Note: Paste evaluation and highlighting already cleared when acknowledgment was posted
               }
-            }
             
             setInputLocked?.(false);
             return;
@@ -1108,7 +1053,7 @@ The candidate is working on this task. Respond to their question while following
           return;
         }
       },
-      [clearPendingState, deliverAssistantPrompt, dispatch, setInputLocked, openaiClient, post]
+      [clearPendingState, deliverAssistantPrompt, dispatch, setInputLocked, openaiClient, post, questionsLimit]
     );
 
     const startConversation = useCallback(async () => {
@@ -1145,7 +1090,7 @@ The candidate is working on this task. Respond to their question while following
       try {
         onStartConversation?.();
       } catch {}
-    }, [dispatch, onStartConversation]);
+    }, [onStartConversation]);
 
     const sayClosingLine = useCallback(
       async (name?: string) => {

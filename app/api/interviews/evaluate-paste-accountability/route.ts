@@ -8,6 +8,18 @@ const openaiClient = new OpenAI({
 
 export async function POST(request: NextRequest) {
     try {
+        const MAX_PASTE_QUESTIONS = process.env.NEXT_PUBLIC_MAX_PASTE_QUESTIONS;
+
+        if (!MAX_PASTE_QUESTIONS) {
+            throw new Error("NEXT_PUBLIC_MAX_PASTE_QUESTIONS is required");
+        }
+
+        const questionsLimit = parseInt(MAX_PASTE_QUESTIONS, 10);
+
+        if (isNaN(questionsLimit) || questionsLimit <= 0) {
+            throw new Error("NEXT_PUBLIC_MAX_PASTE_QUESTIONS must be a positive integer");
+        }
+
         const body = await request.json();
         const { pastedContent, question, answer, codingTask, questionNumber, currentTopicCoverage } = body;
 
@@ -35,28 +47,36 @@ export async function POST(request: NextRequest) {
 **Context:**
 - Coding Task: ${codingTask || "Build a React component"}
 - Code Pasted: ${pastedContent}
-- Question #${questionNumber || '?'}: ${question}
+- Question #${questionNumber || '?'} of ${questionsLimit}: ${question}
 - Candidate's Answer: ${answer}
 
 **Current Topic Coverage:**
 ${topicsList}
 
 **Your Task:**
-1. Score this specific answer (0-100)
+1. Score this specific answer (0-100) - Aim to help the candidate reach 100% mastery in each topic
 2. Identify which topics from the list above this answer attempts to address
    - Even if the answer is vague or incorrect, if it tries to talk about a topic, include it
    - Match the answer content to the topic names in the list
    - The question itself can help identify which topic was being asked about
 
+**Progressive Questioning Strategy:**
+- Question ${questionNumber || '?'} of ${questionsLimit} maximum
+- Goal: Maximize each topic score to 100%
+- Ask progressively deeper questions targeting topics with scores < 100%
+- Priority: Focus on the lowest-scoring topics first
+- Increase difficulty to challenge candidate toward mastery
+
 **Scoring (0-100):**
-- 80-100: Clear, accurate explanation; demonstrates full understanding
-- 50-79: Mostly correct but missing details or shows some confusion
-- 20-49: Vague, incomplete, or partially incorrect explanation
-- 0-19: Wrong, avoids question, or shows no understanding
+- 90-100: Exceptional - demonstrates deep understanding, mentions edge cases, best practices
+- 75-89: Strong - accurate explanation with good detail
+- 60-74: Adequate - basic understanding, some gaps
+- 40-59: Weak - superficial or partially incorrect
+- 0-39: Poor - fundamental misunderstanding
 
 **Example:**
 Question: "How does useEffect work?"
-Answer: "It runs after render" (vague, score: 20)
+Answer: "It runs after render" (vague, score: 40)
 Topics Addressed: ["useEffect lifecycle understanding"] (because the answer attempted to explain useEffect, even poorly)
 
 Return ONLY valid JSON with this exact structure:
@@ -64,7 +84,10 @@ Return ONLY valid JSON with this exact structure:
   "score": number (0-100),
   "reasoning": "Brief explanation of why this answer received this score",
   "understandingLevel": "full" | "partial" | "none",
-  "topicsAddressed": ["Topic Name 1", "Topic Name 2"]
+  "topicsAddressed": ["Topic Name 1", "Topic Name 2"],
+  "questionCount": ${questionNumber || 1},
+  "maxQuestions": ${questionsLimit},
+  "targetScore": 100
 }
 
 IMPORTANT: Include topics even if the answer quality is poor - what matters is WHAT the answer tried to explain, not HOW WELL.`;
@@ -128,6 +151,16 @@ Return ONLY valid JSON with this exact structure:
         if (hasTopics) {
             if (!result.topicsAddressed || !Array.isArray(result.topicsAddressed)) {
                 throw new Error("Invalid response structure: missing topicsAddressed");
+            }
+            // Add metadata fields if not present (backward compatible)
+            if (typeof result.questionCount !== 'number') {
+                result.questionCount = questionNumber || 1;
+            }
+            if (typeof result.maxQuestions !== 'number') {
+                result.maxQuestions = questionsLimit;
+            }
+            if (typeof result.targetScore !== 'number') {
+                result.targetScore = 100;
             }
         }
 
