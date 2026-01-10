@@ -185,6 +185,8 @@ model InterviewSession {
   completedAt           DateTime?
   duration              Int?
   status                String                  @default("IN_PROGRESS")
+  /// Final calculated score (0-100) based on experience, coding, and workstyle metrics.
+  finalScore            Int?
   createdAt             DateTime                @default(now())
   updatedAt             DateTime                @updatedAt
   application           Application             @relation(fields: [applicationId], references: [id], onDelete: Cascade)

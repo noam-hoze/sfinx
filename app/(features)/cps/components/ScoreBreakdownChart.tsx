@@ -7,6 +7,7 @@ interface ScoreBreakdownChartProps {
     codingScore: number; // 0-100
     experienceWeight?: number; // 0-100 (default 50)
     codingWeight?: number; // 0-100 (default 50)
+    finalScore?: number; // Use DB score if provided
 }
 
 export default function ScoreBreakdownChart({
@@ -14,9 +15,10 @@ export default function ScoreBreakdownChart({
     codingScore,
     experienceWeight = 50,
     codingWeight = 50,
+    finalScore,
 }: ScoreBreakdownChartProps) {
-    // Calculate overall score based on weights
-    const overallScore = Math.round(
+    // Use finalScore from DB if provided, otherwise calculate
+    const overallScore = finalScore ?? Math.round(
         (experienceScore * experienceWeight + codingScore * codingWeight) / 100
     );
 

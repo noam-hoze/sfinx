@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 import OpenAI from "openai";
+import { calculateScore, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
 
 export async function POST(request: NextRequest) {
     try {
@@ -32,7 +33,11 @@ export async function POST(request: NextRequest) {
         const session = await prisma.interviewSession.findUnique({
             where: { id: sessionId },
             include: {
-                telemetryData: true,
+                telemetryData: {
+                    include: {
+                        backgroundSummary: true,
+                    },
+                },
                 application: {
                     include: {
                         job: {
@@ -231,9 +236,40 @@ Provide a comprehensive summary and scores for this candidate's coding performan
 
         log.info("[Generate Coding Summary] Summary saved to database");
 
+        // Calculate and save final score if we have all required data
+        let finalScore: number | null = null;
+        if (session.telemetryData?.backgroundSummary && session.application.job.scoringConfiguration) {
+            try {
+                const job = session.application.job;
+                const jobExperienceCategories = (job.experienceCategories as any) || [];
+                const backgroundExperienceCategories = (session.telemetryData.backgroundSummary.experienceCategories as any) || {};
+                const experienceScores = jobExperienceCategories.map((cat: any) => ({
+                    name: cat.name,
+                    score: backgroundExperienceCategories[cat.name]?.score || 0,
+                    weight: cat.weight || 1
+                }));
+
+                const rawScores: RawScores = { experienceScores, categoryScores: [] };
+                const workstyleMetrics: WorkstyleMetrics = { aiAssistAccountabilityScore: undefined };
+
+                const result = calculateScore(rawScores, workstyleMetrics, job.scoringConfiguration as any);
+                finalScore = Math.round(result.finalScore);
+
+                await prisma.interviewSession.update({
+                    where: { id: sessionId },
+                    data: { finalScore },
+                });
+
+                log.info(`[Generate Coding Summary] Calculated and saved finalScore=${finalScore} for session ${sessionId}`);
+            } catch (error) {
+                log.error("[Generate Coding Summary] Score calculation error:", error);
+            }
+        }
+
         return NextResponse.json({
             message: "Coding summary generated successfully",
             summary: parsed,
+            finalScore,
         });
     } catch (error: any) {
         log.error("[Generate Coding Summary] Error:", error);
