@@ -23,9 +23,6 @@ export default function Header() {
     const searchParams = useSearchParams();
     const { isMuted, toggleMute } = useMute();
     
-    // Get Redux state for state machine
-    const machineState = useSelector((state: RootState) => state.interview.state);
-
     // Sliding indicator state
     const [indicatorStyle, setIndicatorStyle] = useState({ width: 0, left: 0 });
     const navRef = useRef<HTMLElement>(null);

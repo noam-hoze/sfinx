@@ -9,7 +9,6 @@ import { useDispatch, useSelector } from "react-redux";
 import OpenAI from "openai";
 import { store, RootState } from "@/shared/state/store";
 import { addMessage } from "@/shared/state/slices/backgroundSlice";
-import { candidateMessage, interviewerMessage } from "@/shared/state/slices/interviewSlice";
 import {
   askViaChatCompletion,
   generateAssistantReply,
@@ -106,11 +105,10 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
         }
 
         // Transition machine state
-        dispatch(candidateMessage());
         const ms = store.getState().interview;
-        console.log("[answer-handler] Machine state after candidateMessage:", ms.state);
+        console.log("[answer-handler] Interview stage:", ms.stage);
 
-        if (ms.state === "background_answered_by_user") {
+        if (ms.stage === "background") {
           const backgroundState = store.getState().background;
           const timeboxMs = backgroundState.timeboxMs;
           const startedAtMs = backgroundState.startedAtMs;
@@ -197,7 +195,6 @@ Your question should naturally probe for specific examples and details that demo
               dispatch(addMessage({ text: followUp, speaker: "ai" }));
               saveMessageToDb(followUp, "ai");
 
-              dispatch(interviewerMessage({ text: followUp }));
               console.log("[answer-handler] Follow-up question generated and dispatched");
             }
 

@@ -11,7 +11,6 @@ import {
   setPreloadedData,
   setSessionId,
   setCompanyContext,
-  setExpectedBackgroundQuestion,
 } from "@/shared/state/slices/interviewSlice";
 import { setTimebox as setBackgroundTimebox } from "@/shared/state/slices/backgroundSlice";
 import { setTimebox as setCodingTimebox } from "@/shared/state/slices/codingSlice";
@@ -120,10 +119,6 @@ export function useBackgroundPreload() {
             roleSlug,
           })
         );
-
-        if (scriptData.backgroundQuestion) {
-          dispatch(setExpectedBackgroundQuestion({ question: String(scriptData.backgroundQuestion) }));
-        }
 
         if (scriptData.codingQuestionTimeSeconds) {
           dispatch(setCodingTimebox({ timeboxSeconds: scriptData.codingQuestionTimeSeconds }));

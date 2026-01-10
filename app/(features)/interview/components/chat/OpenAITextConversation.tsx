@@ -15,15 +15,19 @@ import {
   addMessage,
   setPendingReply,
   startPasteEvaluation,
-  updatePasteEvaluation,
+  incrementPasteAnswer,
+  setPasteQuestion,
+  setPasteScore,
+  setPasteReadyToEvaluate,
+  updatePasteTopics,
+  updatePasteQuestionScores,
+  setPasteEvaluationSummary,
+  updatePasteVideoMetadata,
   clearPasteEvaluation,
 } from "@/shared/state/slices/codingSlice";
 import { store } from "@/shared/state/store";
 import {
-  setExpectedBackgroundQuestion,
   start as machineStart,
-  interviewerMessage as machineInterviewerMessage,
-  candidateMessage as machineCandidateMessage,
   setStage,
 } from "@/shared/state/slices/interviewSlice";
 import {
@@ -31,6 +35,7 @@ import {
   buildOpenAICodingPrompt,
   buildOpenAIInterviewerPrompt,
 } from "@/shared/prompts/openAIInterviewerPrompt";
+import { log as logger } from "app/shared/services";
 import {
   askViaChatCompletion,
   generateAssistantReply,
@@ -117,11 +122,9 @@ const OpenAITextConversation = forwardRef<any, Props>(
     );
 
     const cancelPendingBackgroundReply = useCallback(() => {
-      const pendingContext = store.getState().coding.pendingReplyContext;
-      if (!pendingContext) return;
-      try {
-        /* eslint-disable no-console */ console.log("[coding][pending_cancelled]", pendingContext);
-      } catch {}
+      const isPending = store.getState().coding.pendingReply;
+      if (!isPending) return;
+      logger.info("[coding] Pending reply cancelled");
       clearPendingState();
     }, [clearPendingState]);
 
@@ -140,7 +143,8 @@ const OpenAITextConversation = forwardRef<any, Props>(
         managePending?: boolean;
       }) => {
         if (pendingReason) {
-          dispatch(setPendingReply({ pending: true, reason: pendingReason }));
+          logger.info(`[coding] Setting pending reply: ${pendingReason}`);
+          dispatch(setPendingReply({ pending: true }));
         }
         try {
         const answer = await generateAssistantReply(openaiClient, persona, instruction);
@@ -151,26 +155,25 @@ const OpenAITextConversation = forwardRef<any, Props>(
           return null;
         }
           if (autoPost) {
-          const machineState = store.getState().interview.state;
+          const stage = store.getState().interview.stage;
           if (
-            machineState === "in_coding_session" &&
+            stage === "coding" &&
             pendingReason &&
             pendingReason.startsWith("background")
           ) {
             try {
               /* eslint-disable no-console */ console.log("[background][answer_dropped]", {
                 pendingReason,
-                stage: machineState,
+                stage: stage,
               });
             } catch {}
+            logger.info(`[coding] Pending reply discarded: ${pendingReason}`);
             dispatch(setPendingReply({
               pending: true,
-              reason: `${pendingReason}_discarded`,
             }));
             return answer;
           }
         post(answer, "ai");
-        dispatch(machineInterviewerMessage({ text: answer }));
           // Unlock input when AI responds
           setInputLocked?.(false);
           }
@@ -197,7 +200,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
     const handlePasteDetected = useCallback(
       async (pastedCode: string, timestamp: number) => {
         const ms = store.getState().interview;
-        if (ms.state !== "in_coding_session") return;
+        if (ms.stage !== "coding") return;
         
         const pasteEvaluationId = `paste-${Date.now()}-${Math.random().toString(36).substring(7)}`;
         
@@ -298,17 +301,13 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
         if (initialQuestion) {
           const aiQuestionTimestamp = Date.now();
           post(initialQuestion, "ai", { isPasteEval: true, pasteEvaluationId });
-          dispatch(machineInterviewerMessage({ text: initialQuestion }));
           
           // Trigger editor highlight now that AI question is posted
           onHighlightPastedCode?.(pastedCode);
           
-          // Update debug panel with question (answerCount still 0 - no answers yet)
-          dispatch(updatePasteEvaluation({
-            confidence: 0,
-            answerCount: 0,
-            readyToEvaluate: false,
-            currentQuestion: initialQuestion,
+          // Update debug panel with question
+          dispatch(setPasteQuestion(initialQuestion));
+          dispatch(updatePasteVideoMetadata({
             aiQuestionTimestamp,
             videoChapterId,
           }));
@@ -323,13 +322,14 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
 
     /** Injects the coding prompt once the guard advances into the coding session. */
     useEffect(() => {
-      const unsubscribe = store.subscribe(() => {
+      const checkAndSendCodingPrompt = () => {
         const ms = store.getState().interview;
-        if (ms.state !== "in_coding_session" || codingPromptSentRef.current) return;
-        codingPromptSentRef.current = true;
+        if (ms.stage !== "coding" || codingPromptSentRef.current) return;
         
-        // Update stage to "coding" so debug panel reflects it
-        dispatch(setStage({ stage: "coding" }));
+        // Check if script is loaded
+        if (!scriptRef.current) return;
+        
+        codingPromptSentRef.current = true;
         
         if (!ms.companyName) {
           throw new Error("Interview machine missing companyName for coding prompt");
@@ -441,48 +441,28 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
               /* eslint-disable no-console */ console.error("[background][persist] Error persisting data:", persistError);
             }
             
-            // No transition preface needed - interview page starts directly in coding mode
-            const expectedMessage = taskText;
-            codingExpectedMessageRef.current = expectedMessage;
-            const instruction = hadPending
-              ? `System note (do not say to candidate): Previous background reply was skipped because we transitioned to coding.\n\nSay exactly:\n"""\n${expectedMessage}\n"""`
-              : `Say exactly:\n"""\n${expectedMessage}\n"""`;
+            // Post the coding task directly without OpenAI transformation
             try {
-              /* eslint-disable no-console */ console.log("[coding][instruction]", expectedMessage);
+              /* eslint-disable no-console */ console.log("[coding][posting_task]", taskText);
             } catch {}
-            const answer = await deliverAssistantPrompt({
-              persona,
-              instruction,
-              pendingReason: "coding_prompt",
-              autoPost: false,
-              managePending: true,
-            });
-            if (answer !== null) {
+            post(taskText, "ai");
+            if (automaticMode && onCodingPromptReady) {
               try {
-                /* eslint-disable no-console */ console.log("[coding][answer]", answer);
+                onCodingPromptReady();
               } catch {}
             }
-            if (answer == null || answer === "") {
-              clearPendingAndThrow("OpenAI returned empty coding prompt response");
-            }
-            const finalAnswer = answer!;
-            post(finalAnswer, "ai");
-            dispatch(machineInterviewerMessage({ text: finalAnswer }));
-            dispatch(setPendingReply({ pending: false }));
-            if (automaticMode && onCodingPromptReady) {
-            try {
-              onCodingPromptReady();
-            } catch {}
-            }
           } catch (error) {
-            dispatch(setPendingReply({ pending: false }));
-            codingExpectedMessageRef.current = null;
+            /* eslint-disable no-console */ console.error("[coding] Failed to send coding prompt:", error);
             throw error;
-          } finally {
-            codingExpectedMessageRef.current = null;
           }
         })();
-      });
+      };
+      
+      // Check immediately on mount/deps change
+      checkAndSendCodingPrompt();
+      
+      // Also subscribe to future changes
+      const unsubscribe = store.subscribe(checkAndSendCodingPrompt);
       return () => unsubscribe();
     }, [
       automaticMode,
@@ -511,16 +491,15 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
         });
         // Lock input when user sends message
         setInputLocked?.(true);
-        dispatch(machineCandidateMessage());
         try {
           /* eslint-disable no-console */ console.log(
             "[text][after userFinal]",
-            { state: store.getState().interview.state }
+            { stage: store.getState().interview.stage }
           );
         } catch {}
 
         const ms = store.getState().interview;
-        if (ms.state === "greeting_said_by_ai") {
+        if (ms.stage === "greeting") {
           const expectedQ = scriptRef.current?.backgroundQuestion;
           if (expectedQ) {
             const persona = buildOpenAIBackgroundPrompt(
@@ -540,11 +519,11 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
           }
         }
 
-        if (ms.state === "background_answered_by_user") {
+        if (ms.stage === "background") {
           // Set pending state BEFORE control run
+          logger.info("[coding] Setting pending for background followup");
           dispatch(setPendingReply({
             pending: true,
-            reason: "background_followup",
           }));
           
           // Ask for follow-up
@@ -561,22 +540,21 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
             { role: "user", content: text },
           ]);
           if (follow) {
-            const machineState = store.getState().interview.state;
-            if (machineState === "in_coding_session") {
+            const stage = store.getState().interview.stage;
+            if (stage === "coding") {
+              logger.info("[coding] Background followup discarded - already in coding");
               dispatch(setPendingReply({
                 pending: true,
-                reason: "background_followup_discarded",
               }));
               try {
                 /* eslint-disable no-console */ console.log("[background][followup_dropped]", {
                   follow,
-                  machineState,
+                  stage: stage,
                 });
               } catch {}
               return;
             }
             post(follow, "ai");
-            dispatch(machineInterviewerMessage({ text: follow }));
             // Unlock input when AI responds
             setInputLocked?.(false);
             clearPendingState();
@@ -587,7 +565,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
         }
 
         // Handle coding stage messages
-        if (ms.state === "in_coding_session") {
+        if (ms.stage === "coding") {
           try {
             /* eslint-disable no-console */ console.log("[coding][user_message]", text);
           } catch {}
@@ -705,9 +683,9 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
             const historyMessages = pasteConversation;
             
             // Set pending state before API call
+            logger.info("[coding] Setting pending for paste eval followup");
             dispatch(setPendingReply({
               pending: true,
-              reason: "paste_eval_followup",
             }));
             
             // Generate AI response with CONTROL
@@ -850,7 +828,6 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                 // Follow-up question - keep green highlighting
                 post(aiText, "ai", { isPasteEval: true, pasteEvaluationId: activePasteEval.pasteEvaluationId });
               }
-              dispatch(machineInterviewerMessage({ text: aiText }));
               clearPendingState();
             }
             
@@ -863,17 +840,17 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                 } catch {}
             }
             
-            // Update debug panel with confidence (reuse already calculated values)
+            // Update debug panel with pasteAccountabilityScore (reuse already calculated values)
             if (control) {
-              // Calculate confidence as average of all topic percentages
-              const calculatedConfidence = updatedTopics.length > 0
+              // Calculate pasteAccountabilityScore as average of all topic percentages
+              const calculatedScore = updatedTopics.length > 0
                 ? Math.round(updatedTopics.reduce((sum, t) => sum + t.percentage, 0) / updatedTopics.length)
-                : control.confidence ?? 0;
+                : control.pasteAccountabilityScore ?? 0;
               
               try {
-                /* eslint-disable no-console */ console.log("[paste_eval][confidence_calculation]", {
+                /* eslint-disable no-console */ console.log("[paste_eval][score_calculation]", {
                   updatedTopics: updatedTopics.map(t => ({ name: t.name, percentage: t.percentage })),
-                  calculatedConfidence,
+                  calculatedScore,
                 });
               } catch {}
               
@@ -881,21 +858,23 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
               const allTopicsCovered = updatedTopics.length > 0 && updatedTopics.every(t => t.percentage > 0);
               const controllerShouldEvaluate = allTopicsCovered;
               
-              dispatch(updatePasteEvaluation({
-                  confidence: calculatedConfidence,
-                  answerCount: nextAnswerCount,
-                  readyToEvaluate: controllerShouldEvaluate,
-                  currentQuestion: !controllerShouldEvaluate ? aiText : undefined,
-                  questionScores: updatedScores,
-                  topics: updatedTopics.length > 0 ? updatedTopics : undefined,
-              }));
+              dispatch(setPasteScore(calculatedScore));
+              dispatch(incrementPasteAnswer());
+              dispatch(setPasteReadyToEvaluate(controllerShouldEvaluate));
+              if (!controllerShouldEvaluate) {
+                dispatch(setPasteQuestion(aiText));
+              }
+              dispatch(updatePasteQuestionScores(updatedScores));
+              if (updatedTopics.length > 0) {
+                dispatch(updatePasteTopics(updatedTopics));
+              }
               
               // If ready to evaluate, aggregate per-question scores
               if (shouldEvaluate) {
                 try {
                   /* eslint-disable no-console */ console.log("[paste_eval][ready_to_evaluate]", {
                     id: activePasteEval.pasteEvaluationId,
-                    confidence: control.confidence,
+                    pasteAccountabilityScore: control.pasteAccountabilityScore,
                   });
                 } catch {}
                 
@@ -987,14 +966,14 @@ REMEMBER: ALWAYS start with CONTROL line first!`;
                     .join(" ");
                   
                   // Update debug panel with final evaluation
-                  dispatch(updatePasteEvaluation({
-                      confidence: avgScore,
-                      answerCount: nextAnswerCount,
-                      readyToEvaluate: true,
-                      currentQuestion: aiText,
-                      evaluationReasoning: evaluation.reasoning,
-                      evaluationCaption: evaluation.caption,
-                      accountabilityScore: evaluation.accountabilityScore,
+                  dispatch(setPasteScore(avgScore));
+                  dispatch(incrementPasteAnswer());
+                  dispatch(setPasteReadyToEvaluate(true));
+                  dispatch(setPasteQuestion(aiText));
+                  dispatch(setPasteEvaluationSummary({
+                    reasoning: evaluation.reasoning,
+                    caption: evaluation.caption,
+                    finalScore: evaluation.accountabilityScore,
                   }));
                   
                   // Save to DB
@@ -1102,9 +1081,9 @@ The candidate is working on this task. Respond to their question while following
           const historyMessages = buildControlContextMessages(CONTROL_CONTEXT_TURNS);
           
           // Set pending state before API call
+          logger.info("[coding] Setting pending for coding question");
           dispatch(setPendingReply({
             pending: true,
-            reason: "coding_question",
           }));
           
           // Generate AI response using chat completions
@@ -1116,7 +1095,6 @@ The candidate is working on this task. Respond to their question while following
           
           if (reply) {
             post(reply, "ai");
-            dispatch(machineInterviewerMessage({ text: reply }));
             clearPendingState();
             setInputLocked?.(false);
             try {
@@ -1157,12 +1135,6 @@ The candidate is working on this task. Respond to their question while following
       const data = await resp.json();
       scriptRef.current = data;
       codingPromptSentRef.current = false;
-      if (data?.backgroundQuestion)
-        dispatch(
-          setExpectedBackgroundQuestion({
-            question: String(data.backgroundQuestion),
-          })
-        );
       
       // Interview page: No greeting, no state machine start
       // State machine will be forced to coding by InterviewIDE after this completes

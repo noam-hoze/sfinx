@@ -29,7 +29,7 @@ import { useInterviewTimer } from "./hooks/useInterviewTimer";
 import { useThemePreference } from "./hooks/useThemePreference";
 import { fetchJobById } from "./services/jobService";
 import { useDispatch, useSelector } from "react-redux";
-import { forceCoding, setCompanyContext, setSessionId, setStage } from "@/shared/state/slices/interviewSlice";
+import { setCompanyContext, setSessionId, setStage } from "@/shared/state/slices/interviewSlice";
 import { store, RootState } from "@/shared/state/store";
 import { useInterviewRecording } from "./InterviewRecordingContext";
 
@@ -254,9 +254,9 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         }
         const unsubscribe = store.subscribe(() => {
             const state = store.getState();
-            const machineState = state.interview?.state;
+            const stage = state.interview?.stage;
             const currentCodingStarted = isCodingStarted; // Capture current state
-            if (machineState === "in_coding_session" && !currentCodingStarted) {
+            if (stage === "coding" && !currentCodingStarted) {
                 void handleStartCoding();
             }
         });
@@ -264,16 +264,16 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     }, [automaticMode, handleStartCoding]);
 
     useEffect(() => {
-        const prevStateRef = { current: store.getState().interview?.state };
+        const prevStageRef = { current: store.getState().interview?.stage };
         const unsubscribe = store.subscribe(() => {
-            const machineState = store.getState().interview?.state;
+            const stage = store.getState().interview?.stage;
             if (
-                machineState === "in_coding_session" &&
-                prevStateRef.current !== "in_coding_session"
+                stage === "coding" &&
+                prevStageRef.current !== "coding"
             ) {
                 setIsChatInputLocked(true);
             }
-            prevStateRef.current = machineState;
+            prevStageRef.current = stage;
         });
         return () => unsubscribe();
     }, []);
@@ -638,10 +638,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
             await realTimeConversationRef.current?.startConversation();
 
-            dispatch(forceCoding());
-            dispatch(setStage({ stage: "coding" }));
-            logger.info("✅ State machine transitioned to coding stage");
-
             setIsInterviewActive(true);
             logger.info("Interview started successfully!");
         } catch (error) {
@@ -708,19 +704,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                     const categories = data?.job?.codingCategories as Array<{name: string; description: string; weight: number}> | undefined;
                     setJobCategories(categories || null);
                     timeboxFiredRef.current = false;
-
-                    const companyName = data?.job?.company?.name;
-                    const companySlug = (companyName || "").toLowerCase();
-                    const roleSlug = (data?.job?.title || "")
-                        .toLowerCase()
-                        .replace(/\s+/g, "-");
-                    dispatch(
-                        setCompanyContext({
-                            companyName,
-                            companySlug,
-                            roleSlug,
-                        })
-                    );
                 }
             })
             .catch(() => {});
@@ -1310,9 +1293,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                             onStartConversation={() => {
                                 logger.info("Conversation started");
                                 setIsInterviewLoading(false);
-                                    try {
-                                        dispatch(setStage({ stage: "greeting" }));
-                                    } catch {}
                             }}
                             onEndConversation={() => {
                                 logger.info("Conversation ended");
