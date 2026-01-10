@@ -91,6 +91,9 @@ function InterviewPageContent() {
   const [isStarting, setIsStarting] = useState(false);
   const [codingApplicationId, setCodingApplicationId] = useState<string | null>(applicationId || null);
   const [backgroundQuestionNumber, setBackgroundQuestionNumber] = useState(1);
+  const [isAIAudioPlaying, setIsAIAudioPlaying] = useState(false);
+  const [showCameraGlow, setShowCameraGlow] = useState(false);
+  const [isUserRecording, setIsUserRecording] = useState(false);
 
   const skipToCoding = process.env.NEXT_PUBLIC_SKIP_TO_CODING === "true";
   const skipScreenShare = process.env.NEXT_PUBLIC_SKIP_SCREEN_SHARE === "true";
@@ -187,6 +190,25 @@ function InterviewPageContent() {
         }
       }
   }, [allowQuestionDisplay, currentQuestion, messages]);
+
+  // Reset glow states when question changes
+  useEffect(() => {
+    if (currentQuestion) {
+      setIsAIAudioPlaying(false);
+      setShowCameraGlow(false);
+      setIsUserRecording(false);
+    }
+  }, [currentQuestion]);
+
+  // Handle camera glow with 1s delay after audio ends
+  useEffect(() => {
+    if (!isAIAudioPlaying) {
+      const timer = setTimeout(() => setShowCameraGlow(true), 1000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowCameraGlow(false);
+    }
+  }, [isAIAudioPlaying]);
 
   // Keep refs in sync with current values
   useEffect(() => {
@@ -688,6 +710,15 @@ function InterviewPageContent() {
     }
   };
 
+  // Glow state handlers
+  const handleAudioStateChange = useCallback((isPlaying: boolean) => {
+    setIsAIAudioPlaying(isPlaying);
+  }, []);
+
+  const handleRecordingStateChange = useCallback((isRecording: boolean) => {
+    setIsUserRecording(isRecording);
+  }, []);
+
   // Auto-transition when timer expires
   useEffect(() => {
     if (stage !== "background") return;
@@ -781,10 +812,14 @@ function InterviewPageContent() {
           <div className={`flex gap-8 mb-6 justify-center transition-opacity duration-500 ${
             currentQuestion && !showAnnouncement ? 'opacity-100' : 'opacity-0'
           }`}>
-            <AIInterviewerBox isActive={!isPreloading && stage === "background"} />
+            <AIInterviewerBox 
+              isActive={!isPreloading && stage === "background"} 
+              hasGlow={isAIAudioPlaying}
+            />
             <CameraPreview
               isCameraOn={isCameraOn}
               videoRef={selfVideoRef}
+              hasGlow={showCameraGlow || isUserRecording}
             />
           </div>
           
@@ -812,6 +847,8 @@ function InterviewPageContent() {
                 getActualRecordingStartTime={getActualRecordingStartTime}
                 questionNumber={backgroundQuestionNumber}
                 userId={userId || undefined}
+                onAudioStateChange={handleAudioStateChange}
+                onRecordingStateChange={handleRecordingStateChange}
               />
             )}
           </div>
