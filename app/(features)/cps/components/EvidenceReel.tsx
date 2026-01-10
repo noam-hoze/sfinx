@@ -8,6 +8,13 @@ import {
     DefaultVideoLayout,
     defaultLayoutIcons,
 } from "@vidstack/react/player/layouts/default";
+import EvidenceNavigationOverlay from "./EvidenceNavigationOverlay";
+
+interface EvidenceLink {
+    timestamp: number;
+    category: string;
+    caption?: string;
+}
 
 type Props = {
     videoUrl?: string | null;
@@ -16,6 +23,9 @@ type Props = {
     duration?: number;
     caption?: string | null;
     paused?: boolean;
+    evidenceLinks?: EvidenceLink[];
+    onVideoJump?: (timestamp: number, caption?: string) => void;
+    currentVideoTime?: number;
 };
 
 export default function EvidenceReel({
@@ -25,10 +35,44 @@ export default function EvidenceReel({
     duration,
     caption = null,
     paused = false,
+    evidenceLinks = [],
+    onVideoJump,
+    currentVideoTime = 0,
 }: Props) {
     const playerRef = useRef<any>(null);
     const dispatch = useDispatch();
     const [isFadingOut, setIsFadingOut] = useState(false);
+    const [internalVideoTime, setInternalVideoTime] = useState(0);
+    const [lastJumpedIndex, setLastJumpedIndex] = useState(0);
+
+    // Track video time updates
+    useEffect(() => {
+        if (!playerRef.current) return;
+        
+        const player = playerRef.current;
+        const handleTimeUpdate = () => {
+            if (player.currentTime !== undefined) {
+                setInternalVideoTime(Math.floor(player.currentTime));
+            }
+        };
+        
+        player.addEventListener?.('time-update', handleTimeUpdate);
+        
+        return () => {
+            player.removeEventListener?.('time-update', handleTimeUpdate);
+        };
+    }, []);
+
+    // Find current evidence index based on last jumped index (not video time)
+    const currentEvidenceIndex = lastJumpedIndex;
+
+    const handleEvidenceNavigate = (index: number) => {
+        if (onVideoJump && evidenceLinks[index]) {
+            const evidence = evidenceLinks[index];
+            setLastJumpedIndex(index);
+            onVideoJump(evidence.timestamp, evidence.caption);
+        }
+    };
 
     useEffect(() => {
         if (playerRef.current && typeof jumpToTime === "number") {
@@ -115,6 +159,15 @@ export default function EvidenceReel({
                     <MediaProvider />
                     <DefaultVideoLayout icons={defaultLayoutIcons} />
                 </MediaPlayer>
+
+                {/* Evidence Navigation Overlay */}
+                {evidenceLinks.length > 0 && (
+                    <EvidenceNavigationOverlay
+                        evidenceLinks={evidenceLinks}
+                        currentIndex={currentEvidenceIndex}
+                        onNavigate={handleEvidenceNavigate}
+                    />
+                )}
 
                 {caption && (
                     <div 

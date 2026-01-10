@@ -26,7 +26,7 @@ const ExperienceMetrics: React.FC<ExperienceMetricsProps> = ({
     if (!backgroundSummary || !backgroundSummary.experienceCategories) {
         return (
             <div className="text-sm text-gray-500">
-                No experience categories defined for this job
+                No experience data available
             </div>
         );
     }
