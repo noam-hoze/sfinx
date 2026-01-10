@@ -80,12 +80,12 @@ export async function PATCH(
                 const confidence = Math.min(1.0, contributions.length / TARGET_CONTRIBUTIONS);
                 const adjustedScore = Math.round(rawAverage * confidence);
                 
-                log.info(`[Coding Summary Update] ${categoryName}: ${contributions.length} contributions, raw avg=${Math.round(rawAverage)}, confidence=${confidence.toFixed(2)}, adjusted=${adjustedScore}`);
+                log.info(`[Coding Summary Update] ${categoryName}: ${contributions.length} contributions, raw avg=${Math.round(rawAverage)}, confidence=${confidence.toFixed(2)}, adjusted=${adjustedScore}, final override=${categoryData.score}`);
                 
-                // Use confidence-adjusted score from contributions
+                // Use final evaluation score (overrides contribution-adjusted score)
                 enrichedCategories[categoryName] = {
                     ...categoryData,
-                    score: adjustedScore,
+                    score: categoryData.score,
                     rawAverage: Math.round(rawAverage),
                     contributionCount: contributions.length,
                     confidence: confidence,
@@ -100,15 +100,15 @@ export async function PATCH(
                     }))
                 };
             } else {
-                // No real-time contributions - score should be 0
+                // No real-time contributions - use final evaluation score
                 enrichedCategories[categoryName] = {
                     ...categoryData,
-                    score: 0,
+                    score: categoryData.score,
                     evidenceLinks: [],
                     contributions: []
                 };
                 
-                log.info(`[Coding Summary Update] ${categoryName}: No contributions, score set to 0`);
+                log.info(`[Coding Summary Update] ${categoryName}: No contributions, using final evaluation score=${categoryData.score}`);
             }
         }
 

@@ -4,8 +4,9 @@ import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "shared/state/store";
+import { setActiveCaption } from "shared/state/slices/cpsSlice";
 import EvidenceReel from "./components/EvidenceReel";
 import CollapsibleSection from "./components/CollapsibleSection";
 import ExperienceModal from "./components/ExperienceModal";
@@ -29,6 +30,7 @@ function TelemetryContent() {
     const applicationId = searchParams.get("applicationId");
     const { isDebugVisible } = useDebug();
     const activeCaption = useSelector((state: RootState) => state.cps.activeCaption);
+    const dispatch = useDispatch();
 
     const [telemetryData, setTelemetryData] = useState<any>(null);
     const [sessions, setSessions] = useState<any[]>([]);
@@ -301,6 +303,58 @@ function TelemetryContent() {
     const persistenceFlow = activeSession.persistenceFlow || [];
     const learningToAction = activeSession.learningToAction || [];
     const confidenceCurve = activeSession.confidenceCurve || [];
+
+    // Collect all evidence links from all sources
+    const allEvidenceLinks = useMemo(() => {
+        const links: Array<{timestamp: number; category: string; caption?: string}> = [];
+        
+        // Collect from experience categories
+        if (backgroundSummary?.experienceCategories) {
+            Object.entries(backgroundSummary.experienceCategories).forEach(([name, data]: [string, any]) => {
+                if (data.evidenceLinks) {
+                    data.evidenceLinks.forEach((link: any) => {
+                        const timestamp = typeof link === 'number' ? link : link.timestamp;
+                        links.push({
+                            timestamp,
+                            category: name,
+                            caption: typeof link === 'object' ? link.caption : undefined
+                        });
+                    });
+                }
+            });
+        }
+        
+        // Collect from coding categories
+        if (codingSummary?.jobSpecificCategories) {
+            Object.entries(codingSummary.jobSpecificCategories).forEach(([name, data]: [string, any]) => {
+                if (data.evidenceLinks) {
+                    data.evidenceLinks.forEach((link: any) => {
+                        const timestamp = typeof link === 'number' ? link : link.timestamp;
+                        links.push({
+                            timestamp,
+                            category: name,
+                            caption: typeof link === 'object' ? link.caption : undefined
+                        });
+                    });
+                }
+            });
+        }
+        
+        // Collect from workstyle
+        if (workstyle?.aiAssistUsage?.evidenceLinks) {
+            workstyle.aiAssistUsage.evidenceLinks.forEach((link: any) => {
+                const timestamp = typeof link === 'number' ? link : link.timestamp;
+                links.push({
+                    timestamp,
+                    category: 'External Tool Usage',
+                    caption: typeof link === 'object' ? link.caption : undefined
+                });
+            });
+        }
+        
+        // Sort by timestamp
+        return links.sort((a, b) => a.timestamp - b.timestamp);
+    }, [backgroundSummary, codingSummary, workstyle]);
 
     const activeMatchScore: number | null =
         (activeSession && activeSession.matchScore !== undefined
@@ -630,6 +684,15 @@ function TelemetryContent() {
                                     duration={duration}
                                     caption={activeCaption}
                                     paused={false}
+                                    evidenceLinks={allEvidenceLinks}
+                                    currentVideoTime={currentVideoTime}
+                                    onVideoJump={(timestamp, caption) => {
+                                        setCurrentVideoTime(timestamp);
+                                        setJumpKey((k) => k + 1);
+                                        if (caption) {
+                                            dispatch(setActiveCaption(caption));
+                                        }
+                                    }}
                                 />
                             ) : (
                                 <div className="w-full h-full bg-gray-200 flex items-center justify-center">
