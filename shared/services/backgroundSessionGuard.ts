@@ -2,11 +2,16 @@
 
 export const TIMEBOX_MS = 7 * 1000; // 4:00 default fallback; overridden per interview
 
-export type GuardReason = "timebox";
+export type GuardReason = "timebox" | "all_topics_complete";
 
 export interface GuardState {
   startedAtMs?: number;
   timeboxMs?: number;
+}
+
+export interface CategoryConfidence {
+  name: string;
+  confidence: number;
 }
 
 export function nowMs(): number {
@@ -34,8 +39,15 @@ export function formatCountdown(remainingMs: number): string {
 
 export function shouldTransition(
   gs: GuardState,
-  opts: { clockMs?: number; timeboxMs?: number }
+  opts: { clockMs?: number; timeboxMs?: number; categories?: CategoryConfidence[] }
 ): GuardReason | null {
+  // Check if all categories reached 100% confidence
+  if (opts.categories && opts.categories.length > 0) {
+    const allComplete = opts.categories.every(cat => cat.confidence >= 100);
+    if (allComplete) return "all_topics_complete";
+  }
+
+  // Check timebox
   const tMs = elapsedMs(gs, opts.clockMs);
   const limit =
     typeof gs.timeboxMs === "number" && Number.isFinite(gs.timeboxMs) && gs.timeboxMs > 0
