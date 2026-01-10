@@ -15,6 +15,8 @@ type QuestionCardProps = {
   getActualRecordingStartTime?: () => Date | null;
   questionNumber?: number;
   userId?: string;
+  onAudioStateChange?: (isPlaying: boolean) => void;
+  onRecordingStateChange?: (isRecording: boolean) => void;
 };
 
 /**
@@ -45,6 +47,8 @@ export default function QuestionCard({
   getActualRecordingStartTime,
   questionNumber = 1,
   userId,
+  onAudioStateChange,
+  onRecordingStateChange,
 }: QuestionCardProps) {
   /**
    * Presents a background interview question with TTS playback and text/voice answer capture.
@@ -93,6 +97,7 @@ export default function QuestionCard({
         console.log("[QuestionCard] Muted - skipping TTS, showing controls immediately");
         setIsAudioPlaying(true);
         setAudioFinished(true);
+        onAudioStateChange?.(false);
         return;
       }
 
@@ -119,11 +124,13 @@ export default function QuestionCard({
 
           audio.onplay = () => {
             setIsAudioPlaying(true);
+            onAudioStateChange?.(true);
             console.log("[QuestionCard] TTS playback started");
           };
 
           audio.onended = () => {
             setAudioFinished(true);
+            onAudioStateChange?.(false);
             URL.revokeObjectURL(url);
             audioRef.current = null;
             console.log("[QuestionCard] TTS playback finished");
@@ -151,12 +158,13 @@ export default function QuestionCard({
         audioRef.current.pause();
         audioRef.current = null;
         setAudioFinished(true);
+        onAudioStateChange?.(false);
       } else if (!isMuted) {
         // Unmuted: ensure volume is on
         audioRef.current.volume = 1;
       }
     }
-  }, [isMuted, audioFinished]);
+  }, [isMuted, audioFinished, onAudioStateChange]);
 
   // Play sound when controls appear (after audio finishes)
   React.useEffect(() => {
@@ -303,6 +311,7 @@ export default function QuestionCard({
 
       mediaRecorder.start();
       setIsRecording(true);
+      onRecordingStateChange?.(true);
       console.log("[QuestionCard] Recording started");
     } catch (error) {
       console.error("[QuestionCard] Recording start error:", error);
@@ -316,6 +325,7 @@ export default function QuestionCard({
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      onRecordingStateChange?.(false);
       console.log("[QuestionCard] Stopping recording...");
     }
   };
