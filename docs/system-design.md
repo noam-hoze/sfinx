@@ -1,8 +1,16 @@
 # Sfinx System Design Document
 
-**Version:** 1.0.0  
+**Version:** 1.1.0  
 **Date:** January 2026  
 **Status:** Production
+
+**Changelog v1.1.0:**
+- Refactored Redux state: `interviewMachineSlice` → `interviewSlice`
+- Split interview chat into `backgroundSlice` and `codingSlice`
+- Renamed actions: `aiFinal` → `interviewerMessage`, `userFinal` → `candidateMessage`
+- Removed fallback defaults (Meta) from Redux initialState (constitution compliance)
+- Fixed background timer: moved `startTimer()` dispatch to component level
+- Removed `isPageLoading` from Redux (now local state in page.tsx)
 
 ---
 
@@ -223,7 +231,7 @@ Sfinx is an autonomous AI-powered technical interview platform that conducts, ev
 
 ### Interview State Machine
 
-**Location:** `shared/state/slices/interviewMachineSlice.ts`
+**Location:** `shared/state/slices/interviewSlice.ts`
 
 **States:**
 ```typescript
@@ -238,11 +246,11 @@ type InterviewState =
 ```
 
 **Transitions:**
-- `greet()` → greeting_said_by_ai
-- `askQuestion()` → background_asked_by_ai
-- `userFinal()` → background_answered_by_user
-- `aiFinal()` → Check gate, transition to coding or ask more
-- `startCoding()` → in_coding_session
+- `start()` + `interviewerMessage()` → greeting_said_by_ai
+- `interviewerMessage()` → background_asked_by_ai (starts timer)
+- `candidateMessage()` → background_answered_by_user
+- `interviewerMessage()` → Check gate, transition to coding or ask more
+- `forceCoding()` → in_coding_session
 - `end()` → ended
 
 **Gate Logic:**
@@ -317,7 +325,7 @@ Candidate answers question
   ↓
 useBackgroundAnswerHandler captures answer
   ↓
-Dispatch userFinal() → machine state: background_answered_by_user
+Dispatch candidateMessage() → machine state: background_answered_by_user
   ↓
 Call /api/interviews/evaluate-answer (non-blocking)
   ├─ Fetch experience categories from job config
@@ -328,7 +336,7 @@ Call /api/interviews/evaluate-answer (non-blocking)
   ↓
 OpenAI generates next question or transitions to coding
   ↓
-Dispatch aiFinal() → Check gate logic
+Dispatch interviewerMessage() → Check gate logic
   ├─ If gate satisfied → Dispatch startCoding()
   └─ Else → Ask another question
   ↓
@@ -518,75 +526,110 @@ enum EvidenceCategory {
 **Store Location:** `shared/state/store.ts`
 
 **Slices:**
-1. **interviewMachineSlice** - Interview state machine
-2. **conversationSlice** - Messages and chat history
-3. **evaluationSlice** - Real-time contribution data
+1. **interviewSlice** - Interview state machine
+2. **backgroundSlice** - Background stage messages and timer
+3. **codingSlice** - Coding stage messages and paste evaluation
+4. **cpsSlice** - Candidate Profile Summary state
 
-### Interview Machine State
+### Interview State
 
 ```typescript
-interface InterviewMachineState {
-  state: InterviewState;
+interface InterviewState {
+  state: InterviewMachineState;
+  isRecording: boolean;
+  stage: InterviewStage | null;
   candidateName?: string;
+  expectedBackgroundQuestion?: string;
   companyName?: string;
   companySlug?: string;
   roleSlug?: string;
-  expectedBackgroundQuestion?: string;
+  sessionId?: string;
   userId?: string;
   applicationId?: string;
-  sessionId?: string;
   script?: InterviewScript;
   preloadedFirstQuestion?: string;
-  isPageLoading: boolean;
-  shouldReset: boolean;
+  shouldReset?: boolean;
 }
 ```
 
-### Interview Chat Store
+### Background Slice
 
-**Location:** `shared/state/interviewChatStore.ts`
+**Location:** `shared/state/slices/backgroundSlice.ts`
 
 ```typescript
-interface InterviewChatState {
+interface BackgroundState {
   messages: ChatMessage[];
-  isRecording: boolean;
-  stage: InterviewStage;  // "background" | "coding" | "completed"
+  startedAtMs?: number;
+  timeboxMs?: number;
+  transitioned: boolean;
+  transitionedAt?: number;
+  reason?: "timebox";
+}
+```
+
+### Coding Slice
+
+**Location:** `shared/state/slices/codingSlice.ts`
+
+```typescript
+interface CodingState {
+  messages: ChatMessage[];
   pendingReply: boolean;
   pendingReplyContext?: {
     reason?: string;
-    stage?: InterviewStage;
     since: number;
   };
-  background: {
-    confidence: number;  // 0-100
-    transitioned: boolean;
-    transitionedAt?: number;
-    startedAtMs?: number;
-    reason?: "timebox";
-    timeboxMs?: number;
-  };
-  coding: {
-    activePasteEvaluation?: PasteEvaluationState;
+  activePasteEvaluation?: {
+    pasteEvaluationId: string;
+    pastedContent: string;
+    timestamp: number;
+    videoChapterId?: string;
+    aiQuestionTimestamp?: number;
+    confidence: number;
+    answerCount: number;
+    readyToEvaluate: boolean;
+    currentQuestion?: string;
+    evaluationReasoning?: string;
+    evaluationCaption?: string;
+    accountabilityScore?: number;
+    questionScores?: Array<...>;
+    topics?: Array<...>;
   };
 }
 ```
 
 ### Actions & Reducers
 
-**Machine Transitions:**
-- `greet()` - AI greeted candidate
-- `askQuestion()` - AI asked background question
-- `userFinal()` - User submitted answer
-- `aiFinal()` - AI completed response, check gate
-- `startCoding()` - Transition to coding
+**Interview Machine Actions:**
+- `start()` - Initialize interview with candidate name
+- `interviewerMessage()` - AI sent message (replaces aiFinal)
+- `candidateMessage()` - Candidate submitted answer (replaces userFinal)
+- `startFollowup()` - AI asks follow-up question
+- `setExpectedBackgroundQuestion()` - Store next question
+- `setCompanyContext()` - Set company/role metadata
+- `setSessionId()` - Link to interview session
+- `setRecording()` - Update recording state
+- `setStage()` - Transition interview stage
 - `forceCoding()` - Skip to coding (dev mode)
 - `end()` - Interview ended
+- `resetInterview()` - Global reset action (listened by all slices)
 
-**Chat Actions:**
-- `ADD_MESSAGE` - Add message to conversation
-- `SET_PENDING_REPLY` - Lock/unlock input during AI processing
-- `BG_INCREMENT_USELESS_ANSWERS` - Track empty answers
-- `BG_RESET_USELESS_ANSWERS` - Reset counter on useful answer
+**Background Actions:**
+- `addMessage()` - Add message to background chat
+- `clear()` - Clear background messages
+- `startTimer()` - Start background timer
+- `setTimebox()` - Set timer limit
+- `forceTimeExpiry()` - Force timer expiration
+- `markTransition()` - Mark transition to coding
+- `setReason()` - Set transition reason
+
+**Coding Actions:**
+- `addMessage()` - Add message to coding chat
+- `clear()` - Clear coding messages
+- `setPendingReply()` - Lock/unlock input during AI processing
+- `startPasteEvaluation()` - Initialize paste accountability Q&A
+- `updatePasteEvaluation()` - Update paste evaluation state
+- `clearPasteEvaluation()` - Clear active paste evaluation
 
 ---
 
@@ -1166,7 +1209,7 @@ Sfinx is a production-ready, AI-powered technical interview platform built with 
 
 ---
 
-**Document Version:** 1.0.0  
+**Document Version:** 1.1.0  
 **Last Updated:** January 2026  
 **Maintained by:** Sfinx Engineering Team  
 **Next Review:** Q2 2026
