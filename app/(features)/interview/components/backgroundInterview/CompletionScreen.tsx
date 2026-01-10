@@ -1,21 +1,23 @@
 "use client";
 
 import React from "react";
+import { useSelector } from "react-redux";
+import { RootState } from "@/shared/state/store";
 import InterviewStageScreen from "app/shared/components/InterviewStageScreen";
 
 type CompletionScreenProps = {
-  codingTimeChallenge: number;
   onStartCoding: () => void;
   interviewSessionId?: string | null;
   userId?: string;
 };
 
 export default function CompletionScreen({
-  codingTimeChallenge,
   onStartCoding,
   interviewSessionId,
   userId,
 }: CompletionScreenProps) {
+  const codingTimeSeconds = useSelector((state: RootState) => state.coding.timeboxSeconds);
+  const codingTimeMinutes = codingTimeSeconds ? Math.round(codingTimeSeconds / 60) : 30;
   /**
    * Shows the transition screen from background interview to coding and starts the challenge on demand.
    */
@@ -88,20 +90,9 @@ export default function CompletionScreen({
               <span className="text-sm font-semibold text-sfinx-purple">2</span>
             </div>
             <p className="text-gray-700 text-lg leading-relaxed pt-0.5">
-              When asked to, please select <span className="font-medium">&quot;Share Entire Screen&quot;</span>
-            </p>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-2xl p-5 border-2 border-purple-300 shadow-sm">
-          <div className="flex gap-4">
-            <div className="flex-shrink-0 w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center">
-              <span className="text-sm font-semibold text-sfinx-purple">3</span>
-            </div>
-            <p className="text-gray-700 text-lg leading-relaxed pt-0.5">
               Once you start, you&apos;ll have{" "}
               <span className="font-bold text-sfinx-purple">
-                {codingTimeChallenge} minutes
+                {codingTimeMinutes} minutes
               </span>{" "}
               to complete the challenge
             </p>
