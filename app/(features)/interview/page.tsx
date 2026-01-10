@@ -12,8 +12,6 @@ import {
 } from "@/shared/state/slices/backgroundSlice";
 import {
   start,
-  interviewerMessage,
-  forceCoding,
   setCompanyContext,
   setSessionId,
   setPreloadedData,
@@ -59,7 +57,7 @@ function InterviewPageContent() {
   const [isPreloading, setIsPreloading] = useState(true);
   
   // Redux state
-  const machineState = useSelector((state: RootState) => state.interview.state);
+  const stage = useSelector((state: RootState) => state.interview.stage);
   const companyName = useSelector((state: RootState) => state.interview.companyName);
   const companySlug = useSelector((state: RootState) => state.interview.companySlug);
   const roleSlug = useSelector((state: RootState) => state.interview.roleSlug);
@@ -195,12 +193,12 @@ function InterviewPageContent() {
     completedRef.current = completed;
   }, [completed]);
 
-  // Monitor machine state for completion
+  // Monitor stage for completion
   useEffect(() => {
-    if (machineState === "in_coding_session") {
+    if (stage === "coding") {
       setCompleted(true);
     }
-  }, [machineState]);
+  }, [stage]);
 
   // Cleanup mic on unmount
   useEffect(() => {
@@ -441,7 +439,7 @@ function InterviewPageContent() {
   // Auto-start interview for authenticated users after preload
   useEffect(() => {
     // CRITICAL: Wait for preload to finish (it sets reduxSessionId)
-    if (isPreloading || skipToCoding || isStarting || showAnnouncement || machineState !== "idle" || hasAutoStartedRef.current || !reduxSessionId) {
+    if (isPreloading || skipToCoding || isStarting || showAnnouncement || stage !== null || hasAutoStartedRef.current || !reduxSessionId) {
       return;
     }
 
@@ -469,7 +467,6 @@ function InterviewPageContent() {
         const firstName = userName.trim().split(" ")[0];
         
         dispatch(start({ candidateName: firstName }));
-        dispatch(interviewerMessage({ text: "greeting" }));
         dispatch(setStage({ stage: "background" }));
 
         await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -497,7 +494,7 @@ function InterviewPageContent() {
     };
 
     autoStartAuthenticated();
-  }, [isPreloading, skipToCoding, isStarting, showAnnouncement, machineState, reduxSessionId, session, ensureRecordingSession, dispatch, isMuted]);
+  }, [isPreloading, skipToCoding, isStarting, showAnnouncement, stage, reduxSessionId, session, ensureRecordingSession, dispatch, isMuted]);
 
   // Auto-skip to coding when flag is set and user is logged in
   useEffect(() => {
@@ -551,7 +548,6 @@ function InterviewPageContent() {
           companySlug,
           roleSlug,
         }));
-        dispatch(forceCoding());
         dispatch(setStage({ stage: "coding" }));
         setShowCodingIDE(true);
         setIsStarting(false);
@@ -616,7 +612,6 @@ function InterviewPageContent() {
     try {
       const firstName = name.trim().split(" ")[0];
       dispatch(start({ candidateName: firstName }));
-      dispatch(interviewerMessage({ text: "greeting" }));
       dispatch(setStage({ stage: "background" }));
 
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -646,7 +641,6 @@ function InterviewPageContent() {
     setShowAnnouncement(false);
     setAllowQuestionDisplay(true);
     const firstQuestion = preloadedFirstQuestion || "";
-    dispatch(interviewerMessage({ text: firstQuestion }));
     dispatch(startTimer());
     setCurrentQuestion(firstQuestion);
     dispatch(addMessage({ text: firstQuestion, speaker: "ai" }));
@@ -692,7 +686,7 @@ function InterviewPageContent() {
 
   // Auto-transition when timer expires
   useEffect(() => {
-    if (machineState !== "background_asked_by_ai" && machineState !== "background_answered_by_user") return;
+    if (stage !== "background") return;
     if (completed || submitting) return;
 
     const checkTimer = () => {
@@ -712,7 +706,7 @@ function InterviewPageContent() {
 
     const interval = setInterval(checkTimer, 1000);
     return () => clearInterval(interval);
-  }, [machineState, completed, submitting, backgroundTimeSeconds]);
+  }, [stage, completed, submitting, backgroundTimeSeconds]);
 
   // Start coding handler
   const handleStartCoding = () => {
@@ -722,12 +716,6 @@ function InterviewPageContent() {
     if (!companyName) {
       throw new Error("companyName is required to start coding");
     }
-    dispatch(setCompanyContext({
-      companyName,
-      companySlug,
-      roleSlug,
-    }));
-    dispatch(forceCoding());
     dispatch(setStage({ stage: "coding" }));
     setShowCodingIDE(true);
   };
@@ -750,7 +738,7 @@ function InterviewPageContent() {
     );
   }
 
-  if (machineState === "in_coding_session" && showCodingIDE) {
+  if (stage === "coding" && showCodingIDE) {
     return (
       <InterviewRecordingProvider value={recordingControls}>
         <InterviewIDE />
@@ -777,7 +765,7 @@ function InterviewPageContent() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex flex-col">
       {/* Breadcrumbs */}
-      {!isPreloading && machineState !== "in_coding_session" && (
+      {!isPreloading && stage !== "coding" && (
         <div className="pt-8 px-6">
           <Breadcrumbs items={breadcrumbTrail} />
         </div>

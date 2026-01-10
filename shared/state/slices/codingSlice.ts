@@ -12,15 +12,9 @@ export type ChatMessage = {
     pasteEvaluationId?: string;
 };
 
-type PendingReplyContext = {
-    reason?: string;
-    since: number;
-};
-
 export type CodingState = {
     messages: ChatMessage[];
     pendingReply: boolean;
-    pendingReplyContext?: PendingReplyContext;
     timeboxSeconds?: number;
     activePasteEvaluation?: {
         pasteEvaluationId: string;
@@ -28,7 +22,7 @@ export type CodingState = {
         timestamp: number;
         videoChapterId?: string;
         aiQuestionTimestamp?: number;
-        confidence: number;
+        pasteAccountabilityScore: number;
         answerCount: number;
         readyToEvaluate: boolean;
         currentQuestion?: string;
@@ -71,10 +65,7 @@ const codingSlice = createSlice({
             }>
         ) => {
             const msg: ChatMessage = {
-                id:
-                    typeof crypto !== "undefined" && (crypto as any).randomUUID
-                        ? (crypto as any).randomUUID()
-                        : `${Date.now()}-${Math.random()}`,
+                id: crypto.randomUUID(),
                 text: action.payload.text,
                 speaker: action.payload.speaker,
                 timestamp: Date.now(),
@@ -86,23 +77,11 @@ const codingSlice = createSlice({
         clear: (state) => {
             state.messages = [];
         },
-        resetAll: () => {
-            return initialState;
-        },
         setPendingReply: (
             state,
-            action: PayloadAction<{ pending: boolean; reason?: string }>
+            action: PayloadAction<{ pending: boolean }>
         ) => {
-            if (action.payload.pending) {
-                state.pendingReply = true;
-                state.pendingReplyContext = {
-                    reason: action.payload.reason,
-                    since: Date.now(),
-                };
-            } else {
-                state.pendingReply = false;
-                state.pendingReplyContext = undefined;
-            }
+            state.pendingReply = action.payload.pending;
         },
         setTimebox: (
             state,
@@ -129,7 +108,7 @@ const codingSlice = createSlice({
                 pastedContent: action.payload.pastedContent,
                 timestamp: action.payload.timestamp,
                 videoChapterId: action.payload.videoChapterId,
-                confidence: 0,
+                pasteAccountabilityScore: 0,
                 answerCount: 0,
                 readyToEvaluate: false,
                 accountabilityScore: 0,
@@ -137,63 +116,74 @@ const codingSlice = createSlice({
                 topics: action.payload.topics,
             };
         },
-        updatePasteEvaluation: (
+        incrementPasteAnswer: (state) => {
+            if (!state.activePasteEvaluation) return;
+            state.activePasteEvaluation.answerCount += 1;
+        },
+        setPasteQuestion: (state, action: PayloadAction<string>) => {
+            if (!state.activePasteEvaluation) return;
+            state.activePasteEvaluation.currentQuestion = action.payload;
+        },
+        setPasteScore: (state, action: PayloadAction<number>) => {
+            if (!state.activePasteEvaluation) return;
+            state.activePasteEvaluation.pasteAccountabilityScore = action.payload;
+        },
+        setPasteReadyToEvaluate: (state, action: PayloadAction<boolean>) => {
+            if (!state.activePasteEvaluation) return;
+            state.activePasteEvaluation.readyToEvaluate = action.payload;
+        },
+        updatePasteTopics: (
+            state,
+            action: PayloadAction<Array<{
+                name: string;
+                description: string;
+                percentage: number;
+                lastUpdatedBy?: number;
+            }>>
+        ) => {
+            if (!state.activePasteEvaluation) return;
+            state.activePasteEvaluation.topics = action.payload;
+        },
+        updatePasteQuestionScores: (
+            state,
+            action: PayloadAction<Array<{
+                question: string;
+                answer: string;
+                score: number;
+                reasoning: string;
+                understandingLevel: string;
+                topicsAddressed?: string[];
+            }>>
+        ) => {
+            if (!state.activePasteEvaluation) return;
+            state.activePasteEvaluation.questionScores = action.payload;
+        },
+        setPasteEvaluationSummary: (
             state,
             action: PayloadAction<{
-                confidence: number;
-                answerCount: number;
-                readyToEvaluate: boolean;
-                currentQuestion?: string;
-                videoChapterId?: string;
-                aiQuestionTimestamp?: number;
-                evaluationReasoning?: string;
-                evaluationCaption?: string;
-                accountabilityScore?: number;
-                questionScores?: Array<{
-                    question: string;
-                    answer: string;
-                    score: number;
-                    reasoning: string;
-                    understandingLevel: string;
-                    topicsAddressed?: string[];
-                }>;
-                topics?: Array<{
-                    name: string;
-                    description: string;
-                    percentage: number;
-                    lastUpdatedBy?: number;
-                }>;
+                reasoning: string;
+                caption: string;
+                finalScore: number;
             }>
         ) => {
             if (!state.activePasteEvaluation) return;
-
-            state.activePasteEvaluation.confidence = action.payload.confidence;
-            state.activePasteEvaluation.answerCount = action.payload.answerCount;
-            state.activePasteEvaluation.readyToEvaluate = action.payload.readyToEvaluate;
-
-            if (action.payload.currentQuestion !== undefined) {
-                state.activePasteEvaluation.currentQuestion = action.payload.currentQuestion;
-            }
+            state.activePasteEvaluation.evaluationReasoning = action.payload.reasoning;
+            state.activePasteEvaluation.evaluationCaption = action.payload.caption;
+            state.activePasteEvaluation.accountabilityScore = action.payload.finalScore;
+        },
+        updatePasteVideoMetadata: (
+            state,
+            action: PayloadAction<{
+                videoChapterId?: string;
+                aiQuestionTimestamp?: number;
+            }>
+        ) => {
+            if (!state.activePasteEvaluation) return;
             if (action.payload.videoChapterId !== undefined) {
                 state.activePasteEvaluation.videoChapterId = action.payload.videoChapterId;
             }
             if (action.payload.aiQuestionTimestamp !== undefined) {
                 state.activePasteEvaluation.aiQuestionTimestamp = action.payload.aiQuestionTimestamp;
-            }
-            if (action.payload.evaluationReasoning !== undefined) {
-                state.activePasteEvaluation.evaluationReasoning = action.payload.evaluationReasoning;
-            }
-            if (action.payload.evaluationCaption !== undefined) {
-                state.activePasteEvaluation.evaluationCaption = action.payload.evaluationCaption;
-            }
-            if (action.payload.accountabilityScore !== undefined) {
-                state.activePasteEvaluation.accountabilityScore = action.payload.accountabilityScore;
-            }
-            if (action.payload.questionScores !== undefined) {
-                state.activePasteEvaluation.questionScores = action.payload.questionScores;
-            }
-            if (action.payload.topics !== undefined) {
-                state.activePasteEvaluation.topics = action.payload.topics;
             }
         },
         clearPasteEvaluation: (state) => {
@@ -208,11 +198,17 @@ const codingSlice = createSlice({
 export const {
     addMessage,
     clear,
-    resetAll,
     setPendingReply,
     setTimebox,
     startPasteEvaluation,
-    updatePasteEvaluation,
+    incrementPasteAnswer,
+    setPasteQuestion,
+    setPasteScore,
+    setPasteReadyToEvaluate,
+    updatePasteTopics,
+    updatePasteQuestionScores,
+    setPasteEvaluationSummary,
+    updatePasteVideoMetadata,
     clearPasteEvaluation,
 } = codingSlice.actions;
 

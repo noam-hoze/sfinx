@@ -323,7 +323,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                                     <div className="grid grid-cols-2 gap-4">
                                         {/* Topic Coverage Score */}
                                         {(() => {
-                                            const score = activePasteEval?.confidence ?? 0;
+                                            const score = activePasteEval?.pasteAccountabilityScore ?? 0;
                                             const isHigh = score >= 80;
                                             const isMedium = score >= 50 && score < 80;
                                             const isLow = score < 50;
@@ -413,7 +413,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                                                 ))}
                                                 <div className="pt-2 border-t border-purple-200 dark:border-purple-700">
                                                     <div className="text-sm font-semibold text-purple-900 dark:text-purple-300">
-                                                        Overall Topic Coverage: {activePasteEval.confidence}%
+                                                        Overall Topic Coverage: {activePasteEval.pasteAccountabilityScore}%
                                                     </div>
                                                     <div className="text-xs text-slate-600 dark:text-slate-400">
                                                         (Average of {activePasteEval.topics.length} topics)
