@@ -96,6 +96,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     const reduxRoleSlug = useSelector((state: RootState) => state.interview.roleSlug);
     const reduxUserId = useSelector((state: RootState) => state.interview.userId);
     const reduxApplicationId = useSelector((state: RootState) => state.interview.applicationId);
+    const codingTimeboxSeconds = useSelector((state: RootState) => state.coding.timeboxSeconds);
     
     if (!reduxCompanySlug || !reduxRoleSlug) {
         throw new Error("Company and role not initialized in Redux");
@@ -104,9 +105,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     const jobId = `${reduxCompanySlug}-${reduxRoleSlug}`;
     
     const [job, setJob] = useState<any | null>(null);
-    const [codingDurationSeconds, setCodingDurationSeconds] = useState(
-        DEFAULT_CODING_DURATION_SECONDS
-    );
+    const codingDurationSeconds = codingTimeboxSeconds || DEFAULT_CODING_DURATION_SECONDS;
     
     const candidateName = (session?.user as any)?.name || "Candidate";
 
@@ -708,35 +707,20 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                     // Extract and set job categories for debug panel
                     const categories = data?.job?.codingCategories as Array<{name: string; description: string; weight: number}> | undefined;
                     setJobCategories(categories || null);
-                    try {
-                        const interviewContent = data?.job?.interviewContent;
-                        if (interviewContent) {
-                            const codingSecondsRaw = Number(
-                                interviewContent.codingQuestionTimeSeconds
-                            );
-                            const codingSeconds =
-                                Number.isFinite(codingSecondsRaw) && codingSecondsRaw > 0
-                                    ? Math.floor(codingSecondsRaw)
-                                    : DEFAULT_CODING_DURATION_SECONDS;
-                            setCodingDurationSeconds(codingSeconds);
-                        } else {
-                            setCodingDurationSeconds(DEFAULT_CODING_DURATION_SECONDS);
-                        }
-                        timeboxFiredRef.current = false;
+                    timeboxFiredRef.current = false;
 
-                        const companyName = data?.job?.company?.name;
-                        const companySlug = (companyName || "").toLowerCase();
-                        const roleSlug = (data?.job?.title || "")
-                            .toLowerCase()
-                            .replace(/\s+/g, "-");
-                        dispatch(
-                            setCompanyContext({
-                                companyName,
-                                companySlug,
-                                roleSlug,
-                            })
-                        );
-                    } catch {}
+                    const companyName = data?.job?.company?.name;
+                    const companySlug = (companyName || "").toLowerCase();
+                    const roleSlug = (data?.job?.title || "")
+                        .toLowerCase()
+                        .replace(/\s+/g, "-");
+                    dispatch(
+                        setCompanyContext({
+                            companyName,
+                            companySlug,
+                            roleSlug,
+                        })
+                    );
                 }
             })
             .catch(() => {});

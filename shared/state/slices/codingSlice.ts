@@ -21,6 +21,7 @@ export type CodingState = {
     messages: ChatMessage[];
     pendingReply: boolean;
     pendingReplyContext?: PendingReplyContext;
+    timeboxSeconds?: number;
     activePasteEvaluation?: {
         pasteEvaluationId: string;
         pastedContent: string;
@@ -102,6 +103,12 @@ const codingSlice = createSlice({
                 state.pendingReply = false;
                 state.pendingReplyContext = undefined;
             }
+        },
+        setTimebox: (
+            state,
+            action: PayloadAction<{ timeboxSeconds: number }>
+        ) => {
+            state.timeboxSeconds = action.payload.timeboxSeconds;
         },
         startPasteEvaluation: (
             state,
@@ -203,6 +210,7 @@ export const {
     clear,
     resetAll,
     setPendingReply,
+    setTimebox,
     startPasteEvaluation,
     updatePasteEvaluation,
     clearPasteEvaluation,

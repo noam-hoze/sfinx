@@ -11,6 +11,7 @@
 - Removed fallback defaults (Meta) from Redux initialState (constitution compliance)
 - Fixed background timer: moved `startTimer()` dispatch to component level
 - Removed `isPageLoading` from Redux (now local state in page.tsx)
+- Moved coding timebox to Redux `codingSlice` (single source of truth, set during preload)
 
 ---
 
@@ -579,6 +580,7 @@ interface CodingState {
     reason?: string;
     since: number;
   };
+  timeboxSeconds?: number;
   activePasteEvaluation?: {
     pasteEvaluationId: string;
     pastedContent: string;
@@ -627,6 +629,7 @@ interface CodingState {
 - `addMessage()` - Add message to coding chat
 - `clear()` - Clear coding messages
 - `setPendingReply()` - Lock/unlock input during AI processing
+- `setTimebox()` - Set coding timer duration (seconds)
 - `startPasteEvaluation()` - Initialize paste accountability Q&A
 - `updatePasteEvaluation()` - Update paste evaluation state
 - `clearPasteEvaluation()` - Clear active paste evaluation

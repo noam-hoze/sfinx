@@ -79,7 +79,6 @@ function InterviewPageContent() {
   const [isFirstQuestion, setIsFirstQuestion] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [completed, setCompleted] = useState(false);
-  const [codingTimeChallenge, setCodingTimeChallenge] = useState<number>(30);
   const [backgroundTimeSeconds, setBackgroundTimeSeconds] = useState<number | undefined>(undefined);
   const [experienceCategories, setExperienceCategories] = useState<Array<{name: string; description: string; weight: number; example?: string}> | null>(null);
   const [backgroundEvaluations, setBackgroundEvaluations] = useState<Array<{timestamp: string; question: string; answer: string; evaluations: any[]}>>([]);
@@ -327,7 +326,7 @@ function InterviewPageContent() {
         
         // Pass session userId for authenticated users
         const sessionUserId = (session?.user as any)?.id;
-        await preload(urlJobId, urlCompanyId, openaiClient, sessionUserId, setCodingTimeChallenge, setBackgroundTimeSeconds, setExperienceCategories);
+        await preload(urlJobId, urlCompanyId, openaiClient, sessionUserId, setBackgroundTimeSeconds, setExperienceCategories);
 
         // Generate announcement
         const jobTitle = roleSlugFromUrl.split("-").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
@@ -764,7 +763,6 @@ function InterviewPageContent() {
       <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex flex-col relative">
         <div className="flex-1 flex items-center justify-center p-4">
           <CompletionScreen
-            codingTimeChallenge={codingTimeChallenge}
             onStartCoding={handleStartCoding}
             interviewSessionId={interviewSessionId}
             userId={userId || undefined}

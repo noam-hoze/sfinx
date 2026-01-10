@@ -13,7 +13,8 @@ import {
   setCompanyContext,
   setExpectedBackgroundQuestion,
 } from "@/shared/state/slices/interviewSlice";
-import { setTimebox } from "@/shared/state/slices/backgroundSlice";
+import { setTimebox as setBackgroundTimebox } from "@/shared/state/slices/backgroundSlice";
+import { setTimebox as setCodingTimebox } from "@/shared/state/slices/codingSlice";
 import { buildOpenAIBackgroundPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
 import { generateAssistantReply } from "app/(features)/interview/components/chat/openAITextConversationHelpers";
 import { createInterviewSession } from "app/(features)/interview/components/services/interviewSessionService";
@@ -31,7 +32,6 @@ export function useBackgroundPreload() {
       companyId: string,
       openaiClient: OpenAI,
       sessionUserId?: string | null,
-      onCodingTimeSet?: (minutes: number) => void,
       onBackgroundTimeSet?: (seconds: number) => void,
       onExperienceCategoriesSet?: (categories: Array<{name: string; description: string; weight: number; example?: string}>) => void
     ) => {
@@ -125,14 +125,14 @@ export function useBackgroundPreload() {
           dispatch(setExpectedBackgroundQuestion({ question: String(scriptData.backgroundQuestion) }));
         }
 
-        if (scriptData.codingQuestionTimeSeconds && onCodingTimeSet) {
-          onCodingTimeSet(Math.round(scriptData.codingQuestionTimeSeconds / 60));
+        if (scriptData.codingQuestionTimeSeconds) {
+          dispatch(setCodingTimebox({ timeboxSeconds: scriptData.codingQuestionTimeSeconds }));
         }
 
         if (scriptData.backgroundQuestionTimeSeconds && onBackgroundTimeSet) {
           onBackgroundTimeSet(scriptData.backgroundQuestionTimeSeconds);
           const timeboxMs = scriptData.backgroundQuestionTimeSeconds * 1000;
-          dispatch(setTimebox({ timeboxMs }));
+          dispatch(setBackgroundTimebox({ timeboxMs }));
         }
 
         if (scriptData.experienceCategories && onExperienceCategoriesSet) {
