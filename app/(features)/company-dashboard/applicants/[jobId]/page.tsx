@@ -18,6 +18,7 @@ interface Applicant {
   appliedAt: string;
   interviewCompleted: boolean;
   applicationId: string;
+  highlights: string[];
 }
 
 interface JobApplicantsResponse {
@@ -63,7 +64,7 @@ function JobApplicantsContent() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <SfinxSpinner title="Loading Applicants" messages="Fetching candidates..." />
+        <SfinxSpinner size="lg" title="Loading Applicants" messages="Fetching candidates..." />
       </div>
     );
   }
@@ -112,116 +113,156 @@ function JobApplicantsContent() {
           </p>
         </div>
 
-        {/* Applicants List */}
+        {/* Applicants Table */}
         <div className="space-y-6">
-          {/* Completed Interviews */}
           {completedApplicants.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {completedApplicants.map((applicant) => (
-                  <DashboardCard
-                    key={applicant.id}
-                    onClick={() => handleViewProfile(applicant)}
-                    className="group relative"
-                  >
-                    {/* Avatar */}
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
-                        {applicant.image ? (
-                          <Image
-                            src={applicant.image}
-                            alt={applicant.name}
-                            width={48}
-                            height={48}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-lg font-semibold text-gray-600">
-                            {applicant.name.charAt(0).toUpperCase()}
-                          </span>
-                        )}
-                      </div>
-                      <svg 
-                        className="w-5 h-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all ml-auto"
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Candidate
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Score
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Highlights
+                      </th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {completedApplicants.map((applicant) => (
+                      <tr
+                        key={applicant.id}
+                        onClick={() => handleViewProfile(applicant)}
+                        className="hover:bg-gray-50 cursor-pointer transition-colors"
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </div>
-
-                    {/* Info */}
-                    <div className="mb-4">
-                      <h3 className="text-base font-semibold text-gray-900 group-hover:text-blue-600 transition-colors mb-1">
-                        {applicant.name}
-                      </h3>
-                      <p className="text-xs text-gray-600 truncate">{applicant.email}</p>
-                    </div>
-
-                    {/* Score */}
-                    {applicant.matchScore !== null && (
-                      <div className="pt-3 border-t border-gray-100">
-                        <div className={`text-2xl font-bold tabular-nums ${
-                          applicant.matchScore >= 75
-                            ? "text-emerald-600"
-                            : applicant.matchScore >= 50
-                            ? "text-amber-600"
-                            : "text-red-600"
-                        }`}>
-                          {Math.round(applicant.matchScore)}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">Score</div>
-                      </div>
-                    )}
-                  </DashboardCard>
-                ))}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                              {applicant.image ? (
+                                <Image
+                                  src={applicant.image}
+                                  alt={applicant.name}
+                                  width={40}
+                                  height={40}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-sm font-semibold text-gray-600">
+                                  {applicant.name.charAt(0).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">{applicant.name}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {applicant.matchScore !== null ? (
+                            <div className={`text-xl font-bold tabular-nums ${
+                              applicant.matchScore >= 75
+                                ? "text-emerald-600"
+                                : applicant.matchScore >= 50
+                                ? "text-amber-600"
+                                : "text-red-600"
+                            }`}>
+                              {Math.round(applicant.matchScore)}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          {applicant.highlights?.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                              {applicant.highlights.map((highlight, idx) => (
+                                <span
+                                  key={idx}
+                                  className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full"
+                                >
+                                  {highlight}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400 text-sm">-</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <svg 
+                            className="w-5 h-5 text-gray-400 inline-block"
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
-          {/* Pending Interviews */}
           {pendingApplicants.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {pendingApplicants.map((applicant) => (
-                  <DashboardCard
-                    key={applicant.id}
-                    className="opacity-60 cursor-default"
-                  >
-                    {/* Avatar */}
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
-                        {applicant.image ? (
-                          <Image
-                            src={applicant.image}
-                            alt={applicant.name}
-                            width={48}
-                            height={48}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-lg font-semibold text-gray-600">
-                            {applicant.name.charAt(0).toUpperCase()}
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden opacity-60">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Pending Interviews
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {pendingApplicants.map((applicant) => (
+                      <tr key={applicant.id}>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                              {applicant.image ? (
+                                <Image
+                                  src={applicant.image}
+                                  alt={applicant.name}
+                                  width={40}
+                                  height={40}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-sm font-semibold text-gray-600">
+                                  {applicant.name.charAt(0).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">{applicant.name}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-medium rounded-full">
+                            <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></div>
+                            Pending
                           </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Info */}
-                    <div className="mb-4">
-                      <h3 className="text-base font-semibold text-gray-900 mb-1">
-                        {applicant.name}
-                      </h3>
-                      <p className="text-xs text-gray-600 truncate">{applicant.email}</p>
-                    </div>
-
-                    {/* Status */}
-                    <div className="pt-3 border-t border-gray-100">
-                      <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 text-xs font-medium rounded-full">
-                        <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></div>
-                        Pending
-                      </span>
-                    </div>
-                  </DashboardCard>
-                ))}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 

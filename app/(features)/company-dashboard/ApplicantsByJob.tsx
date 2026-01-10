@@ -44,6 +44,7 @@ export default function ApplicantsByJob() {
         return (
             <main className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <SfinxSpinner 
+                    size="lg"
                     title="Loading Applicants" 
                     messages="Fetching job openings and candidates..." 
                 />
@@ -89,16 +90,16 @@ export default function ApplicantsByJob() {
                                     </svg>
                                 </div>
 
-                                {/* Metrics - Side by Side */}
-                                <div className="grid grid-cols-3 gap-4">
+                                {/* Metrics - Three Equal Cells */}
+                                <div className="grid grid-cols-3 gap-3">
                                     {/* Applicants */}
-                                    <div>
+                                    <div className="bg-gray-50 rounded-lg p-4 text-center">
                                         <div className="text-2xl font-bold text-gray-900">{job.applicantCount}</div>
                                         <div className="text-xs text-gray-500 mt-1">Applicants</div>
                                     </div>
 
-                                    {/* Top Score */}
-                                    <div>
+                                    {/* Best Score */}
+                                    <div className="bg-gray-50 rounded-lg p-4 text-center">
                                         <div className={`text-2xl font-bold ${
                                             job.highestScore !== null
                                                 ? job.highestScore >= 75
@@ -110,11 +111,11 @@ export default function ApplicantsByJob() {
                                         }`}>
                                             {job.highestScore ?? '—'}
                                         </div>
-                                        <div className="text-xs text-gray-500 mt-1">Top Score</div>
+                                        <div className="text-xs text-gray-500 mt-1">Best Score</div>
                                     </div>
 
                                     {/* Avg Score */}
-                                    <div>
+                                    <div className="bg-gray-50 rounded-lg p-4 text-center">
                                         <div className={`text-2xl font-bold ${
                                             job.averageScore !== null
                                                 ? job.averageScore >= 75
