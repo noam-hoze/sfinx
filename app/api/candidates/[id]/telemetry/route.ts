@@ -374,6 +374,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                     createdAt: session.createdAt,
                     videoUrl: session.videoUrl,
                     duration: session.duration,
+                    finalScore: session.finalScore,
                     matchScore: telemetry?.matchScore ?? null,
                     calculatedScore,
                     confidence: telemetry?.confidence ?? null,

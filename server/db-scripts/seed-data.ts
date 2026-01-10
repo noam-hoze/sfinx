@@ -495,6 +495,27 @@ async function resetDatabase() {
             `Linked interview content to ${pythonJobUpdate.count} Senior Python Engineer jobs (QM)`
         );
 
+        // Create default scoring configurations for all jobs
+        log.info("Creating default scoring configurations...");
+        const jobsWithoutScoring = await prisma.job.findMany({
+            where: {
+                scoringConfiguration: null,
+            },
+            select: { id: true, title: true },
+        });
+
+        for (const job of jobsWithoutScoring) {
+            await prisma.scoringConfiguration.create({
+                data: {
+                    jobId: job.id,
+                    aiAssistWeight: 25,
+                    experienceWeight: 50,
+                    codingWeight: 50,
+                },
+            });
+        }
+        log.info(`Created scoring configurations for ${jobsWithoutScoring.length} jobs`);
+
         log.info("Database reset and seeded successfully!");
 
         // Print summary

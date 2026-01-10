@@ -238,15 +238,13 @@ function TelemetryContent() {
             const jobExperienceCategories = activeSession?.application?.job?.experienceCategories as Array<{name: string; description: string; weight: number}> | undefined;
             
             if (backgroundSummary.experienceCategories && jobExperienceCategories) {
-                Object.entries(backgroundSummary.experienceCategories).forEach(([name, data]: [string, any]) => {
-                    const categoryDef = jobExperienceCategories.find((c: any) => c.name === name);
-                    if (categoryDef && categoryDef.weight > 0) {
-                        experienceScores.push({
-                            name,
-                            score: data.score,
-                            weight: categoryDef.weight
-                        });
-                    }
+                jobExperienceCategories.forEach((categoryDef: any) => {
+                    const score = backgroundSummary.experienceCategories[categoryDef.name]?.score || 0;
+                    experienceScores.push({
+                        name: categoryDef.name,
+                        score,
+                        weight: categoryDef.weight || 1
+                    });
                 });
             }
             
@@ -254,15 +252,19 @@ function TelemetryContent() {
             const categoryScores: Array<{name: string; score: number; weight: number}> = [];
             
             if (codingSummary.jobSpecificCategories && jobCodingCategories) {
-                Object.entries(codingSummary.jobSpecificCategories).forEach(([name, data]: [string, any]) => {
-                    const categoryDef = jobCodingCategories.find((c: any) => c.name === name);
-                    if (categoryDef && categoryDef.weight > 0) {
-                        categoryScores.push({
-                            name,
-                            score: data.score,
-                            weight: categoryDef.weight
-                        });
-                    }
+                jobCodingCategories.forEach((categoryDef: any) => {
+                    // Match by base name (before any parentheses)
+                    const baseName = categoryDef.name.split(' (')[0];
+                    const matchingKey = Object.keys(codingSummary.jobSpecificCategories).find(key => 
+                        key.startsWith(baseName) || categoryDef.name.startsWith(key)
+                    ) || categoryDef.name;
+                    
+                    const score = codingSummary.jobSpecificCategories[matchingKey]?.score || 0;
+                    categoryScores.push({
+                        name: categoryDef.name,
+                        score,
+                        weight: categoryDef.weight || 1
+                    });
                 });
             }
             
@@ -279,7 +281,6 @@ function TelemetryContent() {
             setCalculatedScore(result.finalScore);
             setCalculatedExperienceScore(result.experienceScore);
             setCalculatedCodingScore(result.codingScore);
-            log.info("[CPS] Calculated score:", result);
         } catch (error) {
             log.error("Error calculating score:", error);
             setCalculatedScore(null);
@@ -357,6 +358,7 @@ function TelemetryContent() {
     }, [backgroundSummary, codingSummary, workstyle]);
 
     const activeMatchScore: number | null =
+        activeSession?.finalScore ?? 
         (activeSession && activeSession.matchScore !== undefined
             ? activeSession.matchScore
             : candidate?.matchScore) ?? null;
@@ -532,10 +534,10 @@ function TelemetryContent() {
                                 </div>
                                 
                                 {/* Overall Score - just the number */}
-                                {calculatedScore !== null && (
+                                {activeMatchScore !== null && (
                                     <div className="text-right flex-shrink-0">
                                         <span className="text-4xl font-bold text-gray-900 tabular-nums">
-                                            {Math.round(calculatedScore)}
+                                            {activeMatchScore}
                                         </span>
                                     </div>
                                 )}
@@ -599,7 +601,7 @@ function TelemetryContent() {
                             {/* Score Section */}
                             <CollapsibleSection
                                 title="Breakdown"
-                                score={calculatedScore ?? undefined}
+                                score={activeMatchScore ?? undefined}
                                 isExpanded={scoreExpanded}
                                 onToggle={() => setScoreExpanded(!scoreExpanded)}
                             >
@@ -609,6 +611,7 @@ function TelemetryContent() {
                                         codingScore={calculatedCodingScore}
                                         experienceWeight={scoringConfig.experienceWeight}
                                         codingWeight={scoringConfig.codingWeight}
+                                        finalScore={activeMatchScore ?? undefined}
                                     />
                                 ) : (
                                     <p className="text-sm text-gray-600">
@@ -737,7 +740,7 @@ function TelemetryContent() {
                         codingSummary={codingSummary}
                         workstyle={workstyle}
                         scoringConfig={scoringConfig}
-                        calculatedScore={calculatedScore}
+                        calculatedScore={activeMatchScore}
                     />
                 </div>
             )}

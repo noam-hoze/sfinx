@@ -45,7 +45,7 @@ export default function EvidenceNavigationOverlay({
     const currentEvidence = evidenceLinks[currentIndex];
 
     return (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-black/70 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-black/30 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
             <button
                 onClick={handlePrevious}
                 disabled={currentIndex === 0}

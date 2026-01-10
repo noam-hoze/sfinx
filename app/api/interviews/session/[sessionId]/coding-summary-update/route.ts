@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
+import { calculateScore, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
 
 export async function PATCH(
     request: NextRequest,
@@ -27,6 +28,16 @@ export async function PATCH(
                 telemetryData: {
                     include: {
                         codingSummary: true,
+                        backgroundSummary: true,
+                    },
+                },
+                application: {
+                    include: {
+                        job: {
+                            include: {
+                                scoringConfiguration: true,
+                            },
+                        },
                     },
                 },
             },
@@ -122,9 +133,68 @@ export async function PATCH(
 
         log.info("[Coding Summary Update] Successfully updated job-specific categories with contribution data");
 
+        // Calculate and persist final score
+        let finalScore: number | null = null;
+        if (session.telemetryData?.backgroundSummary && session.application.job.scoringConfiguration) {
+            try {
+                const job = session.application.job;
+                const jobExperienceCategories = (job.experienceCategories as any) || [];
+                const backgroundExperienceCategories = (session.telemetryData.backgroundSummary.experienceCategories as any) || {};
+                const experienceScores = jobExperienceCategories.map((cat: any) => ({
+                    name: cat.name,
+                    score: backgroundExperienceCategories[cat.name]?.score || 0,
+                    weight: cat.weight || 1
+                }));
+
+                const jobCodingCategories = (job.codingCategories as any) || [];
+                const categoryScores = jobCodingCategories.map((cat: any) => {
+                    // Match by base name (before any parentheses)
+                    const baseName = cat.name.split(' (')[0];
+                    const matchingKey = Object.keys(enrichedCategories).find(key => 
+                        key.startsWith(baseName) || cat.name.startsWith(key)
+                    ) || cat.name;
+                    
+                    return {
+                        name: cat.name,
+                        score: enrichedCategories[matchingKey]?.score || 0,
+                        weight: cat.weight || 1
+                    };
+                });
+
+                const rawScores: RawScores = { experienceScores, categoryScores };
+                
+                // Get External Tools accountability score if available
+                const externalToolUsages = await prisma.externalToolUsage.findMany({
+                    where: { interviewSessionId: sessionId },
+                    select: { accountabilityScore: true }
+                });
+                
+                const avgAccountabilityScore = externalToolUsages.length > 0
+                    ? externalToolUsages.reduce((sum, usage) => sum + usage.accountabilityScore, 0) / externalToolUsages.length
+                    : undefined;
+                
+                const workstyleMetrics: WorkstyleMetrics = { 
+                    aiAssistAccountabilityScore: avgAccountabilityScore
+                };
+
+                const result = calculateScore(rawScores, workstyleMetrics, job.scoringConfiguration as any);
+                finalScore = Math.round(result.finalScore);
+
+                await prisma.interviewSession.update({
+                    where: { id: sessionId },
+                    data: { finalScore },
+                });
+
+                log.info(`[Coding Summary Update] Calculated and saved finalScore=${finalScore} for session ${sessionId}`);
+            } catch (error) {
+                log.error("[Coding Summary Update] Score calculation error:", error);
+            }
+        }
+
         return NextResponse.json({
             message: "Job-specific categories updated successfully",
             contributionsProcessed: allContributions.length,
+            finalScore,
         });
     } catch (error: any) {
         log.error("[Coding Summary Update] Error:", error);
