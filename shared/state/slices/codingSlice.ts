@@ -20,7 +20,6 @@ export type CodingState = {
         pasteEvaluationId: string;
         pastedContent: string;
         timestamp: number;
-        videoChapterId?: string;
         aiQuestionTimestamp?: number;
         pasteAccountabilityScore: number;
         answerCount: number;
@@ -95,7 +94,6 @@ const codingSlice = createSlice({
                 pasteEvaluationId: string;
                 pastedContent: string;
                 timestamp: number;
-                videoChapterId?: string;
                 topics?: Array<{
                     name: string;
                     description: string;
@@ -107,7 +105,6 @@ const codingSlice = createSlice({
                 pasteEvaluationId: action.payload.pasteEvaluationId,
                 pastedContent: action.payload.pastedContent,
                 timestamp: action.payload.timestamp,
-                videoChapterId: action.payload.videoChapterId,
                 pasteAccountabilityScore: 0,
                 answerCount: 0,
                 readyToEvaluate: false,
@@ -174,14 +171,10 @@ const codingSlice = createSlice({
         updatePasteVideoMetadata: (
             state,
             action: PayloadAction<{
-                videoChapterId?: string;
                 aiQuestionTimestamp?: number;
             }>
         ) => {
             if (!state.activePasteEvaluation) return;
-            if (action.payload.videoChapterId !== undefined) {
-                state.activePasteEvaluation.videoChapterId = action.payload.videoChapterId;
-            }
             if (action.payload.aiQuestionTimestamp !== undefined) {
                 state.activePasteEvaluation.aiQuestionTimestamp = action.payload.aiQuestionTimestamp;
             }

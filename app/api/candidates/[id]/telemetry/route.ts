@@ -270,13 +270,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
                     log.info("📋 Processing", sessionExternalTools.length, "external tool events");
                     
                     sessionExternalTools.forEach((tool: any, index: number) => {
-                        // Use timestamp (when paste actually happened)
-                        const pasteTime = new Date(tool.timestamp);
+                        // Use aiQuestionTimestamp (when AI asks question and green highlight appears)
+                        const questionTime = new Date(tool.aiQuestionTimestamp);
                         const recordingStartTime = new Date(session.recordingStartedAt);
-                        const videoOffset = (pasteTime.getTime() - recordingStartTime.getTime()) / 1000;
+                        const videoOffset = (questionTime.getTime() - recordingStartTime.getTime()) / 1000;
                         
-                        log.info(`  [${index + 1}] Paste at:`, pasteTime.toISOString());
-                        log.info(`  [${index + 1}] Offset:`, videoOffset, "seconds");
+                        log.info(`  [${index + 1}] AI Question at:`, questionTime.toISOString());
+                        log.info(`  [${index + 1}] Video offset:`, videoOffset, "seconds");
                         
                         if (videoOffset >= 0) {
                             aiAssistUsageLinks.push({
