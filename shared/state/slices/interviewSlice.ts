@@ -1,7 +1,12 @@
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
-import { interviewChatStore } from "@/shared/state/interviewChatStore";
+import { createSlice, PayloadAction, createAction } from "@reduxjs/toolkit";
 
-export type InterviewState =
+/**
+ * Global reset action that all interview-related slices listen to.
+ * Provides coordinated cleanup when leaving the interview flow.
+ */
+export const resetInterview = createAction("interview/RESET_ALL");
+
+export type InterviewMachineState =
     | "idle"
     | "greeting_said_by_ai"
     | "background_asked_by_ai"
@@ -10,8 +15,17 @@ export type InterviewState =
     | "followup_question"
     | "ended";
 
-export type InterviewMachineState = {
-    state: InterviewState;
+export type InterviewStage =
+    | "greeting"
+    | "background"
+    | "coding"
+    | "submission"
+    | "wrapup";
+
+export type InterviewState = {
+    state: InterviewMachineState;
+    isRecording: boolean;
+    stage: InterviewStage | null;
     candidateName?: string;
     expectedBackgroundQuestion?: string;
     // Company/role context for dynamic prompts and script selection
@@ -25,24 +39,20 @@ export type InterviewMachineState = {
     applicationId?: string;
     script?: any;
     preloadedFirstQuestion?: string;
-    // Page loading state for background interview
-    isPageLoading?: boolean;
     // Reset trigger flag
     shouldReset?: boolean;
 };
 
-const initialState: InterviewMachineState = {
+const initialState: InterviewState = {
     state: "idle",
-    isPageLoading: false,
+    isRecording: false,
+    stage: null,
     shouldReset: false,
-    companySlug: "meta",
-    roleSlug: "frontend-engineer",
-    companyName: "Meta",
 };
 
 const logStageTransition = (
-    from: InterviewState,
-    to: InterviewState,
+    from: InterviewMachineState,
+    to: InterviewMachineState,
     context?: string
 ) => {
     if (from === to) return;
@@ -53,8 +63,8 @@ const logStageTransition = (
     } catch {}
 };
 
-const interviewMachineSlice = createSlice({
-    name: "interviewMachine",
+const interviewSlice = createSlice({
+    name: "interview",
     initialState,
     reducers: {
         start: (state, action: PayloadAction<{ candidateName: string }>) => {
@@ -75,7 +85,7 @@ const interviewMachineSlice = createSlice({
         setSessionId: (state, action: PayloadAction<{ sessionId: string }>) => {
             state.sessionId = action.payload.sessionId;
         },
-        aiFinal: (state, action: PayloadAction<{ text: string }>) => {
+        interviewerMessage: (state, action: PayloadAction<{ text: string }>) => {
             if (state.state === "idle") {
                 const prev = state.state;
                 state.state = "greeting_said_by_ai";
@@ -85,12 +95,6 @@ const interviewMachineSlice = createSlice({
                 const prev = state.state;
                 state.state = "background_asked_by_ai";
                 logStageTransition(prev, state.state, "first background question");
-                try {
-                    const s = interviewChatStore.getState();
-                    if (!s.background.startedAtMs) {
-                        interviewChatStore.dispatch({ type: "BG_GUARD_START_TIMER" });
-                    }
-                } catch {}
             } else if (state.state === "background_answered_by_user") {
                 // Gate check now handled in useBackgroundAnswerHandler
                 // This reducer just transitions to next question
@@ -99,7 +103,7 @@ const interviewMachineSlice = createSlice({
                 logStageTransition(prev, state.state, "guard not satisfied");
             }
         },
-        userFinal: (state) => {
+        candidateMessage: (state) => {
             if (state.state === "background_asked_by_ai") {
                 const prev = state.state;
                 state.state = "background_answered_by_user";
@@ -127,15 +131,22 @@ const interviewMachineSlice = createSlice({
             state.state = "ended";
             logStageTransition(prev, state.state, "interview ended");
         },
+        setRecording: (state, action: PayloadAction<{ isRecording: boolean }>) => {
+            state.isRecording = action.payload.isRecording;
+        },
+        setStage: (state, action: PayloadAction<{ stage: InterviewStage }>) => {
+            state.stage = action.payload.stage;
+        },
         reset: (state) => {
             const prev = state.state;
             state.state = "idle";
+            state.isRecording = false;
+            state.stage = null;
             state.candidateName = undefined;
             state.expectedBackgroundQuestion = undefined;
             state.companyName = undefined;
             state.companySlug = undefined;
             state.roleSlug = undefined;
-            state.isPageLoading = true;
             state.shouldReset = false; // Clear the flag after reset
             logStageTransition(prev, state.state, "reset");
         },
@@ -161,25 +172,26 @@ const interviewMachineSlice = createSlice({
             if (action.payload.script) state.script = action.payload.script;
             if (action.payload.preloadedFirstQuestion) state.preloadedFirstQuestion = action.payload.preloadedFirstQuestion;
         },
-        setPageLoading: (state, action: PayloadAction<{ isLoading: boolean }>) => {
-            state.isPageLoading = action.payload.isLoading;
-        },
+    },
+    extraReducers: (builder) => {
+        builder.addCase(resetInterview, () => initialState);
     },
 });
 
 export const {
     start,
-    aiFinal,
-    userFinal,
+    interviewerMessage,
+    candidateMessage,
     startFollowup,
     setExpectedBackgroundQuestion,
     setCompanyContext,
     setSessionId,
+    setRecording,
+    setStage,
     end,
     reset,
     triggerReset,
     forceCoding,
     setPreloadedData,
-    setPageLoading,
-} = interviewMachineSlice.actions;
-export default interviewMachineSlice.reducer;
+} = interviewSlice.actions;
+export default interviewSlice.reducer;

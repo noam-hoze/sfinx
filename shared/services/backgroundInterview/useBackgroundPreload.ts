@@ -5,17 +5,15 @@
  */
 
 import { useCallback } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import OpenAI from "openai";
-import { RootState } from "@/shared/state/store";
-import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import {
   setPreloadedData,
   setSessionId,
   setCompanyContext,
   setExpectedBackgroundQuestion,
-  setPageLoading,
-} from "@/shared/state/slices/interviewMachineSlice";
+} from "@/shared/state/slices/interviewSlice";
+import { setTimebox } from "@/shared/state/slices/backgroundSlice";
 import { buildOpenAIBackgroundPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
 import { generateAssistantReply } from "app/(features)/interview/components/chat/openAITextConversationHelpers";
 import { createInterviewSession } from "app/(features)/interview/components/services/interviewSessionService";
@@ -134,10 +132,7 @@ export function useBackgroundPreload() {
         if (scriptData.backgroundQuestionTimeSeconds && onBackgroundTimeSet) {
           onBackgroundTimeSet(scriptData.backgroundQuestionTimeSeconds);
           const timeboxMs = scriptData.backgroundQuestionTimeSeconds * 1000;
-          interviewChatStore.dispatch({
-            type: "BG_GUARD_SET_TIMEBOX",
-            payload: { timeboxMs },
-          } as any);
+          dispatch(setTimebox({ timeboxMs }));
         }
 
         if (scriptData.experienceCategories && onExperienceCategoriesSet) {

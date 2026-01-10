@@ -1,10 +1,11 @@
 import { configureStore } from "@reduxjs/toolkit";
-import interviewChat from "./slices/interviewChatSlice";
-import interviewMachine from "./slices/interviewMachineSlice";
+import background from "./slices/backgroundSlice";
+import coding from "./slices/codingSlice";
+import interview from "./slices/interviewSlice";
 import cps from "./slices/cpsSlice";
 
 export const store = configureStore({
-    reducer: { interviewChat, interviewMachine, cps },
+    reducer: { background, coding, interview, cps },
     devTools: true,
 });
 

@@ -1,6 +1,6 @@
 import UnauthGuard from "app/shared/components/UnauthGuard";
 
-export default function LoginLayout({
+export default function AuthLayout({
     children,
 }: {
     children: React.ReactNode;

@@ -6,17 +6,20 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { useSession } from "next-auth/react";
 import { store, RootState } from "@/shared/state/store";
-import { interviewChatStore } from "@/shared/state/interviewChatStore";
+import {
+  addMessage,
+  startTimer,
+} from "@/shared/state/slices/backgroundSlice";
 import {
   start,
-  aiFinal,
-  reset,
-  setPageLoading,
+  interviewerMessage,
   forceCoding,
   setCompanyContext,
   setSessionId,
   setPreloadedData,
-} from "@/shared/state/slices/interviewMachineSlice";
+  setStage,
+  resetInterview,
+} from "@/shared/state/slices/interviewSlice";
 import QuestionCard from "./components/backgroundInterview/QuestionCard";
 import CompletionScreen from "./components/backgroundInterview/CompletionScreen";
 import AnnouncementScreen from "./components/backgroundInterview/AnnouncementScreen";
@@ -52,17 +55,19 @@ function InterviewPageContent() {
   const dispatch = useDispatch();
   const { data: session } = useSession();
 
+  // Local loading state for preload phase
+  const [isPreloading, setIsPreloading] = useState(true);
+  
   // Redux state
-  const isPageLoading = useSelector((state: RootState) => state.interviewMachine.isPageLoading);
-  const machineState = useSelector((state: RootState) => state.interviewMachine.state);
-  const companyName = useSelector((state: RootState) => state.interviewMachine.companyName);
-  const companySlug = useSelector((state: RootState) => state.interviewMachine.companySlug);
-  const roleSlug = useSelector((state: RootState) => state.interviewMachine.roleSlug);
-  const preloadedFirstQuestion = useSelector((state: RootState) => state.interviewMachine.preloadedFirstQuestion);
-  const userId = useSelector((state: RootState) => state.interviewMachine.userId);
-  const applicationId = useSelector((state: RootState) => state.interviewMachine.applicationId);
-  const shouldResetFlag = useSelector((state: RootState) => state.interviewMachine.shouldReset);
-  const reduxSessionId = useSelector((state: RootState) => state.interviewMachine.sessionId);
+  const machineState = useSelector((state: RootState) => state.interview.state);
+  const companyName = useSelector((state: RootState) => state.interview.companyName);
+  const companySlug = useSelector((state: RootState) => state.interview.companySlug);
+  const roleSlug = useSelector((state: RootState) => state.interview.roleSlug);
+  const preloadedFirstQuestion = useSelector((state: RootState) => state.interview.preloadedFirstQuestion);
+  const userId = useSelector((state: RootState) => state.interview.userId);
+  const applicationId = useSelector((state: RootState) => state.interview.applicationId);
+  const shouldResetFlag = useSelector((state: RootState) => state.interview.shouldReset);
+  const reduxSessionId = useSelector((state: RootState) => state.interview.sessionId);
 
   // Local state
   const [name, setName] = useState("");
@@ -91,29 +96,10 @@ function InterviewPageContent() {
   const recordingControls = useScreenRecording();
   const { startRecording, interviewSessionId, setInterviewSessionId, getActualRecordingStartTime } = recordingControls;
 
-  // Initialize company and job from URL params
-  useEffect(() => {
-    const urlCompanyId = searchParams.get("companyId");
-    const urlJobId = searchParams.get("jobId");
-    
-    if (!urlCompanyId || !urlJobId) {
-      throw new Error("Missing required URL parameters: companyId and jobId");
-    }
-    
-    // Parse role slug from jobId (format: companyId-role-slug)
-    const roleSlugFromUrl = urlJobId.replace(`${urlCompanyId}-`, "");
-    
-    dispatch(setCompanyContext({
-      companyName: "",
-      companySlug: urlCompanyId,
-      roleSlug: roleSlugFromUrl,
-    }));
-  }, [searchParams, dispatch]);
-
   // Build breadcrumb trail
   const jobTitle = roleSlug?.split("-").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") || "";
   const breadcrumbTrail = getBreadcrumbTrail("/interview", "CANDIDATE", {
-    companyName: companyName || (companySlug ? companySlug.charAt(0).toUpperCase() + companySlug.slice(1) : ""),
+    companyName: companyName ?? "",
     jobTitle: jobTitle
   });
 
@@ -139,11 +125,12 @@ function InterviewPageContent() {
     startSoundRef.current = refStartSound.current;
   }, [refClickSound, refStartSound]);
 
-  // Initialize on mount
+  // Cleanup on unmount - reset all interview state when leaving the flow
   useEffect(() => {
-    console.log("[interview] Component mounted - resetting store");
-    interviewChatStore.dispatch({ type: "RESET_ALL" } as any);
-    dispatch(reset());
+    return () => {
+      console.log("[interview] Component unmounting - cleaning up state");
+      dispatch(resetInterview());
+    };
   }, [dispatch]);
 
   // Initialize OpenAI client
@@ -156,7 +143,7 @@ function InterviewPageContent() {
 
   // Skip preload if going directly to coding
   useEffect(() => {
-    if (skipToCoding && isPageLoading) {
+    if (skipToCoding && isPreloading) {
       console.log("[interview] Skip-to-coding mode: bypassing preload");
       
       const setupUserId = async () => {
@@ -165,16 +152,16 @@ function InterviewPageContent() {
         if (sessionUserId) {
           dispatch(setPreloadedData({ userId: sessionUserId }));
           console.log("[interview] Set userId from session:", sessionUserId);
-          dispatch(setPageLoading({ isLoading: false }));
+          setIsPreloading(false);
           return;
         }
         
-        dispatch(setPageLoading({ isLoading: false }));
+        setIsPreloading(false);
       };
       
       setupUserId();
     }
-  }, [skipToCoding, isPageLoading, session, dispatch, companySlug, roleSlug]);
+  }, [skipToCoding, isPreloading, session, dispatch, companySlug, roleSlug]);
 
   useEffect(() => {
     if (applicationId) {
@@ -182,13 +169,13 @@ function InterviewPageContent() {
     }
   }, [applicationId]);
 
-  // Subscribe to chat store for messages
+  // Get messages from Redux
+  const messages = useSelector((state: RootState) => state.background.messages);
+  
+  // Update current question when messages change
   useEffect(() => {
-    const unsubscribe = interviewChatStore.subscribe(() => {
-      if (!allowQuestionDisplay) return;
-      const chatState = interviewChatStore.getState();
-      const messages = chatState.messages;
-      if (messages.length > 0) {
+    if (!allowQuestionDisplay) return;
+    if (messages.length > 0) {
         const lastMessage = messages[messages.length - 1];
         if (lastMessage.speaker === "ai" && lastMessage.text !== currentQuestion) {
           setCurrentQuestion(lastMessage.text);
@@ -198,9 +185,7 @@ function InterviewPageContent() {
           }
         }
       }
-    });
-    return () => unsubscribe();
-  }, [allowQuestionDisplay, currentQuestion]);
+  }, [allowQuestionDisplay, currentQuestion, messages]);
 
   // Keep refs in sync with current values
   useEffect(() => {
@@ -301,7 +286,7 @@ function InterviewPageContent() {
   useEffect(() => {
     if (shouldResetFlag) {
       console.log("[interview] Reset triggered");
-      interviewChatStore.dispatch({ type: "RESET_ALL" } as any);
+      dispatch(resetInterview());
       setCurrentQuestion("");
       setShowHandEmoji(false);
       setShowAnnouncement(false);
@@ -319,16 +304,16 @@ function InterviewPageContent() {
       setInterviewSessionId(null);
       hasAutoStartedRef.current = false;
       hasPreloadedRef.current = false;
-      dispatch(reset());
     }
   }, [shouldResetFlag, dispatch, applicationId, setInterviewSessionId]);
 
   // STAGE 1: Preload (skip if going directly to coding)
   useEffect(() => {
-    if (!isPageLoading || !openaiClient || skipToCoding || hasPreloadedRef.current) return;
+    if (!openaiClient || skipToCoding || hasPreloadedRef.current) return;
 
     const executePreload = async () => {
       try {
+        setIsPreloading(true);
         hasPreloadedRef.current = true;
         
         const urlCompanyId = searchParams.get("companyId");
@@ -351,16 +336,16 @@ function InterviewPageContent() {
         setAnnouncementAudioBlob(audioBlob);
 
         console.log("[interview] Preload complete - moving to welcome");
-        dispatch(setPageLoading({ isLoading: false }));
+        setIsPreloading(false);
       } catch (error) {
         console.error("[interview] Preload failed:", error);
-        dispatch(setPageLoading({ isLoading: false }));
+        setIsPreloading(false);
         alert("Failed to initialize interview. Please refresh and try again.");
       }
     };
 
     executePreload();
-  }, [isPageLoading, openaiClient, skipToCoding, dispatch, preload, generateAnnouncement, session, searchParams]);
+  }, [openaiClient, skipToCoding, preload, generateAnnouncement, session, searchParams]);
 
   /**
    * Ensures an application exists for the coding phase and returns its ID.
@@ -423,9 +408,12 @@ function InterviewPageContent() {
       const resolvedApplicationId = await resolveApplicationId();
       if (!resolvedApplicationId) return null;
 
+      if (!companySlug) {
+        throw new Error("companySlug is required to create interview session");
+      }
       const session = await createInterviewSession({
         applicationId: resolvedApplicationId,
-        companyId: companySlug || "meta",
+        companyId: companySlug,
         userId: userId || undefined,
         recordingStartedAt: getActualRecordingStartTime() || undefined,
       });
@@ -454,7 +442,7 @@ function InterviewPageContent() {
   // Auto-start interview for authenticated users after preload
   useEffect(() => {
     // CRITICAL: Wait for preload to finish (it sets reduxSessionId)
-    if (isPageLoading || skipToCoding || isStarting || showAnnouncement || machineState !== "idle" || hasAutoStartedRef.current || !reduxSessionId) {
+    if (isPreloading || skipToCoding || isStarting || showAnnouncement || machineState !== "idle" || hasAutoStartedRef.current || !reduxSessionId) {
       return;
     }
 
@@ -482,8 +470,8 @@ function InterviewPageContent() {
         const firstName = userName.trim().split(" ")[0];
         
         dispatch(start({ candidateName: firstName }));
-        dispatch(aiFinal({ text: "greeting" }));
-        interviewChatStore.dispatch({ type: "SET_STAGE", payload: "background" } as any);
+        dispatch(interviewerMessage({ text: "greeting" }));
+        dispatch(setStage({ stage: "background" }));
 
         await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -510,13 +498,13 @@ function InterviewPageContent() {
     };
 
     autoStartAuthenticated();
-  }, [isPageLoading, skipToCoding, isStarting, showAnnouncement, machineState, reduxSessionId, session, ensureRecordingSession, dispatch, isMuted]);
+  }, [isPreloading, skipToCoding, isStarting, showAnnouncement, machineState, reduxSessionId, session, ensureRecordingSession, dispatch, isMuted]);
 
   // Auto-skip to coding when flag is set and user is logged in
   useEffect(() => {
-    console.log("[interview] Auto-skip check:", { skipToCoding, userId, showCodingIDE, isStarting, isPageLoading, skipScreenShare });
+    console.log("[interview] Auto-skip check:", { skipToCoding, userId, showCodingIDE, isStarting, isPreloading, skipScreenShare });
     
-    if (!skipToCoding || !userId || showCodingIDE || isStarting || isPageLoading || !companySlug || !roleSlug) return;
+    if (!skipToCoding || !userId || showCodingIDE || isStarting || isPreloading || !companySlug || !roleSlug) return;
 
     const initializeCodingSession = async () => {
       try {
@@ -556,13 +544,16 @@ function InterviewPageContent() {
         if (!companySlug || !roleSlug) {
           throw new Error("Company and role not initialized from URL");
         }
+        if (!companyName) {
+          throw new Error("companyName is required to start coding session");
+        }
         dispatch(setCompanyContext({
-          companyName: companyName || companySlug.charAt(0).toUpperCase() + companySlug.slice(1),
+          companyName,
           companySlug,
           roleSlug,
         }));
         dispatch(forceCoding());
-        interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" } as any);
+        dispatch(setStage({ stage: "coding" }));
         setShowCodingIDE(true);
         setIsStarting(false);
         console.log("[interview] Skip-to-coding complete");
@@ -574,7 +565,7 @@ function InterviewPageContent() {
     };
 
     initializeCodingSession();
-  }, [skipToCoding, userId, showCodingIDE, isStarting, isPageLoading, skipScreenShare, ensureRecordingSession, resolveApplicationId, setInterviewSessionId, dispatch, companyName, companySlug, roleSlug]);
+  }, [skipToCoding, userId, showCodingIDE, isStarting, isPreloading, skipScreenShare, ensureRecordingSession, resolveApplicationId, setInterviewSessionId, dispatch, companyName, companySlug, roleSlug]);
 
   // STAGE 2: Start interview handler
   const handleStartInterview = async () => {
@@ -626,8 +617,8 @@ function InterviewPageContent() {
     try {
       const firstName = name.trim().split(" ")[0];
       dispatch(start({ candidateName: firstName }));
-      dispatch(aiFinal({ text: "greeting" }));
-      interviewChatStore.dispatch({ type: "SET_STAGE", payload: "background" } as any);
+      dispatch(interviewerMessage({ text: "greeting" }));
+      dispatch(setStage({ stage: "background" }));
 
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -656,12 +647,10 @@ function InterviewPageContent() {
     setShowAnnouncement(false);
     setAllowQuestionDisplay(true);
     const firstQuestion = preloadedFirstQuestion || "";
-    dispatch(aiFinal({ text: firstQuestion }));
+    dispatch(interviewerMessage({ text: firstQuestion }));
+    dispatch(startTimer());
     setCurrentQuestion(firstQuestion);
-    interviewChatStore.dispatch({
-      type: "ADD_MESSAGE",
-      payload: { text: firstQuestion, speaker: "ai" },
-    } as any);
+    dispatch(addMessage({ text: firstQuestion, speaker: "ai" }));
 
     // Save first question to DB
     if (interviewSessionId) {
@@ -708,8 +697,8 @@ function InterviewPageContent() {
     if (completed || submitting) return;
 
     const checkTimer = () => {
-      const chatState = interviewChatStore.getState();
-      const { startedAtMs, timeboxMs } = chatState.background;
+      const backgroundState = store.getState().background;
+      const { startedAtMs, timeboxMs } = backgroundState;
       
       if (!startedAtMs) return;
       
@@ -731,19 +720,22 @@ function InterviewPageContent() {
     if (!companySlug || !roleSlug) {
       throw new Error("Company and role not initialized from URL");
     }
+    if (!companyName) {
+      throw new Error("companyName is required to start coding");
+    }
     dispatch(setCompanyContext({
-      companyName: companyName || companySlug.charAt(0).toUpperCase() + companySlug.slice(1),
+      companyName,
       companySlug,
       roleSlug,
     }));
     dispatch(forceCoding());
-    interviewChatStore.dispatch({ type: "SET_STAGE", payload: "coding" } as any);
+    dispatch(setStage({ stage: "coding" }));
     setShowCodingIDE(true);
   };
 
   // ===== RENDER CONDITIONS =====
 
-  if (isPageLoading) {
+  if (isPreloading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex items-center justify-center p-4">
         <SfinxSpinner size="lg" title="Loading interview" messages="Setting things up" />
@@ -787,7 +779,7 @@ function InterviewPageContent() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex flex-col">
       {/* Breadcrumbs */}
-      {!isPageLoading && machineState !== "in_coding_session" && (
+      {!isPreloading && machineState !== "in_coding_session" && (
         <div className="pt-8 px-6">
           <Breadcrumbs items={breadcrumbTrail} />
         </div>

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
-import { interviewChatStore } from "@/shared/state/interviewChatStore";
 import { MAX_PASTE_EVAL_ANSWERS } from "../chat/OpenAITextConversation";
 import { SfinxSpinner } from "app/shared/components";
 import RealTimeContributionsView from "app/shared/components/debug/RealTimeContributionsView";
@@ -46,8 +45,8 @@ interface CodingEvaluationDebugPanelProps {
 export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, onTestEvaluation, nextEvaluationTime, jobCategories, evaluationThrottleMs }: CodingEvaluationDebugPanelProps) {
     // Get job-specific categories from props first, then fall back to evaluation data
     const jobSpecificCategories = evaluationData?.jobSpecificResponse?.data?.categories;
-    const sessionId = useSelector((state: RootState) => state.interviewMachine.sessionId);
-    const experienceCategories = useSelector((state: RootState) => state.interviewMachine.script?.experienceCategories);
+    const sessionId = useSelector((state: RootState) => state.interview.sessionId);
+    const experienceCategories = useSelector((state: RootState) => state.interview.script?.experienceCategories);
     
     const throttleSeconds = Math.round(evaluationThrottleMs / 1000);
     
@@ -82,19 +81,8 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
         return () => clearInterval(interval);
     }, [nextEvaluationTime]);
     
-    // Subscribe to paste evaluation state
-    const [chatState, setChatState] = useState(() => interviewChatStore.getState());
-    useEffect(() => {
-        const unsub = interviewChatStore.subscribe(() => {
-            setChatState(interviewChatStore.getState());
-        });
-        return () => {
-            if (unsub) unsub();
-        };
-    }, []);
-
-    const coding = (chatState as any).coding;
-    const activePasteEval = coding?.activePasteEvaluation;
+    // Get paste evaluation state from Redux
+    const activePasteEval = useSelector((state: RootState) => state.coding.activePasteEvaluation);
 
     // Fetch background contributions for experience score calculation
     useEffect(() => {
