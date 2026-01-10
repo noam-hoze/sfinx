@@ -411,6 +411,7 @@ function CompanyJobsContent() {
                 {loading || editingJobId ? (
                     <div className="flex items-center justify-center py-12">
                         <SfinxSpinner 
+                            size="lg"
                             title={editingJobId ? "Opening Job" : "Loading Jobs"} 
                             messages={editingJobId ? "Preparing job editor..." : "Fetching your job openings..."} 
                         />
