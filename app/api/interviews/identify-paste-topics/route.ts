@@ -8,8 +8,20 @@ const openaiClient = new OpenAI({
 
 export async function POST(request: NextRequest) {
     try {
+        const MAX_PASTE_TOPICS = process.env.NEXT_PUBLIC_MAX_PASTE_TOPICS;
+
+        if (!MAX_PASTE_TOPICS) {
+            throw new Error("NEXT_PUBLIC_MAX_PASTE_TOPICS is required");
+        }
+
+        const topicsCount = parseInt(MAX_PASTE_TOPICS, 10);
+
+        if (isNaN(topicsCount) || topicsCount <= 0) {
+            throw new Error("NEXT_PUBLIC_MAX_PASTE_TOPICS must be a positive integer");
+        }
+
         const body = await request.json();
-        const { pastedContent, codingTask, maxTopics = 4 } = body;
+        const { pastedContent, codingTask } = body;
 
         if (!pastedContent || !codingTask) {
             return NextResponse.json(
@@ -31,10 +43,10 @@ ${pastedContent}
 ${codingTask}
 
 **Your Task:**
-1. Identify the ${maxTopics} MOST IMPORTANT concepts/topics this code demonstrates that the candidate should understand
+1. Identify the ${topicsCount} MOST IMPORTANT concepts/topics this code demonstrates that the candidate should understand
 2. Generate an initial question to begin evaluating their understanding
 
-**IMPORTANT:** Limit to ${maxTopics} topics maximum. Focus on the most critical concepts only.
+**IMPORTANT:** Limit to ${topicsCount} topics maximum. Focus on the most critical concepts only.
 
 Return ONLY valid JSON in this exact format:
 {
