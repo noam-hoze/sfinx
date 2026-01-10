@@ -86,7 +86,7 @@ export const useCamera = () => {
                 window.clearTimeout(cameraHideTimeoutRef.current);
             }
         };
-    }, []);
+    }, [startCamera, stopCamera]);
 
     return {
         isCameraOn,
