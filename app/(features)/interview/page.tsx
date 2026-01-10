@@ -25,7 +25,10 @@ import SfinxSpinner from "app/shared/components/SfinxSpinner";
 import Breadcrumbs from "app/shared/components/Breadcrumbs";
 import InterviewStageScreen from "app/shared/components/InterviewStageScreen";
 import { InterviewIDE } from "./components";
+import CameraPreview from "./components/CameraPreview";
+import AIInterviewerBox from "./components/AIInterviewerBox";
 import { useMute } from "app/shared/contexts";
+import { useCamera } from "./components/hooks/useCamera";
 import { useScreenRecording } from "./components/hooks/useScreenRecording";
 import { InterviewRecordingProvider } from "./components/InterviewRecordingContext";
 import { createInterviewSession } from "./components/services/interviewSessionService";
@@ -58,6 +61,7 @@ function InterviewPageContent() {
   
   // Redux state
   const stage = useSelector((state: RootState) => state.interview.stage);
+  const { isCameraOn, selfVideoRef } = useCamera();
   const companyName = useSelector((state: RootState) => state.interview.companyName);
   const companySlug = useSelector((state: RootState) => state.interview.companySlug);
   const roleSlug = useSelector((state: RootState) => state.interview.roleSlug);
@@ -763,7 +767,7 @@ function InterviewPageContent() {
   const isDebugModeEnabled = process.env.NEXT_PUBLIC_DEBUG_MODE === "true";
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex flex-col">
+    <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex flex-col relative">
       {/* Breadcrumbs */}
       {!isPreloading && stage !== "coding" && (
         <div className="pt-8 px-6">
@@ -772,30 +776,46 @@ function InterviewPageContent() {
       )}
       
       <div className="flex-1 flex items-center justify-center p-4">
-        {showHandEmoji && !showAnnouncement && !currentQuestion ? (
-          <div className="flex items-start justify-start gap-4 w-full max-w-4xl">
-            <div className="text-5xl flex-shrink-0">👋</div>
+        <div className="w-full max-w-4xl flex flex-col">
+          {/* AI Interviewer and Camera - side by side above question card */}
+          <div className={`flex gap-8 mb-6 justify-center transition-opacity duration-500 ${
+            currentQuestion && !showAnnouncement ? 'opacity-100' : 'opacity-0'
+          }`}>
+            <AIInterviewerBox isActive={!isPreloading && stage === "background"} />
+            <CameraPreview
+              isCameraOn={isCameraOn}
+              videoRef={selfVideoRef}
+            />
           </div>
-        ) : showAnnouncement ? (
-          <AnnouncementScreen
-            key={announcementText}
-            text={announcementText}
-            preloadedAudioBlob={announcementAudioBlob}
-            onComplete={handleAnnouncementComplete}
-          />
-        ) : (
-          <QuestionCard
-            question={currentQuestion}
-            onSubmitAnswer={handleSubmitAnswer}
-            loading={submitting}
-            micStream={micStream}
-            isFirstQuestion={isFirstQuestion}
-            interviewSessionId={interviewSessionId}
-            getActualRecordingStartTime={getActualRecordingStartTime}
-            questionNumber={backgroundQuestionNumber}
-            userId={userId || undefined}
-          />
-        )}
+          
+          {/* Question content */}
+          <div className="mx-auto">
+            {showHandEmoji && !showAnnouncement && !currentQuestion ? (
+              <div className="flex items-start justify-start gap-4">
+                <div className="text-5xl flex-shrink-0">👋</div>
+              </div>
+            ) : showAnnouncement ? (
+              <AnnouncementScreen
+                key={announcementText}
+                text={announcementText}
+                preloadedAudioBlob={announcementAudioBlob}
+                onComplete={handleAnnouncementComplete}
+              />
+            ) : (
+              <QuestionCard
+                question={currentQuestion}
+                onSubmitAnswer={handleSubmitAnswer}
+                loading={submitting}
+                micStream={micStream}
+                isFirstQuestion={isFirstQuestion}
+                interviewSessionId={interviewSessionId}
+                getActualRecordingStartTime={getActualRecordingStartTime}
+                questionNumber={backgroundQuestionNumber}
+                userId={userId || undefined}
+              />
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Debug Panel - below content in document flow, scroll down to see it */}
