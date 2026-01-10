@@ -325,6 +325,64 @@ async function resetDatabase() {
 
         log.info(`   └─ Created candidate account: ${candidateUser.email}`);
 
+        log.info("Creating candidate user Noam Best...");
+        const noamBest = await prisma.user.create({
+            data: {
+                id: "candidate-noam-best",
+                name: "Noam Best",
+                email: "noam.best@gmail.com",
+                password: hashedPassword,
+                role: UserRole.CANDIDATE,
+                image: undefined,
+            },
+        });
+
+        await prisma.candidateProfile.create({
+            data: {
+                userId: noamBest.id,
+                jobTitle: "Senior Python Engineer",
+                location: "San Francisco, CA",
+                bio: "Senior Python engineer specializing in distributed systems and scientific computing",
+                skills: ["Python", "NumPy", "SciPy", "Django", "Flask", "PostgreSQL", "Docker"],
+                experience: "9 years",
+                linkedin: undefined,
+                github: undefined,
+                portfolio: undefined,
+                resume: undefined,
+            },
+        });
+
+        log.info(`   └─ Created candidate account: ${noamBest.email}`);
+
+        log.info("Creating candidate user Noam Worst...");
+        const noamWorst = await prisma.user.create({
+            data: {
+                id: "candidate-noam-worst",
+                name: "Noam Worst",
+                email: "noam.worst@gmail.com",
+                password: hashedPassword,
+                role: UserRole.CANDIDATE,
+                image: undefined,
+            },
+        });
+
+        await prisma.candidateProfile.create({
+            data: {
+                userId: noamWorst.id,
+                jobTitle: "Senior Python Engineer",
+                location: "Austin, TX",
+                bio: "Senior Python engineer with expertise in machine learning and data engineering",
+                skills: ["Python", "TensorFlow", "PyTorch", "Pandas", "Airflow", "Spark", "Kubernetes"],
+                experience: "7 years",
+                linkedin: undefined,
+                github: undefined,
+                portfolio: undefined,
+                resume: undefined,
+            },
+        });
+
+        log.info(`   └─ Created candidate account: ${noamWorst.email}`);
+
         log.info("Seeding shared interview content for all Frontend Engineer roles...");
         const interviewContent = await prisma.interviewContent.upsert({
             where: {
