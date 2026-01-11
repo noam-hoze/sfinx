@@ -52,7 +52,7 @@ function InterviewPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isMuted } = useMute();
-  const { isDebugVisible } = useDebug();
+  const { isDebugVisible, setShowDebugButton } = useDebug();
   const dispatch = useDispatch();
   const { data: session } = useSession();
 
@@ -131,11 +131,13 @@ function InterviewPageContent() {
 
   // Cleanup on unmount - reset all interview state when leaving the flow
   useEffect(() => {
+    setShowDebugButton(true);
     return () => {
       console.log("[interview] Component unmounting - cleaning up state");
       dispatch(resetInterview());
+      setShowDebugButton(false);
     };
-  }, [dispatch]);
+  }, [dispatch, setShowDebugButton]);
 
   // Initialize OpenAI client
   useEffect(() => {

@@ -5,6 +5,8 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 interface DebugContextType {
     isDebugVisible: boolean;
     toggleDebug: () => void;
+    showDebugButton: boolean;
+    setShowDebugButton: (show: boolean) => void;
 }
 
 const DebugContext = createContext<DebugContextType | undefined>(undefined);
@@ -19,6 +21,8 @@ export function DebugProvider({ children }: { children: ReactNode }) {
         if (debugPanelVisibleEnv === "false") return false;
         return true;
     });
+
+    const [showDebugButton, setShowDebugButton] = useState(false);
 
     const toggleDebug = () => {
         if (!isDebugModeEnabled) return;
@@ -38,7 +42,7 @@ export function DebugProvider({ children }: { children: ReactNode }) {
     }, [isDebugModeEnabled]);
 
     return (
-        <DebugContext.Provider value={{ isDebugVisible, toggleDebug }}>
+        <DebugContext.Provider value={{ isDebugVisible, toggleDebug, showDebugButton, setShowDebugButton }}>
             {children}
         </DebugContext.Provider>
     );
