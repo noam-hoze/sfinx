@@ -6,6 +6,9 @@ import { AuthGuard, SfinxSpinner } from "app/shared/components";
 import { log } from "app/shared/services";
 import { JobGrid, JobGridJob } from "app/shared/components/jobs/JobGrid";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.JOB_SEARCH;
+
 interface Job {
     id: string;
     title: string;
@@ -62,7 +65,7 @@ function JobSearchContent() {
     useEffect(() => {
         if (!hydrated) return;
         const fetchCompanies = async () => {
-            log.info("Starting to fetch companies...");
+            log.info(LOG_CATEGORY, "Starting to fetch companies...");
             try {
                 setLoading(true);
                 const params = new URLSearchParams();
@@ -71,14 +74,14 @@ function JobSearchContent() {
                 if (searchCompany) params.append("company", searchCompany);
 
                 const url = `/api/companies?${params.toString()}`;
-                log.info("Fetching from:", url);
+                log.info(LOG_CATEGORY, "Fetching from:", url);
 
                 const response = await fetch(url);
-                log.info("Response status:", response.status);
+                log.info(LOG_CATEGORY, "Response status:", response.status);
 
                 if (response.ok) {
                     const data = await response.json();
-                    log.info("Data received:", data);
+                    log.info(LOG_CATEGORY, "Data received:", data);
                     setCompanies(data.companies);
                     if (!Array.isArray(data.appliedJobIds)) {
                         throw new Error("appliedJobIds missing from response");
@@ -86,20 +89,20 @@ function JobSearchContent() {
                     setAppliedJobIds(data.appliedJobIds);
                     setError(null);
                 } else {
-                    log.error("❌ Response not ok:", response.status, response.statusText);
+                    log.error(LOG_CATEGORY, "❌ Response not ok:", response.status, response.statusText);
                     const errorText = await response.text();
-                    log.error("❌ Error response:", errorText);
+                    log.error(LOG_CATEGORY, "❌ Error response:", errorText);
                     setError(
                         `Failed to load companies: ${response.status} ${response.statusText}`
                     );
                 }
             } catch (error) {
-                log.error("Error fetching companies:", error);
+                log.error(LOG_CATEGORY, "Error fetching companies:", error);
                 setError(
                     "Failed to load companies. Please check your connection and try again."
                 );
             } finally {
-                log.info("Setting loading to false");
+                log.info(LOG_CATEGORY, "Setting loading to false");
                 setLoading(false);
             }
         };

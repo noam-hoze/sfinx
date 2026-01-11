@@ -3,6 +3,9 @@ import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 import { calculateScore, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
+
 export async function PATCH(
     request: NextRequest,
     { params }: { params: { sessionId: string } }
@@ -19,7 +22,7 @@ export async function PATCH(
             );
         }
 
-        log.info("[Coding Summary Update] Updating job-specific categories for session:", sessionId);
+        log.info(LOG_CATEGORY, "[Coding Summary Update] Updating job-specific categories for session:", sessionId);
 
         // Find coding summary via session
         const session = await prisma.interviewSession.findUnique({
@@ -56,7 +59,7 @@ export async function PATCH(
             orderBy: { timestamp: "asc" }
         });
 
-        log.info(`[Coding Summary Update] Found ${allContributions.length} real-time contributions`);
+        log.info(LOG_CATEGORY, `[Coding Summary Update] Found ${allContributions.length} real-time contributions`);
 
         // Group contributions by category
         const categoriesByName = new Map<string, any[]>();
@@ -91,7 +94,7 @@ export async function PATCH(
                 const confidence = Math.min(1.0, contributions.length / TARGET_CONTRIBUTIONS);
                 const adjustedScore = Math.round(rawAverage * confidence);
                 
-                log.info(`[Coding Summary Update] ${categoryName}: ${contributions.length} contributions, raw avg=${Math.round(rawAverage)}, confidence=${confidence.toFixed(2)}, adjusted=${adjustedScore}, final override=${categoryData.score}`);
+                log.info(LOG_CATEGORY, `[Coding Summary Update] ${categoryName}: ${contributions.length} contributions, raw avg=${Math.round(rawAverage)}, confidence=${confidence.toFixed(2)}, adjusted=${adjustedScore}, final override=${categoryData.score}`);
                 
                 // Use final evaluation score (overrides contribution-adjusted score)
                 enrichedCategories[categoryName] = {
@@ -119,7 +122,7 @@ export async function PATCH(
                     contributions: []
                 };
                 
-                log.info(`[Coding Summary Update] ${categoryName}: No contributions, using final evaluation score=${categoryData.score}`);
+                log.info(LOG_CATEGORY, `[Coding Summary Update] ${categoryName}: No contributions, using final evaluation score=${categoryData.score}`);
             }
         }
 
@@ -131,7 +134,7 @@ export async function PATCH(
             },
         });
 
-        log.info("[Coding Summary Update] Successfully updated job-specific categories with contribution data");
+        log.info(LOG_CATEGORY, "[Coding Summary Update] Successfully updated job-specific categories with contribution data");
 
         // Calculate and persist final score
         let finalScore: number | null = null;
@@ -185,9 +188,9 @@ export async function PATCH(
                     data: { finalScore },
                 });
 
-                log.info(`[Coding Summary Update] Calculated and saved finalScore=${finalScore} for session ${sessionId}`);
+                log.info(LOG_CATEGORY, `[Coding Summary Update] Calculated and saved finalScore=${finalScore} for session ${sessionId}`);
             } catch (error) {
-                log.error("[Coding Summary Update] Score calculation error:", error);
+                log.error(LOG_CATEGORY, "[Coding Summary Update] Score calculation error:", error);
             }
         }
 
@@ -197,7 +200,7 @@ export async function PATCH(
             finalScore,
         });
     } catch (error: any) {
-        log.error("[Coding Summary Update] Error:", error);
+        log.error(LOG_CATEGORY, "[Coding Summary Update] Error:", error);
         return NextResponse.json(
             {
                 error: "Failed to update coding summary",

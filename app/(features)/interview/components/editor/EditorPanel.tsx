@@ -5,6 +5,9 @@ import Editor, { DiffEditor } from "@monaco-editor/react";
 import { Play, RotateCcw } from "lucide-react";
 import CodePreview from "./CodePreview";
 import { log } from "../../../../shared/services";
+
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
 function computeDiffSegments(
     oldText: string,
     newText: string
@@ -174,11 +177,11 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                         
                         // Store decoration IDs
                         pasteDecorationsRef.current.push(...newDecorations);
-                        log.info("✅ Pasted code highlighted in editor");
+                        log.info(LOG_CATEGORY, "✅ Pasted code highlighted in editor");
                     }
                 }
             } catch (error) {
-                log.error("Failed to highlight pasted code:", error);
+                log.error(LOG_CATEGORY, "Failed to highlight pasted code:", error);
             }
         }
     }, []);
@@ -192,7 +195,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                 editor.deltaDecorations(pasteDecorationsRef.current, []);
                 pasteDecorationsRef.current = [];
             } catch (error) {
-                log.error("Failed to clear paste highlights:", error);
+                log.error(LOG_CATEGORY, "Failed to clear paste highlights:", error);
             }
         }
     }, []);
@@ -255,7 +258,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
             if (pastedText.length >= 80) {
                 const now = Date.now();
                 
-                log.info(
+                log.info(LOG_CATEGORY, 
                     "🚨 Paste detected via native event - external tool usage",
                     { pastedLength: pastedText.length, timestamp: now }
                 );

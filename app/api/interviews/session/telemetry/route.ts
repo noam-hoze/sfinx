@@ -4,21 +4,24 @@ import { authOptions } from "app/shared/services/auth";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
+
 export async function POST(request: NextRequest) {
-    log.info("🚀 TELEMETRY API STARTED");
+    log.info(LOG_CATEGORY, "🚀 TELEMETRY API STARTED");
 
     try {
-        log.info("Interview telemetry creation API called");
+        log.info(LOG_CATEGORY, "Interview telemetry creation API called");
 
-        log.info("Attempting getServerSession()");
+        log.info(LOG_CATEGORY, "Attempting getServerSession()");
         const session = await getServerSession(authOptions);
-        log.info("Session result:", session);
-        log.info("Session user:", session?.user);
-        log.info("Session user ID:", (session?.user as any)?.id);
+        log.info(LOG_CATEGORY, "Session result:", session);
+        log.info(LOG_CATEGORY, "Session user:", session?.user);
+        log.info(LOG_CATEGORY, "Session user ID:", (session?.user as any)?.id);
 
         if (!(session?.user as any)?.id) {
-            log.warn("❌ No user ID in session");
-            log.info("❌ Session object:", JSON.stringify(session, null, 2));
+            log.warn(LOG_CATEGORY, "❌ No user ID in session");
+            log.info(LOG_CATEGORY, "❌ Session object:", JSON.stringify(session, null, 2));
             return NextResponse.json(
                 { error: "Unauthorized" },
                 { status: 401 }
@@ -26,32 +29,32 @@ export async function POST(request: NextRequest) {
         }
 
         const userId = (session!.user as any).id;
-        log.info("User ID:", userId);
-        log.info("Session validation passed");
+        log.info(LOG_CATEGORY, "User ID:", userId);
+        log.info(LOG_CATEGORY, "Session validation passed");
 
-        log.info("Parsing request body");
+        log.info(LOG_CATEGORY, "Parsing request body");
         const { interviewSessionId } = await request.json();
-        log.info("Request data:", { interviewSessionId });
-        log.info("Interview session ID type:", typeof interviewSessionId);
-        log.info("Interview session ID length:", interviewSessionId?.length);
+        log.info(LOG_CATEGORY, "Request data:", { interviewSessionId });
+        log.info(LOG_CATEGORY, "Interview session ID type:", typeof interviewSessionId);
+        log.info(LOG_CATEGORY, "Interview session ID length:", interviewSessionId?.length);
 
         if (!interviewSessionId) {
-            log.warn("❌ Missing interviewSessionId");
+            log.warn(LOG_CATEGORY, "❌ Missing interviewSessionId");
             return NextResponse.json(
                 { error: "Interview session ID is required" },
                 { status: 400 }
             );
         }
-        log.info("Request parsing passed");
+        log.info(LOG_CATEGORY, "Request parsing passed");
 
         // Verify the interview session exists and belongs to the user
-        log.info("Verifying interview session...");
-        log.info("Interview session ID:", interviewSessionId);
-        log.info("User ID:", userId);
+        log.info(LOG_CATEGORY, "Verifying interview session...");
+        log.info(LOG_CATEGORY, "Interview session ID:", interviewSessionId);
+        log.info(LOG_CATEGORY, "User ID:", userId);
 
         // Check if telemetry data already exists for this session
-        log.info("Checking for existing telemetry data...");
-        log.info("Looking for interviewSessionId:", interviewSessionId);
+        log.info(LOG_CATEGORY, "Checking for existing telemetry data...");
+        log.info(LOG_CATEGORY, "Looking for interviewSessionId:", interviewSessionId);
 
         let existingTelemetry;
         try {
@@ -60,10 +63,10 @@ export async function POST(request: NextRequest) {
                     interviewSessionId: interviewSessionId,
                 },
             });
-            log.info("findUnique result:", existingTelemetry);
+            log.info(LOG_CATEGORY, "findUnique result:", existingTelemetry);
         } catch (findError: any) {
-            log.error("Error in findUnique:", findError);
-            log.error("Find error details:", {
+            log.error(LOG_CATEGORY, "Error in findUnique:", findError);
+            log.error(LOG_CATEGORY, "Find error details:", {
                 name: findError?.name,
                 message: findError?.message,
                 code: findError?.code,
@@ -72,8 +75,8 @@ export async function POST(request: NextRequest) {
         }
 
         if (existingTelemetry) {
-        log.info("Telemetry data already exists:", existingTelemetry.id);
-        log.info("Returning existing telemetry data");
+        log.info(LOG_CATEGORY, "Telemetry data already exists:", existingTelemetry.id);
+        log.info(LOG_CATEGORY, "Returning existing telemetry data");
             return NextResponse.json({
                 message: "Telemetry data already exists",
                 telemetryData: {
@@ -85,7 +88,7 @@ export async function POST(request: NextRequest) {
             });
         }
 
-        log.info("No existing telemetry found; creating zeroed telemetry");
+        log.info(LOG_CATEGORY, "No existing telemetry found; creating zeroed telemetry");
 
         let interviewSession;
         try {
@@ -95,17 +98,17 @@ export async function POST(request: NextRequest) {
                     candidateId: userId,
                 },
             });
-            log.info(
+            log.info(LOG_CATEGORY, 
                 "Interview session query completed, result:",
                 interviewSession ? "Found" : "Not found"
             );
         } catch (sessionError: any) {
-            log.error("❌ Error in interview session query:", sessionError);
+            log.error(LOG_CATEGORY, "❌ Error in interview session query:", sessionError);
             throw sessionError;
         }
 
         if (!interviewSession) {
-            log.warn("❌ Interview session not found or doesn't belong to user");
+            log.warn(LOG_CATEGORY, "❌ Interview session not found or doesn't belong to user");
             return NextResponse.json(
                 { error: "Interview session not found" },
                 { status: 404 }
@@ -153,9 +156,9 @@ export async function POST(request: NextRequest) {
             },
         });
     } catch (error: any) {
-        log.info("Catch block entered");
-        log.error("❌ Error creating telemetry data:", error);
-        log.error("❌ Error details:", {
+        log.info(LOG_CATEGORY, "Catch block entered");
+        log.error(LOG_CATEGORY, "❌ Error creating telemetry data:", error);
+        log.error(LOG_CATEGORY, "❌ Error details:", {
             name: error?.name,
             message: error?.message,
             stack: error?.stack,
@@ -176,5 +179,5 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    log.info("Function completed");
+    log.info(LOG_CATEGORY, "Function completed");
 }

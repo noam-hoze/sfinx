@@ -5,11 +5,14 @@ import fs from "fs";
 import path from "path";
 import bcrypt from "bcryptjs";
 import { log } from "app/shared/services";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.DB;
 
 // Note: DATABASE_URL should be set by the calling script (sync-schema-and-seed.ts)
 // or in environment variables before running this script directly
 if (!process.env.DATABASE_URL) {
-    log.error("❌ DATABASE_URL is not set. Please run via sync:dev or sync:prod");
+    log.error(LOG_CATEGORY, "❌ DATABASE_URL is not set. Please run via sync:dev or sync:prod");
     process.exit(1);
 }
 
@@ -203,7 +206,7 @@ async function resetDatabase() {
         const companiesData = JSON.parse(
             fs.readFileSync(companiesPath, "utf-8")
         );
-        log.info("Clearing existing data...");
+        log.info(LOG_CATEGORY, "Clearing existing data...");
 
         // Delete in reverse order of dependencies
         await prisma.job.deleteMany();
@@ -213,7 +216,7 @@ async function resetDatabase() {
         await prisma.candidateProfile.deleteMany();
         await prisma.user.deleteMany();
 
-        log.info("Seeding companies, users, and jobs...");
+        log.info(LOG_CATEGORY, "Seeding companies, users, and jobs...");
 
         // Hash the password once for all users
         const hashedPassword = await bcrypt.hash("sfinx", 12);
@@ -231,7 +234,7 @@ async function resetDatabase() {
                 },
             });
 
-            log.info(`Created company: ${company.name}`);
+            log.info(LOG_CATEGORY, `Created company: ${company.name}`);
 
             // Create user account for company manager
             const managerEmail = `manager@${companyData.name
@@ -274,7 +277,7 @@ async function resetDatabase() {
                 },
             });
 
-            log.info(`   └─ Created manager account: ${managerEmail}`);
+            log.info(LOG_CATEGORY, `   └─ Created manager account: ${managerEmail}`);
 
             // Create jobs for this company
             for (const jobData of companyData.openRoles) {
@@ -292,10 +295,10 @@ async function resetDatabase() {
                 });
             }
 
-            log.info(`   └─ Created ${companyData.openRoles.length} jobs for ${company.name}`);
+            log.info(LOG_CATEGORY, `   └─ Created ${companyData.openRoles.length} jobs for ${company.name}`);
         }
 
-        log.info("Creating candidate user...");
+        log.info(LOG_CATEGORY, "Creating candidate user...");
         const candidateUser = await prisma.user.create({
             data: {
                 id: "candidate-noam-hoze",
@@ -323,9 +326,9 @@ async function resetDatabase() {
             },
         });
 
-        log.info(`   └─ Created candidate account: ${candidateUser.email}`);
+        log.info(LOG_CATEGORY, `   └─ Created candidate account: ${candidateUser.email}`);
 
-        log.info("Creating candidate user Noam Best...");
+        log.info(LOG_CATEGORY, "Creating candidate user Noam Best...");
         const noamBest = await prisma.user.create({
             data: {
                 id: "candidate-noam-best",
@@ -352,9 +355,9 @@ async function resetDatabase() {
             },
         });
 
-        log.info(`   └─ Created candidate account: ${noamBest.email}`);
+        log.info(LOG_CATEGORY, `   └─ Created candidate account: ${noamBest.email}`);
 
-        log.info("Creating candidate user Noam Worst...");
+        log.info(LOG_CATEGORY, "Creating candidate user Noam Worst...");
         const noamWorst = await prisma.user.create({
             data: {
                 id: "candidate-noam-worst",
@@ -381,9 +384,9 @@ async function resetDatabase() {
             },
         });
 
-        log.info(`   └─ Created candidate account: ${noamWorst.email}`);
+        log.info(LOG_CATEGORY, `   └─ Created candidate account: ${noamWorst.email}`);
 
-        log.info("Seeding shared interview content for all Frontend Engineer roles...");
+        log.info(LOG_CATEGORY, "Seeding shared interview content for all Frontend Engineer roles...");
         const interviewContent = await prisma.interviewContent.upsert({
             where: {
                 id: SHARED_FRONTEND_INTERVIEW.id,
@@ -458,11 +461,11 @@ async function resetDatabase() {
         if (frontendJobUpdate.count === 0) {
             throw new Error("No Frontend Engineer jobs found to attach interview content");
         }
-        log.info(
+        log.info(LOG_CATEGORY, 
             `Linked interview content to ${frontendJobUpdate.count} Frontend Engineer jobs (including Meta)`
         );
 
-        log.info("Seeding QM Python interview content for Senior Python Engineer role...");
+        log.info(LOG_CATEGORY, "Seeding QM Python interview content for Senior Python Engineer role...");
         const qmInterviewContent = await prisma.interviewContent.upsert({
             where: {
                 id: QM_PYTHON_INTERVIEW.id,
@@ -549,12 +552,12 @@ async function resetDatabase() {
         if (pythonJobUpdate.count === 0) {
             throw new Error("No Senior Python Engineer jobs found to attach interview content");
         }
-        log.info(
+        log.info(LOG_CATEGORY, 
             `Linked interview content to ${pythonJobUpdate.count} Senior Python Engineer jobs (QM)`
         );
 
         // Create default scoring configurations for all jobs
-        log.info("Creating default scoring configurations...");
+        log.info(LOG_CATEGORY, "Creating default scoring configurations...");
         const jobsWithoutScoring = await prisma.job.findMany({
             where: {
                 scoringConfiguration: null,
@@ -572,17 +575,17 @@ async function resetDatabase() {
                 },
             });
         }
-        log.info(`Created scoring configurations for ${jobsWithoutScoring.length} jobs`);
+        log.info(LOG_CATEGORY, `Created scoring configurations for ${jobsWithoutScoring.length} jobs`);
 
-        log.info("Database reset and seeded successfully!");
+        log.info(LOG_CATEGORY, "Database reset and seeded successfully!");
 
         // Print summary
         const companyCount = await prisma.company.count();
         const jobCount = await prisma.job.count();
         const userCount = await prisma.user.count();
-        log.info(`Summary: ${companyCount} companies, ${userCount} users, ${jobCount} jobs`);
+        log.info(LOG_CATEGORY, `Summary: ${companyCount} companies, ${userCount} users, ${jobCount} jobs`);
     } catch (error) {
-        log.error("❌ Error resetting database:", error);
+        log.error(LOG_CATEGORY, "❌ Error resetting database:", error);
         process.exit(1);
     } finally {
         await prisma.$disconnect();

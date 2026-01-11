@@ -3,6 +3,9 @@ import bcrypt from "bcryptjs";
 import { log } from "app/shared/services";
 import { prisma } from "app/shared/services/server";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.AUTH_API;
+
 export async function POST(request: NextRequest) {
     try {
         const {
@@ -104,7 +107,7 @@ export async function POST(request: NextRequest) {
             { status: 201 }
         );
     } catch (error) {
-        log.error("Signup error:", error);
+        log.error(LOG_CATEGORY, "Signup error:", error);
         return NextResponse.json(
             { error: "Internal server error" },
             { status: 500 }

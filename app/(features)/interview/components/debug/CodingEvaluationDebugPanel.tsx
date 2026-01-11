@@ -1,5 +1,10 @@
 "use client";
 
+import { log } from "app/shared/services/logger";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
+
 import React, { useState, useEffect, useMemo } from "react";
 import { MAX_PASTE_EVAL_ANSWERS } from "../chat/OpenAITextConversation";
 import { SfinxSpinner } from "app/shared/components";
@@ -96,7 +101,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                     setContributionStats(data.categoryStats || []);
                 }
             } catch (err) {
-                console.error("[CodingDebug] Failed to fetch background contributions:", err);
+                log.error(LOG_CATEGORY, "[CodingDebug] Failed to fetch background contributions:", err);
             }
         };
         

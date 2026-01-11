@@ -1,5 +1,10 @@
 "use client";
 
+import { log } from "app/shared/services/logger";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
+
 import React from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/shared/state/store";
@@ -23,11 +28,11 @@ export default function CompletionScreen({
    */
 
   const handleStartCoding = () => {
-    console.log("[CompletionScreen] Button clicked - call onStart Coding prop");
+    log.info(LOG_CATEGORY, "[CompletionScreen] Button clicked - call onStart Coding prop");
     
     // Non-blocking chapter generation
     if (interviewSessionId) {
-      console.log("[CompletionScreen] Triggering background chapter generation");
+      log.info(LOG_CATEGORY, "[CompletionScreen] Triggering background chapter generation");
       const chapterUrl = `/api/interviews/session/${interviewSessionId}/background-chapters`;
       
       // Trigger Chapter Generation
@@ -35,7 +40,7 @@ export default function CompletionScreen({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
-      }).catch(err => console.error('[CompletionScreen] Background chapter generation failed:', err));
+      }).catch(err => log.error(LOG_CATEGORY, '[CompletionScreen] Background chapter generation failed:', err));
 
     }
     

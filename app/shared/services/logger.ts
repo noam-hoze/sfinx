@@ -1,9 +1,27 @@
+/**
+ * Logger service with file and category filtering.
+ */
 import loglevel from "loglevel";
-import { LABEL_OVERRIDES } from "./logger.config";
+import { CATEGORY_FILTER, CATEGORY_FILTER_MODE, LABEL_OVERRIDES, type LogCategory } from "./logger.config";
 
 export type LogLevel = "debug" | "info" | "warn" | "error" | "silent";
+export type { LogCategory };
 
 let allowedMatchers: (string | RegExp)[] = [];
+
+function assertCategory(category: LogCategory): string {
+    if (!category || typeof category !== "string") {
+        throw new Error("Log category is required.");
+    }
+    return category;
+}
+
+function isCategoryAllowed(category: LogCategory): boolean {
+    if (CATEGORY_FILTER_MODE === "allowlist") {
+        return CATEGORY_FILTER.includes(category);
+    }
+    return !CATEGORY_FILTER.includes(category);
+}
 
 function applyLabelOverrides(filePath: string, computed: string): string {
     for (const o of LABEL_OVERRIDES) {
@@ -110,17 +128,27 @@ loglevel.methodFactory = function (methodName, logLevel, loggerName) {
 // Re-apply current level after methodFactory override
 loglevel.setLevel(loglevel.getLevel());
 
+function emitLog(level: LogLevel, category: LogCategory, args: any[]): void {
+    const verifiedCategory = assertCategory(category);
+    if (!isCategoryAllowed(verifiedCategory)) return;
+    const prefixedArgs = [`[${verifiedCategory}]`, ...args];
+    loglevel[level](...prefixedArgs);
+}
+
+/** Logger that requires a category for each call. */
 export const log = {
-    debug: (...args: any[]) => loglevel.debug(...args),
-    info: (...args: any[]) => loglevel.info(...args),
-    warn: (...args: any[]) => loglevel.warn(...args),
-    error: (...args: any[]) => loglevel.error(...args),
+    debug: (category: LogCategory, ...args: any[]) => emitLog("debug", category, args),
+    info: (category: LogCategory, ...args: any[]) => emitLog("info", category, args),
+    warn: (category: LogCategory, ...args: any[]) => emitLog("warn", category, args),
+    error: (category: LogCategory, ...args: any[]) => emitLog("error", category, args),
 };
 
+/** Set the global log level. */
 export function setLevel(level: LogLevel) {
     loglevel.setLevel(level as loglevel.LogLevelDesc);
 }
 
+/** Set file matchers that are allowed to emit logs. */
 export function setAllowedFiles(matchers: (string | RegExp)[]) {
     allowedMatchers = Array.isArray(matchers) ? matchers : [];
 }

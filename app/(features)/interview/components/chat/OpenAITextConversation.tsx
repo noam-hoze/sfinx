@@ -1,5 +1,10 @@
 "use client";
 
+import { log } from "app/shared/services/logger";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
+
 import React, {
   forwardRef,
   useCallback,
@@ -34,7 +39,6 @@ import {
   buildOpenAIBackgroundPrompt,
   buildOpenAICodingPrompt,
 } from "@/shared/prompts/openAIInterviewerPrompt";
-import { log as logger } from "app/shared/services";
 import {
   askViaChatCompletion,
   generateAssistantReply,
@@ -171,7 +175,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
             pendingReason.startsWith("background")
           ) {
             try {
-              /* eslint-disable no-console */ console.log("[background][answer_dropped]", {
+              /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][answer_dropped]", {
                 pendingReason,
                 stage: stage,
               });
@@ -214,7 +218,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
         const pasteEvaluationId = `paste-${Date.now()}-${Math.random().toString(36).substring(7)}`;
         
         try {
-          /* eslint-disable no-console */ console.log("[paste_eval][detected]", { 
+          /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval][detected]", { 
             pasteEvaluationId, 
             pastedCode: pastedCode.substring(0, 100) + "...",
             timestamp 
@@ -227,7 +231,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
         const codingPrompt = scriptRef.current?.codingPrompt;
         
         if (!codingPrompt) {
-          /* eslint-disable no-console */ console.error("[paste_eval] Missing coding task");
+          /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval] Missing coding task");
           return;
         }
         
@@ -250,12 +254,12 @@ const OpenAITextConversation = forwardRef<any, Props>(
             const topicsData = await topicsResponse.json();
             topics = topicsData.topics.map((t: any) => ({ ...t, percentage: 0 }));
             initialQuestion = topicsData.initialQuestion;
-            /* eslint-disable no-console */ console.log("[paste_eval] Topics identified:", topics.length);
+            /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval] Topics identified:", topics.length);
           } else {
-            /* eslint-disable no-console */ console.warn("[paste_eval] Topic identification failed, using fallback");
+            /* eslint-disable no-console */ log.warn(LOG_CATEGORY, "[paste_eval] Topic identification failed, using fallback");
           }
         } catch (error) {
-          /* eslint-disable no-console */ console.error("[paste_eval] Topic identification error:", error);
+          /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval] Topic identification error:", error);
         }
         
         // Fallback to simple question if topic identification failed
@@ -298,7 +302,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
           }));
           
           try {
-            /* eslint-disable no-console */ console.log("[paste_eval][question_asked]", { pasteEvaluationId, question: initialQuestion });
+            /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval][question_asked]", { pasteEvaluationId, question: initialQuestion });
           } catch {}
         }
       },
@@ -329,7 +333,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
         }
         const persona = buildOpenAICodingPrompt(ms.companyName, taskText);
         try {
-          /* eslint-disable no-console */ console.log("[coding][persona]", persona);
+          /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[coding][persona]", persona);
         } catch {}
         void (async () => {
           try {
@@ -344,7 +348,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
             // Persist background messages and trigger summary generation (fire-and-forget)
             // Note: Session ID needs to be passed from parent component or obtained from URL/context
             try {
-              /* eslint-disable no-console */ console.log("[background][persist] Starting persistence flow");
+              /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] Starting persistence flow");
               const backgroundMessages = backgroundState.messages.filter((msg) => {
                 // Filter messages from background stage
                 // For now, include all messages before this point (could enhance with explicit stage tracking)
@@ -356,17 +360,17 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
                 timestamp: msg.timestamp,
               }));
 
-              /* eslint-disable no-console */ console.log("[background][persist] Filtered messages count:", backgroundMessages.length);
+              /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] Filtered messages count:", backgroundMessages.length);
 
               if (backgroundMessages.length > 0) {
                 // Get session ID from Redux store
                 const sessionId = ms.sessionId;
                 
-                /* eslint-disable no-console */ console.log("[background][persist] sessionId from Redux store:", sessionId);
+                /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] sessionId from Redux store:", sessionId);
                 
                 if (sessionId) {
                   // Save messages first (await to ensure they're persisted before summary generation)
-                  /* eslint-disable no-console */ console.log("[background][persist] Calling POST /messages with", backgroundMessages.length, "messages");
+                  /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] Calling POST /messages with", backgroundMessages.length, "messages");
                   
                   (async () => {
                     try {
@@ -380,12 +384,12 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
                         body: JSON.stringify(body),
                       });
                       
-                      /* eslint-disable no-console */ console.log("[background][persist] POST /messages response:", messagesRes.status, messagesRes.statusText);
+                      /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] POST /messages response:", messagesRes.status, messagesRes.statusText);
                       const messagesData = await messagesRes.json();
-                      /* eslint-disable no-console */ console.log("[background][persist] POST /messages data:", messagesData);
+                      /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] POST /messages data:", messagesData);
                       
                       if (!messagesRes.ok) {
-                        /* eslint-disable no-console */ console.error("[background][persist] Failed to save messages, skipping summary generation");
+                        /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[background][persist] Failed to save messages, skipping summary generation");
                         return;
                       }
                       
@@ -397,7 +401,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
                         roleName: ms.roleSlug?.replace(/-/g, " "),
                       };
                       
-                      /* eslint-disable no-console */ console.log("[background][persist] Calling POST /background-summary with payload:", summaryPayload);
+                      /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] Calling POST /background-summary with payload:", summaryPayload);
                       
                       try {
                         const summaryRes = await fetch(summaryUrl, {
@@ -406,29 +410,29 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
                           body: JSON.stringify(summaryPayload),
                         });
                         
-                        /* eslint-disable no-console */ console.log("[background][persist] POST /background-summary response:", summaryRes.status, summaryRes.statusText);
+                        /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] POST /background-summary response:", summaryRes.status, summaryRes.statusText);
                         const summaryData = await summaryRes.json();
-                        /* eslint-disable no-console */ console.log("[background][persist] POST /background-summary data:", summaryData);
+                        /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] POST /background-summary data:", summaryData);
                       } catch (summaryErr) {
-                        /* eslint-disable no-console */ console.error("[background][persist] Failed to generate summary:", summaryErr);
+                        /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[background][persist] Failed to generate summary:", summaryErr);
                       }
                     } catch (err) {
-                      /* eslint-disable no-console */ console.error("[background][persist] Error in persistence flow:", err);
+                      /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[background][persist] Error in persistence flow:", err);
                     }
                   })();
                 } else {
-                  /* eslint-disable no-console */ console.error("[background][persist] sessionId is null, cannot persist");
+                  /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[background][persist] sessionId is null, cannot persist");
                 }
               } else {
-                /* eslint-disable no-console */ console.warn("[background][persist] No messages to persist");
+                /* eslint-disable no-console */ log.warn(LOG_CATEGORY, "[background][persist] No messages to persist");
               }
             } catch (persistError) {
-              /* eslint-disable no-console */ console.error("[background][persist] Error persisting data:", persistError);
+              /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[background][persist] Error persisting data:", persistError);
             }
             
             // Post the coding task directly without OpenAI transformation
             try {
-              /* eslint-disable no-console */ console.log("[coding][posting_task]", taskText);
+              /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[coding][posting_task]", taskText);
             } catch {}
             post(taskText, "ai");
             if (automaticMode && onCodingPromptReady) {
@@ -437,7 +441,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
               } catch {}
             }
           } catch (error) {
-            /* eslint-disable no-console */ console.error("[coding] Failed to send coding prompt:", error);
+            /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[coding] Failed to send coding prompt:", error);
             throw error;
           }
         })();
@@ -462,7 +466,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
     const sendUserMessage = useCallback(
       async (text: string) => {
         try {
-          /* eslint-disable no-console */ console.log("[text][send]", text);
+          /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[text][send]", text);
         } catch {}
         
         // Check if we're in active paste evaluation to tag message
@@ -477,7 +481,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
         // Lock input when user sends message
         setInputLocked?.(true);
         try {
-          /* eslint-disable no-console */ console.log(
+          /* eslint-disable no-console */ log.info(LOG_CATEGORY, 
             "[text][after userFinal]",
             { stage: store.getState().interview.stage }
           );
@@ -532,7 +536,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
                 pending: true,
               }));
               try {
-                /* eslint-disable no-console */ console.log("[background][followup_dropped]", {
+                /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][followup_dropped]", {
                   follow,
                   stage: stage,
                 });
@@ -552,7 +556,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
         // Handle coding stage messages
         if (ms.stage === "coding") {
           try {
-            /* eslint-disable no-console */ console.log("[coding][user_message]", text);
+            /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[coding][user_message]", text);
           } catch {}
           
           // Check if we're in an active paste evaluation
@@ -565,7 +569,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
             const nextAnswerCount = activePasteEval.answerCount + 1;
             
             try {
-              /* eslint-disable no-console */ console.log("[paste_eval][user_answer]", { 
+              /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval][user_answer]", { 
                 id: activePasteEval.pasteEvaluationId,
                 answerCount: nextAnswerCount,
                 userText: text
@@ -574,7 +578,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
             
             const codingPrompt = scriptRef.current?.codingPrompt;
             if (!codingPrompt) {
-              /* eslint-disable no-console */ console.error("[paste_eval] Missing coding task");
+              /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval] Missing coding task");
               setInputLocked?.(false);
               return;
             }
@@ -592,7 +596,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
               }));
             
             try {
-              /* eslint-disable no-console */ console.log("[paste_eval][conversation_extracted]", {
+              /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval][conversation_extracted]", {
                 totalMessages: rawMessages.length,
                 pasteEvalMessages: pasteConversation.length,
                 pasteTimestamp: activePasteEval.timestamp
@@ -673,10 +677,10 @@ Generate your question now:`;
                 
                 if (scoreResponse.ok) {
                   questionScore = await scoreResponse.json();
-                  /* eslint-disable no-console */ console.log(`[paste_eval][Q${nextAnswerCount}_score]`, questionScore);
+                  /* eslint-disable no-console */ log.info(LOG_CATEGORY, `[paste_eval][Q${nextAnswerCount}_score]`, questionScore);
                 }
               } catch (e) {
-                /* eslint-disable no-console */ console.error("[paste_eval] Failed to score Q&A:", e);
+                /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval] Failed to score Q&A:", e);
               }
             }
             
@@ -733,7 +737,7 @@ Generate your question now:`;
               }
               
               try {
-                /* eslint-disable no-console */ console.log("[paste_eval][acknowledgment_sent]", {
+                /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval][acknowledgment_sent]", {
                   text: exitMessage,
                   reason: allTopicsMaximized ? "all_topics_100" : questionLimitReached ? "question_limit" : "i_dont_know"
                 });
@@ -762,7 +766,7 @@ Generate your question now:`;
               }
               
               try {
-                /* eslint-disable no-console */ console.log("[paste_eval][question]", aiQuestion);
+                /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval][question]", aiQuestion);
               } catch {}
               
               // Post follow-up question - keep green highlighting
@@ -777,7 +781,7 @@ Generate your question now:`;
               : 0;
             
             try {
-              /* eslint-disable no-console */ console.log("[paste_eval][score_calculation]", {
+              /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval][score_calculation]", {
                 updatedTopics: updatedTopics.map(t => ({ name: t.name, percentage: t.percentage })),
                 calculatedScore,
               });
@@ -794,7 +798,7 @@ Generate your question now:`;
             // If ready to evaluate, aggregate per-question scores
             if (shouldEvaluate) {
               try {
-                /* eslint-disable no-console */ console.log("[paste_eval][ready_to_evaluate]", {
+                /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval][ready_to_evaluate]", {
                   id: activePasteEval.pasteEvaluationId,
                   pasteAccountabilityScore: calculatedScore,
                 });
@@ -832,12 +836,12 @@ Generate your question now:`;
                   } else {
                     // Fallback if summary API fails
                     summary = `Candidate answered ${questionScores.length} questions with average score ${avgScore}/100`;
-                    /* eslint-disable no-console */ console.warn("[paste_eval] Summary API failed, using fallback");
+                    /* eslint-disable no-console */ log.warn(LOG_CATEGORY, "[paste_eval] Summary API failed, using fallback");
                   }
                 } catch (error) {
                   // Fallback on error
                   summary = `Candidate answered ${questionScores.length} questions with average score ${avgScore}/100`;
-                  /* eslint-disable no-console */ console.error("[paste_eval] Summary API error:", error);
+                  /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval] Summary API error:", error);
                 }
                 
                 const caption = `External tool: ${understanding.toLowerCase()} understanding (${avgScore}/100)`;
@@ -850,7 +854,7 @@ Generate your question now:`;
                 };
                 
                 try {
-                  /* eslint-disable no-console */ console.log("[paste_eval][aggregated_evaluation]", {
+                  /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval][aggregated_evaluation]", {
                     questionCount: questionScores.length,
                     scores: questionScores.map(qs => qs.score),
                     avgScore,
@@ -860,13 +864,13 @@ Generate your question now:`;
                 
                 // Validation: ensure we have valid data before DB save
                 if (questionScores.length === 0) {
-                  /* eslint-disable no-console */ console.error("[paste_eval][validation_error] No questions were scored");
+                  /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval][validation_error] No questions were scored");
                   setInputLocked?.(false);
                   return;
                 }
                 
                 if (!summary || summary.trim() === "") {
-                  /* eslint-disable no-console */ console.error("[paste_eval][validation_error] Summary is empty");
+                  /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval][validation_error] Summary is empty");
                   // Use fallback summary
                   evaluation.reasoning = `Candidate answered ${questionScores.length} questions with average score ${avgScore}/100`;
                 }
@@ -874,7 +878,7 @@ Generate your question now:`;
                 if (evaluation) {
                   
                   try {
-                    /* eslint-disable no-console */ console.log("[paste_eval][evaluation_result]", evaluation);
+                    /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval][evaluation_result]", evaluation);
                   } catch {}
                   
                   // Combine conversation for DB storage
@@ -914,7 +918,7 @@ Generate your question now:`;
                     };
                     
                     try {
-                      /* eslint-disable no-console */ console.log("[paste_eval][saving_to_db]", dbPayload);
+                      /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval][saving_to_db]", dbPayload);
                     } catch {}
                     
                     const dbResponse = await fetch(`/api/interviews/session/${sessionId}/external-tools`, {
@@ -925,12 +929,12 @@ Generate your question now:`;
                     
                     if (dbResponse.ok) {
                       try {
-                        /* eslint-disable no-console */ console.log("[paste_eval][saved_to_db]");
+                        /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval][saved_to_db]");
                       } catch {}
                     } else {
                       try {
                         const errorData = await dbResponse.json();
-                        /* eslint-disable no-console */ console.error("[paste_eval][db_error]", {
+                        /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval][db_error]", {
                           status: dbResponse.status,
                           error: errorData
                         });
@@ -938,7 +942,7 @@ Generate your question now:`;
                     }
                   } else {
                     try {
-                      /* eslint-disable no-console */ console.error("[paste_eval][missing_data]", {
+                      /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval][missing_data]", {
                         hasSessionId: !!sessionId,
                         hasAiTimestamp: !!activePasteEval.aiQuestionTimestamp
                       });
@@ -959,7 +963,7 @@ Generate your question now:`;
           const codingTemplate = scriptRef.current?.codingTemplate;
           
           if (!codingPrompt || !codingAnswer || !codingTemplate) {
-            /* eslint-disable no-console */ console.error("[coding] Missing coding context from script");
+            /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[coding] Missing coding context from script");
             setInputLocked?.(false);
             return;
           }
@@ -1004,7 +1008,7 @@ The candidate is working on this task. Respond to their question while following
             clearPendingState();
             setInputLocked?.(false);
             try {
-              /* eslint-disable no-console */ console.log("[coding][ai_response]", reply);
+              /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[coding][ai_response]", reply);
             } catch {}
           } else {
             clearPendingState();
@@ -1045,7 +1049,7 @@ The candidate is working on this task. Respond to their question while following
       // Interview page: No greeting, no state machine start
       // State machine will be forced to coding by InterviewIDE after this completes
       try {
-        /* eslint-disable no-console */ console.log("[OpenAITextConversation] Script loaded, ready for coding transition");
+        /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[OpenAITextConversation] Script loaded, ready for coding transition");
       } catch {}
       
       try {

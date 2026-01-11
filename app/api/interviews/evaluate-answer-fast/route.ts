@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import OpenAI from "openai";
+
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
 const openai = new OpenAI({
     apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
@@ -29,7 +32,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        log.info("[evaluate-answer-fast] Fast evaluation started");
+        log.info(LOG_CATEGORY, "[evaluate-answer-fast] Fast evaluation started");
 
         const evaluationModel = process.env.NEXT_PUBLIC_OPENAI_EVALUATION_MODEL;
         if (!evaluationModel) {
@@ -43,7 +46,7 @@ export async function POST(request: NextRequest) {
 
         // Check if all categories excluded
         if (activeCategories.length === 0) {
-            log.info("[evaluate-answer-fast] All categories excluded - ending interview");
+            log.info(LOG_CATEGORY, "[evaluate-answer-fast] All categories excluded - ending interview");
             return NextResponse.json({
                 success: true,
                 allCategoriesExcluded: true,
@@ -165,7 +168,7 @@ Return JSON:
                 
                 // Check if all categories now excluded
                 if (newActiveCategories.length === 0) {
-                    log.info("[evaluate-answer-fast] All categories excluded after increment");
+                    log.info(LOG_CATEGORY, "[evaluate-answer-fast] All categories excluded after increment");
                     return NextResponse.json({
                         success: true,
                         allCategoriesExcluded: true,
@@ -230,7 +233,7 @@ Return JSON:
             }
         }
 
-        log.info("[evaluate-answer-fast] Fast evaluation complete");
+        log.info(LOG_CATEGORY, "[evaluate-answer-fast] Fast evaluation complete");
 
         return NextResponse.json({
             success: true,
@@ -243,7 +246,7 @@ Return JSON:
             newFocusTopic,
         });
     } catch (error) {
-        log.error("[evaluate-answer-fast] ❌ Error:", error);
+        log.error(LOG_CATEGORY, "[evaluate-answer-fast] ❌ Error:", error);
         return NextResponse.json(
             { error: error instanceof Error ? error.message : "Unknown error" },
             { status: 500 }

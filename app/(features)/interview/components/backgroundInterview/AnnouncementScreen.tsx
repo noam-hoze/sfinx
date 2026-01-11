@@ -1,5 +1,10 @@
 "use client";
 
+import { log } from "app/shared/services/logger";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
+
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { useMute } from "app/shared/contexts";
@@ -89,7 +94,7 @@ export default function AnnouncementScreen({
 
         await audio.play();
       } catch (error) {
-        console.error("[Announcement] TTS failed:", error);
+        log.error(LOG_CATEGORY, "[Announcement] TTS failed:", error);
         // Even if audio fails, continue with typing animation
         setAudioFinished(true);
       }

@@ -3,6 +3,9 @@ import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 import OpenAI from "openai";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
+
 type RouteContext = {
     params: Promise<{ sessionId: string }>;
 };
@@ -11,7 +14,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     try {
         const { sessionId } = await context.params;
         
-        log.info("[Code Quality Analysis GET] Fetching analysis for session:", sessionId);
+        log.info(LOG_CATEGORY, "[Code Quality Analysis GET] Fetching analysis for session:", sessionId);
 
         // Fetch session with coding summary
         const session = await prisma.interviewSession.findUnique({
@@ -61,7 +64,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
             finalCode: codingSummary.finalCode,
         });
     } catch (error: any) {
-        log.error("[Code Quality Analysis GET] Error:", error);
+        log.error(LOG_CATEGORY, "[Code Quality Analysis GET] Error:", error);
         return NextResponse.json(
             {
                 error: "Failed to fetch code quality analysis",
@@ -76,7 +79,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     try {
         const openaiApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
         if (!openaiApiKey) {
-            log.error("[Code Quality Analysis] OpenAI API key not configured");
+            log.error(LOG_CATEGORY, "[Code Quality Analysis] OpenAI API key not configured");
             return NextResponse.json(
                 { error: "OpenAI API key not configured" },
                 { status: 500 }
@@ -87,7 +90,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         
         const { sessionId } = await context.params;
         
-        log.info("[Code Quality Analysis] Starting analysis for session:", sessionId);
+        log.info(LOG_CATEGORY, "[Code Quality Analysis] Starting analysis for session:", sessionId);
 
         // Fetch session with coding summary
         const session = await prisma.interviewSession.findUnique({
@@ -178,7 +181,7 @@ ${finalCode}
 
 Provide a detailed code quality analysis with specific line numbers and code segments.`;
 
-        log.info("[Code Quality Analysis] Calling OpenAI...");
+        log.info(LOG_CATEGORY, "[Code Quality Analysis] Calling OpenAI...");
 
         const completion = await openaiClient.chat.completions.create({
             model: "gpt-4o",
@@ -195,11 +198,11 @@ Provide a detailed code quality analysis with specific line numbers and code seg
             throw new Error("No response from OpenAI");
         }
 
-        log.info("[Code Quality Analysis] OpenAI response received");
+        log.info(LOG_CATEGORY, "[Code Quality Analysis] OpenAI response received");
 
         const analysis = JSON.parse(responseText);
 
-        log.info("[Code Quality Analysis] Parsed analysis, saving to database...");
+        log.info(LOG_CATEGORY, "[Code Quality Analysis] Parsed analysis, saving to database...");
 
         // Update the coding summary with the analysis
         await prisma.codingSummary.update({
@@ -209,14 +212,14 @@ Provide a detailed code quality analysis with specific line numbers and code seg
             },
         });
 
-        log.info("[Code Quality Analysis] Analysis saved to database");
+        log.info(LOG_CATEGORY, "[Code Quality Analysis] Analysis saved to database");
 
         return NextResponse.json({
             message: "Code quality analysis generated and saved successfully",
             analysis,
         });
     } catch (error: any) {
-        log.error("[Code Quality Analysis] Error:", error);
+        log.error(LOG_CATEGORY, "[Code Quality Analysis] Error:", error);
         return NextResponse.json(
             {
                 error: "Failed to generate code quality analysis",

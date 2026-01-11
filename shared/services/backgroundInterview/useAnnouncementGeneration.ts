@@ -5,6 +5,10 @@
  */
 
 import { useCallback } from "react";
+import { log } from "app/shared/services/logger";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.BACKGROUND_INTERVIEW;
 
 interface AnnouncementResult {
   text: string;
@@ -19,10 +23,10 @@ export function useAnnouncementGeneration() {
   const generateAnnouncement = useCallback(async (jobTitle: string): Promise<AnnouncementResult> => {
     try {
       const announcement = `Hi! Welcome to your ${jobTitle} interview`;
-      console.log("[announcement] Generated text:", announcement);
+      log.info(LOG_CATEGORY, "[announcement] Generated text:", announcement);
 
       // Fetch TTS audio
-      console.log("[announcement] Generating TTS...");
+      log.info(LOG_CATEGORY, "[announcement] Generating TTS...");
       let audioBlob: Blob | null = null;
 
       try {
@@ -35,7 +39,7 @@ export function useAnnouncementGeneration() {
         if (ttsResp.ok) {
           const audioBuffer = await ttsResp.arrayBuffer();
           audioBlob = new Blob([audioBuffer], { type: "audio/mpeg" });
-          console.log("[announcement] TTS generated successfully");
+          log.info(LOG_CATEGORY, "[announcement] TTS generated successfully");
         } else {
           console.warn("[announcement] TTS failed with status:", ttsResp.status);
         }
@@ -45,7 +49,7 @@ export function useAnnouncementGeneration() {
 
       return { text: announcement, audioBlob };
     } catch (error) {
-      console.error("[announcement] Unexpected error:", error);
+      log.error(LOG_CATEGORY, "[announcement] Unexpected error:", error);
       throw error;
     }
   }, []);

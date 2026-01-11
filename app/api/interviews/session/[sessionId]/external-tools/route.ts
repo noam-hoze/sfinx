@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
+
 type RouteContext = {
     params: Promise<{ sessionId?: string | string[] }>;
 };
@@ -30,7 +33,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         }
 
         const body = await request.json();
-        log.info("[External Tools API] POST request body:", body);
+        log.info(LOG_CATEGORY, "[External Tools API] POST request body:", body);
 
         const {
             timestamp,
@@ -79,7 +82,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             );
         }
 
-        log.info("[External Tools API] Creating external tool usage record...");
+        log.info(LOG_CATEGORY, "[External Tools API] Creating external tool usage record...");
 
         // Create the external tool usage record
         const externalToolUsage = await prisma.externalToolUsage.create({
@@ -98,7 +101,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             },
         });
 
-        log.info("[External Tools API] External tool usage created:", externalToolUsage.id);
+        log.info(LOG_CATEGORY, "[External Tools API] External tool usage created:", externalToolUsage.id);
 
         // Update WorkstyleMetrics.externalToolUsage counter
         const session = await prisma.interviewSession.findUnique({
@@ -121,7 +124,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
                     },
                 },
             });
-            log.info("[External Tools API] WorkstyleMetrics.externalToolUsage incremented");
+            log.info(LOG_CATEGORY, "[External Tools API] WorkstyleMetrics.externalToolUsage incremented");
         }
 
         // Note: VideoChapter creation moved to /paste-chapter endpoint (called at paste detection)
@@ -131,7 +134,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             id: externalToolUsage.id,
         });
     } catch (error: any) {
-        log.error("[External Tools API] Error creating external tool usage:", error);
+        log.error(LOG_CATEGORY, "[External Tools API] Error creating external tool usage:", error);
         return NextResponse.json(
             {
                 error: "Failed to record external tool usage",
@@ -158,7 +161,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
             );
         }
 
-        log.info("[External Tools API] Fetching external tool usages for session:", sessionId);
+        log.info(LOG_CATEGORY, "[External Tools API] Fetching external tool usages for session:", sessionId);
 
         const externalToolUsages = await prisma.externalToolUsage.findMany({
             where: {
@@ -169,11 +172,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
             },
         });
 
-        log.info("[External Tools API] Found external tool usages:", externalToolUsages.length);
+        log.info(LOG_CATEGORY, "[External Tools API] Found external tool usages:", externalToolUsages.length);
 
         return NextResponse.json(externalToolUsages);
     } catch (error: any) {
-        log.error("[External Tools API] Error fetching external tool usages:", error);
+        log.error(LOG_CATEGORY, "[External Tools API] Error fetching external tool usages:", error);
         return NextResponse.json(
             {
                 error: "Failed to fetch external tool usages",

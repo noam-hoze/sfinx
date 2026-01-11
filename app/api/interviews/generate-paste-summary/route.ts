@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { log } from "app/shared/services";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
+
 const openaiClient = new OpenAI({
     apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
 });
@@ -18,7 +21,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        log.info("[Paste Summary] Generating final summary...");
+        log.info(LOG_CATEGORY, "[Paste Summary] Generating final summary...");
 
         // Build Q&A history string
         const qaHistory = questionAnswers
@@ -60,11 +63,11 @@ Return ONLY the summary text (no JSON, no extra formatting).`;
             throw new Error("Empty response from OpenAI");
         }
 
-        log.info("[Paste Summary] Summary generated successfully");
+        log.info(LOG_CATEGORY, "[Paste Summary] Summary generated successfully");
 
         return NextResponse.json({ summary });
     } catch (error: any) {
-        log.error("[Paste Summary] Error:", error);
+        log.error(LOG_CATEGORY, "[Paste Summary] Error:", error);
         return NextResponse.json(
             {
                 error: "Failed to generate paste summary",

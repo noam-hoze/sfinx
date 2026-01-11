@@ -3,6 +3,10 @@
  * Stores audio files as base64 to speed up subsequent demo runs
  */
 
+import { log } from "app/shared/services/logger";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.CACHE;
 const CACHE_PREFIX = "sfinx-audio-cache-";
 const CACHE_VERSION = "v1";
 
@@ -45,9 +49,9 @@ export function cacheAudio(identifier: string, audioBuffer: ArrayBuffer): void {
     const base64 = arrayBufferToBase64(audioBuffer);
     const cacheKey = getCacheKey(identifier);
     localStorage.setItem(cacheKey, base64);
-    console.log(`[audioCache] Cached audio: ${identifier}`);
+    log.info(LOG_CATEGORY, `[audioCache] Cached audio: ${identifier}`);
   } catch (error) {
-    console.warn(`[audioCache] Failed to cache audio ${identifier}:`, error);
+    log.warn(LOG_CATEGORY, `[audioCache] Failed to cache audio ${identifier}:`, error);
   }
 }
 
@@ -61,10 +65,10 @@ export function getCachedAudio(identifier: string): ArrayBuffer | null {
     if (!base64) {
       return null;
     }
-    console.log(`[audioCache] Retrieved cached audio: ${identifier}`);
+    log.info(LOG_CATEGORY, `[audioCache] Retrieved cached audio: ${identifier}`);
     return base64ToArrayBuffer(base64);
   } catch (error) {
-    console.warn(`[audioCache] Failed to retrieve cached audio ${identifier}:`, error);
+    log.warn(LOG_CATEGORY, `[audioCache] Failed to retrieve cached audio ${identifier}:`, error);
     return null;
   }
 }
@@ -77,7 +81,7 @@ export async function cacheBlob(identifier: string, blob: Blob): Promise<void> {
     const arrayBuffer = await blob.arrayBuffer();
     cacheAudio(identifier, arrayBuffer);
   } catch (error) {
-    console.warn(`[audioCache] Failed to cache blob ${identifier}:`, error);
+    log.warn(LOG_CATEGORY, `[audioCache] Failed to cache blob ${identifier}:`, error);
   }
 }
 
@@ -128,6 +132,6 @@ export function clearAudioCache(): void {
       localStorage.removeItem(key);
     }
   });
-  console.log("[audioCache] Cleared all audio caches");
+  log.info(LOG_CATEGORY, "[audioCache] Cleared all audio caches");
 }
 

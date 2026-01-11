@@ -4,6 +4,9 @@ import { authOptions } from "app/shared/services/auth";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
+
 type RouteContext = {
     params: Promise<{ sessionId?: string | string[] }>;
 };
@@ -17,31 +20,31 @@ function normalizeSessionId(sessionId: string | string[] | undefined) {
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
     try {
-        log.info("[Update Recording Start] === REQUEST RECEIVED ===");
+        log.info(LOG_CATEGORY, "[Update Recording Start] === REQUEST RECEIVED ===");
         
         const skipAuth = request.nextUrl.searchParams.get("skip-auth") === "true";
         const shouldSkipAuth = skipAuth;
         
-        log.info("[Update Recording Start] Skip auth:", skipAuth);
+        log.info(LOG_CATEGORY, "[Update Recording Start] Skip auth:", skipAuth);
 
         const session = await getServerSession(authOptions);
         const { sessionId: rawSessionId } = await context.params;
         const sessionId = normalizeSessionId(rawSessionId);
 
         if (!sessionId) {
-            log.error("[Update Recording Start] ❌ No session ID provided");
+            log.error(LOG_CATEGORY, "[Update Recording Start] ❌ No session ID provided");
             return NextResponse.json(
                 { error: "Interview session id is required" },
                 { status: 400 }
             );
         }
 
-        log.info("[Update Recording Start] Session ID:", sessionId);
+        log.info(LOG_CATEGORY, "[Update Recording Start] Session ID:", sessionId);
 
         const userId = shouldSkipAuth ? null : (session?.user as any)?.id;
         
         if (!shouldSkipAuth && !userId) {
-            log.error("[Update Recording Start] ❌ No user ID found and not in skip-auth/demo mode");
+            log.error(LOG_CATEGORY, "[Update Recording Start] ❌ No user ID found and not in skip-auth/demo mode");
             return NextResponse.json(
                 { error: "Unauthorized" },
                 { status: 401 }
@@ -52,14 +55,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         const { recordingStartedAt } = body;
         
         if (!recordingStartedAt) {
-            log.error("[Update Recording Start] ❌ No recordingStartedAt provided");
+            log.error(LOG_CATEGORY, "[Update Recording Start] ❌ No recordingStartedAt provided");
             return NextResponse.json(
                 { error: "recordingStartedAt is required" },
                 { status: 400 }
             );
         }
         
-        log.info("[Update Recording Start] New recording start time:", recordingStartedAt);
+        log.info(LOG_CATEGORY, "[Update Recording Start] New recording start time:", recordingStartedAt);
         
         // Verify session exists and belongs to user
         const interviewSession = await prisma.interviewSession.findFirst({
@@ -70,7 +73,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         });
 
         if (!interviewSession) {
-            log.error("[Update Recording Start] ❌ Interview session not found");
+            log.error(LOG_CATEGORY, "[Update Recording Start] ❌ Interview session not found");
             return NextResponse.json(
                 { error: "Interview session not found" },
                 { status: 404 }
@@ -85,7 +88,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             },
         });
 
-        log.info("[Update Recording Start] ✅ Updated session:", {
+        log.info(LOG_CATEGORY, "[Update Recording Start] ✅ Updated session:", {
             id: updatedSession.id,
             recordingStartedAt: updatedSession.recordingStartedAt,
         });
@@ -95,7 +98,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             interviewSession: updatedSession,
         });
     } catch (error) {
-        log.error("[Update Recording Start] ❌ ERROR:", error);
+        log.error(LOG_CATEGORY, "[Update Recording Start] ❌ ERROR:", error);
         return NextResponse.json(
             { error: "Failed to update recording start time" },
             { status: 500 }

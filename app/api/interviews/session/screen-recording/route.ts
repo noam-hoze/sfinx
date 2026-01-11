@@ -4,19 +4,22 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "app/shared/services/auth";
 import { log } from "app/shared/services";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
+
 export async function POST(request: NextRequest) {
     try {
-        log.info("Screen recording upload API called");
+        log.info(LOG_CATEGORY, "Screen recording upload API called");
 
         const session = await getServerSession(authOptions);
-        log.info("Session check:", session ? "Session found" : "No session");
-        log.info("User ID:", (session?.user as any)?.id);
+        log.info(LOG_CATEGORY, "Session check:", session ? "Session found" : "No session");
+        log.info(LOG_CATEGORY, "User ID:", (session?.user as any)?.id);
 
         const formData = await request.formData();
         const recording = formData.get("recording") as File;
 
-        log.info("Recording file received:", recording ? "Yes" : "No");
-        log.info(
+        log.info(LOG_CATEGORY, "Recording file received:", recording ? "Yes" : "No");
+        log.info(LOG_CATEGORY, 
             "File details:",
             recording
                 ? {
@@ -28,7 +31,7 @@ export async function POST(request: NextRequest) {
         );
 
         if (!recording) {
-            log.warn("❌ No recording file provided");
+            log.warn(LOG_CATEGORY, "❌ No recording file provided");
             return NextResponse.json(
                 { error: "Recording file is required" },
                 { status: 400 }
@@ -39,7 +42,7 @@ export async function POST(request: NextRequest) {
         const timestamp = Date.now();
         const filename = `recording-${timestamp}.mp4`;
 
-        log.info("Uploading to Vercel Blob:", filename);
+        log.info(LOG_CATEGORY, "Uploading to Vercel Blob:", filename);
 
         // Upload to Vercel Blob
         const blob = await put(filename, recording, {
@@ -49,7 +52,7 @@ export async function POST(request: NextRequest) {
 
         const recordingUrl = blob.url;
 
-        log.info("Recording uploaded successfully to Vercel Blob:", recordingUrl);
+        log.info(LOG_CATEGORY, "Recording uploaded successfully to Vercel Blob:", recordingUrl);
 
         return NextResponse.json({
             message: "Recording uploaded successfully",
@@ -57,7 +60,7 @@ export async function POST(request: NextRequest) {
             filename,
         });
     } catch (error) {
-        log.error("❌ Error uploading recording:", error);
+        log.error(LOG_CATEGORY, "❌ Error uploading recording:", error);
         return NextResponse.json(
             { error: "Failed to upload recording" },
             { status: 500 }

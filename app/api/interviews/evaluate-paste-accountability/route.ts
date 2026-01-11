@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { log } from "app/shared/services";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
+
 const openaiClient = new OpenAI({
     apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
 });
@@ -30,7 +33,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        log.info(`[Paste Accountability] Evaluating Q${questionNumber || '?'} understanding...`);
+        log.info(LOG_CATEGORY, `[Paste Accountability] Evaluating Q${questionNumber || '?'} understanding...`);
 
         // Build prompt based on whether we have topics (Phase 2) or not (Phase 1)
         const hasTopics = currentTopicCoverage && Object.keys(currentTopicCoverage).length > 0;
@@ -164,11 +167,11 @@ Return ONLY valid JSON with this exact structure:
             }
         }
 
-        log.info(`[Paste Accountability] Q${questionNumber || '?'} score: ${result.score}`);
+        log.info(LOG_CATEGORY, `[Paste Accountability] Q${questionNumber || '?'} score: ${result.score}`);
 
         return NextResponse.json(result);
     } catch (error: any) {
-        log.error("[Paste Accountability] Error:", error);
+        log.error(LOG_CATEGORY, "[Paste Accountability] Error:", error);
         return NextResponse.json(
             {
                 error: "Failed to evaluate paste accountability",

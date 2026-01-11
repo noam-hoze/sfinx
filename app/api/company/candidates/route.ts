@@ -3,15 +3,18 @@ import { getServerSession } from "next-auth/next";
 import { log } from "app/shared/services";
 import { authOptions, prisma } from "app/shared/services/server";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.COMPANY;
+
 export async function GET(request: NextRequest) {
     try {
-        log.info("🔍 Company candidates API called");
+        log.info(LOG_CATEGORY, "🔍 Company candidates API called");
 
         const session = await getServerSession(authOptions);
-        log.info("🔍 Session:", session ? "Found" : "Not found");
+        log.info(LOG_CATEGORY, "🔍 Session:", session ? "Found" : "Not found");
 
         if (!(session?.user as any)?.id) {
-            log.warn("❌ No user ID in session");
+            log.warn(LOG_CATEGORY, "❌ No user ID in session");
             return NextResponse.json(
                 { error: "Unauthorized" },
                 { status: 401 }
@@ -19,55 +22,55 @@ export async function GET(request: NextRequest) {
         }
 
         const userId = (session!.user as any).id;
-        log.info("✅ User ID:", userId);
+        log.info(LOG_CATEGORY, "✅ User ID:", userId);
 
         // Get the user's company profile
-        log.info("🏢 Looking for company profile...");
+        log.info(LOG_CATEGORY, "🏢 Looking for company profile...");
         const companyProfile = await prisma.companyProfile.findUnique({
             where: { userId: userId },
         });
 
         if (!companyProfile) {
-            log.warn("❌ Company profile not found for user:", userId);
+            log.warn(LOG_CATEGORY, "❌ Company profile not found for user:", userId);
             return NextResponse.json(
                 { error: "Company profile not found" },
                 { status: 404 }
             );
         }
 
-        log.info("✅ Company profile found:", companyProfile.companyName);
+        log.info(LOG_CATEGORY, "✅ Company profile found:", companyProfile.companyName);
 
         const { searchParams } = new URL(request.url);
         const jobRole = searchParams.get("jobRole");
 
         // Find the company by name
-        log.info("🏢 Looking for company:", companyProfile.companyName);
+        log.info(LOG_CATEGORY, "🏢 Looking for company:", companyProfile.companyName);
         const company = await prisma.company.findUnique({
             where: { name: companyProfile.companyName },
         });
 
         if (!company) {
-            log.warn("❌ Company not found:", companyProfile.companyName);
+            log.warn(LOG_CATEGORY, "❌ Company not found:", companyProfile.companyName);
             return NextResponse.json(
                 { error: "Company not found" },
                 { status: 404 }
             );
         }
 
-        log.info("✅ Company found:", company.id);
+        log.info(LOG_CATEGORY, "✅ Company found:", company.id);
 
         // Find all jobs for this company
-        log.info("💼 Looking for jobs...");
+        log.info(LOG_CATEGORY, "💼 Looking for jobs...");
         const jobs = await prisma.job.findMany({
             where: { companyId: company.id },
             select: { id: true },
         });
 
-        log.info("✅ Found", jobs.length, "jobs");
+        log.info(LOG_CATEGORY, "✅ Found", jobs.length, "jobs");
         const jobIds = jobs.map((job) => job.id);
 
         // Get all applications for this company's jobs
-        log.info("📋 Looking for applications...");
+        log.info(LOG_CATEGORY, "📋 Looking for applications...");
         const applications = await (prisma as any).application.findMany({
             where: {
                 jobId: { in: jobIds },
@@ -86,7 +89,7 @@ export async function GET(request: NextRequest) {
             },
         });
 
-        log.info("✅ Found", applications.length, "applications");
+        log.info(LOG_CATEGORY, "✅ Found", applications.length, "applications");
 
         // Filter by job role if provided
         let filteredApplications = applications;
@@ -140,8 +143,8 @@ export async function GET(request: NextRequest) {
             total: candidates.length,
         });
     } catch (error) {
-        log.error("❌ Error fetching company candidates:", error);
-        log.error("❌ Error details:", {
+        log.error(LOG_CATEGORY, "❌ Error fetching company candidates:", error);
+        log.error(LOG_CATEGORY, "❌ Error details:", {
             name: error instanceof Error ? error.name : "Unknown",
             message: error instanceof Error ? error.message : String(error),
             stack: error instanceof Error ? error.stack : undefined,

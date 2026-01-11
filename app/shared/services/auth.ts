@@ -5,6 +5,9 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import { log } from "./logger";
+import { LOG_CATEGORIES } from "./logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.AUTH;
 
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -14,7 +17,7 @@ const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
  */
 function createGoogleProvider() {
     if (!googleClientId || !googleClientSecret) {
-        log.error("Missing Google OAuth configuration", {
+        log.error(LOG_CATEGORY, "Missing Google OAuth configuration", {
             provider: "google",
             hasClientId: Boolean(googleClientId),
             hasClientSecret: Boolean(googleClientSecret),
@@ -24,7 +27,7 @@ function createGoogleProvider() {
         );
     }
 
-    log.info("Google OAuth provider configured", { provider: "google" });
+    log.info(LOG_CATEGORY, "Google OAuth provider configured", { provider: "google" });
 
     return GoogleProvider({
         clientId: googleClientId,
@@ -89,16 +92,16 @@ export const authOptions: NextAuthOptions = {
     },
     callbacks: {
         async jwt({ token, user, trigger, session }) {
-            log.info("JWT callback triggered:", { user, trigger, session });
+            log.info(LOG_CATEGORY, "JWT callback triggered:", { user, trigger, session });
             if (user) {
                 token.role = (user as any).role;
                 token.image = (user as any).image;
-                log.info("JWT token updated with image:", token.image);
+                log.info(LOG_CATEGORY, "JWT token updated with image:", token.image);
             }
             // Handle session update
             if (trigger === "update" && session?.image) {
                 token.image = session.image;
-                log.info(
+                log.info(LOG_CATEGORY, 
                     "JWT token updated via session update:",
                     token.image
                 );
@@ -106,7 +109,7 @@ export const authOptions: NextAuthOptions = {
             return token;
         },
         async session({ session, token }) {
-            log.info("Session callback triggered with token:", {
+            log.info(LOG_CATEGORY, "Session callback triggered with token:", {
                 sub: token.sub,
                 role: token.role,
                 image: token.image,
@@ -115,7 +118,7 @@ export const authOptions: NextAuthOptions = {
                 (session.user as any).id = token.sub!;
                 (session.user as any).role = token.role as string;
                 (session.user as any).image = token.image as string;
-                log.info(
+                log.info(LOG_CATEGORY, 
                     "Session updated with image:",
                     (session.user as any).image
                 );

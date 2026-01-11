@@ -11,6 +11,9 @@ import {
 } from "@/shared/prompts/backgroundSummaryPrompt";
 import prisma from "lib/prisma";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
+
 type RouteContext = {
     params: Promise<{ sessionId?: string | string[] }>;
 };
@@ -75,13 +78,13 @@ Write ONE short sentence summarizing this. MAX 10 WORDS. DO NOT EXCEED.`;
 // GET: Retrieve existing background summary
 export async function GET(request: NextRequest, context: RouteContext) {
     try {
-        log.info("Background summary retrieval API called");
+        log.info(LOG_CATEGORY, "Background summary retrieval API called");
 
         const { sessionId: rawSessionId } = await context.params;
         const sessionId = normalizeSessionId(rawSessionId);
 
         if (!sessionId) {
-            log.warn("❌ Interview session id was not provided");
+            log.warn(LOG_CATEGORY, "❌ Interview session id was not provided");
             return NextResponse.json(
                 { error: "Interview session id is required" },
                 { status: 400 }
@@ -103,7 +106,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         });
 
         if (!interviewSession) {
-            log.warn("❌ Interview session not found");
+            log.warn(LOG_CATEGORY, "❌ Interview session not found");
             return NextResponse.json(
                 { error: "Interview session not found" },
                 { status: 404 }
@@ -113,7 +116,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         const summary = interviewSession.telemetryData?.backgroundSummary;
 
         if (!summary) {
-            log.info("No background summary found for session");
+            log.info(LOG_CATEGORY, "No background summary found for session");
             return NextResponse.json(
                 { error: "Background summary not found" },
                 { status: 404 }
@@ -133,7 +136,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
             },
         });
     } catch (error) {
-        log.error("❌ Error retrieving background summary:", error);
+        log.error(LOG_CATEGORY, "❌ Error retrieving background summary:", error);
         return NextResponse.json(
             { error: "Failed to retrieve background summary" },
             { status: 500 }
@@ -144,14 +147,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
 // POST: Generate background summary
 export async function POST(request: NextRequest, context: RouteContext) {
     try {
-        log.info("[background-summary/POST] ========== START ==========");
+        log.info(LOG_CATEGORY, "[background-summary/POST] ========== START ==========");
 
         const url = new URL(request.url);
         const skipAuth = url.searchParams.get("skip-auth") === "true";
 
         const session = await getServerSession(authOptions);
-        log.info("[background-summary/POST] Session:", session ? `Found (user: ${(session.user as any)?.email})` : "Not found");
-        log.info("[background-summary/POST] Skip auth:", skipAuth);
+        log.info(LOG_CATEGORY, "[background-summary/POST] Session:", session ? `Found (user: ${(session.user as any)?.email})` : "Not found");
+        log.info(LOG_CATEGORY, "[background-summary/POST] Skip auth:", skipAuth);
 
         const body = await request.json();
         const { scores, rationales, companyName, roleName, userId: requestUserId } = body;
@@ -160,31 +163,31 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         if (skipAuth) {
             if (!requestUserId) {
-                log.warn("[background-summary/POST] ❌ skip-auth mode but no userId provided in request");
+                log.warn(LOG_CATEGORY, "[background-summary/POST] ❌ skip-auth mode but no userId provided in request");
                 return NextResponse.json(
                     { error: "userId required when skip-auth=true" },
                     { status: 400 }
                 );
             }
             userId = requestUserId;
-            log.info("[background-summary/POST] ✅ Skip auth - User ID from request:", userId);
+            log.info(LOG_CATEGORY, "[background-summary/POST] ✅ Skip auth - User ID from request:", userId);
         } else {
             if (!session?.user) {
-                log.warn("[background-summary/POST] ❌ Unauthorized request");
+                log.warn(LOG_CATEGORY, "[background-summary/POST] ❌ Unauthorized request");
                 return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
             }
             userId = (session.user as any).id;
-            log.info("[background-summary/POST] ✅ User ID from session:", userId);
+            log.info(LOG_CATEGORY, "[background-summary/POST] ✅ User ID from session:", userId);
         }
 
         const { sessionId: rawSessionId } = await context.params;
         const sessionId = normalizeSessionId(rawSessionId);
-        log.info("[background-summary/POST] userId:", userId);
-        log.info("[background-summary/POST] sessionId (raw):", rawSessionId);
-        log.info("[background-summary/POST] sessionId (normalized):", sessionId);
+        log.info(LOG_CATEGORY, "[background-summary/POST] userId:", userId);
+        log.info(LOG_CATEGORY, "[background-summary/POST] sessionId (raw):", rawSessionId);
+        log.info(LOG_CATEGORY, "[background-summary/POST] sessionId (normalized):", sessionId);
 
         if (!sessionId) {
-            log.warn("[background-summary/POST] ❌ Interview session id was not provided");
+            log.warn(LOG_CATEGORY, "[background-summary/POST] ❌ Interview session id was not provided");
             return NextResponse.json(
                 { error: "Interview session id is required" },
                 { status: 400 }
@@ -192,7 +195,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         }
 
         // Verify the interview session exists and belongs to the user
-        log.info("[background-summary/POST] Looking up interview session...");
+        log.info(LOG_CATEGORY, "[background-summary/POST] Looking up interview session...");
         const interviewSession = await prisma.interviewSession.findFirst({
             where: {
                 id: sessionId,
@@ -217,21 +220,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
         });
 
         if (!interviewSession) {
-            log.warn("[background-summary/POST] ❌ Interview session not found or doesn't belong to user");
-            log.warn("[background-summary/POST] Searched for: sessionId=", sessionId, "candidateId=", userId);
+            log.warn(LOG_CATEGORY, "[background-summary/POST] ❌ Interview session not found or doesn't belong to user");
+            log.warn(LOG_CATEGORY, "[background-summary/POST] Searched for: sessionId=", sessionId, "candidateId=", userId);
             return NextResponse.json(
                 { error: "Interview session not found" },
                 { status: 404 }
             );
         }
 
-        log.info("[background-summary/POST] ✅ Interview session found:", interviewSession.id);
-        log.info("[background-summary/POST] Has telemetryData:", !!interviewSession.telemetryData);
-        log.info("[background-summary/POST] Has backgroundSummary:", !!interviewSession.telemetryData?.backgroundSummary);
+        log.info(LOG_CATEGORY, "[background-summary/POST] ✅ Interview session found:", interviewSession.id);
+        log.info(LOG_CATEGORY, "[background-summary/POST] Has telemetryData:", !!interviewSession.telemetryData);
+        log.info(LOG_CATEGORY, "[background-summary/POST] Has backgroundSummary:", !!interviewSession.telemetryData?.backgroundSummary);
 
         // Check if summary already exists
         if (interviewSession.telemetryData?.backgroundSummary) {
-            log.info("[background-summary/POST] ⚠️ Background summary already exists for session, skipping generation");
+            log.info(LOG_CATEGORY, "[background-summary/POST] ⚠️ Background summary already exists for session, skipping generation");
             return NextResponse.json(
                 { message: "Background summary already exists" },
                 { status: 200 }
@@ -240,32 +243,32 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         // Ensure telemetry data exists
         if (!interviewSession.telemetryData) {
-            log.warn("[background-summary/POST] ❌ No telemetry data found for session");
+            log.warn(LOG_CATEGORY, "[background-summary/POST] ❌ No telemetry data found for session");
             return NextResponse.json(
                 { error: "Telemetry data not found" },
                 { status: 404 }
             );
         }
 
-        log.info("[background-summary/POST] TelemetryData ID:", interviewSession.telemetryData.id);
+        log.info(LOG_CATEGORY, "[background-summary/POST] TelemetryData ID:", interviewSession.telemetryData.id);
 
-        log.info("[background-summary/POST] Request body:", { scores, rationales, companyName, roleName });
+        log.info(LOG_CATEGORY, "[background-summary/POST] Request body:", { scores, rationales, companyName, roleName });
 
         // Get experience categories from job
         const experienceCategoryDefinitions = (interviewSession.application.job.experienceCategories as any) || [];
         
         if (!experienceCategoryDefinitions || experienceCategoryDefinitions.length === 0) {
-            log.error("[background-summary/POST] ❌ No experience categories defined for job");
+            log.error(LOG_CATEGORY, "[background-summary/POST] ❌ No experience categories defined for job");
             return NextResponse.json(
                 { error: "Job must have experience categories defined" },
                 { status: 400 }
             );
         }
 
-        log.info("[background-summary/POST] Experience categories:", experienceCategoryDefinitions.map((c: any) => c.name).join(', '));
+        log.info(LOG_CATEGORY, "[background-summary/POST] Experience categories:", experienceCategoryDefinitions.map((c: any) => c.name).join(', '));
 
         // Fetch background messages
-        log.info("[background-summary/POST] Fetching conversation messages...");
+        log.info(LOG_CATEGORY, "[background-summary/POST] Fetching conversation messages...");
         const messages = await prisma.conversationMessage.findMany({
             where: {
                 interviewSessionId: sessionId,
@@ -276,17 +279,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
             },
         });
 
-        log.info("[background-summary/POST] Found", messages.length, "background messages");
+        log.info(LOG_CATEGORY, "[background-summary/POST] Found", messages.length, "background messages");
 
         if (messages.length === 0) {
-            log.warn("[background-summary/POST] ❌ No background messages found in DB");
+            log.warn(LOG_CATEGORY, "[background-summary/POST] ❌ No background messages found in DB");
             return NextResponse.json(
                 { error: "No background conversation found" },
                 { status: 400 }
             );
         }
 
-        log.info(`[background-summary/POST] Generating summary from ${messages.length} messages...`);
+        log.info(LOG_CATEGORY, `[background-summary/POST] Generating summary from ${messages.length} messages...`);
 
         // Build prompt
         const prompt = buildBackgroundSummaryPrompt({
@@ -304,17 +307,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
         });
 
         // Call OpenAI
-        log.info("[background-summary/POST] Checking OpenAI API key...");
+        log.info(LOG_CATEGORY, "[background-summary/POST] Checking OpenAI API key...");
         const openaiApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
         if (!openaiApiKey) {
-            log.error("[background-summary/POST] ❌ OpenAI API key not configured");
+            log.error(LOG_CATEGORY, "[background-summary/POST] ❌ OpenAI API key not configured");
             return NextResponse.json(
                 { error: "OpenAI API key not configured" },
                 { status: 500 }
             );
         }
 
-        log.info("[background-summary/POST] Calling OpenAI with model:", SUMMARY_MODEL, "temperature:", SUMMARY_TEMPERATURE);
+        log.info(LOG_CATEGORY, "[background-summary/POST] Calling OpenAI with model:", SUMMARY_MODEL, "temperature:", SUMMARY_TEMPERATURE);
         const openai = new OpenAI({ apiKey: openaiApiKey });
 
         const completion = await openai.chat.completions.create({
@@ -329,17 +332,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
         });
 
         const responseText = completion.choices[0]?.message?.content;
-        log.info("[background-summary/POST] OpenAI response length:", responseText?.length || 0);
+        log.info(LOG_CATEGORY, "[background-summary/POST] OpenAI response length:", responseText?.length || 0);
         
         if (!responseText) {
-            log.error("[background-summary/POST] ❌ Empty response from OpenAI");
+            log.error(LOG_CATEGORY, "[background-summary/POST] ❌ Empty response from OpenAI");
             return NextResponse.json(
                 { error: "Failed to generate summary" },
                 { status: 500 }
             );
         }
 
-        log.info("[background-summary/POST] Parsing OpenAI response...");
+        log.info(LOG_CATEGORY, "[background-summary/POST] Parsing OpenAI response...");
 
         // Strip markdown code block wrapper if present
         let cleanedResponse = responseText.trim();
@@ -353,11 +356,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
         let summaryData: SummaryOutput;
         try {
             summaryData = JSON.parse(cleanedResponse);
-            log.info("[background-summary/POST] ✅ Successfully parsed summary JSON");
+            log.info(LOG_CATEGORY, "[background-summary/POST] ✅ Successfully parsed summary JSON");
         } catch (parseError) {
-            log.error("[background-summary/POST] ❌ Failed to parse OpenAI response:", parseError);
-            log.error("[background-summary/POST] Original response:", responseText.substring(0, 500));
-            log.error("[background-summary/POST] Cleaned response:", cleanedResponse.substring(0, 500));
+            log.error(LOG_CATEGORY, "[background-summary/POST] ❌ Failed to parse OpenAI response:", parseError);
+            log.error(LOG_CATEGORY, "[background-summary/POST] Original response:", responseText.substring(0, 500));
+            log.error(LOG_CATEGORY, "[background-summary/POST] Cleaned response:", cleanedResponse.substring(0, 500));
             return NextResponse.json(
                 { error: "Failed to parse summary response" },
                 { status: 500 }
@@ -365,7 +368,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         }
 
         // Store in database
-        log.info("[background-summary/POST] Saving summary to database...");
+        log.info(LOG_CATEGORY, "[background-summary/POST] Saving summary to database...");
         
         // Aggregate category contributions (simple averaging)
         const contributions = await prisma.categoryContribution.findMany({
@@ -405,7 +408,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             const confidence = Math.min(1.0, contribs.length / TARGET_CONTRIBUTIONS);
             const adjustedScore = Math.round(rawAverage * confidence);
             
-            log.info(`[background-summary/POST] ${categoryName}: ${contribs.length} contributions, raw avg=${Math.round(rawAverage)}, confidence=${confidence.toFixed(2)}, adjusted=${adjustedScore}`);
+            log.info(LOG_CATEGORY, `[background-summary/POST] ${categoryName}: ${contribs.length} contributions, raw avg=${Math.round(rawAverage)}, confidence=${confidence.toFixed(2)}, adjusted=${adjustedScore}`);
             
             const categoryDef = experienceCategoryDefinitions?.find(c => c.name === categoryName);
             
@@ -446,7 +449,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             };
         }
 
-        log.info("[background-summary/POST] Aggregated experience categories:", Object.keys(experienceCategories));
+        log.info(LOG_CATEGORY, "[background-summary/POST] Aggregated experience categories:", Object.keys(experienceCategories));
         
         const summaryDbData = {
             executiveSummary: summaryData.executiveSummary,
@@ -472,20 +475,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
             },
         });
 
-        log.info("[background-summary/POST] ✅ Background summary created successfully. ID:", backgroundSummary.id);
+        log.info(LOG_CATEGORY, "[background-summary/POST] ✅ Background summary created successfully. ID:", backgroundSummary.id);
 
         // Create EvidenceClip records for each trait's evidence
-        log.info("[background-summary/POST] Creating evidence clips...");
+        log.info(LOG_CATEGORY, "[background-summary/POST] Creating evidence clips...");
         
         // Log what OpenAI gave us for evidence
-        log.info("[background-summary/POST] OpenAI Evidence Summary:");
+        log.info(LOG_CATEGORY, "[background-summary/POST] OpenAI Evidence Summary:");
         if (summaryData.experienceCategories) {
             for (const [categoryName, categoryData] of Object.entries(summaryData.experienceCategories)) {
                 const evidence = (categoryData as any).evidence;
                 if (evidence && Array.isArray(evidence)) {
-                    log.info(`  - ${categoryName} evidence count:`, evidence.length);
+                    log.info(LOG_CATEGORY, `  - ${categoryName} evidence count:`, evidence.length);
                     evidence.forEach((ev: any, idx: number) => {
-                        log.info(`  - ${categoryName}[${idx}]: question="${ev.question?.substring(0, 50)}...", hasReasoning=${!!ev.reasoning}, hasAnswerExcerpt=${!!ev.answerExcerpt}`);
+                        log.info(LOG_CATEGORY, `  - ${categoryName}[${idx}]: question="${ev.question?.substring(0, 50)}...", hasReasoning=${!!ev.reasoning}, hasAnswerExcerpt=${!!ev.answerExcerpt}`);
                     });
                 }
             }
@@ -501,7 +504,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             },
         });
 
-        log.info("[background-summary/POST] Found", backgroundEvidenceRecords.length, "background evidence records");
+        log.info(LOG_CATEGORY, "[background-summary/POST] Found", backgroundEvidenceRecords.length, "background evidence records");
 
         /**
          * Selects the most relevant trait evidence for a background record, preferring
@@ -574,7 +577,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
                     (record.timestamp.getTime() - recordingStart.getTime()) / 1000
                 );
                 
-                log.info(`[background-summary/POST] ${categoryName}[${index}]: Matching record Q="${record.questionText.substring(0, 50)}..." with evidence:`, {
+                log.info(LOG_CATEGORY, `[background-summary/POST] ${categoryName}[${index}]: Matching record Q="${record.questionText.substring(0, 50)}..." with evidence:`, {
                     matched: categoryEvidence ? `"${categoryEvidence.question.substring(0, 50)}..."` : 'null',
                     hasReasoning: categoryEvidence?.reasoning ? true : false,
                     hasAnswerExcerpt: categoryEvidence?.answerExcerpt ? true : false,
@@ -591,7 +594,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 
                 const description = buildClipDescription(categoryEvidence, record, categoryName);
                 
-                log.info(`[background-summary/POST] ${categoryName}[${index}]: Using description="${description.substring(0, 100)}..."`);
+                log.info(LOG_CATEGORY, `[background-summary/POST] ${categoryName}[${index}]: Using description="${description.substring(0, 100)}..."`);
 
                 await prisma.evidenceClip.create({
                     data: {
@@ -608,7 +611,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
                     },
                 });
 
-                log.info(`[background-summary/POST] ✅ Created ${categoryName} evidence clip at ${startTimeSeconds}s with duration ${clipDuration}s`);
+                log.info(LOG_CATEGORY, `[background-summary/POST] ✅ Created ${categoryName} evidence clip at ${startTimeSeconds}s with duration ${clipDuration}s`);
             }
         };
 
@@ -621,8 +624,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
             }
         }
 
-        log.info("[background-summary/POST] ✅ Evidence clips created successfully");
-        log.info("[background-summary/POST] ✅ Short captions already generated in evidenceLinks");
+        log.info(LOG_CATEGORY, "[background-summary/POST] ✅ Evidence clips created successfully");
+        log.info(LOG_CATEGORY, "[background-summary/POST] ✅ Short captions already generated in evidenceLinks");
 
         return NextResponse.json(
             {
@@ -632,7 +635,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             { status: 202 }
         );
     } catch (error) {
-        log.error("❌ Error generating background summary:", error);
+        log.error(LOG_CATEGORY, "❌ Error generating background summary:", error);
         return NextResponse.json(
             { error: "Failed to generate background summary" },
             { status: 500 }

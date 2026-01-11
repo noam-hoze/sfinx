@@ -4,6 +4,10 @@ import React, { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMute } from "app/shared/contexts";
 import { loadAndCacheSoundEffect } from "@/shared/utils/audioCache";
+import { log } from "app/shared/services/logger";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
 
 type QuestionCardProps = {
   question: string;
@@ -75,9 +79,9 @@ export default function QuestionCard({
   React.useEffect(() => {
     loadAndCacheSoundEffect("/sounds/controls-appear.mp3", "controls-appear").then(controlsSound => {
       controlsSoundRef.current = controlsSound;
-      console.log("[QuestionCard] Controls sound loaded (with cache)");
+      log.info(LOG_CATEGORY, "[QuestionCard] Controls sound loaded (with cache)");
     }).catch(err => {
-      console.error("[QuestionCard] Failed to load controls sound:", err);
+      log.error(LOG_CATEGORY, "[QuestionCard] Failed to load controls sound:", err);
     });
   }, []);
 
@@ -94,7 +98,7 @@ export default function QuestionCard({
 
       // If muted, skip TTS and show controls immediately
       if (isMuted) {
-        console.log("[QuestionCard] Muted - skipping TTS, showing controls immediately");
+        log.info(LOG_CATEGORY, "[QuestionCard] Muted - skipping TTS, showing controls immediately");
         setIsAudioPlaying(true);
         setAudioFinished(true);
         onAudioStateChange?.(false);
@@ -104,7 +108,7 @@ export default function QuestionCard({
       // Generate and play TTS
       (async () => {
         try {
-          console.log("[QuestionCard] Generating TTS for:", question);
+          log.info(LOG_CATEGORY, "[QuestionCard] Generating TTS for:", question);
           const audioBuffer = await generateTTS(question);
           
           // Stop any currently playing audio
@@ -125,7 +129,7 @@ export default function QuestionCard({
           audio.onplay = () => {
             setIsAudioPlaying(true);
             onAudioStateChange?.(true);
-            console.log("[QuestionCard] TTS playback started");
+            log.info(LOG_CATEGORY, "[QuestionCard] TTS playback started");
           };
 
           audio.onended = () => {
@@ -133,12 +137,12 @@ export default function QuestionCard({
             onAudioStateChange?.(false);
             URL.revokeObjectURL(url);
             audioRef.current = null;
-            console.log("[QuestionCard] TTS playback finished");
+            log.info(LOG_CATEGORY, "[QuestionCard] TTS playback finished");
           };
 
           await audio.play();
         } catch (error) {
-          console.error("[QuestionCard] TTS failed:", error);
+          log.error(LOG_CATEGORY, "[QuestionCard] TTS failed:", error);
           setTtsError(
             error instanceof Error ? error.message : "TTS generation failed"
           );
@@ -154,7 +158,7 @@ export default function QuestionCard({
     if (audioRef.current) {
       if (isMuted && !audioFinished) {
         // Special "read mode" behavior: stop audio and show controls immediately
-        console.log("[QuestionCard] Mute toggled ON - stopping audio and showing controls (read mode)");
+        log.info(LOG_CATEGORY, "[QuestionCard] Mute toggled ON - stopping audio and showing controls (read mode)");
         audioRef.current.pause();
         audioRef.current = null;
         setAudioFinished(true);
@@ -170,12 +174,12 @@ export default function QuestionCard({
   React.useEffect(() => {
     if (audioFinished && controlsSoundRef.current) {
       try {
-        console.log("[QuestionCard] Playing controls-appear sound");
+        log.info(LOG_CATEGORY, "[QuestionCard] Playing controls-appear sound");
         controlsSoundRef.current.volume = isMuted ? 0 : 1;
         controlsSoundRef.current.currentTime = 0; // Reset to start
-        controlsSoundRef.current.play().catch(err => console.error("Controls-appear sound error:", err));
+        controlsSoundRef.current.play().catch(err => log.error(LOG_CATEGORY, "Controls-appear sound error:", err));
       } catch (error) {
-        console.error("[QuestionCard] Failed to play controls-appear sound:", error);
+        log.error(LOG_CATEGORY, "[QuestionCard] Failed to play controls-appear sound:", error);
       }
     }
   }, [audioFinished]);
@@ -200,7 +204,7 @@ export default function QuestionCard({
     // Create evidence link (non-blocking)
     if (interviewSessionId) {
       createBackgroundEvidenceLink(answer).catch(err => 
-        console.error('[QuestionCard] Failed to create evidence link:', err)
+        log.error(LOG_CATEGORY, '[QuestionCard] Failed to create evidence link:', err)
       );
     }
     
@@ -214,14 +218,14 @@ export default function QuestionCard({
    */
   const createBackgroundEvidenceLink = async (answerText: string) => {
     if (!interviewSessionId) {
-      console.warn('[QuestionCard] No interview session ID for evidence link');
+      log.warn(LOG_CATEGORY, '[QuestionCard] No interview session ID for evidence link');
       return;
     }
     
     const clickTime = submitClickTimeRef.current;
     const evidenceTimestamp = new Date(clickTime.getTime() - VIDEO_EVIDENCE_OFFSET_MS);
     
-    console.log('[QuestionCard] Creating evidence link:', {
+    log.info(LOG_CATEGORY, '[QuestionCard] Creating evidence link:', {
       clickTime: clickTime.toISOString(),
       evidenceTimestamp: evidenceTimestamp.toISOString(),
       questionNumber,
@@ -242,7 +246,7 @@ export default function QuestionCard({
       body: JSON.stringify(body),
     });
     
-    console.log('[QuestionCard] Evidence link created successfully');
+    log.info(LOG_CATEGORY, '[QuestionCard] Evidence link created successfully');
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -264,7 +268,7 @@ export default function QuestionCard({
 
     try {
       setRecordingError(null);
-      console.log("[QuestionCard] Starting recording with pre-granted mic...");
+      log.info(LOG_CATEGORY, "[QuestionCard] Starting recording with pre-granted mic...");
       
       const mimeType = "audio/webm;codecs=opus";
       const mediaRecorder = new MediaRecorder(micStream, { mimeType });
@@ -278,7 +282,7 @@ export default function QuestionCard({
       };
 
       mediaRecorder.onstop = async () => {
-        console.log("[QuestionCard] Recording stopped, transcribing...");
+        log.info(LOG_CATEGORY, "[QuestionCard] Recording stopped, transcribing...");
         setIsTranscribing(true);
         const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         
@@ -296,11 +300,11 @@ export default function QuestionCard({
           }
 
           const { text } = await response.json();
-          console.log("[QuestionCard] Transcription:", text);
+          log.info(LOG_CATEGORY, "[QuestionCard] Transcription:", text);
           setAnswer(text);
           setIsTextExpanded(true); // Show the text area with transcribed text
         } catch (error) {
-          console.error("[QuestionCard] Transcription error:", error);
+          log.error(LOG_CATEGORY, "[QuestionCard] Transcription error:", error);
           setRecordingError(
             error instanceof Error ? error.message : "Transcription failed"
           );
@@ -312,9 +316,9 @@ export default function QuestionCard({
       mediaRecorder.start();
       setIsRecording(true);
       onRecordingStateChange?.(true);
-      console.log("[QuestionCard] Recording started");
+      log.info(LOG_CATEGORY, "[QuestionCard] Recording started");
     } catch (error) {
-      console.error("[QuestionCard] Recording start error:", error);
+      log.error(LOG_CATEGORY, "[QuestionCard] Recording start error:", error);
       setRecordingError(
         error instanceof Error ? error.message : "Failed to start recording"
       );
@@ -326,7 +330,7 @@ export default function QuestionCard({
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       onRecordingStateChange?.(false);
-      console.log("[QuestionCard] Stopping recording...");
+      log.info(LOG_CATEGORY, "[QuestionCard] Stopping recording...");
     }
   };
 

@@ -2,6 +2,9 @@ import { Company, CompanyProfile } from "@prisma/client";
 import { log } from "app/shared/services";
 import { prisma } from "app/shared/services/server";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.COMPANY;
+
 export interface CompanyContext {
     company: Company;
     profile: CompanyProfile;
@@ -15,7 +18,7 @@ export async function loadCompanyForUser(userId: string): Promise<CompanyContext
         where: { userId },
     });
     if (!profile) {
-        log.warn("Company profile not found for user", { userId });
+        log.warn(LOG_CATEGORY, "Company profile not found for user", { userId });
         throw new Error("Company profile not found for user");
     }
 
@@ -23,7 +26,7 @@ export async function loadCompanyForUser(userId: string): Promise<CompanyContext
         where: { name: profile.companyName },
     });
     if (!company) {
-        log.warn("Company record not found for profile", {
+        log.warn(LOG_CATEGORY, "Company record not found for profile", {
             companyName: profile.companyName,
         });
         throw new Error("Company record not found for profile");
