@@ -54,7 +54,7 @@ function InterviewPageContent() {
   const { isMuted } = useMute();
   const { isDebugVisible, setShowDebugButton } = useDebug();
   const dispatch = useDispatch();
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
 
   // Local loading state for preload phase
   const [isPreloading, setIsPreloading] = useState(true);
@@ -334,7 +334,7 @@ function InterviewPageContent() {
 
   // STAGE 1: Preload (skip if going directly to coding)
   useEffect(() => {
-    if (!openaiClient || skipToCoding || hasPreloadedRef.current) return;
+    if (!openaiClient || skipToCoding || hasPreloadedRef.current || sessionStatus !== "authenticated") return;
 
     const executePreload = async () => {
       try {
@@ -370,7 +370,7 @@ function InterviewPageContent() {
     };
 
     executePreload();
-  }, [openaiClient, skipToCoding, preload, generateAnnouncement, session, searchParams]);
+  }, [openaiClient, skipToCoding, preload, generateAnnouncement, session, searchParams, sessionStatus]);
 
   /**
    * Ensures an application exists for the coding phase and returns its ID.

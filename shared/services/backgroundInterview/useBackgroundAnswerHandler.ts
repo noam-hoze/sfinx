@@ -8,7 +8,7 @@ import { useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import OpenAI from "openai";
 import { store, RootState } from "@/shared/state/store";
-import { addMessage, setEvaluatingAnswer, setCurrentFocusTopic, setCurrentQuestionTarget, updateCategoryStats } from "@/shared/state/slices/backgroundSlice";
+import { addMessage, setEvaluatingAnswer, setCurrentFocusTopic, setCurrentQuestionTarget, updateCategoryStats, forceTimeExpiry, incrementDontKnowCount } from "@/shared/state/slices/backgroundSlice";
 import {
   askViaChatCompletion,
   generateAssistantReply,
@@ -92,6 +92,23 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
             const conversationHistory = backgroundState.messages.slice(-4);
             const currentFocusTopic = backgroundState.currentFocusTopic;
             
+            // Get excluded topics (dontKnowCount >= threshold)
+            if (!process.env.NEXT_PUBLIC_DONT_KNOW_THRESHOLD) {
+              throw new Error("NEXT_PUBLIC_DONT_KNOW_THRESHOLD environment variable is not set");
+            }
+            const dontKnowThreshold = parseInt(process.env.NEXT_PUBLIC_DONT_KNOW_THRESHOLD, 10);
+            if (!Number.isFinite(dontKnowThreshold) || dontKnowThreshold < 1) {
+              throw new Error("NEXT_PUBLIC_DONT_KNOW_THRESHOLD must be a positive integer");
+            }
+            
+            const excludedTopics = categoryStats
+              .filter(c => c.dontKnowCount >= dontKnowThreshold)
+              .map(c => c.categoryName);
+
+            if (excludedTopics.length > 0) {
+              log.info(`Excluded topics (dontKnowCount >= ${dontKnowThreshold}): ${excludedTopics.join(', ')}`);
+            }
+            
             const fastResponse = await fetch(`/api/interviews/evaluate-answer-fast`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -102,10 +119,26 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
                 currentCounts: categoryStats,
                 currentFocusTopic,
                 conversationHistory,
+                excludedTopics,
               })
             });
             
             const fastData = await fastResponse.json();
+            
+            // Check if all categories excluded
+            if (fastData.allCategoriesExcluded) {
+              log.info("All categories excluded - ending background interview");
+              dispatch(setEvaluatingAnswer({ evaluating: false }));
+              dispatch(forceTimeExpiry());
+              return { shouldComplete: true, transitionReason: "all_categories_excluded" };
+            }
+            
+            // Increment don't know count if detected
+            if (fastData.isDontKnow && fastData.targetedCategory) {
+              log.info(`"I don't know" detected for category: ${fastData.targetedCategory}`);
+              
+              dispatch(incrementDontKnowCount({ category: fastData.targetedCategory }));
+            }
             
             // Use fast results immediately
             if (fastData.updatedCounts) {
