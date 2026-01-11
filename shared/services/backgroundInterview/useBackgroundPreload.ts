@@ -97,9 +97,18 @@ export function useBackgroundPreload() {
         const companyNameFromScript = scriptData.companyName || companySlug.charAt(0).toUpperCase() + companySlug.slice(1);
         const persona = buildOpenAIBackgroundPrompt(companyNameFromScript, scriptData.experienceCategories);
         const instruction = `Ask exactly: "${String(scriptData.backgroundQuestion)}"`;
-        const firstQuestion = await generateAssistantReply(openaiClient, persona, instruction);
+        const firstQuestionRaw = await generateAssistantReply(openaiClient, persona, instruction);
 
-        if (!firstQuestion) throw new Error("Failed to generate first question");
+        if (!firstQuestionRaw) throw new Error("Failed to generate first question");
+
+        // Parse JSON response to extract question
+        let firstQuestion = firstQuestionRaw;
+        try {
+          const parsed = JSON.parse(firstQuestionRaw);
+          firstQuestion = parsed.question || firstQuestionRaw;
+        } catch (err) {
+          console.warn("[preload] Failed to parse JSON, using raw response");
+        }
 
         // Store preloaded data in Redux
         dispatch(

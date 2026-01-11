@@ -78,10 +78,11 @@ Categories to evaluate:
 ${categoryList}
 
 SCORING GUIDELINES (0-100):
-- **0**: Answer is off-topic, evasive, generic platitudes, or adds ZERO relevant information
-  Examples: "I have experience", "I worked on projects", "I'm familiar with that"
+- **0**: Blank answers, gibberish, off-topic, evasive, generic platitudes, or adds ZERO relevant information
+  Examples: "", "aergaerg", "I have experience", "I worked on projects", "I'm familiar with that"
+  CRITICAL: Blank or gibberish answers MUST ALWAYS be 0, no exceptions.
   
-- **1-30**: Weak engagement. Vague or superficial, but shows SOME relevant attempt
+- **1-30**: Weak engagement. Vague or superficial, but shows SOME relevant attempt with real words
   Examples: "I used React hooks" (no details), "I optimized performance once" (no context)
   
 - **31-60**: Demonstrates basic competence with limited depth or examples
@@ -98,12 +99,15 @@ For EVERY category, return your evaluation in JSON format:
       "category": "Category Name",
       "reasoning": "Why this score (be specific about what's missing or strong)",
       "strength": 0-100,
-      "caption": "Brief insight if strength > 0, otherwise null"
+      "caption": "Brief insight summarizing the evidence (REQUIRED when strength > 0, null when 0)"
     }
   ]
 }
 
-Be strict with 0 scores - use them for noise. But use the full range 1-100 for legitimate attempts.`;
+CRITICAL RULES:
+- If strength > 0, you MUST provide a caption. Never return null caption with non-zero strength.
+- Blank or gibberish answers MUST be scored 0 across all categories.
+- Be strict with 0 scores - use them for noise, blank answers, and gibberish.`;
 
         log.info("[evaluate-answer] Calling OpenAI for evaluation");
 
@@ -201,11 +205,28 @@ Be strict with 0 scores - use them for noise. But use the full range 1-100 for l
 
         log.info(`[evaluate-answer] ✅ Evaluation complete. ${contributions.length} contributions with strength > 0.`);
 
+        // Calculate updated category counts
+        const updatedCounts = await prisma.categoryContribution.groupBy({
+            by: ['categoryName'],
+            where: { interviewSessionId: sessionId },
+            _count: { id: true },
+            _avg: { contributionStrength: true },
+        });
+
+        const categoryStats = updatedCounts.map(item => ({
+            categoryName: item.categoryName,
+            count: item._count.id,
+            avgStrength: Math.round(item._avg.contributionStrength || 0),
+        }));
+
+        log.info(`[evaluate-answer] Updated category stats:`, categoryStats);
+
         return NextResponse.json({
             success: true,
             contributionsCount: contributions.length,
             contributions: contributions,
             allEvaluations: evaluation.evaluations,
+            updatedCounts: categoryStats,
         });
     } catch (error) {
         log.error("[evaluate-answer] ❌ Error:", error);

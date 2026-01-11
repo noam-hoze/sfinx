@@ -191,7 +191,7 @@ function InterviewPageContent() {
           }
         }
       }
-  }, [allowQuestionDisplay, currentQuestion, messages]);
+  }, [allowQuestionDisplay, currentQuestion, messages, backgroundQuestionNumber]);
 
   // Reset glow states when question changes
   useEffect(() => {
