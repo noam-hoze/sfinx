@@ -14,6 +14,7 @@ export type CategoryStats = {
     categoryName: string;
     count: number;
     avgStrength: number;
+    dontKnowCount: number;
 };
 
 export type BackgroundState = {
@@ -100,10 +101,28 @@ const backgroundSlice = createSlice({
                 categoryName: name,
                 count: 0,
                 avgStrength: 0,
+                dontKnowCount: 0,
             }));
         },
         updateCategoryStats: (state, action: PayloadAction<{ stats: CategoryStats[] }>) => {
-            state.categoryStats = action.payload.stats;
+            state.categoryStats = action.payload.stats.map(newCat => {
+                const existing = state.categoryStats.find(c => c.categoryName === newCat.categoryName);
+                return {
+                    ...newCat,
+                    dontKnowCount: existing?.dontKnowCount || 0,
+                };
+            });
+        },
+        incrementDontKnowCount: (
+            state,
+            action: PayloadAction<{ category: string }>
+        ) => {
+            const cat = state.categoryStats.find(
+                c => c.categoryName === action.payload.category
+            );
+            if (cat) {
+                cat.dontKnowCount += 1;
+            }
         },
     },
     extraReducers: (builder) => {
@@ -125,6 +144,7 @@ export const {
     setCurrentQuestionTarget,
     initializeCategoryStats,
     updateCategoryStats,
+    incrementDontKnowCount,
 } = backgroundSlice.actions;
 
 export default backgroundSlice.reducer;

@@ -13,11 +13,18 @@ const openai = new OpenAI({
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { question, answer, experienceCategories, currentCounts, currentFocusTopic, conversationHistory } = body;
+        const { question, answer, experienceCategories, currentCounts, currentFocusTopic, conversationHistory, excludedTopics } = body;
 
         if (!question || answer === undefined || !experienceCategories || !currentCounts) {
             return NextResponse.json(
                 { error: "Missing required fields" },
+                { status: 400 }
+            );
+        }
+
+        if (!Array.isArray(excludedTopics)) {
+            return NextResponse.json(
+                { error: "excludedTopics must be an array" },
                 { status: 400 }
             );
         }
@@ -29,9 +36,30 @@ export async function POST(request: NextRequest) {
             throw new Error("NEXT_PUBLIC_OPENAI_EVALUATION_MODEL environment variable is not set");
         }
 
-        // Build category list with current counts
+        // Filter out excluded categories
+        let activeCategories = experienceCategories.filter(
+            (cat: any) => !excludedTopics.includes(cat.name)
+        );
+
+        // Check if all categories excluded
+        if (activeCategories.length === 0) {
+            log.info("[evaluate-answer-fast] All categories excluded - ending interview");
+            return NextResponse.json({
+                success: true,
+                allCategoriesExcluded: true,
+                scores: [],
+                acknowledgment: "Thanks for your responses.",
+                nextQuestion: null,
+                targetedCategory: null,
+                isDontKnow: false,
+                updatedCounts: currentCounts,
+                newFocusTopic: null,
+            });
+        }
+
+        // Build category list with current counts (using active categories only)
         const TARGET = 5;
-        const categoryList = experienceCategories.map((cat: any) => {
+        const categoryList = activeCategories.map((cat: any) => {
             const stats = currentCounts.find((c: any) => c.categoryName === cat.name);
             return `${cat.name}: ${stats?.count || 0} contributions (avg ${stats?.avgStrength || 0}%)`;
         }).join(', ');
@@ -61,10 +89,14 @@ ANSWER: ${answer}
 
 Current status: ${categoryList}
 
-Step 1 - Score each category 0-100:
+Step 1 - Detect uncertainty:
+If the answer says "I don't know" or similar ("not sure", "no experience", "haven't worked with that"), set isDontKnow: true
+Otherwise set isDontKnow: false
+
+Step 2 - Score each category 0-100:
 0=blank, 1-30=vague, 31-60=basic, 61-80=clear, 81-100=exceptional
 
-Step 2 - Generate acknowledgment and next question:
+Step 3 - Generate acknowledgment and next question:
 ${focusInstruction}
 ${conversationHistory?.length > 0 ? `\nLast exchange: ${conversationHistory.slice(-1)[0]?.text?.substring(0, 100)}` : ''}
 
@@ -72,6 +104,7 @@ Generate a short acknowledgment (max 12 words).
 Generate the next question separately.
 Return JSON:
 {
+  "isDontKnow": true/false,
   "scores": [{"category": "Name", "strength": 0-100}],
   "acknowledgment": "...",
   "nextQuestion": "...",
@@ -102,6 +135,55 @@ Return JSON:
 
         const result = JSON.parse(responseText);
         
+        // If this is an "I don't know" answer, increment dontKnowCount in-memory for topic selection
+        let countsForTopicSelection = currentCounts;
+        if (result.isDontKnow && result.targetedCategory) {
+            countsForTopicSelection = currentCounts.map((c: any) => {
+                if (c.categoryName === result.targetedCategory) {
+                    return { ...c, dontKnowCount: c.dontKnowCount + 1 };
+                }
+                return c;
+            });
+            
+            // Re-compute exclusions with incremented count
+            if (!process.env.NEXT_PUBLIC_DONT_KNOW_THRESHOLD) {
+                throw new Error("NEXT_PUBLIC_DONT_KNOW_THRESHOLD environment variable is not set");
+            }
+            const threshold = parseInt(process.env.NEXT_PUBLIC_DONT_KNOW_THRESHOLD, 10);
+            if (!Number.isFinite(threshold) || threshold < 1) {
+                throw new Error("NEXT_PUBLIC_DONT_KNOW_THRESHOLD must be a positive integer");
+            }
+            const newExcludedTopics = countsForTopicSelection
+                .filter((c: any) => c.dontKnowCount >= threshold)
+                .map((c: any) => c.categoryName);
+            
+            if (newExcludedTopics.length > 0) {
+                // Re-filter active categories
+                const newActiveCategories = experienceCategories.filter(
+                    (cat: any) => !newExcludedTopics.includes(cat.name)
+                );
+                
+                // Check if all categories now excluded
+                if (newActiveCategories.length === 0) {
+                    log.info("[evaluate-answer-fast] All categories excluded after increment");
+                    return NextResponse.json({
+                        success: true,
+                        allCategoriesExcluded: true,
+                        scores: [],
+                        acknowledgment: "Thanks for your responses.",
+                        nextQuestion: null,
+                        targetedCategory: null,
+                        isDontKnow: false,
+                        updatedCounts: currentCounts,
+                        newFocusTopic: null,
+                    });
+                }
+                
+                // Update activeCategories for topic selection below
+                activeCategories = newActiveCategories;
+            }
+        }
+        
         // Calculate updated counts in-memory
         const updatedCounts = experienceCategories.map((category: any) => {
             const existing = currentCounts.find((c: any) => c.categoryName === category.name);
@@ -124,16 +206,22 @@ Return JSON:
         });
 
         // Determine new focus topic based on updated counts
+        // Filter to only consider active (non-excluded) categories
+        const activeCategoryNames = activeCategories.map((c: any) => c.name);
+        const countsForSelection = updatedCounts.filter((c: any) => activeCategoryNames.includes(c.categoryName));
+        
         let newFocusTopic = currentFocusTopic;
         
-        if (!newFocusTopic) {
-            // Initial state: pick topic with highest count
-            newFocusTopic = updatedCounts.sort((a: any, b: any) => b.count - a.count)[0].categoryName;
+        if (!newFocusTopic || !activeCategoryNames.includes(newFocusTopic)) {
+            // Initial state or current topic is now excluded: pick topic with highest count from active categories
+            if (countsForSelection.length > 0) {
+                newFocusTopic = countsForSelection.sort((a: any, b: any) => b.count - a.count)[0].categoryName;
+            }
         } else {
-            const currentStats = updatedCounts.find((c: any) => c.categoryName === newFocusTopic);
+            const currentStats = countsForSelection.find((c: any) => c.categoryName === newFocusTopic);
             if (currentStats && currentStats.count >= TARGET) {
                 // Current topic saturated, need to pivot
-                const underSaturated = updatedCounts.filter((c: any) => c.count < TARGET);
+                const underSaturated = countsForSelection.filter((c: any) => c.count < TARGET);
                 if (underSaturated.length > 0) {
                     // Switch to highest count among under-saturated
                     newFocusTopic = underSaturated.sort((a: any, b: any) => b.count - a.count)[0].categoryName;
@@ -150,6 +238,7 @@ Return JSON:
             acknowledgment: result.acknowledgment,
             nextQuestion: result.nextQuestion,
             targetedCategory: result.targetedCategory,
+            isDontKnow: result.isDontKnow || false,
             updatedCounts,
             newFocusTopic,
         });
