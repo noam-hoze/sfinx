@@ -64,12 +64,19 @@ Current status: ${categoryList}
 Step 1 - Score each category 0-100:
 0=blank, 1-30=vague, 31-60=basic, 61-80=clear, 81-100=exceptional
 
-Step 2 - Generate next question:
+Step 2 - Generate acknowledgment and next question:
 ${focusInstruction}
 ${conversationHistory?.length > 0 ? `\nLast exchange: ${conversationHistory.slice(-1)[0]?.text?.substring(0, 100)}` : ''}
 
+Generate a short acknowledgment (max 12 words).
+Generate the next question separately.
 Return JSON:
-{"scores": [{"category": "Name", "strength": 0-100}], "nextQuestion": "...", "targetedCategory": "Category Name you're asking about"}`;
+{
+  "scores": [{"category": "Name", "strength": 0-100}],
+  "acknowledgment": "...",
+  "nextQuestion": "...",
+  "targetedCategory": "Category Name you're asking about"
+}`;
 
 
         const completion = await openai.chat.completions.create({
@@ -121,15 +128,15 @@ Return JSON:
         
         if (!newFocusTopic) {
             // Initial state: pick topic with highest count
-            newFocusTopic = updatedCounts.sort((a, b) => b.count - a.count)[0].categoryName;
+            newFocusTopic = updatedCounts.sort((a: any, b: any) => b.count - a.count)[0].categoryName;
         } else {
-            const currentStats = updatedCounts.find(c => c.categoryName === newFocusTopic);
+            const currentStats = updatedCounts.find((c: any) => c.categoryName === newFocusTopic);
             if (currentStats && currentStats.count >= TARGET) {
                 // Current topic saturated, need to pivot
-                const underSaturated = updatedCounts.filter(c => c.count < TARGET);
+                const underSaturated = updatedCounts.filter((c: any) => c.count < TARGET);
                 if (underSaturated.length > 0) {
                     // Switch to highest count among under-saturated
-                    newFocusTopic = underSaturated.sort((a, b) => b.count - a.count)[0].categoryName;
+                    newFocusTopic = underSaturated.sort((a: any, b: any) => b.count - a.count)[0].categoryName;
                 }
                 // If all saturated, keep current (Phase 3 doesn't persist focus)
             }
@@ -140,6 +147,7 @@ Return JSON:
         return NextResponse.json({
             success: true,
             scores: result.scores,
+            acknowledgment: result.acknowledgment,
             nextQuestion: result.nextQuestion,
             targetedCategory: result.targetedCategory,
             updatedCounts,
