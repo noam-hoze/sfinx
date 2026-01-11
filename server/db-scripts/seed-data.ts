@@ -190,8 +190,8 @@ class QuantumCircuitSimulator:
 `,
     expectedOutput: `Quantum simulator with state vector manipulation and measurement`,
     codingLanguage: "python",
-    backgroundQuestionTimeSeconds: 125, // 2 minutes 5 seconds
-    codingQuestionTimeSeconds: 10 * 60,
+    backgroundQuestionTimeSeconds: 10 * 60, 
+    codingQuestionTimeSeconds: 30 * 60,
 };
 
 async function resetDatabase() {
@@ -333,7 +333,7 @@ async function resetDatabase() {
                 email: "noam.best@gmail.com",
                 password: hashedPassword,
                 role: UserRole.CANDIDATE,
-                image: undefined,
+                image: "/uploads/profiles/candidate-noam-best-1768086895418.jpg",
             },
         });
 
@@ -362,7 +362,7 @@ async function resetDatabase() {
                 email: "noam.worst@gmail.com",
                 password: hashedPassword,
                 role: UserRole.CANDIDATE,
-                image: undefined,
+                image: "/uploads/profiles/candidate-noam-worst-1768086988043.jpg",
             },
         });
 
