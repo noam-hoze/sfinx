@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 
+const LOG_CATEGORY = "interviews";
+
 type RouteContext = {
     params: Promise<{ chapterId?: string | string[] }>;
 };
@@ -39,7 +41,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             );
         }
 
-        log.info("[VideoCaption Update API] Updating caption for chapter:", chapterId);
+        log.info(LOG_CATEGORY, "[VideoCaption Update API] Updating caption for chapter:", chapterId);
 
         // Find the VideoCaption for this chapter
         const videoCaption = await prisma.videoCaption.findFirst({
@@ -59,14 +61,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             data: { text: caption },
         });
 
-        log.info("[VideoCaption Update API] Caption updated successfully:", updatedCaption.id);
+        log.info(LOG_CATEGORY, "[VideoCaption Update API] Caption updated successfully:", updatedCaption.id);
 
         return NextResponse.json({
             message: "Caption updated successfully",
             captionId: updatedCaption.id,
         });
     } catch (error: any) {
-        log.error("[VideoCaption Update API] Error updating caption:", error);
+        log.error(LOG_CATEGORY, "[VideoCaption Update API] Error updating caption:", error);
         return NextResponse.json(
             {
                 error: "Failed to update caption",

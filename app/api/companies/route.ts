@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth/next";
 import { log } from "app/shared/services";
 import { authOptions, prisma, getCached, setCached } from "app/shared/services/server";
 
+const LOG_CATEGORY = "companies";
+
 export async function GET(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
@@ -113,7 +115,7 @@ export async function GET(request: NextRequest) {
             appliedJobIds,
         });
     } catch (error) {
-        log.error("Error fetching companies:", error);
+        log.error(LOG_CATEGORY, "Error fetching companies:", error);
         return NextResponse.json(
             {
                 error: `Failed to fetch companies: ${

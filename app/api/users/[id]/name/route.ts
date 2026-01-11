@@ -4,6 +4,8 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "app/shared/services/auth";
 import { log } from "app/shared/services";
 
+const LOG_CATEGORY = "users";
+
 const prisma = new PrismaClient();
 
 type RouteContext = {
@@ -42,14 +44,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
             data: { name: name.trim() },
         });
 
-        log.info(`Updated user ${userId} name to: ${name.trim()}`);
+        log.info(LOG_CATEGORY, `Updated user ${userId} name to: ${name.trim()}`);
 
         return NextResponse.json({
             success: true,
             name: updatedUser.name,
         });
     } catch (error) {
-        log.error("Error updating user name:", error);
+        log.error(LOG_CATEGORY, "Error updating user name:", error);
         return NextResponse.json(
             { error: "Failed to update user name" },
             { status: 500 }

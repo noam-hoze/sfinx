@@ -10,6 +10,8 @@ import { log } from "app/shared/services";
 import { readResponseError } from "app/shared/utils/http";
 import { getBreadcrumbTrail } from "app/shared/config/navigation";
 import InterviewContentSection, {
+
+const LOG_CATEGORY = "company-dashboard";
     InterviewContentState,
     InterviewDurationState,
     defaultInterviewDurations,
@@ -176,13 +178,13 @@ function CompanyJobDetailContent() {
                 const message =
                     err instanceof Error ? err.message : "Unknown error";
                 setError(message);
-                log.error("❌ Failed to load company job detail:", err);
+                log.error(LOG_CATEGORY, "❌ Failed to load company job detail:", err);
             } finally {
                 setLoading(false);
             }
         };
         fetchDetail().catch((err) => {
-            log.error("❌ Unexpected job detail fetch error:", err);
+            log.error(LOG_CATEGORY, "❌ Unexpected job detail fetch error:", err);
         });
     }, [jobId]);
 
@@ -197,7 +199,7 @@ function CompanyJobDetailContent() {
                     }
                 }
             } catch (err) {
-                log.error("❌ Failed to load scoring configuration:", err);
+                log.error(LOG_CATEGORY, "❌ Failed to load scoring configuration:", err);
             }
         };
         fetchScoringConfig();
@@ -320,7 +322,7 @@ function CompanyJobDetailContent() {
             const message =
                 err instanceof Error ? err.message : "Unknown error";
             setError(message);
-            log.error("❌ Failed to save company job:", err);
+            log.error(LOG_CATEGORY, "❌ Failed to save company job:", err);
         } finally {
             setSaving(false);
         }
@@ -351,7 +353,7 @@ function CompanyJobDetailContent() {
             const message =
                 err instanceof Error ? err.message : "Unknown error";
             setError(message);
-            log.error("❌ Failed to remove interview content:", err);
+            log.error(LOG_CATEGORY, "❌ Failed to remove interview content:", err);
         } finally {
             setRemovingInterview(false);
         }

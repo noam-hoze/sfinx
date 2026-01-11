@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { log } from "app/shared/services";
 
+const LOG_CATEGORY = "interviews";
+
 const openaiClient = new OpenAI({
     apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
 });
@@ -18,7 +20,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        log.info("[Job-Specific Coding Eval] Evaluating code against categories:", categories.length);
+        log.info(LOG_CATEGORY, "[Job-Specific Coding Eval] Evaluating code against categories:", categories.length);
 
         // Build category list for prompt
         const categoryList = categories
@@ -90,11 +92,11 @@ Return ONLY valid JSON with this exact structure:
             throw new Error("Invalid response structure from OpenAI");
         }
 
-        log.info("[Job-Specific Coding Eval] Evaluation complete");
+        log.info(LOG_CATEGORY, "[Job-Specific Coding Eval] Evaluation complete");
 
         return NextResponse.json(result);
     } catch (error: any) {
-        log.error("[Job-Specific Coding Eval] Error:", error);
+        log.error(LOG_CATEGORY, "[Job-Specific Coding Eval] Error:", error);
         return NextResponse.json(
             {
                 error: "Failed to evaluate job-specific coding",

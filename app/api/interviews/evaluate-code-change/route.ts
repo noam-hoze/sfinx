@@ -4,6 +4,8 @@ import prisma from "lib/prisma";
 import OpenAI from "openai";
 import { createVideoChapter } from "../shared/createVideoChapter";
 
+const LOG_CATEGORY = "interviews";
+
 const openai = new OpenAI({
     apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
 });
@@ -24,7 +26,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        log.info("[evaluate-code-change] Evaluating code change for session:", sessionId);
+        log.info(LOG_CATEGORY, "[evaluate-code-change] Evaluating code change for session:", sessionId);
 
         // Fetch session with recording data
         const session = await prisma.interviewSession.findUnique({
@@ -98,7 +100,7 @@ For EVERY category, return:
 
 Be strict with 0 scores - use them for noise. But use the full range 1-100 for legitimate code.`;
 
-        log.info("[evaluate-code-change] Calling OpenAI for evaluation");
+        log.info(LOG_CATEGORY, "[evaluate-code-change] Calling OpenAI for evaluation");
 
         const completion = await openai.chat.completions.create({
             model: "gpt-4o",
@@ -125,7 +127,7 @@ Be strict with 0 scores - use them for noise. But use the full range 1-100 for l
         const allEvaluations = evaluationResult.evaluations || [];
         const contributions = allEvaluations.filter((e: any) => e.strength > 0);
 
-        log.info(`[evaluate-code-change] Found ${contributions.length} contributions with strength > 0 out of ${allEvaluations.length} evaluations`);
+        log.info(LOG_CATEGORY, `[evaluate-code-change] Found ${contributions.length} contributions with strength > 0 out of ${allEvaluations.length} evaluations`);
 
         // Calculate video offset
         const changeTimestamp = new Date(timestamp);
@@ -138,7 +140,7 @@ Be strict with 0 scores - use them for noise. But use the full range 1-100 for l
 
         // Create evidence clips and contribution records for each contribution with strength > 0
         for (const contribution of contributions) {
-            log.info(`[evaluate-code-change] Creating evidence for ${contribution.category} (strength: ${contribution.strength})`);
+            log.info(LOG_CATEGORY, `[evaluate-code-change] Creating evidence for ${contribution.category} (strength: ${contribution.strength})`);
 
             // 1. Create CategoryContribution record
             await prisma.categoryContribution.create({
@@ -181,7 +183,7 @@ Be strict with 0 scores - use them for noise. But use the full range 1-100 for l
                 });
             }
 
-            log.info(`[evaluate-code-change] ✅ Created evidence for ${contribution.category} at ${videoOffset}s`);
+            log.info(LOG_CATEGORY, `[evaluate-code-change] ✅ Created evidence for ${contribution.category} at ${videoOffset}s`);
         }
 
         return NextResponse.json({
@@ -195,7 +197,7 @@ Be strict with 0 scores - use them for noise. But use the full range 1-100 for l
             })),
         });
     } catch (error: any) {
-        log.error("[evaluate-code-change] Error evaluating code change:", error);
+        log.error(LOG_CATEGORY, "[evaluate-code-change] Error evaluating code change:", error);
         return NextResponse.json(
             {
                 error: "Failed to evaluate code change",

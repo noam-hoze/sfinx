@@ -5,6 +5,8 @@ import { authOptions, prisma, invalidatePattern, invalidate } from "app/shared/s
 import { loadCompanyForUser } from "../companyContext";
 import { mapJobResponse, coerceSeconds } from "../jobHelpers";
 
+const LOG_CATEGORY = "company";
+
 type RouteContext = {
     params: Promise<{ jobId?: string | string[] }>;
 };
@@ -89,7 +91,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
             }
             return 500;
         })();
-        log.error("❌ Failed to fetch company job detail:", error);
+        log.error(LOG_CATEGORY, "❌ Failed to fetch company job detail:", error);
         return NextResponse.json({ error: message }, { status });
     }
 }
@@ -307,7 +309,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             }
             return 500;
         })();
-        log.error("❌ Failed to update company job:", error);
+        log.error(LOG_CATEGORY, "❌ Failed to update company job:", error);
         return NextResponse.json({ error: message }, { status });
     }
 }
@@ -370,7 +372,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
             }
             return 500;
         })();
-        log.error("❌ Failed to delete company job:", error);
+        log.error(LOG_CATEGORY, "❌ Failed to delete company job:", error);
         return NextResponse.json({ error: message }, { status });
     }
 }

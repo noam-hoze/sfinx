@@ -5,6 +5,8 @@ import { authOptions, prisma, invalidatePattern } from "app/shared/services/serv
 import { loadCompanyForUser } from "./companyContext";
 import { coerceSeconds, mapJobResponse } from "./jobHelpers";
 
+const LOG_CATEGORY = "company";
+
 function ensureCompanyRole(session: any) {
     const role = session?.user?.role;
     if (role !== "COMPANY") {
@@ -42,7 +44,7 @@ export async function GET(_request: NextRequest) {
             jobs: jobs.map((job: any) => mapJobResponse(job, company)),
         });
     } catch (error) {
-        log.error("❌ Failed to list company jobs:", error);
+        log.error(LOG_CATEGORY, "❌ Failed to list company jobs:", error);
         const message = error instanceof Error ? error.message : "Unknown error";
         const status = message === "Company role required" ? 403 : 500;
         return NextResponse.json({ error: message }, { status });
@@ -190,7 +192,7 @@ export async function POST(request: NextRequest) {
         invalidatePattern("companies:list:");
         return NextResponse.json(mapJobResponse(job, job.company));
     } catch (error) {
-        log.error("❌ Failed to create company job:", error);
+        log.error(LOG_CATEGORY, "❌ Failed to create company job:", error);
         const message = error instanceof Error ? error.message : "Unknown error";
         const status = (() => {
             if (message === "Company role required") {

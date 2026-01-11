@@ -7,6 +7,8 @@ import { AuthGuard } from "app/shared/components";
 import { log } from "app/shared/services";
 import { readResponseError } from "app/shared/utils/http";
 import InterviewContentSection, {
+
+const LOG_CATEGORY = "company-dashboard";
     InterviewContentState,
     InterviewDurationState,
     defaultInterviewDurations,
@@ -135,13 +137,13 @@ function CreateJobContent() {
                 );
             }
             
-            log.info("Job created successfully");
+            log.info(LOG_CATEGORY, "Job created successfully");
             router.push("/company-dashboard/jobs");
         } catch (err) {
             const message =
                 err instanceof Error ? err.message : "Unknown error";
             setError(message);
-            log.error("❌ Failed to create job:", err);
+            log.error(LOG_CATEGORY, "❌ Failed to create job:", err);
         } finally {
             setCreateSubmitting(false);
         }

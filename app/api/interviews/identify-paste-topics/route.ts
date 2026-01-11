@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { log } from "app/shared/services";
 
+const LOG_CATEGORY = "interviews";
+
 const openaiClient = new OpenAI({
     apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
 });
@@ -30,7 +32,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        log.info("[Topic Identification] Analyzing pasted code for topics...");
+        log.info(LOG_CATEGORY, "[Topic Identification] Analyzing pasted code for topics...");
 
         const systemPrompt = `You are analyzing code a candidate pasted during an interview.
 
@@ -98,11 +100,11 @@ Maximum 3-4 topics to ensure comprehensive evaluation without overwhelming the c
             }
         }
 
-        log.info("[Topic Identification] Identified topics:", result.topics.length);
+        log.info(LOG_CATEGORY, "[Topic Identification] Identified topics:", result.topics.length);
 
         return NextResponse.json(result);
     } catch (error: any) {
-        log.error("[Topic Identification] Error:", error);
+        log.error(LOG_CATEGORY, "[Topic Identification] Error:", error);
         return NextResponse.json(
             {
                 error: "Failed to identify paste topics",

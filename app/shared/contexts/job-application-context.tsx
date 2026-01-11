@@ -10,6 +10,8 @@ import React, {
 import { useSession } from "next-auth/react";
 import { log } from "app/shared/services";
 
+const LOG_CATEGORY = "job-application";
+
 interface JobApplicationState {
     appliedCompanies: string[]; // Array of company IDs
     loading: boolean;
@@ -91,11 +93,11 @@ export function JobApplicationProvider({ children }: { children: ReactNode }) {
                             payload: data.appliedCompanyIds,
                         });
                     } else {
-                        log.error("Failed to fetch applied companies");
+                        log.error(LOG_CATEGORY, "Failed to fetch applied companies");
                         dispatch({ type: "LOAD_FROM_DATABASE", payload: [] });
                     }
                 } catch (error) {
-                    log.error("Error fetching applied companies:", error);
+                    log.error(LOG_CATEGORY, "Error fetching applied companies:", error);
                     dispatch({ type: "LOAD_FROM_DATABASE", payload: [] });
                 }
             } else if (status === "unauthenticated") {

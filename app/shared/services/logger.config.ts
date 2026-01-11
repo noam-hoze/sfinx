@@ -1,4 +1,14 @@
+/** Logger configuration for levels, categories, and label overrides. */
 export const LOG_LEVEL = "info" as const; // 'debug' | 'info' | 'warn' | 'error' | 'silent'
+
+/** Category filter mode for log emission. */
+export type CategoryFilterMode = "allowlist" | "blocklist";
+
+/** Category filter mode that determines how CATEGORY_FILTER is interpreted. */
+export const CATEGORY_FILTER_MODE: CategoryFilterMode = "blocklist";
+
+/** Category filter values for the current filter mode. */
+export const CATEGORY_FILTER: string[] = [];
 
 // Empty means: allow all files to log
 export const ALLOWLIST: (string | RegExp)[] = [];

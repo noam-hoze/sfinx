@@ -3,6 +3,8 @@ import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 import { createVideoChapter } from "../../../shared/createVideoChapter";
 
+const LOG_CATEGORY = "interviews";
+
 type RouteContext = {
     params: Promise<{ sessionId?: string | string[] }>;
 };
@@ -40,7 +42,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             );
         }
 
-        log.info("[Paste Chapter API] Creating chapter at paste detection");
+        log.info(LOG_CATEGORY, "[Paste Chapter API] Creating chapter at paste detection");
 
         const session = await prisma.interviewSession.findUnique({
             where: { id: sessionId },
@@ -64,10 +66,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
         const recordingStartTime = session.recordingStartedAt;
         const videoOffset = Math.floor((pasteTimestamp.getTime() - recordingStartTime.getTime()) / 1000);
         
-        log.info("🎬 [Paste Chapter API] VideoChapter calculation:");
-        log.info("  - Recording started at:", recordingStartTime.toISOString());
-        log.info("  - Paste occurred at:", pasteTimestamp.toISOString());
-        log.info("  - Calculated video offset (s):", videoOffset);
+        log.info(LOG_CATEGORY, "🎬 [Paste Chapter API] VideoChapter calculation:");
+        log.info(LOG_CATEGORY, "  - Recording started at:", recordingStartTime.toISOString());
+        log.info(LOG_CATEGORY, "  - Paste occurred at:", pasteTimestamp.toISOString());
+        log.info(LOG_CATEGORY, "  - Calculated video offset (s):", videoOffset);
         
         if (videoOffset < 0) {
             return NextResponse.json(
@@ -89,7 +91,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             chapterId: videoChapter.id,
         });
     } catch (error: any) {
-        log.error("[Paste Chapter API] Error creating chapter:", error);
+        log.error(LOG_CATEGORY, "[Paste Chapter API] Error creating chapter:", error);
         return NextResponse.json(
             {
                 error: "Failed to create chapter",

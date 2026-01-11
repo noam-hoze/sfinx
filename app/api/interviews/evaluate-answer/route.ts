@@ -4,6 +4,8 @@ import prisma from "lib/prisma";
 import OpenAI from "openai";
 import { createVideoChapter } from "../shared/createVideoChapter";
 
+const LOG_CATEGORY = "interviews";
+
 const openai = new OpenAI({
     apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
 });
@@ -24,7 +26,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        log.info("[evaluate-answer] Evaluating answer for session:", sessionId);
+        log.info(LOG_CATEGORY, "[evaluate-answer] Evaluating answer for session:", sessionId);
 
         // Fetch session with recording data and job
         const session = await prisma.interviewSession.findUnique({
@@ -53,7 +55,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (!categoriesToEvaluate || categoriesToEvaluate.length === 0) {
-            log.info("[evaluate-answer] No experience categories defined for this job - skipping evaluation");
+            log.info(LOG_CATEGORY, "[evaluate-answer] No experience categories defined for this job - skipping evaluation");
             return NextResponse.json({
                 success: true,
                 contributionsCount: 0,
@@ -109,7 +111,7 @@ CRITICAL RULES:
 - Blank or gibberish answers MUST be scored 0 across all categories.
 - Be strict with 0 scores - use them for noise, blank answers, and gibberish.`;
 
-        log.info("[evaluate-answer] Calling OpenAI for evaluation");
+        log.info(LOG_CATEGORY, "[evaluate-answer] Calling OpenAI for evaluation");
 
         const completion = await openai.chat.completions.create({
             model: "gpt-4o",
@@ -132,7 +134,7 @@ CRITICAL RULES:
         }
 
         const evaluation = JSON.parse(responseText);
-        log.info("[evaluate-answer] OpenAI evaluation:", evaluation);
+        log.info(LOG_CATEGORY, "[evaluate-answer] OpenAI evaluation:", evaluation);
 
         // Process evaluations - only create records for non-zero scores
         const contributions: Array<{
@@ -157,7 +159,7 @@ CRITICAL RULES:
                     },
                 });
 
-                log.info(`[evaluate-answer] Created contribution for ${item.category}:`, contribution.id);
+                log.info(LOG_CATEGORY, `[evaluate-answer] Created contribution for ${item.category}:`, contribution.id);
 
                 // Calculate video offset
                 let videoOffset = 0;
@@ -183,7 +185,7 @@ CRITICAL RULES:
                     },
                 });
 
-                log.info(`[evaluate-answer] Created evidence clip for ${item.category}:`, evidenceClip.id);
+                log.info(LOG_CATEGORY, `[evaluate-answer] Created evidence clip for ${item.category}:`, evidenceClip.id);
 
                 // Create VideoChapter
                 await createVideoChapter({
@@ -203,7 +205,7 @@ CRITICAL RULES:
             }
         }
 
-        log.info(`[evaluate-answer] ✅ Evaluation complete. ${contributions.length} contributions with strength > 0.`);
+        log.info(LOG_CATEGORY, `[evaluate-answer] ✅ Evaluation complete. ${contributions.length} contributions with strength > 0.`);
 
         // Calculate updated category counts
         const updatedCounts = await prisma.categoryContribution.groupBy({
@@ -219,7 +221,7 @@ CRITICAL RULES:
             avgStrength: Math.round(item._avg.contributionStrength || 0),
         }));
 
-        log.info(`[evaluate-answer] Updated category stats:`, categoryStats);
+        log.info(LOG_CATEGORY, `[evaluate-answer] Updated category stats:`, categoryStats);
 
         return NextResponse.json({
             success: true,
@@ -229,7 +231,7 @@ CRITICAL RULES:
             updatedCounts: categoryStats,
         });
     } catch (error) {
-        log.error("[evaluate-answer] ❌ Error:", error);
+        log.error(LOG_CATEGORY, "[evaluate-answer] ❌ Error:", error);
         return NextResponse.json(
             { error: error instanceof Error ? error.message : "Unknown error" },
             { status: 500 }

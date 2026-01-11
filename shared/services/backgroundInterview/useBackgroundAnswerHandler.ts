@@ -18,6 +18,8 @@ import { buildOpenAIBackgroundPrompt } from "@/shared/prompts/openAIInterviewerP
 import { buildControlContextMessages, CONTROL_CONTEXT_TURNS } from "app/shared/services";
 import { log } from "app/shared/services/logger";
 
+const LOG_CATEGORY = "background-interview";
+
 interface AnswerHandlerResult {
   transitionReason?: string;
   shouldComplete: boolean;
@@ -53,14 +55,14 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
         })
       });
     } catch (err) {
-      log.error("Failed to save message:", err);
+      log.error(LOG_CATEGORY, "Failed to save message:", err);
     }
   };
 
   const handleSubmit = useCallback(
     async (answer: string, openaiClient: OpenAI | null, candidateName: string): Promise<AnswerHandlerResult> => {
       if (!openaiClient || !companyName) {
-        log.info("Submit blocked - missing openaiClient or companyName");
+        log.info(LOG_CATEGORY, "Submit blocked - missing openaiClient or companyName");
         return { shouldComplete: false };
       }
 
@@ -112,7 +114,7 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
             // Use updated counts from evaluation response
             categoryStats = evalData.updatedCounts || [];
           } catch (err) {
-            log.error("Failed to evaluate answer:", err);
+            log.error(LOG_CATEGORY, "Failed to evaluate answer:", err);
           } finally {
             dispatch(setEvaluatingAnswer({ evaluating: false }));
           }
@@ -120,7 +122,7 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
 
         // Transition machine state
         const ms = store.getState().interview;
-        log.info("Interview stage:", ms.stage);
+        log.info(LOG_CATEGORY, "Interview stage:", ms.stage);
 
         if (ms.stage === "background") {
           const backgroundState = store.getState().background;
@@ -140,7 +142,7 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
                 }));
               }
             } catch (err) {
-              log.error("Failed to fetch contributions:", err);
+              log.error(LOG_CATEGORY, "Failed to fetch contributions:", err);
             }
           }
           
@@ -149,11 +151,11 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
             { timeboxMs, categories }
           );
 
-          log.info("Time gate check:", { transitionReason, categories });
+          log.info(LOG_CATEGORY, "Time gate check:", { transitionReason, categories });
 
           if (transitionReason) {
             // Time limit reached - generate closing response
-            log.info(`Time limit reached (${transitionReason})`);
+            log.info(LOG_CATEGORY, `Time limit reached (${transitionReason})`);
             const persona = buildOpenAIBackgroundPrompt(String(companyName), script?.experienceCategories);
             const firstName = candidateName.split(" ")[0] || "Candidate";
             const closingInstruction = `Say exactly: "Thank you so much ${firstName}, the next steps will be shared with you shortly."`;
@@ -171,15 +173,15 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
               dispatch(addMessage({ text: systemMsg, speaker: "system" as any }));
               // Don't save system message to DB to keep transcript clean
               
-              log.info("Final response generated");
+              log.info(LOG_CATEGORY, "Final response generated");
             } catch (err) {
-              log.error("Failed to generate final response:", err);
+              log.error(LOG_CATEGORY, "Failed to generate final response:", err);
             }
 
             return { transitionReason, shouldComplete: true };
           } else {
             // Generate follow-up question with category-aware guidance
-            log.info("Generating follow-up question...");
+            log.info(LOG_CATEGORY, "Generating follow-up question...");
             
             // Build category guidance using fresh data from evaluation
             const TARGET_CONTRIBUTIONS = 5;
@@ -240,19 +242,19 @@ ${coverageList}
 ${focusGuidance}`;
             }
             
-            log.info("Category guidance:", categoryGuidance);
+            log.info(LOG_CATEGORY, "Category guidance:", categoryGuidance);
             
             // Add last answer context to guidance
             let answerContext = "";
             if (isBlankAnswer) {
               const previousQuestion = currentQuestion || "the question";
               answerContext = `\n\nINSTRUCTION: The candidate didn't know the answer to: "${previousQuestion}"\n\n1. Acknowledge briefly that they're unsure (e.g., "I understand that's challenging")\n2. Generate a completely NEW question on a DIFFERENT angle or aspect\n3. Stay within the target category from the guidance above\n4. DO NOT repeat any question from the conversation history`;
-              log.info("BLANK ANSWER DETECTED - sending special instruction");
+              log.info(LOG_CATEGORY, "BLANK ANSWER DETECTED - sending special instruction");
             } else {
               answerContext = `\n\nCandidate's last answer: "${answer}"\nRespond contextually to what they said.`;
             }
             
-            log.info("Answer context:", answerContext.substring(0, 150));
+            log.info(LOG_CATEGORY, "Answer context:", answerContext.substring(0, 150));
             
             const persona = buildOpenAIBackgroundPrompt(String(companyName), script?.experienceCategories) + categoryGuidance + answerContext;
             const historyMessages = buildControlContextMessages(CONTROL_CONTEXT_TURNS);
@@ -260,16 +262,16 @@ ${focusGuidance}`;
             const followUpRaw = await askViaChatCompletion(openaiClient, persona, historyMessages);
 
             if (followUpRaw) {
-              log.info("Raw OpenAI response:", followUpRaw);
+              log.info(LOG_CATEGORY, "Raw OpenAI response:", followUpRaw);
               try {
                 // Parse JSON response
                 const parsed = JSON.parse(followUpRaw);
-                log.info("Parsed JSON:", parsed);
+                log.info(LOG_CATEGORY, "Parsed JSON:", parsed);
                 const question = parsed.question || followUpRaw;
                 const targetedCategory = parsed.targetedCategory || null;
 
-                log.info("Extracted question:", question);
-                log.info("Targeted category:", targetedCategory);
+                log.info(LOG_CATEGORY, "Extracted question:", question);
+                log.info(LOG_CATEGORY, "Targeted category:", targetedCategory);
 
                 dispatch(addMessage({ text: question, speaker: "ai" }));
                 saveMessageToDb(question, "ai");
@@ -278,11 +280,11 @@ ${focusGuidance}`;
                   dispatch(setCurrentQuestionTarget({ question, category: targetedCategory }));
                 }
 
-                log.info("Follow-up question generated and dispatched");
+                log.info(LOG_CATEGORY, "Follow-up question generated and dispatched");
               } catch (err) {
                 // Fallback if not JSON
-                log.error("JSON parse failed:", err);
-                log.warn("Using raw text as fallback");
+                log.error(LOG_CATEGORY, "JSON parse failed:", err);
+                log.warn(LOG_CATEGORY, "Using raw text as fallback");
                 dispatch(addMessage({ text: followUpRaw, speaker: "ai" }));
                 saveMessageToDb(followUpRaw, "ai");
               }
@@ -294,7 +296,7 @@ ${focusGuidance}`;
 
         return { shouldComplete: false };
       } catch (error) {
-        log.error("Error processing answer:", error);
+        log.error(LOG_CATEGORY, "Error processing answer:", error);
         throw error;
       }
     },
