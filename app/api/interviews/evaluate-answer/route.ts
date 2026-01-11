@@ -37,7 +37,11 @@ export async function POST(request: NextRequest) {
                 telemetryData: true,
                 application: {
                     include: {
-                        job: true,
+                        job: {
+                            include: {
+                                company: true,
+                            },
+                        },
                     },
                 },
             },
@@ -71,15 +75,40 @@ export async function POST(request: NextRequest) {
             .map((cat: any) => `- ${cat.name}: ${cat.description}${cat.example ? `\n  Example: ${cat.example}` : ''}`)
             .join("\n");
 
+        // Get company and role context
+        const companyName = session.application?.job?.company?.name;
+        const jobTitle = session.application?.job?.title;
+
+        if (!companyName || !jobTitle) {
+            throw new Error("Company name and job title are required for evaluation");
+        }
+
         // Call OpenAI to evaluate contributions
-        const evaluationPrompt = `You are a strict interview evaluator.
+        const evaluationPrompt = `You are a hiring manager at ${companyName} evaluating a candidate for the ${jobTitle} position.
 
 QUESTION: ${question}
 
 ANSWER: ${answer}
 
+RELEVANCE GATE (MANDATORY):
+First determine if the ANSWER directly addresses the QUESTION.
+- If the answer does NOT explicitly attempt to answer the question → mark as IRRELEVANT.
+- If IRRELEVANT → you MUST return a score of 0 for ALL categories and skip all further evaluation. Do NOT attempt to partially score.
+- Irrelevant cases include: answering a previous question, generic experience, aspirational statements, or answering a different topic.
+- Do not reward impressive but irrelevant content.
+
+If Relevant → continue with full evaluation.
+
+Definition of Directly Addressing the Question:
+The answer must speak to the exact dimension asked (e.g. if asked about design patterns it must name or describe at least one design pattern).
+High-level talk about the project, stack, scale, ownership, or company context does NOT count as addressing the question.
+
+Do not assume continuity between questions. Answers must be independently relevant to the current question. Do not infer intent or fix misalignment.
+
 Categories to evaluate:
 ${categoryList}
+
+Be pedantic: evaluate answer-to-question match, NOT general answer impressiveness.
 
 SCORING GUIDELINES (0-100):
 - **0**: Blank answers, gibberish, off-topic, evasive, generic platitudes, or adds ZERO relevant information
@@ -107,6 +136,23 @@ For EVERY category, return your evaluation in JSON format:
     }
   ]
 }
+
+IF IRRELEVANT:
+Return:
+
+{
+  "evaluations": [
+    {
+      "category": "<category>",
+      "reasoning": "Answer did not address the question. Automatic zero per Relevance Gate.",
+      "strength": 0,
+      "caption": null
+    },
+    ...
+  ]
+}
+
+After returning zeros DO NOT add explanations, summaries, or additional text.
 
 CRITICAL RULES:
 - If strength > 0, you MUST provide a caption. Never return null caption with non-zero strength.
