@@ -5,6 +5,9 @@ import prisma from "lib/prisma";
 import { log } from "app/shared/services";
 import { loadCompanyForUser } from "../../companyContext";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.COMPANY;
+
 interface RouteContext {
     params: Promise<{ jobId: string }>;
 }
@@ -54,7 +57,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 config = await prisma.scoringConfiguration.create({
                     data: { jobId },
                 });
-                log.info(`[scoring-config/GET] Created default configuration for job ${jobId}`);
+                log.info(LOG_CATEGORY, `[scoring-config/GET] Created default configuration for job ${jobId}`);
             }
 
             return NextResponse.json({ config });
@@ -92,12 +95,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
             config = await prisma.scoringConfiguration.create({
                 data: { jobId },
             });
-            log.info(`[scoring-config/GET] Created default configuration for job ${jobId}`);
+            log.info(LOG_CATEGORY, `[scoring-config/GET] Created default configuration for job ${jobId}`);
         }
 
         return NextResponse.json({ config });
     } catch (error: any) {
-        log.error("[scoring-config/GET] Error:", error);
+        log.error(LOG_CATEGORY, "[scoring-config/GET] Error:", error);
         const message = error.message || "Failed to fetch scoring configuration";
         const status = error.message?.includes("Forbidden") ? 403 : 500;
         return NextResponse.json({ error: message }, { status });
@@ -209,11 +212,11 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             update: updates,
         });
 
-        log.info(`[scoring-config/PUT] Updated configuration for job ${jobId}`);
+        log.info(LOG_CATEGORY, `[scoring-config/PUT] Updated configuration for job ${jobId}`);
 
         return NextResponse.json({ config });
     } catch (error: any) {
-        log.error("[scoring-config/PUT] Error:", error);
+        log.error(LOG_CATEGORY, "[scoring-config/PUT] Error:", error);
         const message = error.message || "Failed to update scoring configuration";
         const status = error.message?.includes("Forbidden") ? 403 : 500;
         return NextResponse.json({ error: message }, { status });

@@ -1,5 +1,10 @@
 "use client";
 
+import { log } from "app/shared/services/logger";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
+
 import React, { useState, useEffect, useMemo } from "react";
 import { LiveProvider, LiveError, LivePreview } from "react-live";
 
@@ -57,10 +62,10 @@ render(DefaultComponent);
 
     useEffect(() => {
         if (isActive && code) {
-            console.log("🎬 [CodePreview] Code execution starting...");
-            console.log("[CodePreview] Active:", isActive);
-            console.log("[CodePreview] Code length:", code.length);
-            console.log("[CodePreview] Code preview:", code.substring(0, 150));
+            log.info(LOG_CATEGORY, "🎬 [CodePreview] Code execution starting...");
+            log.info(LOG_CATEGORY, "[CodePreview] Active:", isActive);
+            log.info(LOG_CATEGORY, "[CodePreview] Code length:", code.length);
+            log.info(LOG_CATEGORY, "[CodePreview] Code preview:", code.substring(0, 150));
             
             setIsExecuting(true);
             setExecutionStatus("idle");
@@ -69,7 +74,7 @@ render(DefaultComponent);
             // Simulate execution delay and capture output
             const timer = setTimeout(() => {
                 setIsExecuting(false);
-                console.log("[CodePreview] Execution timer completed, capturing output...");
+                log.info(LOG_CATEGORY, "[CodePreview] Execution timer completed, capturing output...");
                 
                 // Try to capture rendered output
                 try {
@@ -81,10 +86,10 @@ render(DefaultComponent);
                         output = previewElement.innerText || previewElement.textContent || "";
                     }
                     
-                    console.log("[CodePreview] Preview element found:", !!previewElement);
-                    console.log("[CodePreview] Captured output length:", output.length);
-                    console.log("[CodePreview] Captured output:", output);
-                    console.log("[CodePreview] Error message state:", errorMessage);
+                    log.info(LOG_CATEGORY, "[CodePreview] Preview element found:", !!previewElement);
+                    log.info(LOG_CATEGORY, "[CodePreview] Captured output length:", output.length);
+                    log.info(LOG_CATEGORY, "[CodePreview] Captured output:", output);
+                    log.info(LOG_CATEGORY, "[CodePreview] Error message state:", errorMessage);
                     
                     // Check if the output contains React error indicators OR if errorMessage state has an error
                     const isError = errorMessage || 
@@ -96,13 +101,13 @@ render(DefaultComponent);
                                    output.includes("Cannot read") ||
                                    output.includes("undefined is not");
                     
-                    console.log("[CodePreview] isError:", isError);
+                    log.info(LOG_CATEGORY, "[CodePreview] isError:", isError);
                     
                     if (isError) {
                         const errorOutput = errorMessage || output;
                         setErrorMessage(errorOutput);
                         setExecutionStatus("error");
-                        console.log("❌ [CodePreview] Calling onExecutionResult with ERROR:", {
+                        log.info(LOG_CATEGORY, "❌ [CodePreview] Calling onExecutionResult with ERROR:", {
                             status: "error",
                             outputLength: errorOutput.trim().length,
                             outputPreview: errorOutput.trim().substring(0, 100),
@@ -118,7 +123,7 @@ render(DefaultComponent);
                         }
                         
                         setExecutionStatus("success");
-                        console.log("✅ [CodePreview] Calling onExecutionResult with SUCCESS:", {
+                        log.info(LOG_CATEGORY, "✅ [CodePreview] Calling onExecutionResult with SUCCESS:", {
                             status: "success",
                             outputLength: output.trim().length,
                             outputPreview: output.trim().substring(0, 100),

@@ -17,6 +17,9 @@ import { shouldTransition } from "@/shared/services/backgroundSessionGuard";
 import { buildOpenAIBackgroundPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
 import { buildControlContextMessages, CONTROL_CONTEXT_TURNS } from "app/shared/services";
 import { log } from "app/shared/services/logger";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.BACKGROUND_INTERVIEW;
 
 interface AnswerHandlerResult {
   transitionReason?: string;
@@ -54,14 +57,14 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
         })
       });
     } catch (err) {
-      log.error("Failed to save message:", err);
+      log.error(LOG_CATEGORY, "Failed to save message:", err);
     }
   }, [sessionId, userId]);
 
   const handleSubmit = useCallback(
     async (answer: string, openaiClient: OpenAI | null, candidateName: string): Promise<AnswerHandlerResult> => {
       if (!openaiClient || !companyName) {
-        log.info("Submit blocked - missing openaiClient or companyName");
+        log.info(LOG_CATEGORY, "Submit blocked - missing openaiClient or companyName");
         return { shouldComplete: false };
       }
 
@@ -106,7 +109,7 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
               .map(c => c.categoryName);
 
             if (excludedTopics.length > 0) {
-              log.info(`Excluded topics (dontKnowCount >= ${dontKnowThreshold}): ${excludedTopics.join(', ')}`);
+              log.info(LOG_CATEGORY, `Excluded topics (dontKnowCount >= ${dontKnowThreshold}): ${excludedTopics.join(', ')}`);
             }
             
             const fastResponse = await fetch(`/api/interviews/evaluate-answer-fast`, {
@@ -127,7 +130,7 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
             
             // Check if all categories excluded
             if (fastData.allCategoriesExcluded) {
-              log.info("All categories excluded - ending background interview");
+              log.info(LOG_CATEGORY, "All categories excluded - ending background interview");
               dispatch(setEvaluatingAnswer({ evaluating: false }));
               dispatch(forceTimeExpiry());
               return { shouldComplete: true, transitionReason: "all_categories_excluded" };
@@ -135,7 +138,7 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
             
             // Increment don't know count if detected
             if (fastData.isDontKnow && fastData.targetedCategory) {
-              log.info(`"I don't know" detected for category: ${fastData.targetedCategory}`);
+              log.info(LOG_CATEGORY, `"I don't know" detected for category: ${fastData.targetedCategory}`);
               
               dispatch(incrementDontKnowCount({ category: fastData.targetedCategory }));
             }
@@ -176,7 +179,7 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
               })
             }).then(async (fullResponse) => {
               const fullData = await fullResponse.json();
-              log.info("[async] Full evaluation complete");
+              log.info(LOG_CATEGORY, "[async] Full evaluation complete");
               
               if (fullData.allEvaluations && onEvaluationReceived) {
                 onEvaluationReceived({
@@ -187,11 +190,11 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
                 });
               }
             }).catch((err) => {
-              log.error("[async] Full evaluation failed:", err);
+              log.error(LOG_CATEGORY, "[async] Full evaluation failed:", err);
             });
             
           } catch (err) {
-            log.error("Failed fast evaluation:", err);
+            log.error(LOG_CATEGORY, "Failed fast evaluation:", err);
           } finally {
             dispatch(setEvaluatingAnswer({ evaluating: false }));
           }
@@ -199,7 +202,7 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
 
         // Transition machine state
         const ms = store.getState().interview;
-        log.info("Interview stage:", ms.stage);
+        log.info(LOG_CATEGORY, "Interview stage:", ms.stage);
 
         if (ms.stage === "background") {
           const backgroundState = store.getState().background;
@@ -218,11 +221,11 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
             { timeboxMs, categories }
           );
 
-          log.info("Time gate check:", { transitionReason, categories });
+          log.info(LOG_CATEGORY, "Time gate check:", { transitionReason, categories });
 
           if (transitionReason) {
             // Time limit reached - generate closing response
-            log.info(`Time limit reached (${transitionReason})`);
+            log.info(LOG_CATEGORY, `Time limit reached (${transitionReason})`);
             const persona = buildOpenAIBackgroundPrompt(String(companyName), script?.experienceCategories);
             const firstName = candidateName.split(" ")[0] || "Candidate";
             const closingInstruction = `Say exactly: "Thank you so much ${firstName}, the next steps will be shared with you shortly."`;
@@ -240,20 +243,20 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
               dispatch(addMessage({ text: systemMsg, speaker: "system" as any }));
               // Don't save system message to DB to keep transcript clean
               
-              log.info("Final response generated");
+              log.info(LOG_CATEGORY, "Final response generated");
             } catch (err) {
-              log.error("Failed to generate final response:", err);
+              log.error(LOG_CATEGORY, "Failed to generate final response:", err);
             }
 
             return { transitionReason, shouldComplete: true };
           } else {
             // PHASE 2: Use next question from fast API (no separate generation needed)
-            log.info("Using next question from fast API");
+            log.info(LOG_CATEGORY, "Using next question from fast API");
             
             if (nextQuestionText) {
               dispatch(addMessage({ text: nextQuestionText, speaker: "ai" }));
               saveMessageToDb(nextQuestionText, "ai");
-              log.info("Next question displayed");
+              log.info(LOG_CATEGORY, "Next question displayed");
             }
 
             return { shouldComplete: false };
@@ -262,7 +265,7 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
 
         return { shouldComplete: false };
       } catch (error) {
-        log.error("Error processing answer:", error);
+        log.error(LOG_CATEGORY, "Error processing answer:", error);
         throw error;
       }
     },

@@ -8,6 +8,9 @@ import AuthGuard from "app/shared/components/AuthGuard";
 import Header from "app/shared/components/Header";
 import { log } from "app/shared/services";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.COMPANY_DASHBOARD;
+
 export default function CompanySettingsPage() {
     const { data: session, update } = useSession();
     const [uploading, setUploading] = useState(false);
@@ -46,16 +49,16 @@ export default function CompanySettingsPage() {
 
             if (response.ok) {
                 const data = await response.json();
-                log.info("Upload successful, new image URL:", data.imageUrl);
-                log.info("Updating session with new image...");
+                log.info(LOG_CATEGORY, "Upload successful, new image URL:", data.imageUrl);
+                log.info(LOG_CATEGORY, "Updating session with new image...");
 
                 // Update session with new image
-                log.info("Updating session with new image URL...");
+                log.info(LOG_CATEGORY, "Updating session with new image URL...");
                 await update({ image: data.imageUrl });
-                log.info("Session updated with image:", data.imageUrl);
+                log.info(LOG_CATEGORY, "Session updated with image:", data.imageUrl);
 
                 setMessage("Profile image updated successfully!");
-                log.info("Session updated! Avatar should refresh automatically");
+                log.info(LOG_CATEGORY, "Session updated! Avatar should refresh automatically");
             } else {
                 setMessage("Failed to upload image. Please try again.");
             }

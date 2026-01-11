@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
+
 export async function GET(
     _request: NextRequest,
     { params }: { params: Promise<{ sessionId: string }> }
@@ -9,7 +12,7 @@ export async function GET(
     try {
         const { sessionId } = await params;
 
-        log.info("[Coding Summary API] Fetching summary for session:", sessionId);
+        log.info(LOG_CATEGORY, "[Coding Summary API] Fetching summary for session:", sessionId);
 
         // Get session with telemetry data and coding summary
         const session = await prisma.interviewSession.findUnique({
@@ -58,7 +61,7 @@ export async function GET(
 
         return NextResponse.json(response);
     } catch (error: any) {
-        log.error("[Coding Summary API] Error:", error);
+        log.error(LOG_CATEGORY, "[Coding Summary API] Error:", error);
         return NextResponse.json(
             {
                 error: "Failed to fetch coding summary",

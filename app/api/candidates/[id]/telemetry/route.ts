@@ -4,6 +4,9 @@ import { getCached, setCached } from "app/shared/services/server";
 import prisma from "lib/prisma";
 import { calculateScore, type RawScores, type WorkstyleMetrics, type ScoringConfiguration } from "app/shared/utils/calculateScore";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.TELEMETRY;
+
 type RouteContext = {
     params: Promise<{ id?: string | string[] }>;
 };
@@ -20,7 +23,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         const { id } = await context.params;
         const candidateId = normalizeId(id);
 
-        log.info("[Telemetry API] GET request for candidateId:", candidateId);
+        log.info(LOG_CATEGORY, "[Telemetry API] GET request for candidateId:", candidateId);
 
         if (!candidateId) {
             return NextResponse.json(
@@ -29,7 +32,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
             );
         }
         const applicationId = request.nextUrl.searchParams.get("applicationId");
-        log.info("[Telemetry API] applicationId:", applicationId);
+        log.info(LOG_CATEGORY, "[Telemetry API] applicationId:", applicationId);
 
         const cacheKey = `telemetry:candidate:${candidateId}:${applicationId ?? "all"}`;
         const cached = await getCached<any>(cacheKey);
@@ -110,7 +113,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
         const candidate = interviewSessions[0].candidate;
 
-        log.info("[Telemetry API] Found candidate:", candidate?.id, "Sessions:", interviewSessions.length);
+        log.info(LOG_CATEGORY, "[Telemetry API] Found candidate:", candidate?.id, "Sessions:", interviewSessions.length);
 
         // Fetch iterations for all sessions to generate evidence links
         const sessionIds = interviewSessions.map((s: any) => s.id);
@@ -233,9 +236,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
             iterationVideoChaptersBySession.get(sessionId)!.push(chapter);
         }
         
-        log.info("[Telemetry API] Fetched iteration video chapters:", iterationVideoChapters.length);
+        log.info(LOG_CATEGORY, "[Telemetry API] Fetched iteration video chapters:", iterationVideoChapters.length);
         iterationVideoChapters.forEach((chapter: any) => {
-            log.info(`  - ${chapter.title}: startTime=${chapter.startTime}s, sessionId=${chapter.telemetryData.interviewSessionId}`);
+            log.info(LOG_CATEGORY, `  - ${chapter.title}: startTime=${chapter.startTime}s, sessionId=${chapter.telemetryData.interviewSessionId}`);
         });
 
         // Group external tool usages by session
@@ -250,7 +253,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         // Transform sessions array
         const sessions = interviewSessions.map((session: any) => {
             try {
-                log.info("[Telemetry API] Processing session:", session.id, "videoUrl from DB:", session.videoUrl);
+                log.info(LOG_CATEGORY, "[Telemetry API] Processing session:", session.id, "videoUrl from DB:", session.videoUrl);
                 const telemetry = session.telemetryData;
                 const evidenceClips = telemetry?.evidenceClips || [];
                 const sessionIterations = iterationsBySession.get(session.id) || [];
@@ -265,9 +268,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 let totalScore = 0;
                 
                 if (session.recordingStartedAt && sessionExternalTools.length > 0) {
-                    log.info("🎬 [TELEMETRY EXTERNAL TOOLS OFFSET DEBUG] ============");
-                    log.info("📹 Recording started at:", new Date(session.recordingStartedAt).toISOString());
-                    log.info("📋 Processing", sessionExternalTools.length, "external tool events");
+                    log.info(LOG_CATEGORY, "🎬 [TELEMETRY EXTERNAL TOOLS OFFSET DEBUG] ============");
+                    log.info(LOG_CATEGORY, "📹 Recording started at:", new Date(session.recordingStartedAt).toISOString());
+                    log.info(LOG_CATEGORY, "📋 Processing", sessionExternalTools.length, "external tool events");
                     
                     sessionExternalTools.forEach((tool: any, index: number) => {
                         // Use aiQuestionTimestamp (when AI asks question and green highlight appears)
@@ -275,8 +278,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         const recordingStartTime = new Date(session.recordingStartedAt);
                         const videoOffset = (questionTime.getTime() - recordingStartTime.getTime()) / 1000;
                         
-                        log.info(`  [${index + 1}] AI Question at:`, questionTime.toISOString());
-                        log.info(`  [${index + 1}] Video offset:`, videoOffset, "seconds");
+                        log.info(LOG_CATEGORY, `  [${index + 1}] AI Question at:`, questionTime.toISOString());
+                        log.info(LOG_CATEGORY, `  [${index + 1}] Video offset:`, videoOffset, "seconds");
                         
                         if (videoOffset >= 0) {
                             aiAssistUsageLinks.push({
@@ -284,7 +287,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                                 caption: tool.caption
                             });
                         } else {
-                            log.warn(`  [${index + 1}] ⚠️ NEGATIVE OFFSET - skipping!`);
+                            log.warn(LOG_CATEGORY, `  [${index + 1}] ⚠️ NEGATIVE OFFSET - skipping!`);
                         }
                         
                         // Count understanding levels
@@ -296,9 +299,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         totalScore += tool.accountabilityScore || 0;
                     });
                     
-                    log.info("🎯 Total evidence links for External Tools:", aiAssistUsageLinks.length);
-                    log.info("📍 Links:", aiAssistUsageLinks);
-                    log.info("================================================");
+                    log.info(LOG_CATEGORY, "🎯 Total evidence links for External Tools:", aiAssistUsageLinks.length);
+                    log.info(LOG_CATEGORY, "📍 Links:", aiAssistUsageLinks);
+                    log.info(LOG_CATEGORY, "================================================");
                 }
                 
                 const avgAccountabilityScore = sessionExternalTools.length > 0 
@@ -363,9 +366,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
                         const result = calculateScore(rawScores, workstyleMetrics, scoringConfig as ScoringConfiguration);
                         calculatedScore = result.finalScore;
-                        log.info(`[Telemetry API] Calculated score for session ${session.id}:`, calculatedScore);
+                        log.info(LOG_CATEGORY, `[Telemetry API] Calculated score for session ${session.id}:`, calculatedScore);
                     } catch (error) {
-                        log.error(`[Telemetry API] Error calculating score for session ${session.id}:`, error);
+                        log.error(LOG_CATEGORY, `[Telemetry API] Error calculating score for session ${session.id}:`, error);
                     }
                 }
 
@@ -409,7 +412,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                     chapters: (() => {
                         const rawChapters = telemetry?.videoChapters || [];
                         
-                        log.info(`[Telemetry API] Session ${session.id} chapters:`, {
+                        log.info(LOG_CATEGORY, `[Telemetry API] Session ${session.id} chapters:`, {
                             totalCount: rawChapters.length,
                             titles: rawChapters.map((c: any) => c.title),
                             startTimes: rawChapters.map((c: any) => c.startTime)
@@ -419,7 +422,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         const seenChapters = new Set<string>();
                         const filtered = rawChapters.filter((chapter: any) => {
                             if (seenChapters.has(chapter.id)) {
-                                log.warn(`[Telemetry API] Duplicate chapter ID ${chapter.id} filtered`);
+                                log.warn(LOG_CATEGORY, `[Telemetry API] Duplicate chapter ID ${chapter.id} filtered`);
                                 return false;
                             }
                             seenChapters.add(chapter.id);
@@ -493,7 +496,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                     confidenceCurve: telemetry?.confidenceCurve || [],
                 };
             } catch (sessionError) {
-                log.error("[Telemetry API] Error processing session:", session.id, sessionError);
+                log.error(LOG_CATEGORY, "[Telemetry API] Error processing session:", session.id, sessionError);
                 throw sessionError;
             }
         });
@@ -511,16 +514,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
             sessions,
         };
 
-        log.info("[Telemetry API] Returning sessions count:", sessions.length);
-        log.info("[Telemetry API] First session videoUrl:", sessions[0]?.videoUrl);
+        log.info(LOG_CATEGORY, "[Telemetry API] Returning sessions count:", sessions.length);
+        log.info(LOG_CATEGORY, "[Telemetry API] First session videoUrl:", sessions[0]?.videoUrl);
 
         await setCached(cacheKey, response);
         return NextResponse.json(response);
     } catch (error) {
-        log.error("[Telemetry API GET] Error:", error);
+        log.error(LOG_CATEGORY, "[Telemetry API GET] Error:", error);
         if (error instanceof Error) {
-            log.error("[Telemetry API GET] Error message:", error.message);
-            log.error("[Telemetry API GET] Error stack:", error.stack);
+            log.error(LOG_CATEGORY, "[Telemetry API GET] Error message:", error.message);
+            log.error(LOG_CATEGORY, "[Telemetry API GET] Error stack:", error.stack);
         }
         return NextResponse.json(
             { error: "Failed to fetch telemetry data" },
@@ -680,7 +683,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
         return NextResponse.json({ success: true });
     } catch (error) {
-        log.error("Error updating candidate telemetry:", error);
+        log.error(LOG_CATEGORY, "Error updating candidate telemetry:", error);
         return NextResponse.json(
             { error: "Failed to update telemetry data" },
             { status: 500 }

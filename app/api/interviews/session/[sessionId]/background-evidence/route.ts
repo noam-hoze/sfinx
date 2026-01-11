@@ -4,6 +4,9 @@ import { authOptions } from "app/shared/services/auth";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
+
 type RouteContext = {
     params: Promise<{ sessionId?: string | string[] }>;
 };
@@ -21,14 +24,14 @@ function normalizeSessionId(sessionId: string | string[] | undefined) {
  */
 export async function POST(request: NextRequest, context: RouteContext) {
     try {
-        log.info("[background-evidence/POST] ========== START ==========");
+        log.info(LOG_CATEGORY, "[background-evidence/POST] ========== START ==========");
 
         const url = new URL(request.url);
         const skipAuth = url.searchParams.get("skip-auth") === "true";
 
         const session = await getServerSession(authOptions);
-        log.info("[background-evidence/POST] Session:", session ? `Found (user: ${(session.user as any)?.email})` : "Not found");
-        log.info("[background-evidence/POST] Skip auth:", skipAuth);
+        log.info(LOG_CATEGORY, "[background-evidence/POST] Session:", session ? `Found (user: ${(session.user as any)?.email})` : "Not found");
+        log.info(LOG_CATEGORY, "[background-evidence/POST] Skip auth:", skipAuth);
 
         const body = await request.json();
         const { timestamp, questionText, answerText, questionNumber, userId: requestUserId } = body;
@@ -38,22 +41,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
         if (skipAuth) {
             // In skip-auth mode, userId is optional. If not provided, we'll infer it from the session.
             userId = requestUserId || "";
-            log.info("[background-evidence/POST] Skip auth - User ID from request:", userId || "(not provided)");
+            log.info(LOG_CATEGORY, "[background-evidence/POST] Skip auth - User ID from request:", userId || "(not provided)");
         } else {
             if (!session?.user) {
-                log.warn("[background-evidence/POST] ❌ Unauthorized request");
+                log.warn(LOG_CATEGORY, "[background-evidence/POST] ❌ Unauthorized request");
                 return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
             }
             userId = (session.user as any).id;
-            log.info("[background-evidence/POST] ✅ User ID from session:", userId);
+            log.info(LOG_CATEGORY, "[background-evidence/POST] ✅ User ID from session:", userId);
         }
 
         const { sessionId: rawSessionId } = await context.params;
         const sessionId = normalizeSessionId(rawSessionId);
-        log.info("[background-evidence/POST] sessionId:", sessionId);
+        log.info(LOG_CATEGORY, "[background-evidence/POST] sessionId:", sessionId);
 
         if (!sessionId) {
-            log.warn("[background-evidence/POST] ❌ Interview session id was not provided");
+            log.warn(LOG_CATEGORY, "[background-evidence/POST] ❌ Interview session id was not provided");
             return NextResponse.json(
                 { error: "Interview session id is required" },
                 { status: 400 }
@@ -62,7 +65,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         // Validate required fields
         if (!timestamp || !questionText || typeof answerText !== 'string' || typeof questionNumber !== 'number') {
-            log.warn("[background-evidence/POST] ❌ Missing required fields:", { timestamp, questionText, answerText, questionNumber });
+            log.warn(LOG_CATEGORY, "[background-evidence/POST] ❌ Missing required fields:", { timestamp, questionText, answerText, questionNumber });
             return NextResponse.json(
                 { error: "Missing required fields: timestamp, questionText, answerText, questionNumber" },
                 { status: 400 }
@@ -70,7 +73,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         }
 
         // Verify the interview session exists
-        log.info("[background-evidence/POST] Looking up interview session...");
+        log.info(LOG_CATEGORY, "[background-evidence/POST] Looking up interview session...");
         
         const whereClause: any = { id: sessionId };
         // Only filter by candidateId if we have a userId
@@ -86,22 +89,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
         });
 
         if (!interviewSession) {
-            log.warn("[background-evidence/POST] ❌ Interview session not found or doesn't belong to user");
+            log.warn(LOG_CATEGORY, "[background-evidence/POST] ❌ Interview session not found or doesn't belong to user");
             return NextResponse.json(
                 { error: "Interview session not found" },
                 { status: 404 }
             );
         }
 
-        log.info("[background-evidence/POST] ✅ Interview session found:", interviewSession.id);
+        log.info(LOG_CATEGORY, "[background-evidence/POST] ✅ Interview session found:", interviewSession.id);
 
         // Get or create telemetry data
         let telemetryDataId: string;
         if (interviewSession.telemetryData) {
             telemetryDataId = interviewSession.telemetryData.id;
-            log.info("[background-evidence/POST] Using existing telemetryData:", telemetryDataId);
+            log.info(LOG_CATEGORY, "[background-evidence/POST] Using existing telemetryData:", telemetryDataId);
         } else {
-            log.info("[background-evidence/POST] Creating new telemetryData...");
+            log.info(LOG_CATEGORY, "[background-evidence/POST] Creating new telemetryData...");
             const telemetryData = await prisma.telemetryData.create({
                 data: {
                     interviewSessionId: sessionId,
@@ -111,17 +114,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 },
             });
             telemetryDataId = telemetryData.id;
-            log.info("[background-evidence/POST] ✅ Created telemetryData:", telemetryDataId);
+            log.info(LOG_CATEGORY, "[background-evidence/POST] ✅ Created telemetryData:", telemetryDataId);
         }
 
         const dateObj = new Date(timestamp);
         if (isNaN(dateObj.getTime())) {
-            log.error("[background-evidence/POST] ❌ Invalid timestamp:", timestamp);
+            log.error(LOG_CATEGORY, "[background-evidence/POST] ❌ Invalid timestamp:", timestamp);
             return NextResponse.json({ error: "Invalid timestamp" }, { status: 400 });
         }
 
         // Create background evidence record
-        log.info("[background-evidence/POST] Creating background evidence with data:", {
+        log.info(LOG_CATEGORY, "[background-evidence/POST] Creating background evidence with data:", {
             telemetryDataId,
             timestamp: dateObj.toISOString(),
             questionText: questionText.substring(0, 50) + "...",
@@ -130,7 +133,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         });
 
         if (!telemetryDataId) {
-            log.error("[background-evidence/POST] ❌ telemetryDataId is missing!");
+            log.error(LOG_CATEGORY, "[background-evidence/POST] ❌ telemetryDataId is missing!");
             return NextResponse.json({ error: "Internal Error: telemetryDataId missing" }, { status: 500 });
         }
 
@@ -146,7 +149,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             },
         });
 
-        log.info("[background-evidence/POST] ✅ Background evidence created successfully. ID:", backgroundEvidence.id);
+        log.info(LOG_CATEGORY, "[background-evidence/POST] ✅ Background evidence created successfully. ID:", backgroundEvidence.id);
 
         return NextResponse.json(
             {
@@ -156,7 +159,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             { status: 201 }
         );
     } catch (error) {
-        log.error("❌ Error creating background evidence:", error);
+        log.error(LOG_CATEGORY, "❌ Error creating background evidence:", error);
         return NextResponse.json(
             { error: "Failed to create background evidence" },
             { status: 500 }

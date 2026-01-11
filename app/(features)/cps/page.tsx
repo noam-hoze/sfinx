@@ -23,6 +23,9 @@ import { calculateScore, type ScoringConfiguration, type RawScores, type Worksty
 import { useDebug } from "app/shared/contexts";
 import { getBreadcrumbTrail } from "app/shared/config/navigation";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.CPS;
+
 function TelemetryContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
@@ -120,7 +123,7 @@ function TelemetryContent() {
                     setTelemetryData(null);
                 }
             } catch (error) {
-                log.error("Error fetching telemetry:", error);
+                log.error(LOG_CATEGORY, "Error fetching telemetry:", error);
                 setError("Failed to load telemetry data");
                 setTelemetryData(null);
             } finally {
@@ -156,7 +159,7 @@ function TelemetryContent() {
                     setBackgroundSummary(null);
                 }
             } catch (error) {
-                log.error("Error fetching background summary:", error);
+                log.error(LOG_CATEGORY, "Error fetching background summary:", error);
                 setBackgroundSummary(null);
             } finally {
                 setSummaryLoading(false);
@@ -188,7 +191,7 @@ function TelemetryContent() {
                     setCodingSummary(null);
                 }
             } catch (error) {
-                log.error("Error fetching coding summary:", error);
+                log.error(LOG_CATEGORY, "Error fetching coding summary:", error);
                 setCodingSummary(null);
             } finally {
                 setCodingSummaryLoading(false);
@@ -218,7 +221,7 @@ function TelemetryContent() {
                     }
                 }
             } catch (error) {
-                log.error("Error fetching scoring configuration:", error);
+                log.error(LOG_CATEGORY, "Error fetching scoring configuration:", error);
                 setScoringConfig(null);
             }
         };
@@ -288,7 +291,7 @@ function TelemetryContent() {
             setCalculatedExperienceScore(result.experienceScore);
             setCalculatedCodingScore(result.codingScore);
         } catch (error) {
-            log.error("Error calculating score:", error);
+            log.error(LOG_CATEGORY, "Error calculating score:", error);
             setCalculatedScore(null);
             setCalculatedExperienceScore(null);
             setCalculatedCodingScore(null);

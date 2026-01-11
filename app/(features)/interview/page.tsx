@@ -5,6 +5,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { useSession } from "next-auth/react";
+import { log } from "app/shared/services/logger";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import { store, RootState } from "@/shared/state/store";
 import {
   addMessage,
@@ -48,6 +50,8 @@ import {
  * Interview Page - Unified flow: Background Q&A → Completion → Coding IDE.
  * All stages on single page with Redux state machine driving UI.
  */
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
+
 function InterviewPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -133,7 +137,7 @@ function InterviewPageContent() {
   useEffect(() => {
     setShowDebugButton(true);
     return () => {
-      console.log("[interview] Component unmounting - cleaning up state");
+      log.info(LOG_CATEGORY, "[interview] Component unmounting - cleaning up state");
       dispatch(resetInterview());
       setShowDebugButton(false);
     };
@@ -150,14 +154,14 @@ function InterviewPageContent() {
   // Skip preload if going directly to coding
   useEffect(() => {
     if (skipToCoding && isPreloading) {
-      console.log("[interview] Skip-to-coding mode: bypassing preload");
+      log.info(LOG_CATEGORY, "[interview] Skip-to-coding mode: bypassing preload");
       
       const setupUserId = async () => {
         // Try to use session userId first
         const sessionUserId = (session?.user as any)?.id;
         if (sessionUserId) {
           dispatch(setPreloadedData({ userId: sessionUserId }));
-          console.log("[interview] Set userId from session:", sessionUserId);
+          log.info(LOG_CATEGORY, "[interview] Set userId from session:", sessionUserId);
           setIsPreloading(false);
           return;
         }
@@ -233,7 +237,7 @@ function InterviewPageContent() {
     return () => {
       if (micStream) {
         micStream.getTracks().forEach((track) => track.stop());
-        console.log("[interview] Mic stream stopped on cleanup");
+        log.info(LOG_CATEGORY, "[interview] Mic stream stopped on cleanup");
       }
     };
   }, [micStream]);
@@ -246,17 +250,17 @@ function InterviewPageContent() {
       const isCompleted = completedRef.current;
 
       if (!sessionId || isCompleted) {
-        console.log("[interview] Skipping cleanup - sessionId:", sessionId, "completed:", isCompleted);
+        log.info(LOG_CATEGORY, "[interview] Skipping cleanup - sessionId:", sessionId, "completed:", isCompleted);
         return;
       }
 
-      console.log("[interview] Component unmounting - terminating session:", sessionId);
+      log.info(LOG_CATEGORY, "[interview] Component unmounting - terminating session:", sessionId);
 
       // Stop recording
       try {
         recordingControls.stopRecording();
       } catch (error) {
-        console.error("[interview] Error stopping recording:", error);
+        log.error(LOG_CATEGORY, "[interview] Error stopping recording:", error);
       }
 
       // Stop mic stream
@@ -272,7 +276,7 @@ function InterviewPageContent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       }).catch((error) => {
-        console.error("[interview] Error terminating session:", error);
+        log.error(LOG_CATEGORY, "[interview] Error terminating session:", error);
       });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -283,13 +287,13 @@ function InterviewPageContent() {
     const handleBeforeUnload = () => {
       if (!interviewSessionId || completed) return;
 
-      console.log("[interview] Page closing - terminating session");
+      log.info(LOG_CATEGORY, "[interview] Page closing - terminating session");
 
       // Stop recording synchronously
       try {
         recordingControls.stopRecording();
       } catch (error) {
-        console.error("[interview] Error stopping recording:", error);
+        log.error(LOG_CATEGORY, "[interview] Error stopping recording:", error);
       }
 
       // Stop mic stream
@@ -310,7 +314,7 @@ function InterviewPageContent() {
   // Watch for reset trigger
   useEffect(() => {
     if (shouldResetFlag) {
-      console.log("[interview] Reset triggered");
+      log.info(LOG_CATEGORY, "[interview] Reset triggered");
       dispatch(resetInterview());
       setCurrentQuestion("");
       setShowHandEmoji(false);
@@ -360,10 +364,10 @@ function InterviewPageContent() {
         setAnnouncementText(text);
         setAnnouncementAudioBlob(audioBlob);
 
-        console.log("[interview] Preload complete - moving to welcome");
+        log.info(LOG_CATEGORY, "[interview] Preload complete - moving to welcome");
         setIsPreloading(false);
       } catch (error) {
-        console.error("[interview] Preload failed:", error);
+        log.error(LOG_CATEGORY, "[interview] Preload failed:", error);
         setIsPreloading(false);
         alert("Failed to initialize interview. Please refresh and try again.");
       }
@@ -400,7 +404,7 @@ function InterviewPageContent() {
       }
       return createdId;
     } catch (error) {
-      console.error("[interview] Failed to create application:", error);
+      log.error(LOG_CATEGORY, "[interview] Failed to create application:", error);
       return null;
     }
   }, [codingApplicationId, applicationId, companySlug, roleSlug, userId, dispatch]);
@@ -449,7 +453,7 @@ function InterviewPageContent() {
       
       return newSessionId;
     } catch (error) {
-      console.error("[interview] Failed to create recording session:", error);
+      log.error(LOG_CATEGORY, "[interview] Failed to create recording session:", error);
       return null;
     }
   }, [
@@ -475,7 +479,7 @@ function InterviewPageContent() {
       try {
         hasAutoStartedRef.current = true;
         setIsStarting(true);
-        console.log("[interview] Auto-starting interview for authenticated user");
+        log.info(LOG_CATEGORY, "[interview] Auto-starting interview for authenticated user");
 
         // Request mic permissions
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -515,7 +519,7 @@ function InterviewPageContent() {
         setShowAnnouncement(true);
         setIsStarting(false);
       } catch (error) {
-        console.error("[interview] Auto-start failed:", error);
+        log.error(LOG_CATEGORY, "[interview] Auto-start failed:", error);
         setIsStarting(false);
         alert("Microphone access is required.");
       }
@@ -526,20 +530,20 @@ function InterviewPageContent() {
 
   // Auto-skip to coding when flag is set and user is logged in
   useEffect(() => {
-    console.log("[interview] Auto-skip check:", { skipToCoding, userId, showCodingIDE, isStarting, isPreloading, skipScreenShare });
+    log.info(LOG_CATEGORY, "[interview] Auto-skip check:", { skipToCoding, userId, showCodingIDE, isStarting, isPreloading, skipScreenShare });
     
     if (!skipToCoding || !userId || showCodingIDE || isStarting || isPreloading || !companySlug || !roleSlug) return;
 
     const initializeCodingSession = async () => {
       try {
         setIsStarting(true);
-        console.log("[interview] Skip-to-coding mode: initializing");
+        log.info(LOG_CATEGORY, "[interview] Skip-to-coding mode: initializing");
 
         let activeSessionId = null;
         
         if (skipScreenShare) {
           // Skip recording entirely - just create session without recording
-          console.log("[interview] Skipping screen recording (NEXT_PUBLIC_SKIP_SCREEN_SHARE=true)");
+          log.info(LOG_CATEGORY, "[interview] Skipping screen recording (NEXT_PUBLIC_SKIP_SCREEN_SHARE=true)");
           const resolvedApplicationId = await resolveApplicationId();
           if (resolvedApplicationId) {
             if (!companySlug) {
@@ -558,7 +562,7 @@ function InterviewPageContent() {
           // Normal flow with recording
           activeSessionId = await ensureRecordingSession();
           if (!activeSessionId) {
-            console.error("[interview] Recording required for skip-to-coding");
+            log.error(LOG_CATEGORY, "[interview] Recording required for skip-to-coding");
             alert("Screen recording is required to start the interview.");
             setIsStarting(false);
             return;
@@ -579,9 +583,9 @@ function InterviewPageContent() {
         dispatch(setStage({ stage: "coding" }));
         setShowCodingIDE(true);
         setIsStarting(false);
-        console.log("[interview] Skip-to-coding complete");
+        log.info(LOG_CATEGORY, "[interview] Skip-to-coding complete");
       } catch (error) {
-        console.error("[interview] Skip-to-coding failed:", error);
+        log.error(LOG_CATEGORY, "[interview] Skip-to-coding failed:", error);
         setIsStarting(false);
         alert("Failed to start coding session. Please refresh and try again.");
       }
@@ -604,7 +608,7 @@ function InterviewPageContent() {
       if (clickSoundRef.current) {
         clickSoundRef.current.volume = isMuted ? 0 : 1;
         clickSoundRef.current.currentTime = 0;
-        clickSoundRef.current.play().catch(console.error);
+        clickSoundRef.current.play().catch((err) => log.error(LOG_CATEGORY, err));
       }
 
       // Update user name
@@ -629,7 +633,7 @@ function InterviewPageContent() {
 
       await startInterviewFlow();
     } catch (error) {
-      console.error("[interview] Start failed:", error);
+      log.error(LOG_CATEGORY, "[interview] Start failed:", error);
       setIsStarting(false);
       alert("Microphone access is required.");
     }
@@ -659,13 +663,13 @@ function InterviewPageContent() {
 
       setShowAnnouncement(true);
     } catch (error) {
-      console.error("[interview] Start flow failed:", error);
+      log.error(LOG_CATEGORY, "[interview] Start flow failed:", error);
     }
   };
 
   // Announcement complete handler
   const handleAnnouncementComplete = useCallback(() => {
-    console.log("[interview] Announcement complete");
+    log.info(LOG_CATEGORY, "[interview] Announcement complete");
     setShowAnnouncement(false);
     setAllowQuestionDisplay(true);
     const firstQuestion = preloadedFirstQuestion || "";
@@ -687,7 +691,7 @@ function InterviewPageContent() {
             timestamp: new Date().toISOString()
           }]
         })
-      }).catch(err => console.error("[interview] Failed to save first question:", err));
+      }).catch(err => log.error(LOG_CATEGORY, "[interview] Failed to save first question:", err));
     }
   }, [preloadedFirstQuestion, dispatch, interviewSessionId, userId]);
 
@@ -706,7 +710,7 @@ function InterviewPageContent() {
         setSubmitting(false);
       }
     } catch (error) {
-      console.error("[interview] Answer submit failed:", error);
+      log.error(LOG_CATEGORY, "[interview] Answer submit failed:", error);
     } finally {
       setSubmitting(false);
     }
@@ -736,7 +740,7 @@ function InterviewPageContent() {
       const elapsed = Date.now() - startedAtMs;
       
       if (elapsed >= limit) {
-        console.log("[interview] Timer expired - auto-completing background stage");
+        log.info(LOG_CATEGORY, "[interview] Timer expired - auto-completing background stage");
         setCompleted(true);
       }
     };

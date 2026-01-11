@@ -6,6 +6,9 @@ import prisma from "lib/prisma";
 import { createVideoChapter } from "../../../shared/createVideoChapter";
 import { CHAPTER_TYPES } from "../../../shared/chapterTypes";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
+
 type RouteContext = {
     params: Promise<{ sessionId?: string | string[] }>;
 };
@@ -23,14 +26,14 @@ function normalizeSessionId(sessionId: string | string[] | undefined) {
  */
 export async function POST(request: NextRequest, context: RouteContext) {
     try {
-        log.info("[background-chapters/POST] ========== START ==========");
+        log.info(LOG_CATEGORY, "[background-chapters/POST] ========== START ==========");
 
         const url = new URL(request.url);
         const skipAuth = url.searchParams.get("skip-auth") === "true";
 
         const session = await getServerSession(authOptions);
-        log.info("[background-chapters/POST] Session:", session ? `Found (user: ${(session.user as any)?.email})` : "Not found");
-        log.info("[background-chapters/POST] Skip auth:", skipAuth);
+        log.info(LOG_CATEGORY, "[background-chapters/POST] Session:", session ? `Found (user: ${(session.user as any)?.email})` : "Not found");
+        log.info(LOG_CATEGORY, "[background-chapters/POST] Skip auth:", skipAuth);
 
         const body = await request.json();
         const { userId: requestUserId } = body;
@@ -39,29 +42,29 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         if (skipAuth) {
             if (!requestUserId) {
-                log.warn("[background-chapters/POST] ❌ skip-auth mode but no userId provided in request");
+                log.warn(LOG_CATEGORY, "[background-chapters/POST] ❌ skip-auth mode but no userId provided in request");
                 return NextResponse.json(
                     { error: "userId required when skip-auth=true" },
                     { status: 400 }
                 );
             }
             userId = requestUserId;
-            log.info("[background-chapters/POST] ✅ Skip auth - User ID from request:", userId);
+            log.info(LOG_CATEGORY, "[background-chapters/POST] ✅ Skip auth - User ID from request:", userId);
         } else {
             if (!session?.user) {
-                log.warn("[background-chapters/POST] ❌ Unauthorized request");
+                log.warn(LOG_CATEGORY, "[background-chapters/POST] ❌ Unauthorized request");
                 return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
             }
             userId = (session.user as any).id;
-            log.info("[background-chapters/POST] ✅ User ID from session:", userId);
+            log.info(LOG_CATEGORY, "[background-chapters/POST] ✅ User ID from session:", userId);
         }
 
         const { sessionId: rawSessionId } = await context.params;
         const sessionId = normalizeSessionId(rawSessionId);
-        log.info("[background-chapters/POST] sessionId:", sessionId);
+        log.info(LOG_CATEGORY, "[background-chapters/POST] sessionId:", sessionId);
 
         if (!sessionId) {
-            log.warn("[background-chapters/POST] ❌ Interview session id was not provided");
+            log.warn(LOG_CATEGORY, "[background-chapters/POST] ❌ Interview session id was not provided");
             return NextResponse.json(
                 { error: "Interview session id is required" },
                 { status: 400 }
@@ -69,7 +72,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         }
 
         // Verify the interview session exists and belongs to the user
-        log.info("[background-chapters/POST] Looking up interview session...");
+        log.info(LOG_CATEGORY, "[background-chapters/POST] Looking up interview session...");
         const interviewSession = await prisma.interviewSession.findFirst({
             where: {
                 id: sessionId,
@@ -81,7 +84,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         });
 
         if (!interviewSession) {
-            log.warn("[background-chapters/POST] ❌ Interview session not found or doesn't belong to user");
+            log.warn(LOG_CATEGORY, "[background-chapters/POST] ❌ Interview session not found or doesn't belong to user");
             return NextResponse.json(
                 { error: "Interview session not found" },
                 { status: 404 }
@@ -89,7 +92,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         }
 
         if (!interviewSession.telemetryData) {
-            log.warn("[background-chapters/POST] ❌ No telemetry data found for session");
+            log.warn(LOG_CATEGORY, "[background-chapters/POST] ❌ No telemetry data found for session");
             return NextResponse.json(
                 { error: "Telemetry data not found" },
                 { status: 404 }
@@ -97,19 +100,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
         }
 
         if (!interviewSession.recordingStartedAt) {
-            log.warn("[background-chapters/POST] ❌ No recording start time found");
+            log.warn(LOG_CATEGORY, "[background-chapters/POST] ❌ No recording start time found");
             return NextResponse.json(
                 { error: "Recording start time not found" },
                 { status: 400 }
             );
         }
 
-        log.info("[background-chapters/POST] ✅ Interview session found:", interviewSession.id);
+        log.info(LOG_CATEGORY, "[background-chapters/POST] ✅ Interview session found:", interviewSession.id);
         const telemetryDataId = interviewSession.telemetryData.id;
         const recordingStartTime = interviewSession.recordingStartedAt;
 
         // Fetch background conversation messages
-        log.info("[background-chapters/POST] Fetching conversation messages...");
+        log.info(LOG_CATEGORY, "[background-chapters/POST] Fetching conversation messages...");
         const messages = await prisma.conversationMessage.findMany({
             where: {
                 interviewSessionId: sessionId,
@@ -120,10 +123,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
             },
         });
 
-        log.info("[background-chapters/POST] Found", messages.length, "background messages");
+        log.info(LOG_CATEGORY, "[background-chapters/POST] Found", messages.length, "background messages");
 
         if (messages.length === 0) {
-            log.warn("[background-chapters/POST] ❌ No background messages found");
+            log.warn(LOG_CATEGORY, "[background-chapters/POST] ❌ No background messages found");
             return NextResponse.json(
                 { error: "No background conversation found" },
                 { status: 400 }
@@ -131,7 +134,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         }
 
         // Fetch background evidence
-        log.info("[background-chapters/POST] Fetching background evidence...");
+        log.info(LOG_CATEGORY, "[background-chapters/POST] Fetching background evidence...");
         const evidenceLinks = await prisma.backgroundEvidence.findMany({
             where: {
                 telemetryDataId,
@@ -141,21 +144,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
             },
         });
 
-        log.info("[background-chapters/POST] Found", evidenceLinks.length, "evidence links");
+        log.info(LOG_CATEGORY, "[background-chapters/POST] Found", evidenceLinks.length, "evidence links");
 
         // Determine chapter start time
         let chapterStartTimestamp: Date;
         if (evidenceLinks.length > 0) {
             chapterStartTimestamp = evidenceLinks[0].timestamp;
-            log.info("[background-chapters/POST] Using first evidence timestamp:", chapterStartTimestamp.toISOString());
+            log.info(LOG_CATEGORY, "[background-chapters/POST] Using first evidence timestamp:", chapterStartTimestamp.toISOString());
         } else {
             chapterStartTimestamp = messages[0].timestamp;
-            log.info("[background-chapters/POST] Using first message timestamp:", chapterStartTimestamp.toISOString());
+            log.info(LOG_CATEGORY, "[background-chapters/POST] Using first message timestamp:", chapterStartTimestamp.toISOString());
         }
 
         // Calculate start time in seconds from recording start
         const startTimeSeconds = (chapterStartTimestamp.getTime() - recordingStartTime.getTime()) / 1000;
-        log.info("[background-chapters/POST] Chapter start time:", startTimeSeconds, "seconds");
+        log.info(LOG_CATEGORY, "[background-chapters/POST] Chapter start time:", startTimeSeconds, "seconds");
 
         // Create chapter without caption (captions will be created by background-summary based on analysis)
         await createChapterWithCaption(telemetryDataId, startTimeSeconds);
@@ -165,7 +168,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             { status: 202 }
         );
     } catch (error) {
-        log.error("❌ Error generating background chapters:", error);
+        log.error(LOG_CATEGORY, "❌ Error generating background chapters:", error);
         return NextResponse.json(
             { error: "Failed to generate background chapters" },
             { status: 500 }
@@ -180,7 +183,7 @@ async function createChapterWithCaption(
     telemetryDataId: string,
     startTimeSeconds: number
 ) {
-    log.info("[createChapterWithCaption] Creating Background chapter...");
+    log.info(LOG_CATEGORY, "[createChapterWithCaption] Creating Background chapter...");
     
     await createVideoChapter({
         telemetryDataId,
@@ -190,5 +193,5 @@ async function createChapterWithCaption(
         // No caption initially - will be populated by background-summary with analysis results
     });
     
-    log.info("[createChapterWithCaption] ✅ Background chapter created");
+    log.info(LOG_CATEGORY, "[createChapterWithCaption] ✅ Background chapter created");
 }

@@ -1,5 +1,10 @@
 "use client";
 
+import { log } from "app/shared/services/logger";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
+
 import React, {
     useCallback,
     useEffect,
@@ -23,7 +28,6 @@ import {
     useJobApplication,
     useDebug,
 } from "../../../shared/contexts";
-import { log } from "../../../shared/services";
 import { useCamera } from "./hooks/useCamera";
 import { useInterviewTimer } from "./hooks/useInterviewTimer";
 import { useThemePreference } from "./hooks/useThemePreference";
@@ -242,7 +246,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
      * Enters coding mode and starts the interview timer.
      */
     const handleStartCoding = useCallback(async () => {
-        console.log("🎯 handleStartCoding called");
+        log.info(LOG_CATEGORY, "🎯 handleStartCoding called");
         setIsCodingStarted(true);
         setCodingStarted(true);
         startTimer();

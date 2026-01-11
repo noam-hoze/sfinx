@@ -11,6 +11,9 @@ import { JobGrid, JobGridJob } from "app/shared/components/jobs/JobGrid";
 import type { JobGridCompany } from "app/shared/components/jobs/JobGrid";
 import { readResponseError } from "app/shared/utils/http";
 import InterviewContentSection, {
+
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.COMPANY_DASHBOARD;
     InterviewContentState,
     InterviewDurationState,
     defaultInterviewDurations,
@@ -82,7 +85,7 @@ function CompanyJobsContent() {
 
     useEffect(() => {
         const fetchJobs = async () => {
-            log.info("Fetching company jobs...");
+            log.info(LOG_CATEGORY, "Fetching company jobs...");
             try {
                 const resp = await fetch("/api/company/jobs");
                 if (!resp.ok) {
@@ -122,14 +125,14 @@ function CompanyJobsContent() {
             } catch (err) {
                 const message =
                     err instanceof Error ? err.message : "Unknown error";
-                log.error("❌ Failed to fetch company jobs:", err);
+                log.error(LOG_CATEGORY, "❌ Failed to fetch company jobs:", err);
                 setError(message);
             } finally {
                 setLoading(false);
             }
         };
         fetchJobs().catch((err) => {
-            log.error("❌ Unexpected fetch error:", err);
+            log.error(LOG_CATEGORY, "❌ Unexpected fetch error:", err);
         });
     }, []);
 
@@ -228,7 +231,7 @@ function CompanyJobsContent() {
             const message =
                 err instanceof Error ? err.message : "Unknown error";
             setError(message);
-            log.error("❌ Failed to create job:", err);
+            log.error(LOG_CATEGORY, "❌ Failed to create job:", err);
         } finally {
             setCreateSubmitting(false);
         }
@@ -251,7 +254,7 @@ function CompanyJobsContent() {
             const message =
                 err instanceof Error ? err.message : "Unknown error";
             setError(message);
-            log.error("❌ Failed to delete job:", err);
+            log.error(LOG_CATEGORY, "❌ Failed to delete job:", err);
         } finally {
             setDeleteInFlight(null);
         }

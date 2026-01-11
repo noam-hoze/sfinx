@@ -6,6 +6,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { loadAndCacheSoundEffect } from "@/shared/utils/audioCache";
+import { log } from "app/shared/services/logger";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.BACKGROUND_INTERVIEW;
 
 /**
  * Preload sound effects with caching. Returns refs to audio elements and ready status.
@@ -22,7 +26,7 @@ export function useSoundPreload() {
       return;
     }
 
-    console.log("[sounds] Starting preload...");
+    log.info(LOG_CATEGORY, "[sounds] Starting preload...");
     Promise.all([
       loadAndCacheSoundEffect("/sounds/click-button.mp3", "click-button"),
       loadAndCacheSoundEffect("/sounds/start-interview.mp3", "start-interview"),
@@ -31,7 +35,7 @@ export function useSoundPreload() {
         clickSoundRef.current = clickSound;
         startSoundRef.current = startSound;
         setSoundsReady(true);
-        console.log("[sounds] Preload complete");
+        log.info(LOG_CATEGORY, "[sounds] Preload complete");
       })
       .catch((err) => {
         console.error("[sounds] Preload failed:", err);

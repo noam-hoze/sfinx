@@ -4,11 +4,14 @@ import prisma from "lib/prisma";
 import OpenAI from "openai";
 import { calculateScore, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
+
 export async function POST(request: NextRequest) {
     try {
         const openaiApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
         if (!openaiApiKey) {
-            log.error("[Generate Coding Summary] OpenAI API key not configured");
+            log.error(LOG_CATEGORY, "[Generate Coding Summary] OpenAI API key not configured");
             return NextResponse.json(
                 { error: "OpenAI API key not configured" },
                 { status: 500 }
@@ -27,7 +30,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        log.info("[Generate Coding Summary] Starting summary generation for session:", sessionId);
+        log.info(LOG_CATEGORY, "[Generate Coding Summary] Starting summary generation for session:", sessionId);
 
         // Fetch session with application and job to get scoring configuration
         const session = await prisma.interviewSession.findUnique({
@@ -84,7 +87,7 @@ export async function POST(request: NextRequest) {
             }),
         ]);
 
-        log.info("[Generate Coding Summary] Metrics gathered:", {
+        log.info(LOG_CATEGORY, "[Generate Coding Summary] Metrics gathered:", {
             iterations: iterations.length,
             externalToolUsages: externalToolUsages.length,
         });
@@ -180,7 +183,7 @@ ${JSON.stringify(metricsContext, null, 2)}
 
 Provide a comprehensive summary and scores for this candidate's coding performance.`;
 
-        log.info("[Generate Coding Summary] Calling OpenAI...");
+        log.info(LOG_CATEGORY, "[Generate Coding Summary] Calling OpenAI...");
 
         const completion = await openaiClient.chat.completions.create({
             model: "gpt-4o",
@@ -197,14 +200,14 @@ Provide a comprehensive summary and scores for this candidate's coding performan
             throw new Error("No response from OpenAI");
         }
 
-        log.info("[Generate Coding Summary] OpenAI response received");
+        log.info(LOG_CATEGORY, "[Generate Coding Summary] OpenAI response received");
 
         const parsed = JSON.parse(responseText);
 
-        log.info("[Generate Coding Summary] Parsed summary");
+        log.info(LOG_CATEGORY, "[Generate Coding Summary] Parsed summary");
 
         if (!session?.telemetryData) {
-            log.error("[Generate Coding Summary] No telemetry data found for session");
+            log.error(LOG_CATEGORY, "[Generate Coding Summary] No telemetry data found for session");
             return NextResponse.json(
                 { error: "Telemetry data not found for session" },
                 { status: 404 }
@@ -234,7 +237,7 @@ Provide a comprehensive summary and scores for this candidate's coding performan
             },
         });
 
-        log.info("[Generate Coding Summary] Summary saved to database");
+        log.info(LOG_CATEGORY, "[Generate Coding Summary] Summary saved to database");
 
         // Calculate and save final score if we have all required data
         let finalScore: number | null = null;
@@ -260,9 +263,9 @@ Provide a comprehensive summary and scores for this candidate's coding performan
                     data: { finalScore },
                 });
 
-                log.info(`[Generate Coding Summary] Calculated and saved finalScore=${finalScore} for session ${sessionId}`);
+                log.info(LOG_CATEGORY, `[Generate Coding Summary] Calculated and saved finalScore=${finalScore} for session ${sessionId}`);
             } catch (error) {
-                log.error("[Generate Coding Summary] Score calculation error:", error);
+                log.error(LOG_CATEGORY, "[Generate Coding Summary] Score calculation error:", error);
             }
         }
 
@@ -272,7 +275,7 @@ Provide a comprehensive summary and scores for this candidate's coding performan
             finalScore,
         });
     } catch (error: any) {
-        log.error("[Generate Coding Summary] Error:", error);
+        log.error(LOG_CATEGORY, "[Generate Coding Summary] Error:", error);
         return NextResponse.json(
             {
                 error: "Failed to generate coding summary",

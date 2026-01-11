@@ -6,14 +6,17 @@ import path from "path";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.UPLOAD;
+
 export async function POST(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
-        log.info("Session:", session);
-        log.info("User ID:", (session?.user as any)?.id);
+        log.info(LOG_CATEGORY, "Session:", session);
+        log.info(LOG_CATEGORY, "User ID:", (session?.user as any)?.id);
 
         if (!(session?.user as any)?.id) {
-            log.error("No session or user ID found");
+            log.error(LOG_CATEGORY, "No session or user ID found");
             return NextResponse.json(
                 { error: "Unauthorized" },
                 { status: 401 }
@@ -22,13 +25,13 @@ export async function POST(request: NextRequest) {
 
         const data = await request.formData();
         const file = data.get("image") as File;
-        log.info("File received:", file);
-        log.info("File name:", file?.name);
-        log.info("File size:", file?.size);
-        log.info("File type:", file?.type);
+        log.info(LOG_CATEGORY, "File received:", file);
+        log.info(LOG_CATEGORY, "File name:", file?.name);
+        log.info(LOG_CATEGORY, "File size:", file?.size);
+        log.info(LOG_CATEGORY, "File type:", file?.type);
 
         if (!file) {
-            log.error("No file provided");
+            log.error(LOG_CATEGORY, "No file provided");
             return NextResponse.json(
                 { error: "No file provided" },
                 { status: 400 }
@@ -82,7 +85,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ imageUrl });
     } catch (error) {
-        log.error("Upload error:", error);
+        log.error(LOG_CATEGORY, "Upload error:", error);
         return NextResponse.json(
             { error: "Internal server error" },
             { status: 500 }

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { log } from "../../../../shared/services";
+import { log } from "app/shared/services/logger";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 
-const logger = log;
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
 const CAMERA_AUTO_START = process.env.NEXT_PUBLIC_CAMERA_AUTO_START !== "false";
 
 export const useCamera = () => {
-    logger.info("🎬 useCamera hook initialized");
+    log.info(LOG_CATEGORY, "🎬 useCamera hook initialized");
     const [isCameraOn, setIsCameraOn] = useState(false);
     const selfVideoRef = useRef<HTMLVideoElement | null>(null);
     const cameraStreamRef = useRef<MediaStream | null>(null);
@@ -13,16 +14,16 @@ export const useCamera = () => {
 
     const startCamera = useCallback(async () => {
         try {
-            logger.info("📹 Requesting camera permissions...");
+            log.info(LOG_CATEGORY, "📹 Requesting camera permissions...");
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: { width: 320, height: 240, facingMode: "user" },
                 audio: false,
             });
-            logger.info("📹 Camera stream acquired successfully");
+            log.info(LOG_CATEGORY, "📹 Camera stream acquired successfully");
             cameraStreamRef.current = stream;
             setIsCameraOn(true);
         } catch (error) {
-            logger.error("❌ Failed to start camera:", error);
+            log.error(LOG_CATEGORY, "❌ Failed to start camera:", error);
             setIsCameraOn(false);
         }
     }, []);
@@ -54,10 +55,10 @@ export const useCamera = () => {
     }, [isCameraOn, startCamera, stopCamera]);
 
     useEffect(() => {
-        logger.info("📹 Attach effect triggered", { isCameraOn, hasVideoRef: !!selfVideoRef.current, hasStream: !!cameraStreamRef.current });
+        log.info(LOG_CATEGORY, "📹 Attach effect triggered", { isCameraOn, hasVideoRef: !!selfVideoRef.current, hasStream: !!cameraStreamRef.current });
         if (isCameraOn && selfVideoRef.current && cameraStreamRef.current) {
             try {
-                logger.info("📹 Attaching stream to video element");
+                log.info(LOG_CATEGORY, "📹 Attaching stream to video element");
                 // @ts-ignore - srcObject is supported at runtime
                 selfVideoRef.current.srcObject = cameraStreamRef.current;
                 selfVideoRef.current.muted = true;
@@ -67,17 +68,17 @@ export const useCamera = () => {
                 if (playPromise && typeof playPromise.then === "function") {
                     playPromise.catch(() => {});
                 }
-                logger.info("📹 Stream attached and playing");
+                log.info(LOG_CATEGORY, "📹 Stream attached and playing");
             } catch (err) {
-                logger.error("📹 Failed to attach stream:", err);
+                log.error(LOG_CATEGORY, "📹 Failed to attach stream:", err);
             }
         }
     }, [isCameraOn, selfVideoRef.current]);
 
     useEffect(() => {
-        logger.info("🎬 Auto-start effect running, CAMERA_AUTO_START:", CAMERA_AUTO_START);
+        log.info(LOG_CATEGORY, "🎬 Auto-start effect running, CAMERA_AUTO_START:", CAMERA_AUTO_START);
         if (CAMERA_AUTO_START) {
-            logger.info("🎬 Starting camera automatically");
+            log.info(LOG_CATEGORY, "🎬 Starting camera automatically");
             startCamera();
         }
         return () => {

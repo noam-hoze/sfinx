@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "lib/prisma";
 import { log } from "app/shared/services";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
+
 type RouteContext = {
     params: Promise<{ sessionId: string }>;
 };
@@ -65,7 +68,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
             };
         });
 
-        log.info(`[contributions/GET] Fetched ${contributions.length} contributions for ${jobCategories.length} categories`);
+        log.info(LOG_CATEGORY, `[contributions/GET] Fetched ${contributions.length} contributions for ${jobCategories.length} categories`);
 
         return NextResponse.json({
             contributions,
@@ -73,7 +76,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
             byCategory,
         });
     } catch (error: any) {
-        log.error("[contributions/GET] Error fetching contributions:", error);
+        log.error(LOG_CATEGORY, "[contributions/GET] Error fetching contributions:", error);
         return NextResponse.json(
             { error: "Failed to fetch contributions", details: error.message },
             { status: 500 }

@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import prisma from "lib/prisma";
 import OpenAI from "openai";
 import { createVideoChapter } from "../shared/createVideoChapter";
+
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
 const openai = new OpenAI({
     apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
@@ -28,7 +31,7 @@ export async function POST(request: NextRequest) {
             throw new Error("currentCounts is required - must be passed from Redux store");
         }
 
-        log.info("[evaluate-answer] Evaluating answer for session:", sessionId);
+        log.info(LOG_CATEGORY, "[evaluate-answer] Evaluating answer for session:", sessionId);
 
         // Fetch session with recording data and job
         const session = await prisma.interviewSession.findUnique({
@@ -61,7 +64,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (!categoriesToEvaluate || categoriesToEvaluate.length === 0) {
-            log.info("[evaluate-answer] No experience categories defined for this job - skipping evaluation");
+            log.info(LOG_CATEGORY, "[evaluate-answer] No experience categories defined for this job - skipping evaluation");
             return NextResponse.json({
                 success: true,
                 contributionsCount: 0,
@@ -159,7 +162,7 @@ CRITICAL RULES:
 - Blank or gibberish answers MUST be scored 0 across all categories.
 - Be strict with 0 scores - use them for noise, blank answers, and gibberish.`;
 
-        log.info("[evaluate-answer] Calling OpenAI for evaluation");
+        log.info(LOG_CATEGORY, "[evaluate-answer] Calling OpenAI for evaluation");
 
         const evaluationModel = process.env.NEXT_PUBLIC_OPENAI_EVALUATION_MODEL;
         if (!evaluationModel) {
@@ -187,7 +190,7 @@ CRITICAL RULES:
         }
 
         const evaluation = JSON.parse(responseText);
-        log.info("[evaluate-answer] OpenAI evaluation:", evaluation);
+        log.info(LOG_CATEGORY, "[evaluate-answer] OpenAI evaluation:", evaluation);
 
         // Calculate updated counts in-memory (no DB read needed)
         const updatedCounts = experienceCategories.map((category: any) => {
@@ -213,13 +216,6 @@ CRITICAL RULES:
         });
 
         // Process evaluations - batch all DB operations in parallel
-        const contributions: Array<{
-            category: string;
-            strength: number;
-            explanation: string;
-            caption: string;
-        }> = [];
-
         const dbOperations = evaluation.evaluations
             .filter((item: any) => item.strength > 0)
             .map(async (item: any) => {
@@ -232,7 +228,7 @@ CRITICAL RULES:
                 }
 
                 // Run all 3 creates in parallel for this item
-                const [contribution, evidenceClip] = await Promise.all([
+                await Promise.all([
                     prisma.categoryContribution.create({
                         data: {
                             interviewSessionId: sessionId,
@@ -264,23 +260,16 @@ CRITICAL RULES:
                         caption: item.caption,
                     }),
                 ]);
-
-                return {
-                    category: item.category,
-                    strength: item.strength,
-                    explanation: item.reasoning,
-                    caption: item.caption,
-                };
             });
 
         // Fire-and-forget DB operations (async, non-blocking)
-        Promise.all(dbOperations).then(results => {
-            log.info(`[evaluate-answer] ✅ Async DB save complete. ${results.length} contributions saved.`);
+        Promise.all(dbOperations).then(() => {
+            log.info(LOG_CATEGORY, `[evaluate-answer] ✅ Async DB save complete. ${evaluation.evaluations.filter((e: any) => e.strength > 0).length} contributions saved.`);
         }).catch(err => {
-            log.error("[evaluate-answer] ❌ Async DB save failed:", err);
+            log.error(LOG_CATEGORY, "[evaluate-answer] ❌ Async DB save failed:", err);
         });
 
-        log.info(`[evaluate-answer] Returning updated counts immediately (DB saves in background)`);
+        log.info(LOG_CATEGORY, `[evaluate-answer] Returning updated counts immediately (DB saves in background)`);
 
         // Return immediately with in-memory calculated counts
         return NextResponse.json({
@@ -290,7 +279,7 @@ CRITICAL RULES:
             updatedCounts: updatedCounts,
         });
     } catch (error) {
-        log.error("[evaluate-answer] ❌ Error:", error);
+        log.error(LOG_CATEGORY, "[evaluate-answer] ❌ Error:", error);
         return NextResponse.json(
             { error: error instanceof Error ? error.message : "Unknown error" },
             { status: 500 }

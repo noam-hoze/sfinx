@@ -1,5 +1,10 @@
 "use client";
 
+import { log } from "app/shared/services/logger";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
+
 import React, { useState, useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/shared/state/store";
@@ -215,7 +220,7 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
                             const fd = new FormData(e.currentTarget as HTMLFormElement);
                             const text = String(fd.get("chat_input") || "").trim();
                             // eslint-disable-next-line no-console
-                            console.log("[chat][submit]", text);
+                            log.info(LOG_CATEGORY, "[chat][submit]", text);
                             if (!text) return;
                             (e.currentTarget as HTMLFormElement).reset();
                             await onSendText(text);

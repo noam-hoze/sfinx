@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation";
 import AuthGuard from "app/shared/components/AuthGuard";
 import { log } from "app/shared/services";
 
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.SETTINGS;
+
 export default function SettingsPage() {
     const { data: session, update } = useSession();
     const [uploading, setUploading] = useState(false);
@@ -16,12 +19,12 @@ export default function SettingsPage() {
         event: React.ChangeEvent<HTMLInputElement>
     ) => {
         const file = event.target.files?.[0];
-        log.info("Selected file:", file);
-        log.info("File name:", file?.name);
-        log.info("File size:", file?.size);
-        log.info("File type:", file?.type);
+        log.info(LOG_CATEGORY, "Selected file:", file);
+        log.info(LOG_CATEGORY, "File name:", file?.name);
+        log.info(LOG_CATEGORY, "File size:", file?.size);
+        log.info(LOG_CATEGORY, "File type:", file?.type);
         if (!file) {
-            log.warn("No file selected");
+            log.warn(LOG_CATEGORY, "No file selected");
             return;
         }
 
@@ -44,32 +47,32 @@ export default function SettingsPage() {
             const formData = new FormData();
             formData.append("image", file);
 
-            log.info("Sending request to /api/upload/profile-image");
+            log.info(LOG_CATEGORY, "Sending request to /api/upload/profile-image");
             const response = await fetch("/api/upload/profile-image", {
                 method: "POST",
                 body: formData,
             });
-            log.info("Response status:", response.status);
-            log.info("Response ok:", response.ok);
+            log.info(LOG_CATEGORY, "Response status:", response.status);
+            log.info(LOG_CATEGORY, "Response ok:", response.ok);
 
             if (response.ok) {
                 const data = await response.json();
-                log.info("Upload successful, new image URL:", data.imageUrl);
-                log.info("Updating session with new image...");
+                log.info(LOG_CATEGORY, "Upload successful, new image URL:", data.imageUrl);
+                log.info(LOG_CATEGORY, "Updating session with new image...");
 
                 // Update session with new image
-                log.info("Updating session with new image URL...");
-                log.info("Current session before update:", session);
+                log.info(LOG_CATEGORY, "Updating session with new image URL...");
+                log.info(LOG_CATEGORY, "Current session before update:", session);
                 await update({ image: data.imageUrl });
-                log.info("Session updated with image:", data.imageUrl);
-                log.info("Session after update:", session);
+                log.info(LOG_CATEGORY, "Session updated with image:", data.imageUrl);
+                log.info(LOG_CATEGORY, "Session after update:", session);
 
                 setMessage("Profile image updated successfully!");
-                log.info("Session updated! Avatar should refresh automatically");
+                log.info(LOG_CATEGORY, "Session updated! Avatar should refresh automatically");
 
                 // Check session after update
                 setTimeout(() => {
-                    log.info("Checking session after update...");
+                    log.info(LOG_CATEGORY, "Checking session after update...");
                     // The session should now include the new image
                 }, 1000);
             } else {
