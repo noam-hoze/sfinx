@@ -17,11 +17,13 @@ export type BackgroundState = {
     transitioned: boolean;
     transitionedAt?: number;
     reason?: "timebox";
+    evaluatingAnswer: boolean;
 };
 
 const initialState: BackgroundState = {
     messages: [],
     transitioned: false,
+    evaluatingAnswer: false,
 };
 
 const backgroundSlice = createSlice({
@@ -72,6 +74,9 @@ const backgroundSlice = createSlice({
         setReason: (state, action: PayloadAction<{ reason: "timebox" }>) => {
             state.reason = action.payload.reason;
         },
+        setEvaluatingAnswer: (state, action: PayloadAction<{ evaluating: boolean }>) => {
+            state.evaluatingAnswer = action.payload.evaluating;
+        },
     },
     extraReducers: (builder) => {
         builder.addCase(resetInterview, () => initialState);
@@ -87,6 +92,7 @@ export const {
     forceTimeExpiry,
     markTransition,
     setReason,
+    setEvaluatingAnswer,
 } = backgroundSlice.actions;
 
 export default backgroundSlice.reducer;

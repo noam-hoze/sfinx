@@ -54,7 +54,7 @@ export default function RealTimeContributionsView({
     emptyStateMessage = "No evaluations yet"
 }: RealTimeContributionsViewProps) {
     
-    const hasData = evaluations.length > 0;
+    const hasData = evaluations.length > 0 || categoryBreakdown.length > 0;
 
     if (!hasData) {
         return (
