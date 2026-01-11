@@ -9,6 +9,8 @@ import Breadcrumbs from "app/shared/components/Breadcrumbs";
 import { log } from "app/shared/services";
 import { getBreadcrumbTrail } from "app/shared/config/navigation";
 
+const LOG_CATEGORY = "company-dashboard";
+
 interface Applicant {
   id: string;
   name: string;
@@ -51,7 +53,7 @@ function JobApplicantsContent() {
         setData(result);
         setError(null);
       } catch (err) {
-        log.error("Failed to fetch applicants:", err);
+        log.error(LOG_CATEGORY, "Failed to fetch applicants:", err);
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
         setLoading(false);

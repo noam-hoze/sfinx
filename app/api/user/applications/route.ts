@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth/next";
 import { log } from "app/shared/services";
 import { authOptions, prisma } from "app/shared/services/server";
 
+const LOG_CATEGORY = "applications";
+
 export async function GET(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
@@ -40,7 +42,7 @@ export async function GET(request: NextRequest) {
             total: appliedCompanyIds.length,
         });
     } catch (error) {
-        log.error("Error fetching user applications:", error);
+        log.error(LOG_CATEGORY, "Error fetching user applications:", error);
         return NextResponse.json(
             {
                 error: `Failed to fetch applications: ${

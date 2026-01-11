@@ -3,16 +3,18 @@ import { getServerSession } from "next-auth/next";
 import { log } from "app/shared/services";
 import { authOptions, prisma, invalidate, invalidatePattern } from "app/shared/services/server";
 
+const LOG_CATEGORY = "applications";
+
 export async function POST(request: NextRequest) {
     try {
-        log.info("🔍 Application creation API called");
+        log.info(LOG_CATEGORY, "🔍 Application creation API called");
 
         const url = new URL(request.url);
         const skipAuth = url.searchParams.get("skip-auth") === "true";
 
         const session = await getServerSession(authOptions);
-        log.info("🔍 Session:", session ? "Found" : "Not found");
-        log.info("🔍 Skip auth:", skipAuth);
+        log.info(LOG_CATEGORY, "🔍 Session:", session ? "Found" : "Not found");
+        log.info(LOG_CATEGORY, "🔍 Skip auth:", skipAuth);
 
         const body = await request.json();
         const { companyId, jobId, userId: bodyUserId } = body;
@@ -21,30 +23,30 @@ export async function POST(request: NextRequest) {
 
         if (skipAuth) {
             if (!bodyUserId) {
-                log.warn("❌ skip-auth mode but no userId provided in request");
+                log.warn(LOG_CATEGORY, "❌ skip-auth mode but no userId provided in request");
                 return NextResponse.json(
                     { error: "userId required when skip-auth=true" },
                     { status: 400 }
                 );
             }
             userId = bodyUserId;
-            log.info("✅ Skip auth - User ID from request:", userId);
+            log.info(LOG_CATEGORY, "✅ Skip auth - User ID from request:", userId);
         } else {
             if (!(session?.user as any)?.id) {
-                log.warn("❌ No user ID in session");
+                log.warn(LOG_CATEGORY, "❌ No user ID in session");
                 return NextResponse.json(
                     { error: "Unauthorized" },
                     { status: 401 }
                 );
             }
             userId = (session!.user as any).id;
-            log.info("✅ User ID from session:", userId);
+            log.info(LOG_CATEGORY, "✅ User ID from session:", userId);
         }
 
-        log.info("📋 Request data:", { companyId, jobId });
+        log.info(LOG_CATEGORY, "📋 Request data:", { companyId, jobId });
 
         if (!companyId || !jobId) {
-            log.warn("❌ Missing required fields");
+            log.warn(LOG_CATEGORY, "❌ Missing required fields");
             return NextResponse.json(
                 {
                     error: "companyId and jobId are required",
@@ -54,24 +56,24 @@ export async function POST(request: NextRequest) {
         }
 
         // Find the company by ID
-        log.info("🏢 Looking for company:", companyId);
+        log.info(LOG_CATEGORY, "🏢 Looking for company:", companyId);
         const company = await prisma.company.findUnique({
             where: { id: companyId },
         });
 
         if (!company) {
-            log.warn("❌ Company not found:", companyId);
+            log.warn(LOG_CATEGORY, "❌ Company not found:", companyId);
             return NextResponse.json(
                 { error: "Company not found" },
                 { status: 404 }
             );
         }
-        log.info("✅ Company found:", company.name);
+        log.info(LOG_CATEGORY, "✅ Company found:", company.name);
 
         // Resolve job STRICTLY by jobId (deterministic)
         const job = await prisma.job.findUnique({ where: { id: jobId } });
         if (!job || job.companyId !== company.id) {
-            log.warn("❌ Job not found or does not belong to company", {
+            log.warn(LOG_CATEGORY, "❌ Job not found or does not belong to company", {
                 jobId,
                 companyId: company.id,
             });
@@ -87,7 +89,7 @@ export async function POST(request: NextRequest) {
         });
 
         if (existingByJobId) {
-            log.info(
+            log.info(LOG_CATEGORY, 
                 "✅ Reusing existing application by jobId:",
                 existingByJobId.id
             );
@@ -98,7 +100,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Create the application
-        log.info("🚀 Creating application...");
+        log.info(LOG_CATEGORY, "🚀 Creating application...");
         const application = await prisma.application.create({
             data: {
                 candidateId: userId,
@@ -107,7 +109,7 @@ export async function POST(request: NextRequest) {
             },
         });
 
-        log.info("✅ Application created:", application.id);
+        log.info(LOG_CATEGORY, "✅ Application created:", application.id);
         
         invalidate(`applicants:job:${job.id}`);
         invalidatePattern(`jobs:company:${company.name}`);
@@ -117,8 +119,8 @@ export async function POST(request: NextRequest) {
             application,
         });
     } catch (error) {
-        log.error("❌ Error creating application:", error);
-        log.error("❌ Error details:", {
+        log.error(LOG_CATEGORY, "❌ Error creating application:", error);
+        log.error(LOG_CATEGORY, "❌ Error details:", {
             name: error instanceof Error ? error.name : "Unknown",
             message: error instanceof Error ? error.message : String(error),
             stack: error instanceof Error ? error.stack : undefined,

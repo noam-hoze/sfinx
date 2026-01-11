@@ -3,11 +3,13 @@ import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 import OpenAI from "openai";
 
+const LOG_CATEGORY = "interviews";
+
 export async function POST(request: NextRequest) {
     try {
         const openaiApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
         if (!openaiApiKey) {
-            log.error("[Generate Coding Gaps] OpenAI API key not configured");
+            log.error(LOG_CATEGORY, "[Generate Coding Gaps] OpenAI API key not configured");
             return NextResponse.json(
                 { error: "OpenAI API key not configured" },
                 { status: 500 }
@@ -26,7 +28,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        log.info("[Generate Coding Gaps] Starting gap generation for session:", sessionId);
+        log.info(LOG_CATEGORY, "[Generate Coding Gaps] Starting gap generation for session:", sessionId);
 
         // Fetch all coding session metrics
         const [iterations, externalToolUsages] = await Promise.all([
@@ -50,7 +52,7 @@ export async function POST(request: NextRequest) {
             }),
         ]);
 
-        log.info("[Generate Coding Gaps] Metrics gathered:", {
+        log.info(LOG_CATEGORY, "[Generate Coding Gaps] Metrics gathered:", {
             iterations: iterations.length,
             externalToolUsages: externalToolUsages.length,
         });
@@ -130,7 +132,7 @@ ${JSON.stringify(metricsContext, null, 2)}
 
 Identify gaps in the candidate's skills based on this data.`;
 
-        log.info("[Generate Coding Gaps] Calling OpenAI...");
+        log.info(LOG_CATEGORY, "[Generate Coding Gaps] Calling OpenAI...");
 
         const completion = await openaiClient.chat.completions.create({
             model: "gpt-4o",
@@ -147,12 +149,12 @@ Identify gaps in the candidate's skills based on this data.`;
             throw new Error("No response from OpenAI");
         }
 
-        log.info("[Generate Coding Gaps] OpenAI response received");
+        log.info(LOG_CATEGORY, "[Generate Coding Gaps] OpenAI response received");
 
         const parsed = JSON.parse(responseText);
         const gaps = parsed.gaps || [];
 
-        log.info("[Generate Coding Gaps] Parsed gaps:", gaps.length);
+        log.info(LOG_CATEGORY, "[Generate Coding Gaps] Parsed gaps:", gaps.length);
 
         // Get telemetry data for this session
         const session = await prisma.interviewSession.findUnique({
@@ -161,7 +163,7 @@ Identify gaps in the candidate's skills based on this data.`;
         });
 
         if (!session?.telemetryData?.gapAnalysis) {
-            log.error("[Generate Coding Gaps] No gap analysis found for session");
+            log.error(LOG_CATEGORY, "[Generate Coding Gaps] No gap analysis found for session");
             return NextResponse.json(
                 { error: "Gap analysis not found for session" },
                 { status: 404 }
@@ -189,7 +191,7 @@ Identify gaps in the candidate's skills based on this data.`;
             });
         }
 
-        log.info("[Generate Coding Gaps] Gaps saved to database");
+        log.info(LOG_CATEGORY, "[Generate Coding Gaps] Gaps saved to database");
 
         return NextResponse.json({
             message: "Gaps generated successfully",
@@ -197,7 +199,7 @@ Identify gaps in the candidate's skills based on this data.`;
             gaps,
         });
     } catch (error: any) {
-        log.error("[Generate Coding Gaps] Error:", error);
+        log.error(LOG_CATEGORY, "[Generate Coding Gaps] Error:", error);
         return NextResponse.json(
             {
                 error: "Failed to generate gaps",

@@ -6,6 +6,8 @@
 import NodeCache from "node-cache";
 import { log } from "./logger";
 
+const LOG_CATEGORY = "cache";
+
 const TTL_SECONDS = 300; // 5 minutes
 
 const cache = new NodeCache({
@@ -20,10 +22,10 @@ const cache = new NodeCache({
 export async function getCached<T>(key: string): Promise<T | null> {
     const value = cache.get<T>(key);
     if (value !== undefined) {
-        log.debug(`[Cache] HIT: ${key}`);
+        log.debug(LOG_CATEGORY, `[Cache] HIT: ${key}`);
         return value;
     }
-    log.debug(`[Cache] MISS: ${key}`);
+    log.debug(LOG_CATEGORY, `[Cache] MISS: ${key}`);
     return null;
 }
 
@@ -36,7 +38,7 @@ export async function setCached<T>(
     ttl?: number
 ): Promise<void> {
     cache.set(key, value, ttl ?? TTL_SECONDS);
-    log.debug(`[Cache] SET: ${key}`);
+    log.debug(LOG_CATEGORY, `[Cache] SET: ${key}`);
 }
 
 /**
@@ -45,7 +47,7 @@ export async function setCached<T>(
 export function invalidate(key: string): void {
     const deleted = cache.del(key);
     if (deleted > 0) {
-        log.info(`[Cache] INVALIDATE: ${key}`);
+        log.info(LOG_CATEGORY, `[Cache] INVALIDATE: ${key}`);
     }
 }
 
@@ -57,7 +59,7 @@ export function invalidatePattern(pattern: string): void {
     const matching = keys.filter((key) => key.startsWith(pattern));
     if (matching.length > 0) {
         cache.del(matching);
-        log.info(`[Cache] INVALIDATE_PATTERN: ${pattern} (${matching.length} keys)`);
+        log.info(LOG_CATEGORY, `[Cache] INVALIDATE_PATTERN: ${pattern} (${matching.length} keys)`);
     }
 }
 

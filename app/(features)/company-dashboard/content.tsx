@@ -9,6 +9,8 @@ import { log } from "app/shared/services";
 import { readResponseError } from "app/shared/utils/http";
 import { SfinxSpinner } from "app/shared/components";
 import InterviewContentSection, {
+
+const LOG_CATEGORY = "company-dashboard";
     InterviewContentState,
     InterviewDurationState,
     defaultInterviewDurations,
@@ -68,7 +70,7 @@ function CompanyDashboardContent() {
 
     useEffect(() => {
         const fetchJobs = async () => {
-            log.info("Fetching company jobs...");
+            log.info(LOG_CATEGORY, "Fetching company jobs...");
             try {
                 const resp = await fetch("/api/company/jobs");
                 if (!resp.ok) {
@@ -108,14 +110,14 @@ function CompanyDashboardContent() {
             } catch (err) {
                 const message =
                     err instanceof Error ? err.message : "Unknown error";
-                log.error("❌ Failed to fetch company jobs:", err);
+                log.error(LOG_CATEGORY, "❌ Failed to fetch company jobs:", err);
                 setError(message);
             } finally {
                 setLoading(false);
             }
         };
         fetchJobs().catch((err) => {
-            log.error("❌ Unexpected fetch error:", err);
+            log.error(LOG_CATEGORY, "❌ Unexpected fetch error:", err);
         });
     }, []);
 
@@ -214,7 +216,7 @@ function CompanyDashboardContent() {
             const message =
                 err instanceof Error ? err.message : "Unknown error";
             setError(message);
-            log.error("❌ Failed to create job:", err);
+            log.error(LOG_CATEGORY, "❌ Failed to create job:", err);
         } finally {
             setCreateSubmitting(false);
         }
@@ -237,7 +239,7 @@ function CompanyDashboardContent() {
             const message =
                 err instanceof Error ? err.message : "Unknown error";
             setError(message);
-            log.error("❌ Failed to delete job:", err);
+            log.error(LOG_CATEGORY, "❌ Failed to delete job:", err);
         } finally {
             setDeleteInFlight(null);
         }

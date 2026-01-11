@@ -4,16 +4,18 @@ import { authOptions } from "app/shared/services/auth";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 
+const LOG_CATEGORY = "interviews";
+
 export async function POST(request: NextRequest) {
     try {
-        log.info("🔍 Interview session creation API called");
+        log.info(LOG_CATEGORY, "🔍 Interview session creation API called");
 
         const url = new URL(request.url);
         const skipAuth = url.searchParams.get("skip-auth") === "true";
 
         const session = await getServerSession(authOptions);
-        log.info("🔍 Session:", session ? "Found" : "Not found");
-        log.info("🔍 Skip auth:", skipAuth);
+        log.info(LOG_CATEGORY, "🔍 Session:", session ? "Found" : "Not found");
+        log.info(LOG_CATEGORY, "🔍 Skip auth:", skipAuth);
 
         const body = await request.json();
         const { applicationId, companyId, userId: requestUserId, recordingStartedAt } = body;
@@ -22,30 +24,30 @@ export async function POST(request: NextRequest) {
 
         if (skipAuth) {
             if (!requestUserId) {
-                log.warn("❌ skip-auth mode but no userId provided in request");
+                log.warn(LOG_CATEGORY, "❌ skip-auth mode but no userId provided in request");
                 return NextResponse.json(
                     { error: "userId required when skip-auth=true" },
                     { status: 400 }
                 );
             }
             userId = requestUserId;
-            log.info("✅ Skip auth - User ID from request:", userId);
+            log.info(LOG_CATEGORY, "✅ Skip auth - User ID from request:", userId);
         } else {
             if (!(session?.user as any)?.id) {
-                log.warn("❌ No user ID in session");
+                log.warn(LOG_CATEGORY, "❌ No user ID in session");
                 return NextResponse.json(
                     { error: "Unauthorized" },
                     { status: 401 }
                 );
             }
             userId = (session!.user as any).id;
-            log.info("✅ User ID from session:", userId);
+            log.info(LOG_CATEGORY, "✅ User ID from session:", userId);
         }
 
-        log.info("📋 Request data:", { applicationId, companyId });
+        log.info(LOG_CATEGORY, "📋 Request data:", { applicationId, companyId });
 
         if (!applicationId) {
-            log.warn("❌ Missing applicationId");
+            log.warn(LOG_CATEGORY, "❌ Missing applicationId");
             return NextResponse.json(
                 { error: "Application ID is required" },
                 { status: 400 }
@@ -53,7 +55,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify the application exists and belongs to the user
-        log.info("🔎 Verifying application exists & belongs to user", {
+        log.info(LOG_CATEGORY, "🔎 Verifying application exists & belongs to user", {
             applicationId,
             userId,
         });
@@ -65,24 +67,24 @@ export async function POST(request: NextRequest) {
         });
 
         if (!application) {
-            log.warn("❌ Application not found or doesn't belong to user");
+            log.warn(LOG_CATEGORY, "❌ Application not found or doesn't belong to user");
             return NextResponse.json(
                 { error: "Application not found" },
                 { status: 404 }
             );
         }
-        log.info("✅ Application verified");
+        log.info(LOG_CATEGORY, "✅ Application verified");
 
         // Create interview session AND zeroed telemetry in a single transaction
-        log.info(
+        log.info(LOG_CATEGORY, 
             "🚀 Creating interview session and zeroed telemetry (transaction)..."
         );
         let interviewSession; // for logging after transaction
         try {
             const txResult = await prisma.$transaction(async (tx) => {
-                log.info("🧾 [TX] Creating InterviewSession...");
+                log.info(LOG_CATEGORY, "🧾 [TX] Creating InterviewSession...");
                 const actualRecordingStartTime = recordingStartedAt ? new Date(recordingStartedAt) : new Date();
-                log.info("📹 Using recording start time:", actualRecordingStartTime.toISOString(), recordingStartedAt ? "(from client)" : "(fallback)");
+                log.info(LOG_CATEGORY, "📹 Using recording start time:", actualRecordingStartTime.toISOString(), recordingStartedAt ? "(from client)" : "(fallback)");
                 const interviewSession = await tx.interviewSession.create({
                     data: {
                         candidateId: userId,
@@ -91,11 +93,11 @@ export async function POST(request: NextRequest) {
                         recordingStartedAt: actualRecordingStartTime, // Use actual MediaRecorder start time
                     },
                 });
-                log.info("✅ [TX] InterviewSession created", {
+                log.info(LOG_CATEGORY, "✅ [TX] InterviewSession created", {
                     interviewSessionId: interviewSession.id,
                 });
 
-                log.info("🧾 [TX] Creating TelemetryData (zeroed)...");
+                log.info(LOG_CATEGORY, "🧾 [TX] Creating TelemetryData (zeroed)...");
                 const telemetry = await tx.telemetryData.create({
                     data: {
                         interviewSessionId: interviewSession.id,
@@ -105,11 +107,11 @@ export async function POST(request: NextRequest) {
                         hasFairnessFlag: false,
                     } as any,
                 });
-                log.info("✅ [TX] TelemetryData created", {
+                log.info(LOG_CATEGORY, "✅ [TX] TelemetryData created", {
                     telemetryId: telemetry.id,
                 });
 
-                log.info(
+                log.info(LOG_CATEGORY, 
                     "🧾 [TX] Creating WorkstyleMetrics (nullable baseline)..."
                 );
                 await tx.workstyleMetrics.create({
@@ -118,15 +120,15 @@ export async function POST(request: NextRequest) {
                         externalToolUsage: 0,
                     } as any,
                 });
-                log.info("✅ [TX] WorkstyleMetrics created for telemetry", {
+                log.info(LOG_CATEGORY, "✅ [TX] WorkstyleMetrics created for telemetry", {
                     telemetryId: telemetry.id,
                 });
 
-                log.info("🧾 [TX] Creating GapAnalysis (empty)...");
+                log.info(LOG_CATEGORY, "🧾 [TX] Creating GapAnalysis (empty)...");
                 await tx.gapAnalysis.create({
                     data: { telemetryDataId: telemetry.id },
                 });
-                log.info("✅ [TX] GapAnalysis created for telemetry", {
+                log.info(LOG_CATEGORY, "✅ [TX] GapAnalysis created for telemetry", {
                     telemetryId: telemetry.id,
                 });
 
@@ -134,7 +136,7 @@ export async function POST(request: NextRequest) {
             });
             interviewSession = txResult.interviewSession;
         } catch (txError: any) {
-            log.error(
+            log.error(LOG_CATEGORY, 
                 "💥 Transaction failed while creating session/telemetry",
                 {
                     name: txError?.name,
@@ -147,7 +149,7 @@ export async function POST(request: NextRequest) {
             throw txError; // handled by outer catch to return 500
         }
 
-        log.info(
+        log.info(LOG_CATEGORY, 
             "✅ Interview session and telemetry created:",
             interviewSession.id
         );
@@ -157,8 +159,8 @@ export async function POST(request: NextRequest) {
             interviewSession,
         });
     } catch (error: any) {
-        log.error("❌ Error creating interview session:", error);
-        log.error("❌ Error details:", {
+        log.error(LOG_CATEGORY, "❌ Error creating interview session:", error);
+        log.error(LOG_CATEGORY, "❌ Error details:", {
             name: error?.name,
             message: error?.message,
             stack: error?.stack,

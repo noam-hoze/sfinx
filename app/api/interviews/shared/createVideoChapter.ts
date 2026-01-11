@@ -2,6 +2,8 @@ import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 import { CHAPTER_TYPES } from "./chapterTypes";
 
+const LOG_CATEGORY = "interviews";
+
 interface CreateVideoChapterParams {
     telemetryDataId: string;
     title: string;
@@ -22,7 +24,7 @@ interface CreateVideoChapterParams {
 export async function createVideoChapter(params: CreateVideoChapterParams) {
     const { telemetryDataId, title, startTime, description, caption } = params;
 
-    log.info("[createVideoChapter] Creating chapter:", {
+    log.info(LOG_CATEGORY, "[createVideoChapter] Creating chapter:", {
         title,
         startTime,
         telemetryDataId,
@@ -35,7 +37,7 @@ export async function createVideoChapter(params: CreateVideoChapterParams) {
         include: { captions: true },
     });
 
-    log.info("[createVideoChapter] Found existing chapters:", existingChapters.length);
+    log.info(LOG_CATEGORY, "[createVideoChapter] Found existing chapters:", existingChapters.length);
 
     // If no chapters exist and this is not at time 0, create Problem Presentation chapter
     if (existingChapters.length === 0 && startTime > 0) {
@@ -51,7 +53,7 @@ export async function createVideoChapter(params: CreateVideoChapterParams) {
                 thumbnailUrl: null,
             },
         });
-        log.info("[createVideoChapter] Created Problem Presentation chapter:", {
+        log.info(LOG_CATEGORY, "[createVideoChapter] Created Problem Presentation chapter:", {
             id: problemPresentationChapter.id,
             startTime: 0,
             endTime: startTime,
@@ -77,7 +79,7 @@ export async function createVideoChapter(params: CreateVideoChapterParams) {
         orderBy: { startTime: "asc" },
     });
 
-    log.info("[createVideoChapter] Adjacent chapters:", {
+    log.info(LOG_CATEGORY, "[createVideoChapter] Adjacent chapters:", {
         previous: previousChapter ? { title: previousChapter.title, startTime: previousChapter.startTime } : null,
         next: nextChapter ? { title: nextChapter.title, startTime: nextChapter.startTime } : null,
     });
@@ -88,7 +90,7 @@ export async function createVideoChapter(params: CreateVideoChapterParams) {
             where: { id: previousChapter.id },
             data: { endTime: startTime },
         });
-        log.info("[createVideoChapter] Updated previous chapter endTime:", {
+        log.info(LOG_CATEGORY, "[createVideoChapter] Updated previous chapter endTime:", {
             chapterId: previousChapter.id,
             title: previousChapter.title,
             newEndTime: startTime,
@@ -100,7 +102,7 @@ export async function createVideoChapter(params: CreateVideoChapterParams) {
                 where: { videoChapterId: previousChapter.id },
                 data: { endTime: startTime },
             });
-            log.info("[createVideoChapter] Updated previous chapter captions endTime");
+            log.info(LOG_CATEGORY, "[createVideoChapter] Updated previous chapter captions endTime");
         }
     }
 
@@ -121,7 +123,7 @@ export async function createVideoChapter(params: CreateVideoChapterParams) {
         },
     });
 
-    log.info("[createVideoChapter] Created new chapter:", {
+    log.info(LOG_CATEGORY, "[createVideoChapter] Created new chapter:", {
         id: newChapter.id,
         title: newChapter.title,
         startTime: newChapter.startTime,
@@ -138,7 +140,7 @@ export async function createVideoChapter(params: CreateVideoChapterParams) {
                 endTime: newChapterEndTime,
             },
         });
-        log.info("[createVideoChapter] Created caption");
+        log.info(LOG_CATEGORY, "[createVideoChapter] Created caption");
     }
 
     // Log all chapters after creation for debugging
@@ -146,7 +148,7 @@ export async function createVideoChapter(params: CreateVideoChapterParams) {
         where: { telemetryDataId },
         orderBy: { startTime: "asc" },
     });
-    log.info("[createVideoChapter] All chapters after creation:", 
+    log.info(LOG_CATEGORY, "[createVideoChapter] All chapters after creation:", 
         allChapters.map(c => ({ 
             title: c.title, 
             start: c.startTime, 
