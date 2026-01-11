@@ -10,6 +10,12 @@ export type ChatMessage = {
     timestamp: number;
 };
 
+export type CategoryStats = {
+    categoryName: string;
+    count: number;
+    avgStrength: number;
+};
+
 export type BackgroundState = {
     messages: ChatMessage[];
     startedAtMs?: number;
@@ -20,6 +26,7 @@ export type BackgroundState = {
     evaluatingAnswer: boolean;
     currentFocusTopic: string | null;
     currentQuestionTarget: { question: string; category: string } | null;
+    categoryStats: CategoryStats[];
 };
 
 const initialState: BackgroundState = {
@@ -28,6 +35,7 @@ const initialState: BackgroundState = {
     evaluatingAnswer: false,
     currentFocusTopic: null,
     currentQuestionTarget: null,
+    categoryStats: [],
 };
 
 const backgroundSlice = createSlice({
@@ -87,6 +95,16 @@ const backgroundSlice = createSlice({
         setCurrentQuestionTarget: (state, action: PayloadAction<{ question: string; category: string } | null>) => {
             state.currentQuestionTarget = action.payload;
         },
+        initializeCategoryStats: (state, action: PayloadAction<{ categories: string[] }>) => {
+            state.categoryStats = action.payload.categories.map(name => ({
+                categoryName: name,
+                count: 0,
+                avgStrength: 0,
+            }));
+        },
+        updateCategoryStats: (state, action: PayloadAction<{ stats: CategoryStats[] }>) => {
+            state.categoryStats = action.payload.stats;
+        },
     },
     extraReducers: (builder) => {
         builder.addCase(resetInterview, () => initialState);
@@ -105,6 +123,8 @@ export const {
     setEvaluatingAnswer,
     setCurrentFocusTopic,
     setCurrentQuestionTarget,
+    initializeCategoryStats,
+    updateCategoryStats,
 } = backgroundSlice.actions;
 
 export default backgroundSlice.reducer;

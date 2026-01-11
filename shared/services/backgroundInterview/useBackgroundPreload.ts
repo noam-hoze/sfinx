@@ -12,7 +12,7 @@ import {
   setSessionId,
   setCompanyContext,
 } from "@/shared/state/slices/interviewSlice";
-import { setTimebox as setBackgroundTimebox } from "@/shared/state/slices/backgroundSlice";
+import { setTimebox as setBackgroundTimebox, initializeCategoryStats } from "@/shared/state/slices/backgroundSlice";
 import { setTimebox as setCodingTimebox } from "@/shared/state/slices/codingSlice";
 import { buildOpenAIBackgroundPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
 import { generateAssistantReply } from "app/(features)/interview/components/chat/openAITextConversationHelpers";
@@ -141,6 +141,9 @@ export function useBackgroundPreload() {
 
         if (scriptData.experienceCategories && onExperienceCategoriesSet) {
           onExperienceCategoriesSet(scriptData.experienceCategories);
+          // Initialize category stats in Redux store
+          const categoryNames = scriptData.experienceCategories.map((c: any) => c.name);
+          dispatch(initializeCategoryStats({ categories: categoryNames }));
         }
 
         console.log("[preload] Preload complete - data stored in Redux");
