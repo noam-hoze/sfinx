@@ -18,12 +18,16 @@ export type BackgroundState = {
     transitionedAt?: number;
     reason?: "timebox";
     evaluatingAnswer: boolean;
+    currentFocusTopic: string | null;
+    currentQuestionTarget: { question: string; category: string } | null;
 };
 
 const initialState: BackgroundState = {
     messages: [],
     transitioned: false,
     evaluatingAnswer: false,
+    currentFocusTopic: null,
+    currentQuestionTarget: null,
 };
 
 const backgroundSlice = createSlice({
@@ -77,6 +81,12 @@ const backgroundSlice = createSlice({
         setEvaluatingAnswer: (state, action: PayloadAction<{ evaluating: boolean }>) => {
             state.evaluatingAnswer = action.payload.evaluating;
         },
+        setCurrentFocusTopic: (state, action: PayloadAction<{ topicName: string | null }>) => {
+            state.currentFocusTopic = action.payload.topicName;
+        },
+        setCurrentQuestionTarget: (state, action: PayloadAction<{ question: string; category: string } | null>) => {
+            state.currentQuestionTarget = action.payload;
+        },
     },
     extraReducers: (builder) => {
         builder.addCase(resetInterview, () => initialState);
@@ -93,6 +103,8 @@ export const {
     markTransition,
     setReason,
     setEvaluatingAnswer,
+    setCurrentFocusTopic,
+    setCurrentQuestionTarget,
 } = backgroundSlice.actions;
 
 export default backgroundSlice.reducer;

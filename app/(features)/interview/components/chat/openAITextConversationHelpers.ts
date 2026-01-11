@@ -12,6 +12,7 @@ export async function askViaChatCompletion(
     model: "gpt-4o-mini",
     temperature: 0.2,
     messages: [{ role: "system", content: system }, ...history] as any,
+    response_format: { type: "json_object" },
   });
   const txt = completion.choices?.[0]?.message?.content?.trim();
   if (!txt) {
@@ -33,6 +34,7 @@ export async function generateAssistantReply(
       { role: "system", content: persona },
       { role: "user", content: instruction },
     ],
+    response_format: { type: "json_object" },
   });
   return completion.choices?.[0]?.message?.content?.trim() || null;
 }

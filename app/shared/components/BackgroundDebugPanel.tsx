@@ -258,6 +258,7 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
     // Background stage panel - now with dynamic categories
     const categoryNames = experienceCategories?.map(c => c.name) || [];
     const evaluatingAnswer = backgroundState.evaluatingAnswer;
+    const currentQuestionTarget = backgroundState.currentQuestionTarget;
 
     // Calculate real-time scores
     const experienceScores = useMemo(() => {
@@ -330,6 +331,27 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
                         </div>
                     </div>
                 </div>
+
+                {/* Current Question Target */}
+                {currentQuestionTarget && (
+                    <div className="rounded-[24px] border border-blue-200/70 bg-blue-50/70 px-5 py-4 shadow-sm shadow-slate-900/10 dark:border-blue-700/50 dark:bg-blue-900/20">
+                        <div className="text-[11px] uppercase tracking-[0.3em] text-blue-700 dark:text-blue-400 mb-2">
+                            Current Question → Target
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <div className="flex-1">
+                                <div className="text-sm text-slate-700 dark:text-slate-200 mb-2">
+                                    {currentQuestionTarget.question}
+                                </div>
+                                <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-600/10 dark:bg-blue-400/10 rounded-full">
+                                    <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
+                                        → {currentQuestionTarget.category}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Score Progress */}
                 <ScoreProgressDisplay
