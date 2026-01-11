@@ -22,7 +22,7 @@ export default function Header() {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const { isMuted, toggleMute } = useMute();
-    const { isDebugVisible } = useDebug();
+    const { isDebugVisible, showDebugButton } = useDebug();
     
     // Sliding indicator state
     const [indicatorStyle, setIndicatorStyle] = useState({ width: 0, left: 0 });
@@ -177,16 +177,42 @@ export default function Header() {
 
                 {/* User Avatar and Menu / Demo Restart Button */}
                 <div className="flex items-center justify-end gap-4">
+                    {/* Debug Panel Toggle Button */}
+                    {process.env.NEXT_PUBLIC_DEBUG_MODE === "true" && showDebugButton && (
+                        <button
+                            onClick={() => {
+                                // Toggle debug panel - dispatch custom event
+                                window.dispatchEvent(new CustomEvent('toggleDebugPanel'));
+                            }}
+                            className={`w-12 h-12 rounded-full border-2 border-sfinx-purple transition-all flex items-center justify-center ${
+                                isDebugVisible ? 'bg-sfinx-purple text-white' : 'text-sfinx-purple hover:bg-sfinx-purple hover:text-white'
+                            }`}
+                            title="Toggle Debug Panel"
+                        >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                            </svg>
+                        </button>
+                    )}
+                    
                     {/* Create New Job Button (only for companies) */}
                     {role === "COMPANY" && (
                         <button
                             type="button"
-                            className="px-6 py-2.5 rounded-xl bg-sfinx-purple text-white hover:bg-opacity-90 transition-all duration-200 text-sm font-semibold shadow-sm hover:shadow-md"
+                            className="w-12 h-12 rounded-full border-2 border-sfinx-purple text-sfinx-purple hover:bg-sfinx-purple hover:text-white transition-all duration-200 flex items-center justify-center relative"
                             onClick={() => {
                                 router.push('/company-dashboard/jobs/new');
                             }}
+                            title="Create New Job"
                         >
-                            Create New Job
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            <div className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-sfinx-purple flex items-center justify-center">
+                                <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
+                                </svg>
+                            </div>
                         </button>
                     )}
                     
@@ -206,24 +232,6 @@ export default function Header() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                                 </svg>
                             )}
-                        </button>
-                    )}
-                    
-                    {/* Debug Panel Toggle Button */}
-                    {process.env.NEXT_PUBLIC_DEBUG_MODE === "true" && (
-                        <button
-                            onClick={() => {
-                                // Toggle debug panel - dispatch custom event
-                                window.dispatchEvent(new CustomEvent('toggleDebugPanel'));
-                            }}
-                            className={`rounded-full p-2 shadow-lg hover:opacity-80 transition-all flex-shrink-0 ${
-                                isDebugVisible ? 'bg-purple-600' : 'bg-transparent'
-                            }`}
-                            title="Toggle Debug Panel"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke={isDebugVisible ? 'white' : '#9ca3af'} viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                            </svg>
                         </button>
                     )}
                     

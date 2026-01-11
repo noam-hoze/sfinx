@@ -28,7 +28,7 @@ function TelemetryContent() {
     const router = useRouter();
     const candidateId = searchParams.get("candidateId");
     const applicationId = searchParams.get("applicationId");
-    const { isDebugVisible } = useDebug();
+    const { isDebugVisible, setShowDebugButton } = useDebug();
     const activeCaption = useSelector((state: RootState) => state.cps.activeCaption);
     const dispatch = useDispatch();
 
@@ -53,6 +53,12 @@ function TelemetryContent() {
     // Modal state
     const [experienceModalOpen, setExperienceModalOpen] = useState(false);
     const [codingModalOpen, setCodingModalOpen] = useState(false);
+    
+    // Show debug button on mount, hide on unmount
+    useEffect(() => {
+        setShowDebugButton(true);
+        return () => setShowDebugButton(false);
+    }, [setShowDebugButton]);
     
     // Scoring configuration
     const [scoringConfig, setScoringConfig] = useState<ScoringConfiguration | null>(null);
