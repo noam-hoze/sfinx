@@ -13,13 +13,29 @@ export async function GET(request: NextRequest, context: RouteContext) {
     try {
         const { sessionId } = await context.params;
 
+        const session = await prisma.interviewSession.findUnique({
+            where: { id: sessionId },
+            include: {
+                application: {
+                    include: {
+                        job: true,
+                    },
+                },
+            },
+        });
+
+        if (!session) {
+            return NextResponse.json({ error: "Session not found" }, { status: 404 });
+        }
+
+        const jobCategories = (session.application.job.experienceCategories as any[]) || [];
+
         const contributions = await prisma.categoryContribution.findMany({
             where: { interviewSessionId: sessionId },
             orderBy: { timestamp: "desc" },
-            take: 50, // Limit to most recent 50
+            take: 50,
         });
 
-        // Group by category
         const byCategory: Record<string, typeof contributions> = {};
         contributions.forEach(contrib => {
             if (!byCategory[contrib.categoryName]) {
@@ -28,27 +44,28 @@ export async function GET(request: NextRequest, context: RouteContext) {
             byCategory[contrib.categoryName].push(contrib);
         });
 
-        // Target contributions for full confidence
         const TARGET_CONTRIBUTIONS = 5;
         
-        // Calculate stats per category with confidence multiplier
-        const categoryStats = Object.entries(byCategory).map(([categoryName, contribs]) => {
-            const rawAverage = contribs.reduce((sum, c) => sum + c.contributionStrength, 0) / contribs.length;
+        const categoryStats = jobCategories.map(category => {
+            const contribs = byCategory[category.name] || [];
+            const rawAverage = contribs.length > 0
+                ? contribs.reduce((sum, c) => sum + c.contributionStrength, 0) / contribs.length
+                : 0;
             const confidence = Math.min(1.0, contribs.length / TARGET_CONTRIBUTIONS);
             const adjustedScore = Math.round(rawAverage * confidence);
             
             return {
-                categoryName,
+                categoryName: category.name,
                 count: contribs.length,
-                avgStrength: adjustedScore,  // Adjusted score shown as primary
+                avgStrength: adjustedScore,
                 rawAverage: Math.round(rawAverage),
                 confidence: confidence,
                 targetContributions: TARGET_CONTRIBUTIONS,
-                latestContribution: contribs[0],
+                latestContribution: contribs[0] || null,
             };
         });
 
-        log.info(`[contributions/GET] Fetched ${contributions.length} contributions for session ${sessionId}`);
+        log.info(`[contributions/GET] Fetched ${contributions.length} contributions for ${jobCategories.length} categories`);
 
         return NextResponse.json({
             contributions,

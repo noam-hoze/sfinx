@@ -29,7 +29,20 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
     const backgroundState = useSelector((state: RootState) => state.background);
     const [contributionStats, setContributionStats] = useState<ContributionStats[]>([]);
 
-    // Poll for contributions every 3 seconds
+    // Initialize categories immediately on mount
+    useEffect(() => {
+        if (!experienceCategories) return;
+        
+        const initialStats = experienceCategories.map(cat => ({
+            categoryName: cat.name,
+            count: 0,
+            avgStrength: 0,
+            latestContribution: null
+        }));
+        setContributionStats(initialStats);
+    }, [experienceCategories]);
+
+    // Fetch contributions after each evaluation (triggered by realtimeEvaluations change)
     useEffect(() => {
         if (!debugEnabled || !sessionId) return;
         
@@ -45,11 +58,8 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
             }
         };
 
-        fetchContributions(); // Initial fetch
-        const interval = setInterval(fetchContributions, 3000); // Poll every 3s
-        
-        return () => clearInterval(interval);
-    }, [debugEnabled, sessionId]);
+        fetchContributions();
+    }, [debugEnabled, sessionId, realtimeEvaluations]);
 
     const stage = useSelector((state: RootState) => state.interview.stage);
     const startedAtMs = backgroundState.startedAtMs;
@@ -247,6 +257,7 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
 
     // Background stage panel - now with dynamic categories
     const categoryNames = experienceCategories?.map(c => c.name) || [];
+    const evaluatingAnswer = backgroundState.evaluatingAnswer;
 
     // Calculate real-time scores
     const experienceScores = useMemo(() => {
@@ -283,6 +294,15 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
                             <span className="text-2xl font-semibold text-slate-900 dark:text-white">
                                 Collecting
                             </span>
+                            {evaluatingAnswer && (
+                                <span className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
+                                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Evaluating...
+                                </span>
+                            )}
                         </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-slate-600 dark:text-slate-300">

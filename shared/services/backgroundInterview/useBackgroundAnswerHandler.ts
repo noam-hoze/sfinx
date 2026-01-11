@@ -8,7 +8,7 @@ import { useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import OpenAI from "openai";
 import { store, RootState } from "@/shared/state/store";
-import { addMessage } from "@/shared/state/slices/backgroundSlice";
+import { addMessage, setEvaluatingAnswer } from "@/shared/state/slices/backgroundSlice";
 import {
   askViaChatCompletion,
   generateAssistantReply,
@@ -79,6 +79,7 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
         if (sessionId) {
           const experienceCategories = script?.experienceCategories || [];
           const evalTimestamp = new Date().toISOString();
+          dispatch(setEvaluatingAnswer({ evaluating: true }));
           fetch(`/api/interviews/evaluate-answer`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -101,7 +102,8 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
               });
             }
           })
-          .catch(err => console.error("[answer-handler] Failed to evaluate answer:", err));
+          .catch(err => console.error("[answer-handler] Failed to evaluate answer:", err))
+          .finally(() => dispatch(setEvaluatingAnswer({ evaluating: false })));
         }
 
         // Transition machine state
