@@ -118,7 +118,11 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
               dispatch(setCurrentFocusTopic({ topicName: fastData.newFocusTopic }));
             }
             
-            nextQuestionText = fastData.nextQuestion || "";
+            // Combine acknowledgment and next question
+            if (!fastData.acknowledgment || !fastData.nextQuestion) {
+              throw new Error("Fast API must return both acknowledgment and nextQuestion");
+            }
+            nextQuestionText = `${fastData.acknowledgment} ${fastData.nextQuestion}`;
             
             // Set question target for debug panel
             if (nextQuestionText && fastData.targetedCategory) {

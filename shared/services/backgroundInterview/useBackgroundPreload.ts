@@ -70,7 +70,7 @@ export function useBackgroundPreload() {
         const sessId = session.interviewSession.id;
 
         // Step 3: Fetch interview script (with cache)
-        const SCRIPT_CACHE_VERSION = 'v6'; // Increment to invalidate old caches
+        const SCRIPT_CACHE_VERSION = 'v7'; // Increment to invalidate old caches
         const scriptCacheKey = `interview-script-${jobId}-${SCRIPT_CACHE_VERSION}`;
         let scriptData: any = null;
 
