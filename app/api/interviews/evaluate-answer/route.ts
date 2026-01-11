@@ -15,13 +15,17 @@ const openai = new OpenAI({
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { sessionId, question, answer, timestamp, experienceCategories } = body;
+        const { sessionId, question, answer, timestamp, experienceCategories, currentCounts } = body;
 
         if (!sessionId || !question || answer === undefined || !timestamp || !experienceCategories) {
             return NextResponse.json(
                 { error: "Missing required fields" },
                 { status: 400 }
             );
+        }
+        
+        if (!currentCounts) {
+            throw new Error("currentCounts is required - must be passed from Redux store");
         }
 
         log.info("[evaluate-answer] Evaluating answer for session:", sessionId);
@@ -111,8 +115,13 @@ CRITICAL RULES:
 
         log.info("[evaluate-answer] Calling OpenAI for evaluation");
 
+        const evaluationModel = process.env.NEXT_PUBLIC_OPENAI_EVALUATION_MODEL;
+        if (!evaluationModel) {
+            throw new Error("NEXT_PUBLIC_OPENAI_EVALUATION_MODEL environment variable is not set");
+        }
+
         const completion = await openai.chat.completions.create({
-            model: "gpt-4o",
+            model: evaluationModel,
             messages: [
                 {
                     role: "system",
@@ -134,7 +143,30 @@ CRITICAL RULES:
         const evaluation = JSON.parse(responseText);
         log.info("[evaluate-answer] OpenAI evaluation:", evaluation);
 
-        // Process evaluations - only create records for non-zero scores
+        // Calculate updated counts in-memory (no DB read needed)
+        const updatedCounts = experienceCategories.map((category: any) => {
+            const existing = currentCounts.find((c: any) => c.categoryName === category.name);
+            const newEval = evaluation.evaluations.find((e: any) => e.category === category.name);
+            
+            if (!newEval || newEval.strength === 0) {
+                // No new contribution for this category
+                return existing || { categoryName: category.name, count: 0, avgStrength: 0 };
+            }
+            
+            // Calculate new average with new contribution
+            const oldCount = existing?.count || 0;
+            const oldAvg = existing?.avgStrength || 0;
+            const newCount = oldCount + 1;
+            const newAvg = Math.round((oldAvg * oldCount + newEval.strength) / newCount);
+            
+            return {
+                categoryName: category.name,
+                count: newCount,
+                avgStrength: newAvg,
+            };
+        });
+
+        // Process evaluations - batch all DB operations in parallel
         const contributions: Array<{
             category: string;
             strength: number;
@@ -142,24 +174,10 @@ CRITICAL RULES:
             caption: string;
         }> = [];
 
-        for (const item of evaluation.evaluations) {
-            if (item.strength > 0) {
-                // Create CategoryContribution
-                const contribution = await prisma.categoryContribution.create({
-                    data: {
-                        interviewSessionId: sessionId,
-                        categoryName: item.category,
-                        timestamp: new Date(timestamp),
-                        codeChange: "", // Not applicable for experience
-                        explanation: item.reasoning,
-                        contributionStrength: item.strength,
-                        caption: item.caption || item.category,
-                    },
-                });
-
-                log.info(`[evaluate-answer] Created contribution for ${item.category}:`, contribution.id);
-
-                // Calculate video offset
+        const dbOperations = evaluation.evaluations
+            .filter((item: any) => item.strength > 0)
+            .map(async (item: any) => {
+                // Calculate video offset once
                 let videoOffset = 0;
                 if (session.recordingStartedAt) {
                     const recordingStart = new Date(session.recordingStartedAt).getTime();
@@ -167,66 +185,63 @@ CRITICAL RULES:
                     videoOffset = Math.max(0, Math.floor((answerTime - recordingStart) / 1000));
                 }
 
-                // Create EvidenceClip
-                const evidenceClip = await prisma.evidenceClip.create({
-                    data: {
-                        telemetryData: {
-                            connect: { id: session.telemetryData.id }
+                // Run all 3 creates in parallel for this item
+                const [contribution, evidenceClip] = await Promise.all([
+                    prisma.categoryContribution.create({
+                        data: {
+                            interviewSessionId: sessionId,
+                            categoryName: item.category,
+                            timestamp: new Date(timestamp),
+                            codeChange: "",
+                            explanation: item.reasoning,
+                            contributionStrength: item.strength,
+                            caption: item.caption || item.category,
                         },
-                        title: `${item.category}`,
-                        description: item.caption,
-                        duration: 30, // Default duration
+                    }),
+                    prisma.evidenceClip.create({
+                        data: {
+                            telemetryData: { connect: { id: session.telemetryData.id } },
+                            title: `${item.category}`,
+                            description: item.caption,
+                            duration: 30,
+                            startTime: videoOffset,
+                            category: "EXPERIENCE_CATEGORY",
+                            categoryName: item.category,
+                            contributionStrength: item.strength,
+                        },
+                    }),
+                    createVideoChapter({
+                        telemetryDataId: session.telemetryData.id,
+                        title: item.category,
                         startTime: videoOffset,
-                        category: "EXPERIENCE_CATEGORY",
-                        categoryName: item.category,
-                        contributionStrength: item.strength,
-                    },
-                });
+                        description: item.reasoning,
+                        caption: item.caption,
+                    }),
+                ]);
 
-                log.info(`[evaluate-answer] Created evidence clip for ${item.category}:`, evidenceClip.id);
-
-                // Create VideoChapter
-                await createVideoChapter({
-                    telemetryDataId: session.telemetryData.id,
-                    title: item.category,
-                    startTime: videoOffset,
-                    description: item.reasoning,
-                    caption: item.caption,
-                });
-
-                contributions.push({
+                return {
                     category: item.category,
                     strength: item.strength,
                     explanation: item.reasoning,
                     caption: item.caption,
-                });
-            }
-        }
+                };
+            });
 
-        log.info(`[evaluate-answer] ✅ Evaluation complete. ${contributions.length} contributions with strength > 0.`);
-
-        // Calculate updated category counts
-        const updatedCounts = await prisma.categoryContribution.groupBy({
-            by: ['categoryName'],
-            where: { interviewSessionId: sessionId },
-            _count: { id: true },
-            _avg: { contributionStrength: true },
+        // Fire-and-forget DB operations (async, non-blocking)
+        Promise.all(dbOperations).then(results => {
+            log.info(`[evaluate-answer] ✅ Async DB save complete. ${results.length} contributions saved.`);
+        }).catch(err => {
+            log.error("[evaluate-answer] ❌ Async DB save failed:", err);
         });
 
-        const categoryStats = updatedCounts.map(item => ({
-            categoryName: item.categoryName,
-            count: item._count.id,
-            avgStrength: Math.round(item._avg.contributionStrength || 0),
-        }));
+        log.info(`[evaluate-answer] Returning updated counts immediately (DB saves in background)`);
 
-        log.info(`[evaluate-answer] Updated category stats:`, categoryStats);
-
+        // Return immediately with in-memory calculated counts
         return NextResponse.json({
             success: true,
-            contributionsCount: contributions.length,
-            contributions: contributions,
+            contributionsCount: evaluation.evaluations.filter((e: any) => e.strength > 0).length,
             allEvaluations: evaluation.evaluations,
-            updatedCounts: categoryStats,
+            updatedCounts: updatedCounts,
         });
     } catch (error) {
         log.error("[evaluate-answer] ❌ Error:", error);
