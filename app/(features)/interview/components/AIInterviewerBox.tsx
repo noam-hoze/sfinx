@@ -11,13 +11,15 @@ interface AIInterviewerBoxProps {
     hasGlow: boolean;
     mode?: "talking" | "idle";
     intent?: string;
+    isArriving?: boolean;
 }
 
 const AIInterviewerBox: React.FC<AIInterviewerBoxProps> = ({ 
     isActive, 
     hasGlow, 
     mode = "talking",
-    intent
+    intent,
+    isArriving = false
 }) => {
     const [previousMode, setPreviousMode] = useState<"talking" | "idle">(mode);
 
@@ -30,27 +32,31 @@ const AIInterviewerBox: React.FC<AIInterviewerBoxProps> = ({
 
     return (
         <div
-            className={`w-[350px] aspect-[4/3] rounded-xl overflow-hidden shadow-xl border-2 border-gray-200 dark:border-gray-700 bg-gradient-to-br from-purple-50 to-blue-50 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                isActive
-                    ? "opacity-100 scale-100"
-                    : "opacity-0 scale-[0.98] pointer-events-none"
-            } ${
-                hasGlow
-                    ? "ring-4 ring-purple-500 shadow-[0_0_30px_rgba(168,85,247,0.6)]"
-                    : ""
-            } ${
-                mode === "talking" && hasGlow
-                    ? "animate-breathing"
-                    : ""
+            className={`w-[350px] aspect-[4/3] transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                !isArriving ? `rounded-xl overflow-hidden shadow-xl border-2 border-gray-200 dark:border-gray-700 bg-gradient-to-br from-purple-50 to-blue-50 ${
+                    isActive
+                        ? "opacity-100 scale-100"
+                        : "opacity-0 scale-[0.98] pointer-events-none"
+                } ${
+                    hasGlow
+                        ? "ring-4 ring-purple-500 shadow-[0_0_30px_rgba(168,85,247,0.6)]"
+                        : ""
+                } ${
+                    mode === "talking" && hasGlow
+                        ? "animate-breathing"
+                        : ""
+                }` : ""
             }`}
         >
             <div className="w-full h-full relative p-6">
-                {/* Sfinx avatar - animates between center and corner */}
+                {/* Sfinx avatar - animates between announcement, center, and corner */}
                 <div 
-                    className={`absolute transition-all duration-[600ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
-                        mode === "idle" && intent 
-                            ? 'top-4 right-4 w-16 h-16' 
-                            : 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40'
+                    className={`transition-all duration-[800ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
+                        isArriving
+                            ? 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48 z-50'
+                            : mode === "idle" && intent 
+                                ? 'absolute top-4 right-4 w-16 h-16' 
+                                : 'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40'
                     }`}
                 >
                     <img 
