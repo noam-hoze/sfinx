@@ -5,16 +5,16 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AuthGuard } from "app/shared/components";
 import { log } from "app/shared/services";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import { readResponseError } from "app/shared/utils/http";
 import InterviewContentSection, {
-
-import { LOG_CATEGORIES } from "app/shared/services/logger.config";
-const LOG_CATEGORY = LOG_CATEGORIES.COMPANY_DASHBOARD;
     InterviewContentState,
     InterviewDurationState,
     defaultInterviewDurations,
     emptyInterviewContentState,
 } from "../components/InterviewContentSection";
+
+const LOG_CATEGORY = LOG_CATEGORIES.COMPANY_DASHBOARD;
 
 interface CreateJobState {
     title: string;
@@ -44,6 +44,11 @@ interface ScoringConfigState {
     codingWeight: number;
 }
 
+interface CategoryGenerationResponse {
+    codingCategories: CodingCategory[];
+    experienceCategories: ExperienceCategory[];
+}
+
 const defaultCreateState: CreateJobState = {
     title: "",
     location: "",
@@ -59,6 +64,25 @@ const defaultScoringConfig: ScoringConfigState = {
     codingWeight: 50,
 };
 
+/**
+ * Requests category suggestions based on the job description.
+ */
+async function fetchCategorySuggestions(input: {
+    title: string;
+    description: string;
+}): Promise<CategoryGenerationResponse> {
+    const response = await fetch("/api/company/jobs/generate-categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+    });
+    if (!response.ok) {
+        const detail = await readResponseError(response);
+        throw new Error(`Failed to generate categories: ${response.status} ${detail}`);
+    }
+    return response.json();
+}
+
 function CreateJobContent() {
     const router = useRouter();
     const [error, setError] = useState<string | null>(null);
@@ -66,12 +90,41 @@ function CreateJobContent() {
     const [interviewState, setInterviewState] = useState<InterviewContentState>(emptyInterviewContentState);
     const [interviewDurations, setInterviewDurations] = useState<InterviewDurationState>(defaultInterviewDurations);
     const [createSubmitting, setCreateSubmitting] = useState(false);
+    const [categoryGenerating, setCategoryGenerating] = useState(false);
     const [scoringConfig, setScoringConfig] = useState<ScoringConfigState>(defaultScoringConfig);
     const [codingCategories, setCodingCategories] = useState<CodingCategory[]>([]);
     const [experienceCategories, setExperienceCategories] = useState<ExperienceCategory[]>([]);
     const [activeSection, setActiveSection] = useState<string>("details");
     const [expandedSections, setExpandedSections] = useState<string[]>(["details"]);
     const [interviewTab, setInterviewTab] = useState<'experience' | 'coding'>('experience');
+
+    /**
+     * Generates experience and coding categories from the job description.
+     */
+    const handleGenerateCategories = async () => {
+        const trimmedDescription = createState.description.trim();
+        if (trimmedDescription.length === 0) {
+            setError("Job description is required to generate categories.");
+            return;
+        }
+
+        setCategoryGenerating(true);
+        setError(null);
+        try {
+            const generated = await fetchCategorySuggestions({
+                title: createState.title,
+                description: trimmedDescription,
+            });
+            setExperienceCategories(generated.experienceCategories);
+            setCodingCategories(generated.codingCategories);
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Unknown error";
+            setError(message);
+            log.error(LOG_CATEGORY, "❌ Failed to generate categories:", err);
+        } finally {
+            setCategoryGenerating(false);
+        }
+    };
 
     const handleCreateJob = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -370,6 +423,24 @@ function CreateJobContent() {
                                         className="mt-1 rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all min-h-[120px]"
                                     />
                                 </label>
+                                <div className="md:col-span-2 flex flex-col gap-3 rounded-xl border border-blue-100 bg-blue-50/40 px-4 py-3">
+                                    <div className="text-xs text-gray-600">
+                                        Generate experience and coding categories from the job description.
+                                    </div>
+                                    <div className="flex items-center justify-between gap-3">
+                                        <span className="text-xs text-gray-500">
+                                            Categories will appear in the scoring section for review.
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={handleGenerateCategories}
+                                            disabled={categoryGenerating || createState.description.trim().length === 0}
+                                            className="px-4 py-2 rounded-xl border border-blue-200 text-sm text-blue-700 hover:bg-blue-100 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                                        >
+                                            {categoryGenerating ? "Generating..." : "Generate Categories"}
+                                        </button>
+                                    </div>
+                                </div>
                                 <label id="requirements" className="flex flex-col text-sm font-medium text-gray-700 md:col-span-2 scroll-mt-24">
                                     Requirements
                                     <textarea
