@@ -56,7 +56,6 @@ export async function POST(request: NextRequest) {
             model: "gpt-4o-mini",
             temperature: instruction ? 0 : 0.2,
             messages,
-            response_format: { type: "json_object" },
         });
 
         const result = completion.choices?.[0]?.message?.content?.trim();
