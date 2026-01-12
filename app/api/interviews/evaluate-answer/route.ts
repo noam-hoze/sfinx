@@ -209,6 +209,15 @@ CRITICAL RULES:
         
         log.info(LOG_CATEGORY, "[evaluate-answer] OpenAI evaluation:", evaluation);
 
+        // Helper: Map contribution strength to normalized points
+        const getNormalizedPoints = (strength: number): number => {
+            if (strength === 0) return 0;
+            if (strength <= 30) return 1;
+            if (strength <= 60) return 3;
+            if (strength <= 80) return 5;
+            return 6; // 81-100
+        };
+        
         // Calculate updated counts in-memory (no DB read needed)
         const updatedCounts = experienceCategories.map((category: any) => {
             const existing = currentCounts.find((c: any) => c.categoryName === category.name);
@@ -223,26 +232,55 @@ CRITICAL RULES:
             const oldAdjustedAvg = existing?.avgStrength || 0;
             const newCount = oldCount + 1;
             
-            // Back-calculate raw average from adjusted (adjusted = raw * confidence)
-            let oldRawAvg = 0;
-            if (oldCount > 0 && oldAdjustedAvg > 0) {
-                const oldConfidence = Math.min(1.0, oldCount / CONTRIBUTIONS_TARGET);
-                oldRawAvg = oldConfidence > 0 ? oldAdjustedAvg / oldConfidence : oldAdjustedAvg;
+            // Check if THIS category has reached full confidence
+            const categoryHasFullConfidence = oldCount >= CONTRIBUTIONS_TARGET;
+            
+            // MODE 1: Averaging with confidence multiplier (before this category reaches full confidence)
+            if (!categoryHasFullConfidence) {
+                // Back-calculate raw average from adjusted (adjusted = raw * confidence)
+                let oldRawAvg = 0;
+                if (oldCount > 0 && oldAdjustedAvg > 0) {
+                    const oldConfidence = Math.min(1.0, oldCount / CONTRIBUTIONS_TARGET);
+                    oldRawAvg = oldConfidence > 0 ? oldAdjustedAvg / oldConfidence : oldAdjustedAvg;
+                }
+                
+                // Calculate new raw average
+                const newRawAvg = (oldRawAvg * oldCount + newEval.strength) / newCount;
+                
+                // Apply confidence multiplier based on sample size
+                const confidence = Math.min(1.0, newCount / CONTRIBUTIONS_TARGET);
+                const adjustedAvg = Math.round(newRawAvg * confidence);
+                
+                return {
+                    categoryName: category.name,
+                    count: newCount,
+                    avgStrength: adjustedAvg,
+                    rawAverage: Math.round(newRawAvg),
+                    confidence: confidence,
+                };
             }
             
-            // Calculate new raw average
-            const newRawAvg = (oldRawAvg * oldCount + newEval.strength) / newCount;
+            // MODE 2: Point accumulation (after THIS category reaches full confidence)
+            // Cap at 100 - once reached, no more points added
+            if (oldAdjustedAvg >= 100) {
+                return {
+                    categoryName: category.name,
+                    count: newCount,
+                    avgStrength: 100,
+                    rawAverage: 100,
+                    confidence: 1.0,
+                };
+            }
             
-            // Apply confidence multiplier based on sample size
-            const confidence = Math.min(1.0, newCount / CONTRIBUTIONS_TARGET);
-            const adjustedAvg = Math.round(newRawAvg * confidence);
+            const points = getNormalizedPoints(newEval.strength);
+            const accumulatedScore = Math.min(100, oldAdjustedAvg + points);
             
             return {
                 categoryName: category.name,
                 count: newCount,
-                avgStrength: adjustedAvg,
-                rawAverage: Math.round(newRawAvg),
-                confidence: confidence,
+                avgStrength: accumulatedScore,
+                rawAverage: accumulatedScore, // In accumulation mode, raw = adjusted
+                confidence: 1.0,
             };
         });
 

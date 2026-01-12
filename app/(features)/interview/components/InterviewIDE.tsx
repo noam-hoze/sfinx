@@ -1048,7 +1048,9 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                         });
                     } else {
                         logger.info("[CODE-CHANGE] Change not substantial enough, skipping");
-                        setNextEvaluationTime(null);
+                        Promise.resolve().then(() => {
+                            setNextEvaluationTime(null);
+                        });
                     }
                     
                     return []; // Clear the queue

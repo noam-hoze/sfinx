@@ -137,7 +137,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
     const cancelPendingBackgroundReply = useCallback(() => {
       const isPending = store.getState().coding.pendingReply;
       if (!isPending) return;
-      logger.info("[coding] Pending reply cancelled");
+      /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[coding] Pending reply cancelled");
       clearPendingState();
     }, [clearPendingState]);
 
@@ -156,7 +156,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
         managePending?: boolean;
       }) => {
         if (pendingReason) {
-          logger.info(`[coding] Setting pending reply: ${pendingReason}`);
+          /* eslint-disable no-console */ log.info(LOG_CATEGORY, `[coding] Setting pending reply: ${pendingReason}`);
           dispatch(setPendingReply({ pending: true }));
         }
         try {
@@ -180,7 +180,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
                 stage: stage,
               });
             } catch {}
-            logger.info(`[coding] Pending reply discarded: ${pendingReason}`);
+            /* eslint-disable no-console */ log.info(LOG_CATEGORY, `[coding] Pending reply discarded: ${pendingReason}`);
             dispatch(setPendingReply({
               pending: true,
             }));
@@ -510,7 +510,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
 
         if (ms.stage === "background") {
           // Set pending state BEFORE control run
-          logger.info("[coding] Setting pending for background followup");
+          /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[coding] Setting pending for background followup");
           dispatch(setPendingReply({
             pending: true,
           }));
@@ -531,7 +531,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
           if (follow) {
             const stage = store.getState().interview.stage;
             if (stage === "coding") {
-              logger.info("[coding] Background followup discarded - already in coding");
+              /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[coding] Background followup discarded - already in coding");
               dispatch(setPendingReply({
                 pending: true,
               }));
@@ -563,7 +563,11 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
           const codingState = store.getState().coding;
           const activePasteEval = codingState.activePasteEvaluation;
           
-          if (activePasteEval) {
+          // If paste eval exists but no question was ever posted, it's stuck - clear it
+          if (activePasteEval && !activePasteEval.currentQuestion) {
+            dispatch(clearPasteEvaluation());
+            // Continue to normal coding chat flow
+          } else if (activePasteEval) {
             // Handle paste evaluation flow with CONTROL messages
             // Increment answer count AFTER user answers
             const nextAnswerCount = activePasteEval.answerCount + 1;
@@ -747,7 +751,7 @@ Generate your question now:`;
             } else {
               // Continue evaluation - generate next question from OpenAI
               // Set pending state before API call
-              logger.info("[coding] Setting pending for paste eval followup");
+              /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[coding] Setting pending for paste eval followup");
               dispatch(setPendingReply({
                 pending: true,
               }));
@@ -991,7 +995,7 @@ The candidate is working on this task. Respond to their question while following
           const historyMessages = buildControlContextMessages(CONTROL_CONTEXT_TURNS);
           
           // Set pending state before API call
-          logger.info("[coding] Setting pending for coding question");
+          /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[coding] Setting pending for coding question");
           dispatch(setPendingReply({
             pending: true,
           }));
