@@ -48,6 +48,14 @@ function TelemetryContent() {
     const [summaryLoading, setSummaryLoading] = useState(false);
     const [codingSummaryLoading, setCodingSummaryLoading] = useState(false);
     const [isNavigating, setIsNavigating] = useState(false);
+    const isMountedRef = React.useRef(true);
+
+    /** Runs a state update only when the component is mounted. */
+    const runIfMounted = (action: () => void) => {
+        if (isMountedRef.current) {
+            action();
+        }
+    };
     
     // Collapsible sections state
     const [scoreExpanded, setScoreExpanded] = useState(true);
@@ -71,16 +79,102 @@ function TelemetryContent() {
     const [calculatedCodingScore, setCalculatedCodingScore] = useState<number | null>(null);
 
     useEffect(() => {
+        const pollIntervalMs = 5000;
+        const pollTimeoutMs = 120000;
+        let pollTimer: ReturnType<typeof setTimeout> | null = null;
+        const pollingStart = Date.now();
+        isMountedRef.current = true;
+
+        /** Clears any scheduled polling timer. */
+        const clearPollTimer = () => {
+            if (pollTimer) {
+                clearTimeout(pollTimer);
+                pollTimer = null;
+            }
+        };
+
+        /** Checks whether the polling timeout has elapsed. */
+        const hasTimedOut = () => Date.now() - pollingStart >= pollTimeoutMs;
+
+        /** Stops polling after the timeout window and surfaces an error. */
+        const stopPollingWithTimeout = () => {
+            runIfMounted(() => {
+                setError("No telemetry data available for this candidate");
+                setLoading(false);
+            });
+        };
+
+        /** Schedules the next polling attempt. */
+        const schedulePoll = () => {
+            clearPollTimer();
+            pollTimer = setTimeout(fetchTelemetryData, pollIntervalMs);
+        };
+
+        /** Builds a legacy session payload from a single-session response. */
+        const createLegacySession = (data: any) => ({
+            id: "single",
+            videoUrl: data.videoUrl,
+            duration: data.duration,
+            chapters: data.chapters,
+            gaps: data.gaps,
+            workstyle: data.workstyle,
+            evidence: data.evidence,
+        });
+
+        /** Applies telemetry state updates for the provided payload. */
+        const setTelemetryPayload = (payload: { telemetry: any; sessionList: any[] }) => {
+            runIfMounted(() => {
+                setTelemetryData(payload.telemetry);
+                setSessions(payload.sessionList);
+                setActiveSessionIndex(0);
+                setError(null);
+                setLoading(false);
+            });
+        };
+
+        /** Applies telemetry data for either session-based or legacy responses. */
+        const applyTelemetryData = (data: any) => {
+            if ("sessions" in data && Array.isArray(data.sessions)) {
+                setTelemetryPayload({
+                    telemetry: { candidate: data.candidate },
+                    sessionList: data.sessions,
+                });
+                return;
+            }
+
+            setTelemetryPayload({
+                telemetry: data,
+                sessionList: [createLegacySession(data)],
+            });
+        };
+
+        /** Handles retry scheduling for missing telemetry. */
+        const retryIfAvailable = (reason: string) => {
+            if (hasTimedOut()) {
+                log.warn(LOG_CATEGORY, "Telemetry polling timed out", { reason, candidateId });
+                stopPollingWithTimeout();
+                return;
+            }
+
+            log.info(LOG_CATEGORY, "Telemetry not ready yet; retrying", { reason, candidateId });
+            schedulePoll();
+        };
+
         const fetchTelemetryData = async () => {
             if (!candidateId) {
                 // Show empty data if no candidate ID provided
-                setTelemetryData(null);
-                setLoading(false);
+                runIfMounted(() => {
+                    setTelemetryData(null);
+                    setLoading(false);
+                });
                 return;
             }
 
             try {
-                setLoading(true);
+                runIfMounted(() => {
+                    setLoading(true);
+                    setError(null);
+                });
                 const query = new URLSearchParams();
                 if (applicationId) query.set("applicationId", applicationId);
                 const response = await fetch(
@@ -89,50 +183,52 @@ function TelemetryContent() {
 
                 if (response.ok) {
                     const data = await response.json();
-                    console.log("[CPS] Telemetry data received:", data);
                     // Supports new API shape with sessions[]
-                    if (data.sessions) {
-                        console.log("[CPS] Sessions found:", data.sessions.length);
-                        console.log("[CPS] First session videoUrl:", data.sessions[0]?.videoUrl);
-                        setTelemetryData({ candidate: data.candidate });
-                        setSessions(data.sessions || []);
-                        setActiveSessionIndex(0);
-                    } else {
-                        // Backward compatibility with single-session shape
-                        console.log("[CPS] Using legacy format, videoUrl:", data.videoUrl);
-                        setTelemetryData(data);
-                        setSessions([
-                            {
-                                id: "single",
-                                videoUrl: data.videoUrl,
-                                duration: data.duration,
-                                chapters: data.chapters,
-                                gaps: data.gaps,
-                                workstyle: data.workstyle,
-                                evidence: data.evidence,
-                            },
-                        ]);
-                        setActiveSessionIndex(0);
+                    if ("sessions" in data && Array.isArray(data.sessions)) {
+                        if (data.sessions.length === 0) {
+                            retryIfAvailable("empty_sessions");
+                            return;
+                        }
+
+                        log.info(LOG_CATEGORY, "Telemetry sessions received", {
+                            candidateId,
+                            sessionCount: data.sessions.length,
+                        });
+                        applyTelemetryData(data);
+                        return;
                     }
-                    setError(null);
-                } else if (response.status === 404) {
-                    // No telemetry data found - show empty data
-                    setTelemetryData(null);
-                    setError("No telemetry data available for this candidate");
-                } else {
-                    setError("Failed to load telemetry data");
-                    setTelemetryData(null);
+
+                    log.info(LOG_CATEGORY, "Telemetry legacy payload received", { candidateId });
+                    applyTelemetryData(data);
+                    return;
+                }
+
+                if (response.status === 404) {
+                    retryIfAvailable("not_found");
+                    return;
                 }
             } catch (error) {
                 log.error(LOG_CATEGORY, "Error fetching telemetry:", error);
+                runIfMounted(() => {
+                    setError("Failed to load telemetry data");
+                    setTelemetryData(null);
+                    setLoading(false);
+                });
+                return;
+            }
+
+            runIfMounted(() => {
                 setError("Failed to load telemetry data");
                 setTelemetryData(null);
-            } finally {
                 setLoading(false);
-            }
+            });
         };
 
         fetchTelemetryData();
+        return () => {
+            isMountedRef.current = false;
+            clearPollTimer();
+        };
     }, [candidateId, applicationId]);
 
     const { candidate } = telemetryData || {};
