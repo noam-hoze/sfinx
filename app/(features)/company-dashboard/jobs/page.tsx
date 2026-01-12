@@ -422,31 +422,50 @@ function CompanyJobsContent() {
                     <div className="space-y-6">
                         {/* Overview Stats */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-4 border border-blue-200/50">
-                                <div className="text-sm text-blue-700 font-medium mb-1">Total Jobs</div>
-                                <div className="text-3xl font-bold text-blue-900">{jobs.length}</div>
+                            <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm text-center relative">
+                                <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center absolute top-4 left-4">
+                                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <div className="text-3xl font-semibold text-gray-900 mb-2 mt-2">{jobs.length}</div>
+                                <div className="text-xs text-gray-500 font-medium uppercase tracking-wide">Total Jobs</div>
                             </div>
-                            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-xl p-4 border border-emerald-200/50">
-                                <div className="text-sm text-emerald-700 font-medium mb-1">Active</div>
-                                <div className="text-3xl font-bold text-emerald-900">
+                            <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm text-center relative">
+                                <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center absolute top-4 left-4">
+                                    <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <div className="text-3xl font-semibold text-gray-900 mb-2 mt-2">
                                     {jobs.filter(j => {
                                         const rawJob = jobs.find(rj => rj.id === j.id) as CompanyJobListItem | undefined;
                                         return rawJob;
                                     }).length}
                                 </div>
+                                <div className="text-xs text-gray-500 font-medium uppercase tracking-wide">Active</div>
                             </div>
-                            <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-xl p-4 border border-purple-200/50">
-                                <div className="text-sm text-purple-700 font-medium mb-1">With Interview</div>
-                                <div className="text-3xl font-bold text-purple-900">
+                            <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm text-center relative">
+                                <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center absolute top-4 left-4">
+                                    <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                                    </svg>
+                                </div>
+                                <div className="text-3xl font-semibold text-gray-900 mb-2 mt-2">
                                     {jobs.filter(j => {
                                         const rawJob = jobs.find(rj => rj.id === j.id) as CompanyJobListItem | undefined;
                                         return rawJob?.interviewContent !== null;
                                     }).length}
                                 </div>
+                                <div className="text-xs text-gray-500 font-medium uppercase tracking-wide">With Interview</div>
                             </div>
-                            <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-xl p-4 border border-amber-200/50">
-                                <div className="text-sm text-amber-700 font-medium mb-1">Avg Complete</div>
-                                <div className="text-3xl font-bold text-amber-900">
+                            <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm text-center relative">
+                                <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center absolute top-4 left-4">
+                                    <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                    </svg>
+                                </div>
+                                <div className="text-3xl font-semibold text-gray-900 mb-2 mt-2">
                                     {jobs.length > 0 ? Math.round(
                                         jobs.reduce((sum, j) => {
                                             const rawJob = jobs.find(rj => rj.id === j.id) as CompanyJobListItem | undefined;
@@ -459,6 +478,7 @@ function CompanyJobsContent() {
                                         }, 0) / jobs.length
                                     ) : 0}%
                                 </div>
+                                <div className="text-xs text-gray-500 font-medium uppercase tracking-wide">Avg Complete</div>
                             </div>
                         </div>
 
@@ -468,7 +488,7 @@ function CompanyJobsContent() {
                         {/* Jobs Grid */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {/* Create New Job Card */}
-                        <button
+                        {/* <button
                             type="button"
                             onClick={() => router.push('/company-dashboard/jobs/new')}
                             className="group bg-gradient-to-br from-blue-50 to-blue-100/50 hover:from-blue-100 hover:to-blue-200/50 backdrop-blur-sm rounded-2xl border-2 border-dashed border-blue-300 p-8 transition-all hover:shadow-lg hover:scale-[1.02] min-h-[280px] flex flex-col items-center justify-center"
@@ -480,7 +500,7 @@ function CompanyJobsContent() {
                             </div>
                             <h3 className="text-lg font-semibold text-blue-900 mb-1">Create New Job</h3>
                             <p className="text-sm text-blue-700">Add a new position</p>
-                        </button>
+                        </button> */}
 
                         {/* Job Cards */}
                         {jobs.map((job) => {
