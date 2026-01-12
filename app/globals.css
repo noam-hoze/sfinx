@@ -142,6 +142,23 @@ media-player {
 }
 
 /* AI Interviewer Animations */
+/* Pixar-grade breathing glow animation */
+@keyframes breathing-glow {
+  0%, 100% {
+    opacity: 0.8;
+    box-shadow: 0 0 30px rgba(168, 85, 247, 0.6), 0 0 60px rgba(168, 85, 247, 0.3);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 50px rgba(168, 85, 247, 1), 0 0 100px rgba(168, 85, 247, 0.6), 0 0 150px rgba(168, 85, 247, 0.3);
+  }
+}
+
+.animate-breathing-glow {
+  animation: breathing-glow 2s ease-in-out infinite;
+}
+
+/* Legacy breathing for backward compatibility */
 @keyframes breathing {
   0%, 100% {
     transform: scale(1);
@@ -250,4 +267,20 @@ media-player {
 .animate-intent-fade-in {
   opacity: 0;
   animation: intent-fade-in 500ms ease-out 600ms forwards;
+}
+
+/* Announcement wrapper smooth collapse */
+.announcement-wrapper {
+  overflow: hidden;
+  transition: max-height 400ms ease-in-out, opacity 300ms ease;
+}
+
+.announcement-wrapper[data-show="true"] {
+  max-height: 200px;
+  opacity: 1;
+}
+
+.announcement-wrapper[data-show="false"] {
+  max-height: 0;
+  opacity: 0;
 }
