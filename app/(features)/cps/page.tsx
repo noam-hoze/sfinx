@@ -21,7 +21,7 @@ import Breadcrumbs from "app/shared/components/Breadcrumbs";
 import { log } from "app/shared/services";
 import { calculateScore, type ScoringConfiguration, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
 import { useDebug } from "app/shared/contexts";
-import { getBreadcrumbTrail } from "app/shared/config/navigation";
+import { selectBreadcrumbSource } from "@/shared/state/slices/navigationSlice";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.CPS;
@@ -33,6 +33,7 @@ function TelemetryContent() {
     const applicationId = searchParams.get("applicationId");
     const { isDebugVisible, setShowDebugButton } = useDebug();
     const activeCaption = useSelector((state: RootState) => state.cps.activeCaption);
+    const breadcrumbSource = useSelector(selectBreadcrumbSource);
     const dispatch = useDispatch();
 
     const [telemetryData, setTelemetryData] = useState<any>(null);
@@ -496,14 +497,20 @@ function TelemetryContent() {
     const jobTitle = activeSession?.application?.job?.title;
     const jobId = activeSession?.application?.job?.id;
     
+    // Determine parent based on navigation source
+    const parentLabel = breadcrumbSource?.includes('/jobs') ? 'Jobs' : 'Applicants';
+    const parentHref = breadcrumbSource?.includes('/jobs') 
+        ? '/company-dashboard/jobs' 
+        : '/company-dashboard';
+    
     const breadcrumbTrail = jobTitle && jobId
         ? [
-            { label: "Applicants", href: "/company-dashboard" },
+            { label: parentLabel, href: parentHref },
             { label: jobTitle, href: `/company-dashboard/applicants/${jobId}` },
             { label: candidate?.name || "Candidate", href: `/cps?candidateId=${candidateId}&applicationId=${applicationId}` },
           ]
         : [
-            { label: "Applicants", href: "/company-dashboard" },
+            { label: parentLabel, href: parentHref },
             { label: candidate?.name || "Candidate", href: `/cps?candidateId=${candidateId}&applicationId=${applicationId}` },
           ];
 
@@ -527,7 +534,7 @@ function TelemetryContent() {
                                             alt={`${candidate.name} profile`}
                                             width={96}
                                             height={96}
-                                            className="rounded-full object-cover border-3 border-white shadow-md"
+                                            className="w-24 h-24 rounded-full object-cover border-3 border-white shadow-md"
                                         />
                                     ) : (
                                         <div className="w-24 h-24 rounded-full bg-gray-300 border-3 border-white shadow-md" />

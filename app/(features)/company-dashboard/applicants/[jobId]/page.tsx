@@ -1,13 +1,15 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
+import { useDispatch, useSelector } from "react-redux";
+import { selectBreadcrumbSource } from "@/shared/state/slices/navigationSlice";
 import { AuthGuard, DashboardCard } from "app/shared/components";
 import SfinxSpinner from "app/shared/components/SfinxSpinner";
 import Breadcrumbs from "app/shared/components/Breadcrumbs";
 import { log } from "app/shared/services";
-import { getBreadcrumbTrail } from "app/shared/config/navigation";
+import { useBreadcrumbs } from "app/shared/hooks/useBreadcrumbs";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.COMPANY_DASHBOARD;
@@ -37,10 +39,18 @@ interface JobApplicantsResponse {
 function JobApplicantsContent() {
   const params = useParams<{ jobId: string }>();
   const router = useRouter();
+  const pathname = usePathname();
+  const breadcrumbSource = useSelector(selectBreadcrumbSource);
   const jobId = params.jobId;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<JobApplicantsResponse | null>(null);
+
+  // Call breadcrumbs hook at top level (before any returns)
+  const breadcrumbTrail = useBreadcrumbs({
+    currentLabel: data?.job.title || "Loading...",
+    currentHref: `/company-dashboard/applicants/${jobId}`,
+  });
 
   useEffect(() => {
     const fetchApplicants = async () => {
@@ -84,15 +94,11 @@ function JobApplicantsContent() {
     );
   }
 
-  const breadcrumbTrail = [
-    { label: "Applicants", href: "/company-dashboard" },
-    { label: data.job.title, href: `/company-dashboard/applicants/${jobId}` },
-  ];
-
   const completedApplicants = data.applicants.filter((a) => a.interviewCompleted);
   const pendingApplicants = data.applicants.filter((a) => !a.interviewCompleted);
 
   const handleViewProfile = (applicant: Applicant) => {
+    // Don't dispatch here - preserve the existing breadcrumbSource from the previous navigation
     router.push(
       `/cps?candidateId=${applicant.id}&applicationId=${applicant.applicationId}`
     );
