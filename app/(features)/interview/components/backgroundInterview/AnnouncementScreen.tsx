@@ -154,18 +154,15 @@ export default function AnnouncementScreen({
 
   return (
     <motion.div 
-      className="flex items-start justify-start gap-4 w-full max-w-4xl"
+      className="flex flex-col items-center justify-center w-full"
       initial={{ opacity: 1 }}
       animate={{ opacity: fadingOut ? 0 : 1 }}
       transition={{ duration: 0.5 }}
     >
-      {/* Waving hand emoji - always visible, stays on left */}
-      <div className="text-5xl flex-shrink-0">👋</div>
-      
-      {/* Typing text container - grows to the right */}
-      <div className="flex-1 min-w-0">
-        <p className="text-2xl text-gray-800 leading-relaxed text-left">
-          {displayedWords.join(" ")}
+      {/* Typing text container - centered with emoji inline */}
+      <div className="w-full text-center px-8">
+        <p className="text-2xl text-gray-800 leading-relaxed">
+          👋 {displayedWords.join(" ")}
         </p>
       </div>
     </motion.div>

@@ -682,6 +682,7 @@ function InterviewPageContent() {
   const handleAnnouncementComplete = useCallback(() => {
     log.info(LOG_CATEGORY, "[interview] Announcement complete");
     setShowAnnouncement(false);
+    setIsArriving(false); // Atomic transition - no setTimeout
     setAllowQuestionDisplay(true);
     const firstQuestion = preloadedFirstQuestion || "";
     dispatch(startTimer());
@@ -692,11 +693,6 @@ function InterviewPageContent() {
     if (preloadedFirstIntent) {
       setPendingIntent(preloadedFirstIntent);
     }
-
-    // After animation completes, mark arriving as done
-    setTimeout(() => {
-      setIsArriving(false);
-    }, 800);
 
     // Save first question to DB
     if (interviewSessionId) {
@@ -790,6 +786,9 @@ function InterviewPageContent() {
   };
 
   // ===== RENDER CONDITIONS =====
+  
+  // Unified camera visibility control - single source of truth
+  const showCamera = !showAnnouncement && currentQuestion !== "";
 
   if (isPreloading) {
     return (
@@ -842,41 +841,60 @@ function InterviewPageContent() {
       )}
       
       <div className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-4xl flex flex-col">
+        <div className="w-full max-w-4xl flex flex-col items-center gap-4">
           {/* AI Interviewer and Camera - side by side above question card */}
-          <div className={`flex gap-8 mb-6 justify-center transition-opacity duration-500 ${
+          <div className={`flex gap-8 mb-6 justify-center items-center transition-opacity duration-500 ${
             (currentQuestion && !showAnnouncement) || isArriving ? 'opacity-100' : 'opacity-0'
           }`}>
-            <AIInterviewerBox 
-              isActive={!isPreloading && stage === "background"} 
-              hasGlow={isAIAudioPlaying}
-              mode={isAIAudioPlaying ? "talking" : "idle"}
-              intent={currentIntent}
-              isArriving={isArriving}
-            />
-            <div className={isArriving ? 'opacity-0 pointer-events-none' : ''}>
+            {/* AI Interviewer Box Wrapper - animates position with transform */}
+            <div className={`w-[350px] transition-all duration-[1200ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+              isArriving ? 'translate-x-0 scale-110' : 'translate-x-0 scale-100'
+            }`}>
+              <AIInterviewerBox 
+                isActive={!isPreloading && stage === "background"} 
+                hasGlow={isAIAudioPlaying}
+                mode={isAIAudioPlaying ? "talking" : "idle"}
+                intent={currentIntent}
+                isArriving={isArriving}
+              />
+            </div>
+            
+            {/* Camera Preview Wrapper - layered for glow, unified visibility */}
+            <div className={`relative transition-all duration-[600ms] ease-out ${
+              showCamera ? 'opacity-100 w-[350px] visible' : 'opacity-0 w-0 invisible'
+            }`}>
+              {/* Outer glow layer - no clipping */}
+              {showCamera && (showCameraGlow || isUserRecording) && (
+                <div className="absolute inset-0 rounded-xl ring-4 ring-purple-500 shadow-[0_0_40px_rgba(168,85,247,0.8)] pointer-events-none animate-breathing-glow" />
+              )}
+              
+              {/* Inner camera layer */}
               <CameraPreview
                 isCameraOn={isCameraOn}
                 videoRef={selfVideoRef}
-                hasGlow={showCameraGlow || isUserRecording}
+                hasGlow={false}
               />
             </div>
           </div>
           
-          {/* Question content */}
-          <div className="mx-auto">
-            {showHandEmoji && !showAnnouncement && !currentQuestion ? (
-              <div className="flex items-start justify-start gap-4">
-                <div className="text-5xl flex-shrink-0">👋</div>
-              </div>
-            ) : showAnnouncement ? (
+          {/* Announcement text - animates height to prevent vertical collapse */}
+          <div 
+            className="announcement-wrapper w-full max-w-4xl px-8"
+            data-show={isArriving && showAnnouncement}
+          >
+            {(isArriving && showAnnouncement) && (
               <AnnouncementScreen
                 key={announcementText}
                 text={announcementText}
                 preloadedAudioBlob={announcementAudioBlob}
                 onComplete={handleAnnouncementComplete}
               />
-            ) : (
+            )}
+          </div>
+          
+          {/* Question content */}
+          <div className="mx-auto">
+            {!showAnnouncement && (
               <QuestionCard
                 question={currentQuestion}
                 onSubmitAnswer={handleSubmitAnswer}
