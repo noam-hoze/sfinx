@@ -18,6 +18,7 @@ import { buildOpenAIBackgroundPrompt } from "@/shared/prompts/openAIInterviewerP
 import { buildControlContextMessages, CONTROL_CONTEXT_TURNS } from "app/shared/services";
 import { log } from "app/shared/services/logger";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
 
 const LOG_CATEGORY = LOG_CATEGORIES.BACKGROUND_INTERVIEW;
 
@@ -95,6 +96,26 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
             const conversationHistory = backgroundState.messages.slice(-4);
             const currentFocusTopic = backgroundState.currentFocusTopic;
             
+            // Build answer history with Q/A pairs and their scores
+            const answerHistory = [];
+            const messages = backgroundState.messages;
+            for (let i = 0; i < messages.length - 1; i++) {
+              if (messages[i].speaker === "ai" && messages[i+1].speaker === "user") {
+                const question = messages[i].text;
+                const answer = messages[i+1].text;
+                
+                // Find scores for this answer from categoryStats history
+                // For now, we'll use current categoryStats as a simplification
+                // TODO: Store per-answer scores in Redux for accurate history
+                const scores = categoryStats.map(stat => ({
+                  category: stat.categoryName,
+                  strength: stat.avgStrength
+                }));
+                
+                answerHistory.push({ question, answer, scores });
+              }
+            }
+            
             // Get excluded topics (dontKnowCount >= threshold)
             if (!process.env.NEXT_PUBLIC_DONT_KNOW_THRESHOLD) {
               throw new Error("NEXT_PUBLIC_DONT_KNOW_THRESHOLD environment variable is not set");
@@ -116,6 +137,7 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
+                sessionId,
                 question: currentQuestion,
                 answer,
                 experienceCategories,
@@ -123,6 +145,7 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
                 currentFocusTopic,
                 conversationHistory,
                 excludedTopics,
+                answerHistory,
               })
             });
             
@@ -137,10 +160,10 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
             }
             
             // Increment don't know count if detected
-            if (fastData.isDontKnow && fastData.targetedCategory) {
-              log.info(LOG_CATEGORY, `"I don't know" detected for category: ${fastData.targetedCategory}`);
+            if (fastData.isDontKnow && fastData.newFocusTopic) {
+              log.info(LOG_CATEGORY, `"I don't know" detected for category: ${fastData.newFocusTopic}`);
               
-              dispatch(incrementDontKnowCount({ category: fastData.targetedCategory }));
+              dispatch(incrementDontKnowCount({ category: fastData.newFocusTopic }));
             }
             
             // Use fast results immediately
@@ -161,8 +184,8 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
             nextQuestionText = `${fastData.acknowledgment} ${fastData.nextQuestion}`;
             
             // Set question target for debug panel
-            if (nextQuestionText && fastData.targetedCategory) {
-              dispatch(setCurrentQuestionTarget({ question: nextQuestionText, category: fastData.targetedCategory }));
+            if (nextQuestionText && fastData.newFocusTopic) {
+              dispatch(setCurrentQuestionTarget({ question: nextQuestionText, category: fastData.newFocusTopic }));
             }
             
             // Call 2: Full evaluation async (non-blocking, for reasoning/captions/DB)
@@ -180,6 +203,12 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
             }).then(async (fullResponse) => {
               const fullData = await fullResponse.json();
               log.info(LOG_CATEGORY, "[async] Full evaluation complete");
+              
+              // Update Redux with corrected counts from full evaluation
+              if (fullData.updatedCounts) {
+                dispatch(updateCategoryStats({ stats: fullData.updatedCounts }));
+                log.info(LOG_CATEGORY, "[async] Redux updated with full-eval counts");
+              }
               
               if (fullData.allEvaluations && onEvaluationReceived) {
                 onEvaluationReceived({
@@ -210,10 +239,10 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
           const startedAtMs = backgroundState.startedAtMs;
           
           // Calculate confidence from updated counts (no DB fetch needed)
-          const TARGET_CONTRIBUTIONS = 5;
           const categories = updatedCategoryStats.map((stat: any) => ({
             name: stat.categoryName,
-            confidence: Math.min(100, (stat.count / TARGET_CONTRIBUTIONS) * 100)
+            confidence: Math.min(100, (stat.count / CONTRIBUTIONS_TARGET) * 100),
+            avgStrength: stat.avgStrength
           }));
           
           const transitionReason = shouldTransition(

@@ -14,6 +14,7 @@ import ScoreProgressDisplay from "app/shared/components/debug/ScoreProgressDispl
 import { calculateScore } from "app/shared/utils/calculateScore";
 import { useSelector } from "react-redux";
 import { RootState } from "@/shared/state/store";
+import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
 
 interface CodingEvaluationDebugPanelProps {
     evaluationData: {
@@ -126,7 +127,6 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
     const codingScores = useMemo(() => {
         if (!jobCategories || !evaluationData?.realtimeContributions) return [];
         
-        const TARGET_CONTRIBUTIONS = 5;
         const categoryContributions = new Map<string, number[]>();
         
         evaluationData.realtimeContributions.forEach(contrib => {
@@ -143,7 +143,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
             const rawAvg = strengths.length > 0 
                 ? strengths.reduce((sum, s) => sum + s, 0) / strengths.length 
                 : 0;
-            const confidence = Math.min(1.0, strengths.length / TARGET_CONTRIBUTIONS);
+            const confidence = Math.min(1.0, strengths.length / CONTRIBUTIONS_TARGET);
             const score = Math.round(rawAvg * confidence);
             
             return {

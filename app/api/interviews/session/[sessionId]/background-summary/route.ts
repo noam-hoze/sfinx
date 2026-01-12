@@ -10,6 +10,7 @@ import {
     type SummaryOutput,
 } from "@/shared/prompts/backgroundSummaryPrompt";
 import prisma from "lib/prisma";
+import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
@@ -395,9 +396,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
             return acc;
         }, {} as Record<string, typeof contributions>);
 
-        // Target contributions for full confidence
-        const TARGET_CONTRIBUTIONS = 5;
-        
         // Calculate average with confidence multiplier based on sample size
         const experienceCategories: Record<string, any> = {};
         for (const [categoryName, contribs] of Object.entries(byCategory)) {
@@ -405,7 +403,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 contribs.reduce((sum, c) => sum + c.contributionStrength, 0) / contribs.length;
             
             // Apply confidence multiplier: more contributions = more confident in the score
-            const confidence = Math.min(1.0, contribs.length / TARGET_CONTRIBUTIONS);
+            const confidence = Math.min(1.0, contribs.length / CONTRIBUTIONS_TARGET);
             const adjustedScore = Math.round(rawAverage * confidence);
             
             log.info(LOG_CATEGORY, `[background-summary/POST] ${categoryName}: ${contribs.length} contributions, raw avg=${Math.round(rawAverage)}, confidence=${confidence.toFixed(2)}, adjusted=${adjustedScore}`);

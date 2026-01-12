@@ -6,6 +6,7 @@
 "use client";
 
 import React from "react";
+import { CONTRIBUTIONS_TARGET } from "shared/constants/interview";
 
 export interface SummaryStats {
     totalEvaluations: number;
@@ -20,7 +21,6 @@ export interface CategoryBreakdownItem {
     contributionCount: number;
     rawAverage?: number;
     confidence?: number;
-    targetContributions?: number;
     contributions: Array<{
         strength: number;
         explanation: string;
@@ -146,7 +146,7 @@ export default function RealTimeContributionsView({
                                 />
                             </div>
                             <div className="text-xs text-slate-600 dark:text-slate-400 mb-2">
-                                {category.contributionCount} / {category.targetContributions || 5} contributions
+                                {category.contributionCount} / {CONTRIBUTIONS_TARGET} contributions
                                 {category.confidence !== undefined && category.confidence >= 1.0 && (
                                     <span className="ml-2 text-green-600 dark:text-green-400">✓ Full confidence</span>
                                 )}

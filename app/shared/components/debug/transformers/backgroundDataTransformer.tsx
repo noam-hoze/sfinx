@@ -13,7 +13,6 @@ interface ContributionStats {
     avgStrength: number;
     rawAverage?: number;
     confidence?: number;
-    targetContributions?: number;
 }
 
 interface BackgroundEvaluation {
@@ -63,7 +62,6 @@ export function transformBackgroundDataToRealtime(
             contributionCount: stat.count,
             rawAverage: stat.rawAverage,
             confidence: stat.confidence,
-            targetContributions: stat.targetContributions,
             contributions
         };
     });

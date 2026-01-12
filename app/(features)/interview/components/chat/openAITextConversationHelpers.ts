@@ -1,42 +1,56 @@
-/** Helpers supporting OpenAITextConversation completions. */
-import OpenAI from "openai";
+/** Helpers supporting OpenAITextConversation completions - now via backend API. */
 import { buildControlContextMessages, CONTROL_CONTEXT_TURNS } from "app/shared/services";
+import { log } from "app/shared/services/logger";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 
-/** Requests a lightweight chat completion for background follow-ups. */
+const LOG_CATEGORY = LOG_CATEGORIES.OPENAI;
+
+/** Requests a lightweight chat completion for background follow-ups via backend API. */
 export async function askViaChatCompletion(
-  client: OpenAI,
+  _client: any, // Deprecated - kept for backward compatibility
   system: string,
   history: Array<{ role: "user" | "assistant"; content: string }>
 ): Promise<string> {
-  const completion = await client.chat.completions.create({
-    model: "gpt-4o-mini",
-    temperature: 0.2,
-    messages: [{ role: "system", content: system }, ...history] as any,
-    response_format: { type: "json_object" },
+  const response = await fetch("/api/interviews/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      persona: system,
+      conversationHistory: history,
+    }),
   });
-  const txt = completion.choices?.[0]?.message?.content?.trim();
-  if (!txt) {
-    throw new Error("OpenAI chat completion is missing content");
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: "Unknown error" }));
+    throw new Error(error.error || "Failed to generate question");
   }
-  return txt;
+
+  const data = await response.json();
+  return data.response;
 }
 
-/** Produces an assistant reply for scripted persona prompts. */
+/** Produces an assistant reply for scripted persona prompts via backend API. */
 export async function generateAssistantReply(
-  client: OpenAI,
+  _client: any, // Deprecated - kept for backward compatibility
   persona: string,
   instruction: string
 ): Promise<string | null> {
-  const completion = await client.chat.completions.create({
-    model: "gpt-4o-mini",
-    temperature: 0,
-    messages: [
-      { role: "system", content: persona },
-      { role: "user", content: instruction },
-    ],
-    response_format: { type: "json_object" },
+  const response = await fetch("/api/interviews/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      persona,
+      instruction,
+    }),
   });
-  return completion.choices?.[0]?.message?.content?.trim() || null;
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: "Unknown error" }));
+    throw new Error(error.error || "Failed to generate assistant reply");
+  }
+
+  const data = await response.json();
+  return data.response;
 }
 
 /** Builds the closing-line system instruction for the interviewer. */

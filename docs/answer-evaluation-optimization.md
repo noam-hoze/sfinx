@@ -33,7 +33,7 @@ This document describes the dual-call evaluation architecture and strict relevan
 
 ### Impact on Algorithm
 
-The lenient evaluation corrupted the dynamic category prioritization algorithm. Irrelevant answers received partial scores (e.g., 40-50), created contributions, and incremented category counts toward the TARGET=5 threshold, causing premature topic pivots.
+The lenient evaluation corrupted the dynamic category prioritization algorithm. Irrelevant answers received partial scores (e.g., 40-50), created contributions, and incremented category counts toward the `CONTRIBUTIONS_TARGET` threshold (see [Contributions Target & Transition Logic](./contributions-target-and-transition-logic.md)), causing premature topic pivots.
 
 ---
 
@@ -241,7 +241,7 @@ Add natural conversational flow between answer submission and next question, red
 **Fast API Prompt:**
 ```
 Step 3 - Generate acknowledgment and next question:
-Generate a short acknowledgment (max 12 words).
+Generate a short acknowledgment (max 4 words).
 Generate the next question separately.
 Return JSON:
 {
@@ -397,8 +397,72 @@ User clicks submit
 
 1. Answer questions relevant to target category
 2. Verify category count increments only on relevant answers
-3. Verify algorithm pivots at TARGET=5 **relevant** contributions
+3. Verify algorithm pivots at `CONTRIBUTIONS_TARGET` **relevant** contributions
 4. Verify irrelevant answers don't increment counts
+
+---
+
+## Redux Correction from Full Evaluation
+
+### Problem
+
+Fast evaluation may return incorrect scores due to:
+- Simplified prompt optimized for speed
+- Minimal context (no detailed reasoning)
+- Model inconsistency across calls
+
+This causes:
+- UI displays stale/incorrect contribution counts
+- Topic selection algorithm uses inaccurate data
+- Category stats drift from ground truth
+
+### Solution
+
+When full evaluation completes (async, ~7-10s after fast-eval), it updates Redux with corrected counts:
+
+```typescript
+// shared/services/backgroundInterview/useBackgroundAnswerHandler.ts
+}).then(async (fullResponse) => {
+  const fullData = await fullResponse.json();
+  
+  // Update Redux with corrected counts from full evaluation
+  if (fullData.updatedCounts) {
+    dispatch(updateCategoryStats({ stats: fullData.updatedCounts }));
+    log.info(LOG_CATEGORY, "[async] Redux updated with full-eval counts");
+  }
+  
+  // ... rest of handler
+});
+```
+
+### Benefits
+
+1. **Self-Correcting**: System automatically fixes fast-eval inaccuracies
+2. **No User Impact**: Correction happens in background after next question displays
+3. **Algorithm Accuracy**: Subsequent topic selection uses accurate counts
+4. **UI Consistency**: Debug panel reflects corrected scores within seconds
+
+### Data Flow
+
+```
+User submits answer
+       ↓
+FAST-EVAL completes (~2-4s)
+       ↓
+Redux updated with fast-eval counts (may be inaccurate)
+       ↓
+UI displays next question immediately
+       ↓
+FULL-EVAL completes (~7-10s, async)
+       ↓
+Redux updated with full-eval counts (accurate)
+       ↓
+UI reflects corrected counts
+       ↓
+Next topic selection uses accurate counts
+```
+
+See [Contributions Target & Transition Logic](./contributions-target-and-transition-logic.md) for implementation details.
 
 ---
 
@@ -414,6 +478,7 @@ User clicks submit
 
 ## Related Documents
 
+- [Contributions Target & Transition Logic](./contributions-target-and-transition-logic.md)
 - [Dynamic Category Prioritization System](./dynamic-category-prioritization-system.md)
 - [Unified Real-Time Evaluation System](./unified-realtime-evaluation-system.md)
 - [Blank Answer Handling](./blank-answer-handling.md)

@@ -11,14 +11,13 @@ import { JobGrid, JobGridJob } from "app/shared/components/jobs/JobGrid";
 import type { JobGridCompany } from "app/shared/components/jobs/JobGrid";
 import { readResponseError } from "app/shared/utils/http";
 import InterviewContentSection, {
-
-import { LOG_CATEGORIES } from "app/shared/services/logger.config";
-const LOG_CATEGORY = LOG_CATEGORIES.COMPANY_DASHBOARD;
     InterviewContentState,
     InterviewDurationState,
     defaultInterviewDurations,
     emptyInterviewContentState,
 } from "./components/InterviewContentSection";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.COMPANY_DASHBOARD;
 
 interface CompanyJobListItem extends JobGridJob {
     salary: string | null;
