@@ -1,4 +1,7 @@
-/**\n * Shared authorization helpers for company job APIs.\n */\nimport type { Session } from "next-auth";
+/**
+ * Shared authorization helpers for company job APIs.
+ */
+import type { Session } from "next-auth";
 
 /**
  * Ensures the session belongs to a company user.
