@@ -464,6 +464,290 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     }, [handleTestEvaluation, onTestEvaluationReady]);
 
     /**
+     * Logs lifecycle events for interview background tasks.
+     */
+    const logBackgroundTaskEvent = useCallback(
+        (
+            level: "info" | "warn" | "error",
+            task: string,
+            event: "start" | "complete" | "error",
+            details?: Record<string, unknown>
+        ) => {
+            logger[level]("Interview background task event", {
+                task,
+                event,
+                sessionId: interviewSessionId,
+                userId: reduxUserId,
+                ...details,
+            });
+        },
+        [interviewSessionId, reduxUserId]
+    );
+
+    /**
+     * Sends a JSON POST request for interview background tasks.
+     */
+    const postBackgroundJson = useCallback(
+        async (url: string, body: Record<string, unknown>) =>
+            fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            }),
+        []
+    );
+
+    /**
+     * Sends a JSON PATCH request for interview background tasks.
+     */
+    const patchBackgroundJson = useCallback(
+        async (url: string, body: Record<string, unknown>) =>
+            fetch(url, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            }),
+        []
+    );
+
+    /**
+     * Generates coding gaps for the interview session.
+     */
+    const generateCodingGaps = useCallback(
+        async (sessionId: string, finalCode: string, script: any) => {
+            logBackgroundTaskEvent("info", "generate-coding-gaps", "start");
+            try {
+                const response = await postBackgroundJson("/api/interviews/generate-coding-gaps", {
+                    sessionId,
+                    finalCode,
+                    codingTask: script.codingPrompt,
+                    expectedSolution: script.codingAnswer,
+                });
+                if (!response.ok) {
+                    logBackgroundTaskEvent("error", "generate-coding-gaps", "error", { status: response.status });
+                    return;
+                }
+                const data = await response.json();
+                logBackgroundTaskEvent("info", "generate-coding-gaps", "complete", { gapsCount: data.gapsCount });
+            } catch (error) {
+                logBackgroundTaskEvent("error", "generate-coding-gaps", "error", {
+                    message: error instanceof Error ? error.message : String(error),
+                });
+            }
+        },
+        [logBackgroundTaskEvent, postBackgroundJson]
+    );
+
+    /**
+     * Generates a coding summary for the interview session.
+     */
+    const generateCodingSummary = useCallback(
+        async (sessionId: string, finalCode: string, script: any) => {
+            logBackgroundTaskEvent("info", "generate-coding-summary", "start");
+            try {
+                const response = await postBackgroundJson("/api/interviews/generate-coding-summary", {
+                    sessionId,
+                    finalCode,
+                    codingTask: script.codingPrompt,
+                    expectedSolution: script.codingAnswer,
+                });
+                if (!response.ok) {
+                    logBackgroundTaskEvent("error", "generate-coding-summary", "error", { status: response.status });
+                    return;
+                }
+                await response.json();
+                logBackgroundTaskEvent("info", "generate-coding-summary", "complete");
+            } catch (error) {
+                logBackgroundTaskEvent("error", "generate-coding-summary", "error", {
+                    message: error instanceof Error ? error.message : String(error),
+                });
+            }
+        },
+        [logBackgroundTaskEvent, postBackgroundJson]
+    );
+
+    /**
+     * Generates a code quality analysis for the interview session.
+     */
+    const generateCodeQualityAnalysis = useCallback(
+        async (sessionId: string) => {
+            logBackgroundTaskEvent("info", "code-quality-analysis", "start");
+            try {
+                const url = `/api/interviews/session/${sessionId}/code-quality-analysis`;
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                });
+                if (!response.ok) {
+                    logBackgroundTaskEvent("error", "code-quality-analysis", "error", { status: response.status });
+                    return;
+                }
+                await response.json();
+                logBackgroundTaskEvent("info", "code-quality-analysis", "complete");
+            } catch (error) {
+                logBackgroundTaskEvent("error", "code-quality-analysis", "error", {
+                    message: error instanceof Error ? error.message : String(error),
+                });
+            }
+        },
+        [logBackgroundTaskEvent]
+    );
+
+    /**
+     * Builds enriched job-specific categories from evaluation results.
+     */
+    const buildEnrichedJobCategories = useCallback(
+        (
+            categories: Array<{name: string; description: string; weight: number}>,
+            jobEvalData: any
+        ) => {
+            const enrichedCategories: Record<string, any> = {};
+            const evaluatedCategories = jobEvalData.categories;
+            if (!evaluatedCategories || typeof evaluatedCategories !== "object") {
+                return enrichedCategories;
+            }
+            Object.entries(evaluatedCategories).forEach(([name, data]: [string, any]) => {
+                const categoryDef = categories.find((category) => category.name === name);
+                const description = categoryDef?.description;
+                enrichedCategories[name] = description
+                    ? { ...data, description }
+                    : { ...data };
+            });
+            return enrichedCategories;
+        },
+        []
+    );
+
+    /**
+     * Updates the coding summary with job-specific categories.
+     */
+    const updateCodingSummaryWithCategories = useCallback(
+        async (sessionId: string, categories: Record<string, any>) => {
+            logBackgroundTaskEvent("info", "coding-summary-update", "start");
+            try {
+                const updateResponse = await patchBackgroundJson(
+                    `/api/interviews/session/${sessionId}/coding-summary-update`,
+                    { jobSpecificCategories: categories }
+                );
+                if (!updateResponse.ok) {
+                    logBackgroundTaskEvent("error", "coding-summary-update", "error", { status: updateResponse.status });
+                    return;
+                }
+                logBackgroundTaskEvent("info", "coding-summary-update", "complete");
+            } catch (error) {
+                logBackgroundTaskEvent("error", "coding-summary-update", "error", {
+                    message: error instanceof Error ? error.message : String(error),
+                });
+            }
+        },
+        [logBackgroundTaskEvent, patchBackgroundJson]
+    );
+
+    /**
+     * Generates job-specific coding evaluation and updates the summary.
+     */
+    const evaluateJobSpecificCoding = useCallback(
+        async (sessionId: string, finalCode: string, script: any, categories?: Array<{name: string; description: string; weight: number}>) => {
+            logBackgroundTaskEvent("info", "evaluate-job-specific-coding", "start");
+            if (!categories || categories.length === 0) {
+                logBackgroundTaskEvent("warn", "evaluate-job-specific-coding", "error", { reason: "missing job categories" });
+                return;
+            }
+            try {
+                const response = await postBackgroundJson("/api/interviews/evaluate-job-specific-coding", {
+                    finalCode,
+                    codingTask: script.codingPrompt,
+                    categories,
+                });
+                if (!response.ok) {
+                    logBackgroundTaskEvent("error", "evaluate-job-specific-coding", "error", { status: response.status });
+                    return;
+                }
+                const data = await response.json();
+                logBackgroundTaskEvent("info", "evaluate-job-specific-coding", "complete");
+                const enrichedCategories = buildEnrichedJobCategories(categories, data);
+                await updateCodingSummaryWithCategories(sessionId, enrichedCategories);
+            } catch (error) {
+                logBackgroundTaskEvent("error", "evaluate-job-specific-coding", "error", {
+                    message: error instanceof Error ? error.message : String(error),
+                });
+            }
+        },
+        [
+            buildEnrichedJobCategories,
+            logBackgroundTaskEvent,
+            postBackgroundJson,
+            updateCodingSummaryWithCategories,
+        ]
+    );
+
+    /**
+     * Runs post-submit interview analysis tasks in the background.
+     */
+    const runPostSubmitAnalyses = useCallback(
+        async (
+            sessionId: string,
+            finalCode: string,
+            script: any,
+            categories?: Array<{name: string; description: string; weight: number}>
+        ) => {
+            await generateCodingGaps(sessionId, finalCode, script);
+            await generateCodingSummary(sessionId, finalCode, script);
+            await generateCodeQualityAnalysis(sessionId);
+            await evaluateJobSpecificCoding(sessionId, finalCode, script, categories);
+        },
+        [
+            evaluateJobSpecificCoding,
+            generateCodeQualityAnalysis,
+            generateCodingGaps,
+            generateCodingSummary,
+        ]
+    );
+
+    /**
+     * Launches post-submit analysis tasks without blocking the UI.
+     */
+    const launchPostSubmitAnalyses = useCallback(() => {
+        if (!interviewSessionId || !interviewScript) {
+            logBackgroundTaskEvent("warn", "post-submit-analyses", "error", {
+                reason: "missing session or script",
+            });
+            return;
+        }
+        const categories = job?.codingCategories as
+            | Array<{name: string; description: string; weight: number}>
+            | undefined;
+        logBackgroundTaskEvent("info", "post-submit-analyses", "start", {
+            hasCategories: Boolean(categories && categories.length > 0),
+        });
+        void runPostSubmitAnalyses(
+            interviewSessionId,
+            state.currentCode,
+            interviewScript,
+            categories
+        );
+    }, [
+        interviewScript,
+        interviewSessionId,
+        job?.codingCategories,
+        logBackgroundTaskEvent,
+        runPostSubmitAnalyses,
+        state.currentCode,
+    ]);
+
+    /**
+     * Requests the interview closing line from the agent.
+     */
+    const requestClosingLine = useCallback(async () => {
+        try {
+            const ref = realTimeConversationRef.current;
+            if (ref?.sayClosingLine && typeof ref.sayClosingLine === "function") {
+                await ref.sayClosingLine(candidateName);
+            }
+        } catch {}
+    }, [candidateName]);
+
+    /**
      * Submits the current solution, stops recording, exits coding mode, and stops the timer.
      */
     const handleSubmit = useCallback(async () => {
@@ -471,146 +755,25 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             updateSubmission(state.currentCode);
             await stopRecording();
             await insertRecordingUrl();
-            
-            // Generate coding gaps and summary from session data
-            setIsInterviewLoading(true);
-            if (interviewSessionId && interviewScript) {
-                logger.info("Generating coding gaps for session:", interviewSessionId);
-                try {
-                    const gapsResponse = await fetch("/api/interviews/generate-coding-gaps", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            sessionId: interviewSessionId,
-                            finalCode: state.currentCode,
-                            codingTask: interviewScript.codingPrompt,
-                            expectedSolution: interviewScript.codingAnswer,
-                        }),
-                    });
-                    
-                    if (gapsResponse.ok) {
-                        const gapsData = await gapsResponse.json();
-                        logger.info("✅ Coding gaps generated:", gapsData.gapsCount);
-                    } else {
-                        logger.error("Failed to generate coding gaps:", gapsResponse.status);
-                    }
-                } catch (gapsError) {
-                    logger.error("Error generating coding gaps:", gapsError);
-                }
-
-                // Generate coding summary
-                logger.info("Generating coding summary for session:", interviewSessionId);
-                try {
-                    const summaryResponse = await fetch("/api/interviews/generate-coding-summary", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            sessionId: interviewSessionId,
-                            finalCode: state.currentCode,
-                            codingTask: interviewScript.codingPrompt,
-                            expectedSolution: interviewScript.codingAnswer,
-                        }),
-                    });
-                    
-                    if (summaryResponse.ok) {
-                        const summaryData = await summaryResponse.json();
-                        logger.info("✅ Coding summary generated");
-                    } else {
-                        logger.error("Failed to generate coding summary:", summaryResponse.status);
-                    }
-                } catch (summaryError) {
-                    logger.error("Error generating coding summary:", summaryError);
-                }
-
-                // Generate code quality analysis
-                logger.info("Generating code quality analysis for session:", interviewSessionId);
-                try {
-                    const url = `/api/interviews/session/${interviewSessionId}/code-quality-analysis`;
-                    
-                    const analysisResponse = await fetch(url, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                    });
-                    
-                    if (analysisResponse.ok) {
-                        const analysisData = await analysisResponse.json();
-                        logger.info("✅ Code quality analysis generated");
-                    } else {
-                        logger.error("Failed to generate code quality analysis:", analysisResponse.status);
-                    }
-                } catch (analysisError) {
-                    logger.error("Error generating code quality analysis:", analysisError);
-                }
-
-                // Generate job-specific coding evaluation
-                logger.info("Generating job-specific coding evaluation for session:", interviewSessionId);
-                try {
-                    const jobCategories = job?.codingCategories as Array<{name: string; description: string; weight: number}> | undefined;
-                    const jobEvalResponse = await fetch("/api/interviews/evaluate-job-specific-coding", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            finalCode: state.currentCode,
-                            codingTask: interviewScript.codingPrompt,
-                            categories: jobCategories || [],
-                        }),
-                    });
-                    
-                    if (jobEvalResponse.ok) {
-                        const jobEvalData = await jobEvalResponse.json();
-                        logger.info("✅ Job-specific coding evaluation complete:", jobEvalData);
-                        
-                        // Enrich evaluation data with descriptions from job categories
-                        const enrichedCategories: Record<string, any> = {};
-                        if (jobCategories) {
-                            Object.entries(jobEvalData.categories || {}).forEach(([name, data]: [string, any]) => {
-                                const categoryDef = jobCategories.find((c: any) => c.name === name);
-                                enrichedCategories[name] = {
-                                    ...data,
-                                    description: categoryDef?.description || "",
-                                };
-                            });
-                        }
-                        
-                        // Update coding summary with job-specific categories
-                        const summaryUpdateUrl = `/api/interviews/session/${interviewSessionId}/coding-summary-update`;
-                        
-                        const updateResponse = await fetch(summaryUpdateUrl, {
-                            method: "PATCH",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                jobSpecificCategories: enrichedCategories,
-                            }),
-                        });
-                        
-                        if (updateResponse.ok) {
-                            logger.info("✅ Coding summary updated with job-specific categories");
-                        } else {
-                            logger.error("Failed to update coding summary:", updateResponse.status);
-                        }
-                    } else {
-                        logger.error("Failed to generate job-specific evaluation:", jobEvalResponse.status);
-                    }
-                } catch (jobEvalError) {
-                    logger.error("Error generating job-specific evaluation:", jobEvalError);
-                }
-            }
             setIsInterviewLoading(false);
-            
-            // OpenAI flow: say closing line and rely on response.done to end
-            try {
-                const ref = realTimeConversationRef.current;
-                if (ref?.sayClosingLine && typeof ref.sayClosingLine === "function") {
-                    await ref.sayClosingLine(candidateName);
-                }
-            } catch {}
+            launchPostSubmitAnalyses();
+            await requestClosingLine();
             setCodingStarted(false);
             setIsCodingStarted(false);
             stopTimer();
         } catch (error) {
             logger.error("❌ Failed to submit solution:", error);
         }
-    }, [candidateName, insertRecordingUrl, interviewScript, interviewSessionId, setCodingStarted, state.currentCode, stopRecording, stopTimer, updateSubmission]);
+    }, [
+        insertRecordingUrl,
+        launchPostSubmitAnalyses,
+        requestClosingLine,
+        setCodingStarted,
+        state.currentCode,
+        stopRecording,
+        stopTimer,
+        updateSubmission,
+    ]);
 
     /**
      * Starts the interview using the shared recording session created during the start flow.
