@@ -22,6 +22,10 @@ type QuestionCardProps = {
   onAudioStateChange?: (isPlaying: boolean, intentText?: string) => void;
   onRecordingStateChange?: (isRecording: boolean) => void;
   intentText?: string;
+  useHeyGenSpeech?: boolean;
+  onAvatarSpeak?: (text: string) => Promise<void>;
+  onAvatarStop?: () => Promise<void>;
+  isAvatarReady?: boolean;
 };
 
 /**
@@ -55,6 +59,10 @@ export default function QuestionCard({
   onAudioStateChange,
   onRecordingStateChange,
   intentText,
+  useHeyGenSpeech,
+  onAvatarSpeak,
+  onAvatarStop,
+  isAvatarReady,
 }: QuestionCardProps) {
   /**
    * Presents a background interview question with TTS playback and text/voice answer capture.
@@ -77,6 +85,110 @@ export default function QuestionCard({
   const submitClickTimeRef = useRef<Date>(new Date());
   const VIDEO_EVIDENCE_OFFSET_MS = 1000; // Same as coding stage
 
+  /**
+   * Marks speech playback as failed with a message.
+   */
+  const markSpeechFailure = React.useCallback((message: string) => {
+    setTtsError(message);
+    setIsAudioPlaying(true);
+    setAudioFinished(true);
+  }, []);
+
+  /**
+   * Resets state for a newly received question.
+   */
+  const resetQuestionState = React.useCallback(() => {
+    setPrevQuestion(question);
+    setTtsError(null);
+    setIsAudioPlaying(false);
+    setAudioFinished(false);
+    setIsTextExpanded(false);
+    setAnswer("");
+    setIsTranscribing(false);
+  }, [question]);
+
+  /**
+   * Stops any currently playing audio element.
+   */
+  const stopActiveAudio = React.useCallback(() => {
+    if (!audioRef.current) return;
+    audioRef.current.pause();
+    audioRef.current = null;
+  }, []);
+
+  /**
+   * Builds an audio element for TTS playback.
+   */
+  const createTtsAudio = React.useCallback((audioBuffer: ArrayBuffer) => {
+    const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audioRef.current = audio;
+    audio.volume = isMuted ? 0 : 1;
+    return { audio, url };
+  }, [isMuted]);
+
+  /**
+   * Attaches playback event handlers to the TTS audio element.
+   */
+  const attachTtsHandlers = React.useCallback((audio: HTMLAudioElement, url: string) => {
+    audio.onplay = () => {
+      setIsAudioPlaying(true);
+      onAudioStateChange?.(true);
+      log.info(LOG_CATEGORY, "[QuestionCard] TTS playback started");
+    };
+    audio.onended = () => {
+      setAudioFinished(true);
+      onAudioStateChange?.(false, intentText);
+      URL.revokeObjectURL(url);
+      audioRef.current = null;
+      log.info(LOG_CATEGORY, "[QuestionCard] TTS playback finished");
+    };
+  }, [intentText, onAudioStateChange]);
+
+  /**
+   * Handles HeyGen speech playback for the current question.
+   */
+  const handleHeyGenSpeech = React.useCallback(async () => {
+    if (!onAvatarSpeak) {
+      markSpeechFailure("HeyGen speech is unavailable");
+      return;
+    }
+    if (!isAvatarReady) {
+      markSpeechFailure("Avatar is still connecting");
+      return;
+    }
+    try {
+      log.info(LOG_CATEGORY, "[QuestionCard] Speaking via HeyGen");
+      setIsAudioPlaying(true);
+      onAudioStateChange?.(true);
+      await onAvatarSpeak(question);
+      setAudioFinished(true);
+      onAudioStateChange?.(false, intentText);
+    } catch (error) {
+      log.error(LOG_CATEGORY, "[QuestionCard] HeyGen speech failed:", error);
+      markSpeechFailure(error instanceof Error ? error.message : "HeyGen speech failed");
+      onAudioStateChange?.(false, intentText);
+    }
+  }, [isAvatarReady, intentText, markSpeechFailure, onAudioStateChange, onAvatarSpeak, question]);
+
+  /**
+   * Handles fallback ElevenLabs TTS playback for the current question.
+   */
+  const handleTtsSpeech = React.useCallback(async () => {
+    try {
+      log.info(LOG_CATEGORY, "[QuestionCard] Generating TTS for:", question);
+      const audioBuffer = await generateTTS(question);
+      stopActiveAudio();
+      const { audio, url } = createTtsAudio(audioBuffer);
+      attachTtsHandlers(audio, url);
+      await audio.play();
+    } catch (error) {
+      log.error(LOG_CATEGORY, "[QuestionCard] TTS failed:", error);
+      markSpeechFailure(error instanceof Error ? error.message : "TTS generation failed");
+    }
+  }, [attachTtsHandlers, createTtsAudio, markSpeechFailure, question, stopActiveAudio]);
+
   // Preload sounds on mount - wait for them to be fully ready (with caching)
   React.useEffect(() => {
     loadAndCacheSoundEffect("/sounds/controls-appear.mp3", "controls-appear").then(controlsSound => {
@@ -90,13 +202,7 @@ export default function QuestionCard({
   // TTS + question change detection
   React.useEffect(() => {
     if (question && question !== prevQuestion) {
-      setPrevQuestion(question);
-      setTtsError(null);
-      setIsAudioPlaying(false);
-      setAudioFinished(false);
-      setIsTextExpanded(false); // Reset text input to collapsed state
-      setAnswer(""); // Clear any previous answer
-      setIsTranscribing(false); // Reset transcription state
+      resetQuestionState();
 
       // If muted, skip TTS and show controls immediately
       if (isMuted) {
@@ -107,53 +213,14 @@ export default function QuestionCard({
         return;
       }
 
-      // Generate and play TTS
-      (async () => {
-        try {
-          log.info(LOG_CATEGORY, "[QuestionCard] Generating TTS for:", question);
-          const audioBuffer = await generateTTS(question);
-          
-          // Stop any currently playing audio
-          if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current = null;
-          }
+      if (useHeyGenSpeech) {
+        handleHeyGenSpeech();
+        return;
+      }
 
-          // Create audio element and autoplay
-          const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
-          const url = URL.createObjectURL(blob);
-          const audio = new Audio(url);
-          audioRef.current = audio;
-
-          // Set initial volume based on mute state
-          audio.volume = isMuted ? 0 : 1;
-
-          audio.onplay = () => {
-            setIsAudioPlaying(true);
-            onAudioStateChange?.(true);
-            log.info(LOG_CATEGORY, "[QuestionCard] TTS playback started");
-          };
-
-          audio.onended = () => {
-            setAudioFinished(true);
-            onAudioStateChange?.(false, intentText);
-            URL.revokeObjectURL(url);
-            audioRef.current = null;
-            log.info(LOG_CATEGORY, "[QuestionCard] TTS playback finished");
-          };
-
-          await audio.play();
-        } catch (error) {
-          log.error(LOG_CATEGORY, "[QuestionCard] TTS failed:", error);
-          setTtsError(
-            error instanceof Error ? error.message : "TTS generation failed"
-          );
-          setIsAudioPlaying(true); // Show question even if audio fails
-          setAudioFinished(true); // Skip to finished state if audio fails
-        }
-      })();
+      handleTtsSpeech();
     }
-  }, [question, prevQuestion, isMuted]);
+  }, [handleHeyGenSpeech, handleTtsSpeech, intentText, isMuted, onAudioStateChange, prevQuestion, question, resetQuestionState, useHeyGenSpeech]);
 
   // Handle mute toggle during playback - special behavior for QuestionCard
   React.useEffect(() => {
@@ -161,8 +228,7 @@ export default function QuestionCard({
       if (isMuted && !audioFinished) {
         // Special "read mode" behavior: stop audio and show controls immediately
         log.info(LOG_CATEGORY, "[QuestionCard] Mute toggled ON - stopping audio and showing controls (read mode)");
-        audioRef.current.pause();
-        audioRef.current = null;
+        stopActiveAudio();
         setAudioFinished(true);
         onAudioStateChange?.(false, intentText);
       } else if (!isMuted) {
@@ -170,7 +236,12 @@ export default function QuestionCard({
         audioRef.current.volume = 1;
       }
     }
-  }, [isMuted, audioFinished, onAudioStateChange]);
+    if (useHeyGenSpeech && isMuted && !audioFinished) {
+      onAvatarStop?.();
+      setAudioFinished(true);
+      onAudioStateChange?.(false, intentText);
+    }
+  }, [audioFinished, intentText, isMuted, onAudioStateChange, stopActiveAudio, useHeyGenSpeech, onAvatarStop]);
 
   // Play sound when controls appear (after audio finishes)
   React.useEffect(() => {
@@ -193,11 +264,14 @@ export default function QuestionCard({
         audioRef.current.pause();
         audioRef.current = null;
       }
+      if (useHeyGenSpeech) {
+        onAvatarStop?.();
+      }
       if (mediaRecorderRef.current && isRecording) {
         mediaRecorderRef.current.stop();
       }
     };
-  }, [isRecording]);
+  }, [isRecording, onAvatarStop, useHeyGenSpeech]);
 
   const handleSubmit = async () => {
     // Capture click time BEFORE submitting
@@ -592,4 +666,3 @@ export default function QuestionCard({
     </div>
   );
 }
-

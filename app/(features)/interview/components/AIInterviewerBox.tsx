@@ -1,6 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { log } from "app/shared/services/logger";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+import HeyGenAvatar from "./HeyGenAvatar";
+import type { HeyGenStatus } from "./hooks/useHeyGenStreamingAvatar";
+
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
 
 /**
  * AIInterviewerBox: Displays interviewer state with animations and evaluation intent.
@@ -12,6 +18,11 @@ interface AIInterviewerBoxProps {
     mode?: "talking" | "idle";
     intent?: string;
     isArriving?: boolean;
+    useHeyGenAvatar: boolean;
+    heyGenStream: MediaStream | null;
+    heyGenStatus: HeyGenStatus;
+    heyGenFallbackEnabled: boolean;
+    isMuted: boolean;
 }
 
 const AIInterviewerBox: React.FC<AIInterviewerBoxProps> = ({ 
@@ -19,9 +30,15 @@ const AIInterviewerBox: React.FC<AIInterviewerBoxProps> = ({
     hasGlow, 
     mode = "talking",
     intent,
-    isArriving = false
+    isArriving = false,
+    useHeyGenAvatar,
+    heyGenStream,
+    heyGenStatus,
+    heyGenFallbackEnabled,
+    isMuted,
 }) => {
     const [previousMode, setPreviousMode] = useState<"talking" | "idle">(mode);
+    const showFallback = useHeyGenAvatar && heyGenFallbackEnabled && heyGenStatus === "error";
 
     // Track mode changes for animation direction
     useEffect(() => {
@@ -29,6 +46,12 @@ const AIInterviewerBox: React.FC<AIInterviewerBoxProps> = ({
             setPreviousMode(mode);
         }
     }, [mode, previousMode]);
+
+    useEffect(() => {
+        if (showFallback) {
+            log.warn(LOG_CATEGORY, "[AIInterviewerBox] HeyGen unavailable, using fallback avatar");
+        }
+    }, [showFallback]);
 
     return (
         <div
@@ -59,11 +82,20 @@ const AIInterviewerBox: React.FC<AIInterviewerBoxProps> = ({
                                 : 'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40'
                     }`}
                 >
-                    <img 
-                        src="/sfinx-avatar-nobg.png" 
-                        alt="Sfinx" 
-                        className="w-full h-full object-contain"
-                    />
+                    {useHeyGenAvatar ? (
+                        <HeyGenAvatar
+                            mediaStream={heyGenStream}
+                            status={heyGenStatus}
+                            isMuted={isMuted}
+                            showFallback={showFallback}
+                        />
+                    ) : (
+                        <img 
+                            src="/sfinx-avatar-nobg.png" 
+                            alt="Sfinx" 
+                            className="w-full h-full object-contain"
+                        />
+                    )}
                 </div>
 
                 {/* Intent text - fades in after Sfinx reaches corner */}

@@ -11,3 +11,9 @@
 - **Decision:** use the existing OpenAI client and chat completions with JSON output.
 - **Rationale:** OpenAI is already integrated in the codebase, supports response JSON formatting, and avoids adding new SDKs.
 - **Alternatives:** evaluate Anthropic for structured output, or Azure OpenAI for enterprise key management.
+
+## HeyGen Streaming Avatar SDK
+- **Candidates:** HeyGen Streaming Avatar SDK (`@heygen/streaming-avatar-sdk`), custom WebRTC + lip-sync implementation, alternative avatar providers (D-ID, Synthesia).
+- **Decision:** use the HeyGen Streaming Avatar SDK.
+- **Rationale:** HeyGen provides a maintained SDK with streaming avatar support and ElevenLabs integration, reducing custom WebRTC and animation work.
+- **Alternatives:** build a custom WebRTC avatar pipeline or evaluate other providers if licensing or latency constraints arise.

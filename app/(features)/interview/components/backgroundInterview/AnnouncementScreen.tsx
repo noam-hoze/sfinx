@@ -13,6 +13,9 @@ type AnnouncementScreenProps = {
   text: string;
   preloadedAudioBlob?: Blob | null;
   onComplete: () => void;
+  useHeyGenSpeech?: boolean;
+  onAvatarSpeak?: (text: string) => Promise<void>;
+  isAvatarReady?: boolean;
 };
 
 /**
@@ -37,6 +40,9 @@ export default function AnnouncementScreen({
   text,
   preloadedAudioBlob,
   onComplete,
+  useHeyGenSpeech,
+  onAvatarSpeak,
+  isAvatarReady,
 }: AnnouncementScreenProps) {
   /**
    * Plays a spoken announcement while revealing the text word by word before advancing the flow.
@@ -49,67 +55,29 @@ export default function AnnouncementScreen({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const hasStartedRef = useRef(false);
 
-  useEffect(() => {
-    // Prevent multiple executions of the same announcement
-    if (hasStartedRef.current) {
-      return;
-    }
-    
-    hasStartedRef.current = true;
-    
-    // Reset state when text changes
+  /**
+   * Resets the announcement state for a fresh run.
+   */
+  const resetAnnouncement = React.useCallback(() => {
     setDisplayedWords([]);
     setAudioFinished(false);
     setTypingFinished(false);
     setFadingOut(false);
+  }, []);
 
-    const words = text.split(" ");
+  /**
+   * Starts the typing animation aligned with the announcement text.
+   */
+  const startTyping = React.useCallback((words: string[]) => {
     const WORDS_PER_SECOND = 3;
     const MS_PER_WORD = 1000 / WORDS_PER_SECOND;
-
-    // Play TTS (preloaded or generate on-demand)
-    (async () => {
-      try {
-        let blob: Blob;
-        
-        if (preloadedAudioBlob) {
-          blob = preloadedAudioBlob;
-        } else {
-          const audioBuffer = await generateTTS(text);
-          blob = new Blob([audioBuffer], { type: "audio/mpeg" });
-        }
-        
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audioRef.current = audio;
-
-        // Set initial volume based on mute state
-        audio.volume = isMuted ? 0 : 1;
-
-        audio.onended = () => {
-          setAudioFinished(true);
-          URL.revokeObjectURL(url);
-          audioRef.current = null;
-        };
-
-        await audio.play();
-      } catch (error) {
-        log.error(LOG_CATEGORY, "[Announcement] TTS failed:", error);
-        // Even if audio fails, continue with typing animation
-        setAudioFinished(true);
-      }
-    })();
-
-    // Start typing animation - use index to avoid any state/closure issues
     let currentIndex = 0;
-    
+
     const interval = setInterval(() => {
       if (currentIndex < words.length) {
         const wordToAdd = words[currentIndex];
         currentIndex++;
-        
         setDisplayedWords((prev) => {
-          // Prevent duplicates when component re-renders during mute toggle
           if (prev.length > 0 && prev[prev.length - 1] === wordToAdd) {
             return prev;
           }
@@ -121,6 +89,83 @@ export default function AnnouncementScreen({
       }
     }, MS_PER_WORD);
 
+    return interval;
+  }, []);
+
+  /**
+   * Plays announcement speech using HeyGen or fallback TTS.
+   */
+  const playHeyGenAnnouncement = React.useCallback(async () => {
+    if (!onAvatarSpeak || !isAvatarReady) {
+      log.error(LOG_CATEGORY, "[Announcement] HeyGen unavailable for announcement");
+      setAudioFinished(true);
+      return;
+    }
+    try {
+      await onAvatarSpeak(text);
+      setAudioFinished(true);
+    } catch (error) {
+      log.error(LOG_CATEGORY, "[Announcement] HeyGen speech failed:", error);
+      setAudioFinished(true);
+    }
+  }, [isAvatarReady, onAvatarSpeak, text]);
+
+  /**
+   * Plays fallback TTS for the announcement when HeyGen is disabled.
+   */
+  const playTtsAnnouncement = React.useCallback(async () => {
+    try {
+      let blob: Blob;
+      if (preloadedAudioBlob) {
+        blob = preloadedAudioBlob;
+      } else {
+        const audioBuffer = await generateTTS(text);
+        blob = new Blob([audioBuffer], { type: "audio/mpeg" });
+      }
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.volume = isMuted ? 0 : 1;
+      audio.onended = () => {
+        setAudioFinished(true);
+        URL.revokeObjectURL(url);
+        audioRef.current = null;
+      };
+      await audio.play();
+    } catch (error) {
+      log.error(LOG_CATEGORY, "[Announcement] TTS failed:", error);
+      setAudioFinished(true);
+    }
+  }, [isMuted, preloadedAudioBlob, text]);
+
+  /**
+   * Plays announcement speech using HeyGen or fallback TTS.
+   */
+  const playAnnouncementSpeech = React.useCallback(async () => {
+    if (isMuted) {
+      setAudioFinished(true);
+      return;
+    }
+    if (useHeyGenSpeech) {
+      await playHeyGenAnnouncement();
+      return;
+    }
+    await playTtsAnnouncement();
+  }, [isMuted, playHeyGenAnnouncement, playTtsAnnouncement, useHeyGenSpeech]);
+
+  useEffect(() => {
+    // Prevent multiple executions of the same announcement
+    if (hasStartedRef.current) {
+      return;
+    }
+    
+    hasStartedRef.current = true;
+    
+    const words = text.split(" ");
+    resetAnnouncement();
+    playAnnouncementSpeech();
+    const interval = startTyping(words);
+
     return () => {
       clearInterval(interval);
       if (audioRef.current) {
@@ -128,7 +173,7 @@ export default function AnnouncementScreen({
         audioRef.current = null;
       }
     };
-  }, [text, preloadedAudioBlob]);
+  }, [playAnnouncementSpeech, resetAnnouncement, startTyping, text]);
 
   // Handle mute toggle - only change volume, don't stop playback
   React.useEffect(() => {
@@ -171,4 +216,3 @@ export default function AnnouncementScreen({
     </motion.div>
   );
 }
-

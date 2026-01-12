@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -29,6 +29,8 @@ import InterviewStageScreen from "app/shared/components/InterviewStageScreen";
 import { InterviewIDE } from "./components";
 import CameraPreview from "./components/CameraPreview";
 import AIInterviewerBox from "./components/AIInterviewerBox";
+import { getHeyGenClientConfig } from "./components/heygenConfig";
+import { useHeyGenStreamingAvatar } from "./components/hooks/useHeyGenStreamingAvatar";
 import { useMute } from "app/shared/contexts";
 import { useCamera } from "./components/hooks/useCamera";
 import { useScreenRecording } from "./components/hooks/useScreenRecording";
@@ -59,6 +61,7 @@ function InterviewPageContent() {
   const { isDebugVisible, setShowDebugButton } = useDebug();
   const dispatch = useDispatch();
   const { data: session, status: sessionStatus } = useSession();
+  const heygenConfig = useMemo(() => getHeyGenClientConfig(), []);
 
   // Local loading state for preload phase
   const [isPreloading, setIsPreloading] = useState(true);
@@ -75,6 +78,8 @@ function InterviewPageContent() {
   const applicationId = useSelector((state: RootState) => state.interview.applicationId);
   const shouldResetFlag = useSelector((state: RootState) => state.interview.shouldReset);
   const reduxSessionId = useSelector((state: RootState) => state.interview.sessionId);
+  const heygenEnabled = heygenConfig.enabled;
+  const heygenFallbackEnabled = heygenConfig.allowFallback;
 
   // Local state
   const [name, setName] = useState("");
@@ -107,6 +112,15 @@ function InterviewPageContent() {
   const skipScreenShare = process.env.NEXT_PUBLIC_SKIP_SCREEN_SHARE === "true";
   const recordingControls = useScreenRecording();
   const { startRecording, interviewSessionId, setInterviewSessionId, getActualRecordingStartTime } = recordingControls;
+  const shouldStartHeyGen = heygenEnabled && (isPreloading || stage === "background");
+  const {
+    status: heygenStatus,
+    mediaStream: heygenStream,
+    speak: heygenSpeak,
+    stopSpeech: heygenStopSpeech,
+  } = useHeyGenStreamingAvatar(heygenConfig, shouldStartHeyGen);
+  const isAvatarReady = heygenStatus === "ready";
+  const useHeyGenSpeech = heygenEnabled && stage === "background";
 
   // Build breadcrumb trail
   const jobTitle = roleSlug?.split("-").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") || "";
@@ -135,6 +149,22 @@ function InterviewPageContent() {
       setPendingIntent(intent);
     }
   );
+
+  /**
+   * Speaks text through the HeyGen avatar when enabled.
+   */
+  const handleAvatarSpeak = useCallback(async (text: string) => {
+    if (!heygenEnabled) return;
+    await heygenSpeak(text);
+  }, [heygenEnabled, heygenSpeak]);
+
+  /**
+   * Stops HeyGen speech playback when available.
+   */
+  const handleAvatarStop = useCallback(async () => {
+    if (!heygenEnabled) return;
+    await heygenStopSpeech();
+  }, [heygenEnabled, heygenStopSpeech]);
 
   // Sync service sound refs to local refs
   useEffect(() => {
@@ -369,7 +399,9 @@ function InterviewPageContent() {
 
         // Generate announcement
         const jobTitle = roleSlugFromUrl.split("-").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-        const { text, audioBlob } = await generateAnnouncement(jobTitle);
+        const { text, audioBlob } = await generateAnnouncement(jobTitle, {
+          shouldGenerateAudio: !heygenEnabled,
+        });
         setAnnouncementText(text);
         setAnnouncementAudioBlob(audioBlob);
 
@@ -383,7 +415,7 @@ function InterviewPageContent() {
     };
 
     executePreload();
-  }, [openaiClient, skipToCoding, preload, generateAnnouncement, session, searchParams, sessionStatus]);
+  }, [openaiClient, skipToCoding, preload, generateAnnouncement, session, searchParams, sessionStatus, heygenEnabled]);
 
   /**
    * Ensures an application exists for the coding phase and returns its ID.
@@ -853,6 +885,11 @@ function InterviewPageContent() {
               mode={isAIAudioPlaying ? "talking" : "idle"}
               intent={currentIntent}
               isArriving={isArriving}
+              useHeyGenAvatar={useHeyGenSpeech}
+              heyGenStream={heygenStream}
+              heyGenStatus={heygenStatus}
+              heyGenFallbackEnabled={heygenFallbackEnabled}
+              isMuted={isMuted}
             />
             <div className={isArriving ? 'opacity-0 pointer-events-none' : ''}>
               <CameraPreview
@@ -875,6 +912,9 @@ function InterviewPageContent() {
                 text={announcementText}
                 preloadedAudioBlob={announcementAudioBlob}
                 onComplete={handleAnnouncementComplete}
+                useHeyGenSpeech={useHeyGenSpeech}
+                onAvatarSpeak={handleAvatarSpeak}
+                isAvatarReady={isAvatarReady}
               />
             ) : (
               <QuestionCard
@@ -890,6 +930,10 @@ function InterviewPageContent() {
                 onAudioStateChange={handleAudioStateChange}
                 onRecordingStateChange={handleRecordingStateChange}
                 intentText={pendingIntent}
+                useHeyGenSpeech={useHeyGenSpeech}
+                onAvatarSpeak={handleAvatarSpeak}
+                onAvatarStop={handleAvatarStop}
+                isAvatarReady={isAvatarReady}
               />
             )}
           </div>

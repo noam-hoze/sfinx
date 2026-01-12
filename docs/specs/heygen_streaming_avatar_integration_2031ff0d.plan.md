@@ -4,35 +4,35 @@ overview: Integrate HeyGen's Streaming Avatar SDK to animate the Sfinx avatar in
 todos:
   - id: setup-heygen
     content: Install HeyGen SDK, create avatar in dashboard, configure API keys
-    status: pending
+    status: completed
   - id: heygen-component
     content: Build HeyGenAvatar component with streaming and ElevenLabs integration
-    status: pending
+    status: completed
     dependencies:
       - setup-heygen
   - id: update-interviewer-box
     content: Replace static image in AIInterviewerBox with HeyGenAvatar
-    status: pending
+    status: completed
     dependencies:
       - heygen-component
   - id: integrate-question-card
     content: Update QuestionCard to use HeyGen for speech + animation
-    status: pending
+    status: completed
     dependencies:
       - update-interviewer-box
   - id: integrate-announcement
     content: Update AnnouncementScreen to use HeyGen for speech + animation
-    status: pending
+    status: completed
     dependencies:
       - update-interviewer-box
   - id: preload-optimization
     content: Add HeyGen session initialization to preload phase
-    status: pending
+    status: completed
     dependencies:
       - heygen-component
   - id: test-integration
     content: Test HeyGen streaming with ElevenLabs in background interview
-    status: pending
+    status: completed
     dependencies:
       - integrate-question-card
       - integrate-announcement
@@ -75,6 +75,7 @@ Add to environment variables:
 - `HEYGEN_API_KEY` - Your HeyGen API token (get from Settings > API)
 - Create Photo Avatar from `public/sfinx-avatar-nobg.png` in HeyGen dashboard
 - Store avatar ID as `NEXT_PUBLIC_HEYGEN_AVATAR_ID`
+- Client-side usage expects `NEXT_PUBLIC_HEYGEN_API_KEY` and `NEXT_PUBLIC_ELEVEN_LABS_CANDIDATE_VOICE_ID`
 
 ### 3. Create HeyGen Avatar Component
 
