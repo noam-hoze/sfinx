@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { AuthGuard, DashboardPageLayout, DashboardCard } from "app/shared/components";
+import { TrackedLink } from "app/shared/components/TrackedLink";
 import SfinxSpinner from "app/shared/components/SfinxSpinner";
 import { log } from "app/shared/services";
 import { JobGrid, JobGridJob } from "app/shared/components/jobs/JobGrid";
@@ -599,12 +600,12 @@ function CompanyJobsContent() {
                                         >
                                             Edit
                                         </button>
-                                        <Link
+                                        <TrackedLink
                                             href={`/company-dashboard/applicants/${job.id}`}
                                             className="flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors text-center"
                                         >
                                             Applicants
-                                        </Link>
+                                        </TrackedLink>
                                     </div>
                                 </div>
                             );

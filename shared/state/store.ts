@@ -3,9 +3,10 @@ import background from "./slices/backgroundSlice";
 import coding from "./slices/codingSlice";
 import interview from "./slices/interviewSlice";
 import cps from "./slices/cpsSlice";
+import navigation from "./slices/navigationSlice";
 
 export const store = configureStore({
-    reducer: { background, coding, interview, cps },
+    reducer: { background, coding, interview, cps, navigation },
     devTools: true,
 });
 

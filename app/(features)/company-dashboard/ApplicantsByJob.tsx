@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useDispatch } from "react-redux";
+import { setNavigationSource } from "@/shared/state/slices/navigationSlice";
 import SfinxSpinner from "app/shared/components/SfinxSpinner";
 import { DashboardPageLayout } from "app/shared/components";
 
@@ -145,6 +147,8 @@ function JobCard({ job, onClick }: { job: JobWithApplicants; onClick: () => void
 export default function ApplicantsByJob() {
     const { data: session } = useSession();
     const router = useRouter();
+    const pathname = usePathname();
+    const dispatch = useDispatch();
     const [jobs, setJobs] = useState<JobWithApplicants[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -251,7 +255,10 @@ export default function ApplicantsByJob() {
                                     <JobCard
                                         key={job.id}
                                         job={job}
-                                        onClick={() => router.push(`/company-dashboard/applicants/${job.id}`)}
+                                        onClick={() => {
+                                            dispatch(setNavigationSource(pathname));
+                                            router.push(`/company-dashboard/applicants/${job.id}`);
+                                        }}
                                     />
                                 ))}
                             </div>
@@ -267,7 +274,10 @@ export default function ApplicantsByJob() {
                                     <JobCard
                                         key={job.id}
                                         job={job}
-                                        onClick={() => router.push(`/company-dashboard/applicants/${job.id}`)}
+                                        onClick={() => {
+                                            dispatch(setNavigationSource(pathname));
+                                            router.push(`/company-dashboard/applicants/${job.id}`);
+                                        }}
                                     />
                                 ))}
                             </div>
