@@ -5,16 +5,17 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AuthGuard } from "app/shared/components";
 import { log } from "app/shared/services";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import { readResponseError } from "app/shared/utils/http";
 import InterviewContentSection, {
-
-import { LOG_CATEGORIES } from "app/shared/services/logger.config";
-const LOG_CATEGORY = LOG_CATEGORIES.COMPANY_DASHBOARD;
     InterviewContentState,
     InterviewDurationState,
     defaultInterviewDurations,
     emptyInterviewContentState,
 } from "../components/InterviewContentSection";
+import AutoFillModal from "../components/AutoFillModal";
+
+const LOG_CATEGORY = LOG_CATEGORIES.COMPANY_DASHBOARD;
 
 interface CreateJobState {
     title: string;
@@ -44,6 +45,26 @@ interface ScoringConfigState {
     codingWeight: number;
 }
 
+interface CategoryGenerationResponse {
+    codingCategories: CodingCategory[];
+    experienceCategories: ExperienceCategory[];
+    jobFields?: {
+        title?: string;
+        location?: string;
+        type?: string;
+        salary?: string;
+        requirements?: string;
+    };
+    interviewContent?: {
+        backgroundQuestion?: string;
+        codingPrompt?: string;
+        codingTemplate?: string;
+        codingAnswer?: string;
+        expectedOutput?: string;
+        codingLanguage?: string;
+    };
+}
+
 const defaultCreateState: CreateJobState = {
     title: "",
     location: "",
@@ -59,6 +80,25 @@ const defaultScoringConfig: ScoringConfigState = {
     codingWeight: 50,
 };
 
+/**
+ * Requests category suggestions based on the job description.
+ */
+async function fetchCategorySuggestions(input: {
+    title: string;
+    description: string;
+}): Promise<CategoryGenerationResponse> {
+    const response = await fetch("/api/company/jobs/generate-categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+    });
+    if (!response.ok) {
+        const detail = await readResponseError(response);
+        throw new Error(`Failed to generate categories: ${response.status} ${detail}`);
+    }
+    return response.json();
+}
+
 function CreateJobContent() {
     const router = useRouter();
     const [error, setError] = useState<string | null>(null);
@@ -66,12 +106,88 @@ function CreateJobContent() {
     const [interviewState, setInterviewState] = useState<InterviewContentState>(emptyInterviewContentState);
     const [interviewDurations, setInterviewDurations] = useState<InterviewDurationState>(defaultInterviewDurations);
     const [createSubmitting, setCreateSubmitting] = useState(false);
+    const [categoryGenerating, setCategoryGenerating] = useState(false);
     const [scoringConfig, setScoringConfig] = useState<ScoringConfigState>(defaultScoringConfig);
     const [codingCategories, setCodingCategories] = useState<CodingCategory[]>([]);
     const [experienceCategories, setExperienceCategories] = useState<ExperienceCategory[]>([]);
     const [activeSection, setActiveSection] = useState<string>("details");
     const [expandedSections, setExpandedSections] = useState<string[]>(["details"]);
     const [interviewTab, setInterviewTab] = useState<'experience' | 'coding'>('experience');
+    const [showAutoFillModal, setShowAutoFillModal] = useState(false);
+
+    /**
+     * Generates all job fields from description prompt.
+     */
+    const handleAutoFillGenerate = async (description: string) => {
+        setCategoryGenerating(true);
+        setError(null);
+        try {
+            const generated = await fetchCategorySuggestions({
+                title: createState.title,
+                description,
+            });
+            setExperienceCategories(generated.experienceCategories);
+            setCodingCategories(generated.codingCategories);
+
+            // Apply job fields only if empty
+            if (generated.jobFields) {
+                const updates: Partial<CreateJobState> = {};
+                if (!createState.title && generated.jobFields.title) {
+                    updates.title = generated.jobFields.title;
+                }
+                if (!createState.location && generated.jobFields.location) {
+                    updates.location = generated.jobFields.location;
+                }
+                if (!createState.type && generated.jobFields.type) {
+                    updates.type = generated.jobFields.type;
+                }
+                if (!createState.salary && generated.jobFields.salary) {
+                    updates.salary = generated.jobFields.salary;
+                }
+                if (!createState.requirements && generated.jobFields.requirements) {
+                    updates.requirements = generated.jobFields.requirements;
+                }
+                if (!createState.description && description) {
+                    updates.description = description;
+                }
+                if (Object.keys(updates).length > 0) {
+                    setCreateState((prev) => ({ ...prev, ...updates }));
+                }
+            }
+
+            // Apply interview content only if empty
+            if (generated.interviewContent) {
+                const updates: Partial<InterviewContentState> = {};
+                if (!interviewState.backgroundQuestion && generated.interviewContent.backgroundQuestion) {
+                    updates.backgroundQuestion = generated.interviewContent.backgroundQuestion;
+                }
+                if (!interviewState.codingPrompt && generated.interviewContent.codingPrompt) {
+                    updates.codingPrompt = generated.interviewContent.codingPrompt;
+                }
+                if (!interviewState.codingTemplate && generated.interviewContent.codingTemplate) {
+                    updates.codingTemplate = generated.interviewContent.codingTemplate;
+                }
+                if (!interviewState.codingAnswer && generated.interviewContent.codingAnswer) {
+                    updates.codingAnswer = generated.interviewContent.codingAnswer;
+                }
+                if (!interviewState.expectedOutput && generated.interviewContent.expectedOutput) {
+                    updates.expectedOutput = generated.interviewContent.expectedOutput;
+                }
+                if (!interviewState.codingLanguage && generated.interviewContent.codingLanguage) {
+                    updates.codingLanguage = generated.interviewContent.codingLanguage;
+                }
+                if (Object.keys(updates).length > 0) {
+                    setInterviewState((prev) => ({ ...prev, ...updates }));
+                }
+            }
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Unknown error";
+            setError(message);
+            log.error(LOG_CATEGORY, "❌ Failed to generate fields:", err);
+        } finally {
+            setCategoryGenerating(false);
+        }
+    };
 
     const handleCreateJob = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -275,13 +391,35 @@ function CreateJobContent() {
             {/* Main Content */}
             <div className="flex-1 overflow-y-auto">
                 <div className="max-w-4xl mx-auto p-12">
-                    <div className="mb-8">
-                        <h1 className="text-3xl font-semibold text-gray-800">
-                            Create New Job
-                        </h1>
-                        <p className="text-gray-600 mt-2">
-                            Add a new job opening for your company
-                        </p>
+                    <div className="mb-8 flex items-start justify-between">
+                        <div>
+                            <h1 className="text-3xl font-semibold text-gray-800">
+                                Create New Job
+                            </h1>
+                            <p className="text-gray-600 mt-2">
+                                Add a new job opening for your company
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setShowAutoFillModal(true)}
+                            className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium hover:from-blue-700 hover:to-blue-800 transition-all shadow-sm hover:shadow-md flex items-center gap-2"
+                        >
+                            <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                                />
+                            </svg>
+                            Auto-fill from Prompt
+                        </button>
                     </div>
 
                     {error && (
@@ -712,6 +850,13 @@ function CreateJobContent() {
                     </form>
                 </div>
             </div>
+
+            <AutoFillModal
+                isOpen={showAutoFillModal}
+                onClose={() => setShowAutoFillModal(false)}
+                onGenerate={handleAutoFillGenerate}
+                isGenerating={categoryGenerating}
+            />
         </div>
     );
 }

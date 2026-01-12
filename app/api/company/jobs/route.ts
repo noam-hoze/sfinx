@@ -3,17 +3,12 @@ import { getServerSession } from "next-auth/next";
 import { log } from "app/shared/services";
 import { authOptions, prisma, invalidatePattern } from "app/shared/services/server";
 import { loadCompanyForUser } from "./companyContext";
+import { parseCodingCategories, parseExperienceCategories } from "./categorySchemas";
+import { ensureCompanyRole } from "./companyAuth";
 import { coerceSeconds, mapJobResponse } from "./jobHelpers";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.COMPANY;
-
-function ensureCompanyRole(session: any) {
-    const role = session?.user?.role;
-    if (role !== "COMPANY") {
-        throw new Error("Company role required");
-    }
-}
 
 export async function GET(_request: NextRequest) {
     try {
@@ -80,6 +75,8 @@ export async function POST(request: NextRequest) {
         const salary = typeof body.salary === "string" ? body.salary : null;
         const requirements =
             typeof body.requirements === "string" ? body.requirements : null;
+        const codingCategories = parseCodingCategories(body.codingCategories);
+        const experienceCategories = parseExperienceCategories(body.experienceCategories);
 
         const { company } = await loadCompanyForUser(userId);
         let interviewContentId: string | undefined;
@@ -177,6 +174,12 @@ export async function POST(request: NextRequest) {
             requirements,
             companyId: company.id,
         };
+        if (codingCategories) {
+            data.codingCategories = codingCategories;
+        }
+        if (experienceCategories) {
+            data.experienceCategories = experienceCategories;
+        }
         if (interviewContentId) {
             data.interviewContentId = interviewContentId;
         }
@@ -214,9 +217,14 @@ export async function POST(request: NextRequest) {
             if (message === "Company record not found for profile") {
                 return 404;
             }
+            if (message === "Coding categories are invalid") {
+                return 400;
+            }
+            if (message === "Experience categories are invalid") {
+                return 400;
+            }
             return 500;
         })();
         return NextResponse.json({ error: message }, { status });
     }
 }
-
