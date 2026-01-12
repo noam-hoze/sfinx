@@ -36,7 +36,7 @@ const AIInterviewerBox: React.FC<AIInterviewerBoxProps> = ({
         }`}>
             {/* Outer ring layer - no clipping */}
             {!isArriving && hasGlow && (
-                <div className={`absolute inset-0 rounded-xl ring-4 ring-purple-500 shadow-[0_0_40px_rgba(168,85,247,0.8)] pointer-events-none ${
+                <div className={`absolute inset-0 rounded-xl ring-4 ring-purple-500 shadow-[0_0_25px_rgba(168,85,247,0.5)] pointer-events-none ${
                     mode === "talking" ? "animate-breathing-glow" : ""
                 }`} />
             )}
@@ -63,12 +63,12 @@ const AIInterviewerBox: React.FC<AIInterviewerBoxProps> = ({
                     />
                 </div>
 
-                {/* Intent text - fades in after Sfinx reaches corner */}
+                {/* Intent text - subtle and elegant */}
                 {mode === "idle" && intent && (
-                    <div className="flex gap-3 items-start pt-2 animate-intent-fade-in">
-                        <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0 mt-1">
+                    <div className="flex gap-3 items-start pt-2 animate-intent-fade-in opacity-60">
+                        <div className="w-7 h-7 rounded-full bg-gray-100/50 flex items-center justify-center flex-shrink-0 mt-1">
                             <svg 
-                                className="w-5 h-5 text-purple-600" 
+                                className="w-4 h-4 text-gray-400" 
                                 fill="none" 
                                 stroke="currentColor" 
                                 viewBox="0 0 24 24"
@@ -76,12 +76,12 @@ const AIInterviewerBox: React.FC<AIInterviewerBoxProps> = ({
                                 <path 
                                     strokeLinecap="round" 
                                     strokeLinejoin="round" 
-                                    strokeWidth={2} 
+                                    strokeWidth={1.5} 
                                     d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" 
                                 />
                             </svg>
                         </div>
-                        <p className="text-base leading-relaxed text-gray-700 font-medium pr-20">
+                        <p className="text-sm leading-relaxed text-gray-500 font-normal pr-20">
                             {intent}
                         </p>
                     </div>
