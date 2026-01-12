@@ -96,23 +96,34 @@ export function useBackgroundPreload() {
           localStorage.setItem(scriptCacheKey, JSON.stringify(scriptData));
         }
 
-        // Step 4: Generate first OpenAI question
+        // Step 4: Generate first OpenAI question with intent
         log.info(LOG_CATEGORY, "[preload] Generating first question...");
         const companyNameFromScript = scriptData.companyName || companySlug.charAt(0).toUpperCase() + companySlug.slice(1);
-        const instruction = `Ask exactly: "${String(scriptData.backgroundQuestion)}"`;
+        const instruction = `Ask exactly: "${String(scriptData.backgroundQuestion)}"
+
+Also provide an evaluation intent - one natural, calm sentence describing the lens or perspective you are listening through for this answer.
+
+The sentence must NOT restate or paraphrase the question.
+
+Focus on HOW you are listening, not WHAT is being asked.
+
+Return JSON with format: {"question": "...", "evaluationIntent": "..."}`;
+        
         const firstQuestionRaw = await generateAssistantReply(
           openaiClient, 
-          "You are a technical interviewer. Return valid JSON with format: {\"question\": \"...\"}",
+          "You are a technical interviewer. Return valid JSON only.",
           instruction
         );
 
         if (!firstQuestionRaw) throw new Error("Failed to generate first question");
 
-        // Parse JSON response to extract question
+        // Parse JSON response to extract question and intent
         let firstQuestion = firstQuestionRaw;
+        let firstIntent = "";
         try {
           const parsed = JSON.parse(firstQuestionRaw);
           firstQuestion = parsed.question || firstQuestionRaw;
+          firstIntent = parsed.evaluationIntent || "";
         } catch (err) {
           console.warn("[preload] Failed to parse JSON, using raw response");
         }
@@ -124,6 +135,7 @@ export function useBackgroundPreload() {
             applicationId: createdApplicationId,
             script: scriptData,
             preloadedFirstQuestion: firstQuestion,
+            preloadedFirstIntent: firstIntent,
           })
         );
 

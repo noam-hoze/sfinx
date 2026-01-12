@@ -28,6 +28,7 @@ export type InterviewState = {
     applicationId?: string;
     script?: any;
     preloadedFirstQuestion?: string;
+    preloadedFirstIntent?: string;
     // Reset trigger flag
     shouldReset?: boolean;
 };
@@ -88,12 +89,14 @@ const interviewSlice = createSlice({
                 applicationId?: string;
                 script?: any;
                 preloadedFirstQuestion?: string;
+                preloadedFirstIntent?: string;
             }>
         ) => {
             if (action.payload.userId) state.userId = action.payload.userId;
             if (action.payload.applicationId) state.applicationId = action.payload.applicationId;
             if (action.payload.script) state.script = action.payload.script;
             if (action.payload.preloadedFirstQuestion) state.preloadedFirstQuestion = action.payload.preloadedFirstQuestion;
+            if (action.payload.preloadedFirstIntent) state.preloadedFirstIntent = action.payload.preloadedFirstIntent;
         },
     },
     extraReducers: (builder) => {
