@@ -4,6 +4,7 @@ import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import prisma from "lib/prisma";
 import OpenAI from "openai";
 import { createVideoChapter } from "../shared/createVideoChapter";
+import { CONTRIBUTIONS_TARGET } from "shared/constants/interview";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
@@ -218,16 +219,30 @@ CRITICAL RULES:
                 return existing || { categoryName: category.name, count: 0, avgStrength: 0 };
             }
             
-            // Calculate new average with new contribution
             const oldCount = existing?.count || 0;
-            const oldAvg = existing?.avgStrength || 0;
+            const oldAdjustedAvg = existing?.avgStrength || 0;
             const newCount = oldCount + 1;
-            const newAvg = Math.round((oldAvg * oldCount + newEval.strength) / newCount);
+            
+            // Back-calculate raw average from adjusted (adjusted = raw * confidence)
+            let oldRawAvg = 0;
+            if (oldCount > 0 && oldAdjustedAvg > 0) {
+                const oldConfidence = Math.min(1.0, oldCount / CONTRIBUTIONS_TARGET);
+                oldRawAvg = oldConfidence > 0 ? oldAdjustedAvg / oldConfidence : oldAdjustedAvg;
+            }
+            
+            // Calculate new raw average
+            const newRawAvg = (oldRawAvg * oldCount + newEval.strength) / newCount;
+            
+            // Apply confidence multiplier based on sample size
+            const confidence = Math.min(1.0, newCount / CONTRIBUTIONS_TARGET);
+            const adjustedAvg = Math.round(newRawAvg * confidence);
             
             return {
                 categoryName: category.name,
                 count: newCount,
-                avgStrength: newAvg,
+                avgStrength: adjustedAvg,
+                rawAverage: Math.round(newRawAvg),
+                confidence: confidence,
             };
         });
 
