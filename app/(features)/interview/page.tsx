@@ -80,6 +80,7 @@ function InterviewPageContent() {
   const [name, setName] = useState("");
   const [showHandEmoji, setShowHandEmoji] = useState(false);
   const [showAnnouncement, setShowAnnouncement] = useState(false);
+  const [isArriving, setIsArriving] = useState(false);
   const [announcementText, setAnnouncementText] = useState("");
   const [announcementAudioBlob, setAnnouncementAudioBlob] = useState<Blob | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<string>("");
@@ -521,11 +522,12 @@ function InterviewPageContent() {
               startSound.onerror = () => resolve();
               startSound.play().catch(() => resolve());
             });
-          } catch {}
-        }
+        } catch {}
+      }
 
-        setShowAnnouncement(true);
-        setIsStarting(false);
+      setIsArriving(true);
+      setShowAnnouncement(true);
+      setIsStarting(false);
       } catch (error) {
         log.error(LOG_CATEGORY, "[interview] Auto-start failed:", error);
         setIsStarting(false);
@@ -669,6 +671,7 @@ function InterviewPageContent() {
         } catch {}
       }
 
+      setIsArriving(true);
       setShowAnnouncement(true);
     } catch (error) {
       log.error(LOG_CATEGORY, "[interview] Start flow failed:", error);
@@ -689,6 +692,11 @@ function InterviewPageContent() {
     if (preloadedFirstIntent) {
       setPendingIntent(preloadedFirstIntent);
     }
+
+    // After animation completes, mark arriving as done
+    setTimeout(() => {
+      setIsArriving(false);
+    }, 800);
 
     // Save first question to DB
     if (interviewSessionId) {
@@ -837,19 +845,22 @@ function InterviewPageContent() {
         <div className="w-full max-w-4xl flex flex-col">
           {/* AI Interviewer and Camera - side by side above question card */}
           <div className={`flex gap-8 mb-6 justify-center transition-opacity duration-500 ${
-            currentQuestion && !showAnnouncement ? 'opacity-100' : 'opacity-0'
+            (currentQuestion && !showAnnouncement) || isArriving ? 'opacity-100' : 'opacity-0'
           }`}>
             <AIInterviewerBox 
               isActive={!isPreloading && stage === "background"} 
               hasGlow={isAIAudioPlaying}
               mode={isAIAudioPlaying ? "talking" : "idle"}
               intent={currentIntent}
+              isArriving={isArriving}
             />
-            <CameraPreview
-              isCameraOn={isCameraOn}
-              videoRef={selfVideoRef}
-              hasGlow={showCameraGlow || isUserRecording}
-            />
+            <div className={isArriving ? 'opacity-0 pointer-events-none' : ''}>
+              <CameraPreview
+                isCameraOn={isCameraOn}
+                videoRef={selfVideoRef}
+                hasGlow={showCameraGlow || isUserRecording}
+              />
+            </div>
           </div>
           
           {/* Question content */}
