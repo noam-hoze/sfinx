@@ -12,6 +12,7 @@ export interface GuardState {
 export interface CategoryConfidence {
   name: string;
   confidence: number;
+  avgStrength: number;
 }
 
 export function nowMs(): number {
@@ -41,9 +42,9 @@ export function shouldTransition(
   gs: GuardState,
   opts: { clockMs?: number; timeboxMs?: number; categories?: CategoryConfidence[] }
 ): GuardReason | null {
-  // Check if all categories reached 100% confidence
+  // Check if all categories reached avgStrength of 100
   if (opts.categories && opts.categories.length > 0) {
-    const allComplete = opts.categories.every(cat => cat.confidence >= 100);
+    const allComplete = opts.categories.every(cat => cat.avgStrength >= 100);
     if (allComplete) return "all_topics_complete";
   }
 

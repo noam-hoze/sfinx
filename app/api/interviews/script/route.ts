@@ -46,6 +46,7 @@ export async function GET(req: NextRequest) {
             codingQuestionTimeSeconds: interview.codingQuestionTimeSeconds,
             codingCategories: job.codingCategories,
             experienceCategories: job.experienceCategories,
+            jobTitle: job.title,
         });
     } catch (error: any) {
         const details = error?.message ? String(error.message) : undefined;

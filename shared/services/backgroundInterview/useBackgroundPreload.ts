@@ -74,7 +74,7 @@ export function useBackgroundPreload() {
         const sessId = session.interviewSession.id;
 
         // Step 3: Fetch interview script (with cache)
-        const SCRIPT_CACHE_VERSION = 'v7'; // Increment to invalidate old caches
+        const SCRIPT_CACHE_VERSION = 'v8'; // Increment to invalidate old caches
         const scriptCacheKey = `interview-script-${jobId}-${SCRIPT_CACHE_VERSION}`;
         let scriptData: any = null;
 
@@ -99,9 +99,12 @@ export function useBackgroundPreload() {
         // Step 4: Generate first OpenAI question
         log.info(LOG_CATEGORY, "[preload] Generating first question...");
         const companyNameFromScript = scriptData.companyName || companySlug.charAt(0).toUpperCase() + companySlug.slice(1);
-        const persona = buildOpenAIBackgroundPrompt(companyNameFromScript, scriptData.experienceCategories);
         const instruction = `Ask exactly: "${String(scriptData.backgroundQuestion)}"`;
-        const firstQuestionRaw = await generateAssistantReply(openaiClient, persona, instruction);
+        const firstQuestionRaw = await generateAssistantReply(
+          openaiClient, 
+          "You are a technical interviewer. Return valid JSON with format: {\"question\": \"...\"}",
+          instruction
+        );
 
         if (!firstQuestionRaw) throw new Error("Failed to generate first question");
 

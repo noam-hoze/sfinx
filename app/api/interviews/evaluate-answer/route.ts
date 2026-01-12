@@ -169,18 +169,27 @@ CRITICAL RULES:
             throw new Error("NEXT_PUBLIC_OPENAI_EVALUATION_MODEL environment variable is not set");
         }
 
+        const messages = [
+            {
+                role: "system",
+                content: `You are a technical interviewer at ${companyName} evaluating candidates for the ${jobTitle} position.`,
+            },
+            {
+                role: "user",
+                content: evaluationPrompt,
+            },
+        ];
+
+        console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.log("→ OpenAI Request [evaluate-answer FULL]");
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.log("Model:", evaluationModel);
+        console.log("\nSystem:", messages[0].content);
+        console.log("\nUser Prompt:", evaluationPrompt.substring(0, 500) + "...");
+
         const completion = await openai.chat.completions.create({
             model: evaluationModel,
-            messages: [
-                {
-                    role: "system",
-                    content: "You are an expert recruiter evaluating candidate responses during technical interviews.",
-                },
-                {
-                    role: "user",
-                    content: evaluationPrompt,
-                },
-            ],
+            messages,
             response_format: { type: "json_object" },
         });
 
@@ -190,6 +199,13 @@ CRITICAL RULES:
         }
 
         const evaluation = JSON.parse(responseText);
+        
+        console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.log("← OpenAI Response [evaluate-answer FULL]");
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.log(JSON.stringify(evaluation, null, 2));
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+        
         log.info(LOG_CATEGORY, "[evaluate-answer] OpenAI evaluation:", evaluation);
 
         // Calculate updated counts in-memory (no DB read needed)

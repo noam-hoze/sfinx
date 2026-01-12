@@ -67,7 +67,7 @@ This document describes the complete architecture, implementation, and design pr
 
 ### 1. Continuity-First Strategy
 
-**Principle**: Depth before breadth. Stay on a single topic until sufficient evidence is gathered (5 contributions), then pivot to the next topic with the most existing evidence.
+**Principle**: Depth before breadth. Stay on a single topic until sufficient evidence is gathered (`CONTRIBUTIONS_TARGET` contributions, currently 3), then pivot to the next topic with the most existing evidence.
 
 **Rationale**:
 - Mimics human interviewer behavior (follow-up questions on same topic)
@@ -77,7 +77,7 @@ This document describes the complete architecture, implementation, and design pr
 
 ### 2. Data-Driven Pivoting
 
-**Principle**: Topic switches are triggered by contribution counts reaching target threshold (5), not arbitrary turn counts or time limits.
+**Principle**: Topic switches are triggered by contribution counts reaching target threshold (`CONTRIBUTIONS_TARGET`, currently 3), not arbitrary turn counts or time limits.
 
 **Rationale**:
 - Contributions represent actual evidence gathered (strength > 0)
@@ -173,18 +173,21 @@ Display question to candidate
 ### Constants
 
 ```typescript
-const TARGET_CONTRIBUTIONS = 5;  // Threshold for "sufficient evidence"
+// shared/constants/interview.ts
+export const CONTRIBUTIONS_TARGET = 3;  // Threshold for "sufficient evidence"
 ```
+
+> **Note**: This constant is shared across backend and frontend. See [Contributions Target & Transition Logic](./contributions-target-and-transition-logic.md) for details.
 
 ### Phase 1: Topic Continuity (Most Common)
 
-**Condition**: `currentTopicInfo.contributionsCount < TARGET_CONTRIBUTIONS`
+**Condition**: `currentTopicInfo.contributionsCount < CONTRIBUTIONS_TARGET`
 
 **Behavior**: Stay on current topic, continue building evidence
 
 **Guidance Sent to OpenAI**:
 ```
-Focus your next question on "Production Systems and Code Quality" - continue building evidence (2/5 contributions).
+Focus your next question on "Production Systems and Code Quality" - continue building evidence (2/3 contributions).
 ```
 
 **Example Scenario**:
@@ -194,15 +197,15 @@ Focus your next question on "Production Systems and Code Quality" - continue bui
 
 ### Phase 2: Intelligent Pivot
 
-**Condition**: `currentTopicInfo.contributionsCount >= TARGET_CONTRIBUTIONS AND underSaturated.length > 0`
+**Condition**: `currentTopicInfo.contributionsCount >= CONTRIBUTIONS_TARGET AND underSaturated.length > 0`
 
-**Behavior**: Switch to the topic with highest contribution count among those still below TARGET_CONTRIBUTIONS
+**Behavior**: Switch to the topic with highest contribution count among those still below `CONTRIBUTIONS_TARGET`
 
 **Guidance Sent to OpenAI**:
 ```
-"Production Systems and Code Quality" has sufficient evidence (5 contributions).
+"Production Systems and Code Quality" has sufficient evidence (3 contributions).
 
-Focus your next question on "Software Architecture and Design Patterns" - it needs more evidence (3/5 contributions). Transition naturally to this new topic.
+Focus your next question on "Software Architecture and Design Patterns" - it needs more evidence (2/3 contributions). Transition naturally to this new topic.
 ```
 
 **Why Highest of Remaining?**
@@ -211,15 +214,15 @@ Focus your next question on "Software Architecture and Design Patterns" - it nee
 - Maintains momentum - builds on existing evidence
 
 **Example Scenario**:
-- Topic A: 5 contributions (saturated)
-- Topic B: 3 contributions (highest of remaining)
+- Topic A: 3 contributions (saturated)
+- Topic B: 2 contributions (highest of remaining)
 - Topic C: 1 contribution
 - Topic D: 0 contributions
 - Action: Switch to Topic B (not D, even though D has lowest count)
 
 ### Phase 3: Depth Building (All Topics Saturated)
 
-**Condition**: `allSaturated === true` (all topics have >= TARGET_CONTRIBUTIONS)
+**Condition**: `allSaturated === true` (all topics have >= `CONTRIBUTIONS_TARGET`)
 
 **Behavior**: Pick topic with lowest average strength score EACH round (don't persist focus topic)
 
@@ -296,7 +299,7 @@ const coverageInfo = experienceCategories.map((cat: any) => {
 });
 
 const underSaturated = coverageInfo.filter((c: any) => 
-  c.contributionsCount < TARGET_CONTRIBUTIONS
+  c.contributionsCount < CONTRIBUTIONS_TARGET
 );
 const allSaturated = underSaturated.length === 0;
 ```
@@ -316,20 +319,20 @@ if (!currentFocusTopicName && coverageInfo.length > 0) {
 
 **Phase 1 (Continuity)**:
 ```typescript
-if (currentTopicInfo && currentTopicInfo.contributionsCount < TARGET_CONTRIBUTIONS) {
-  focusGuidance = `Focus your next question on "${currentTopicInfo.name}" - continue building evidence (${currentTopicInfo.contributionsCount}/${TARGET_CONTRIBUTIONS} contributions).`;
+if (currentTopicInfo && currentTopicInfo.contributionsCount < CONTRIBUTIONS_TARGET) {
+  focusGuidance = `Focus your next question on "${currentTopicInfo.name}" - continue building evidence (${currentTopicInfo.contributionsCount}/${CONTRIBUTIONS_TARGET} contributions).`;
 }
 ```
 
 **Phase 2 (Pivot)**:
 ```typescript
-if (currentTopicInfo && currentTopicInfo.contributionsCount >= TARGET_CONTRIBUTIONS) {
+if (currentTopicInfo && currentTopicInfo.contributionsCount >= CONTRIBUTIONS_TARGET) {
   const nextTopic = underSaturated
     .sort((a: any, b: any) => b.contributionsCount - a.contributionsCount)[0];
   
   focusGuidance = `"${currentTopicInfo.name}" has sufficient evidence (${currentTopicInfo.contributionsCount} contributions).
 
-Focus your next question on "${nextTopic.name}" - it needs more evidence (${nextTopic.contributionsCount}/${TARGET_CONTRIBUTIONS} contributions). Transition naturally to this new topic.`;
+Focus your next question on "${nextTopic.name}" - it needs more evidence (${nextTopic.contributionsCount}/${CONTRIBUTIONS_TARGET} contributions). Transition naturally to this new topic.`;
   
   dispatch(setCurrentFocusTopic({ topicName: nextTopic.name }));
 }
@@ -377,7 +380,7 @@ Current coverage:
 - Quantum Computing Domain Knowledge: 0 contributions (avg: 0%)
 - Leadership and Technical Ownership: 0 contributions (avg: 0%)
 
-Focus your next question on "Production Systems and Code Quality" - continue building evidence (2/5 contributions).
+Focus your next question on "Production Systems and Code Quality" - continue building evidence (2/3 contributions).
 ```
 
 #### 5. JSON Response Parsing
@@ -840,21 +843,21 @@ const coverageInfo = experienceCategories.map((cat: any) => {
 
 ### 1. Adaptive Target Contributions
 
-**Current**: Fixed `TARGET_CONTRIBUTIONS = 5` for all categories
+**Current**: Shared constant `CONTRIBUTIONS_TARGET = 3` for all categories (see [Contributions Target & Transition Logic](./contributions-target-and-transition-logic.md))
 
 **Proposal**: Vary target based on category weight
 
 ```typescript
 const getTargetContributions = (category: any): number => {
   // Higher weight = more contributions required
-  return Math.ceil(5 * (category.weight / 20));  // Assuming typical weight is 20
+  return Math.ceil(CONTRIBUTIONS_TARGET * (category.weight / 20));  // Assuming typical weight is 20
 };
 ```
 
-**Example**:
-- Must-have category (weight: 30): 8 contributions
-- Strong advantage (weight: 20): 5 contributions  
-- Nice-to-have (weight: 10): 3 contributions
+**Example** (if `CONTRIBUTIONS_TARGET = 3`):
+- Must-have category (weight: 30): 5 contributions
+- Strong advantage (weight: 20): 3 contributions  
+- Nice-to-have (weight: 10): 2 contributions
 
 ### 2. Time-Aware Pivoting
 
@@ -869,9 +872,9 @@ const shouldPivot = (
 ): boolean => {
   // Force pivot if:
   // - Reached target contributions, OR
-  // - Spent > 2 minutes and have >= 3 contributions
-  return contributionsCount >= TARGET_CONTRIBUTIONS ||
-         (timeOnTopicMs > 120000 && contributionsCount >= 3);
+  // - Spent > 2 minutes and have >= CONTRIBUTIONS_TARGET - 1
+  return contributionsCount >= CONTRIBUTIONS_TARGET ||
+         (timeOnTopicMs > 120000 && contributionsCount >= CONTRIBUTIONS_TARGET - 1);
 };
 ```
 
@@ -883,7 +886,7 @@ const shouldPivot = (
 
 ```typescript
 const canPivot = (contributionsCount: number, avgStrength: number): boolean => {
-  return contributionsCount >= TARGET_CONTRIBUTIONS && avgStrength >= 60;
+  return contributionsCount >= CONTRIBUTIONS_TARGET && avgStrength >= 60;
 };
 ```
 

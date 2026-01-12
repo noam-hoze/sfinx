@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 import { calculateScore, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
+import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
@@ -76,9 +77,6 @@ export async function PATCH(
             return Math.floor((timestamp.getTime() - session.recordingStartedAt.getTime()) / 1000);
         };
 
-        // Target contributions for full confidence
-        const TARGET_CONTRIBUTIONS = 5;
-
         // Merge real-time contributions with final evaluation categories
         const enrichedCategories: any = { ...jobSpecificCategories };
 
@@ -91,7 +89,7 @@ export async function PATCH(
                 const rawAverage = scores.reduce((sum: number, s: number) => sum + s, 0) / scores.length;
                 
                 // Apply confidence multiplier based on sample size
-                const confidence = Math.min(1.0, contributions.length / TARGET_CONTRIBUTIONS);
+                const confidence = Math.min(1.0, contributions.length / CONTRIBUTIONS_TARGET);
                 const adjustedScore = Math.round(rawAverage * confidence);
                 
                 log.info(LOG_CATEGORY, `[Coding Summary Update] ${categoryName}: ${contributions.length} contributions, raw avg=${Math.round(rawAverage)}, confidence=${confidence.toFixed(2)}, adjusted=${adjustedScore}, final override=${categoryData.score}`);

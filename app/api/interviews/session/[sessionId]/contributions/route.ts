@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "lib/prisma";
 import { log } from "app/shared/services";
+import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
@@ -47,14 +48,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
             byCategory[contrib.categoryName].push(contrib);
         });
 
-        const TARGET_CONTRIBUTIONS = 5;
-        
         const categoryStats = jobCategories.map(category => {
             const contribs = byCategory[category.name] || [];
             const rawAverage = contribs.length > 0
                 ? contribs.reduce((sum, c) => sum + c.contributionStrength, 0) / contribs.length
                 : 0;
-            const confidence = Math.min(1.0, contribs.length / TARGET_CONTRIBUTIONS);
+            const confidence = Math.min(1.0, contribs.length / CONTRIBUTIONS_TARGET);
             const adjustedScore = Math.round(rawAverage * confidence);
             
             return {
@@ -63,7 +62,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 avgStrength: adjustedScore,
                 rawAverage: Math.round(rawAverage),
                 confidence: confidence,
-                targetContributions: TARGET_CONTRIBUTIONS,
                 latestContribution: contribs[0] || null,
             };
         });

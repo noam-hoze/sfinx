@@ -27,39 +27,9 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
     const debugEnabled = process.env.NEXT_PUBLIC_DEBUG_MODE === "true";
     const sessionId = useSelector((state: RootState) => state.interview.sessionId);
     const backgroundState = useSelector((state: RootState) => state.background);
-    const [contributionStats, setContributionStats] = useState<ContributionStats[]>([]);
-
-    // Initialize categories immediately on mount
-    useEffect(() => {
-        if (!experienceCategories) return;
-        
-        const initialStats = experienceCategories.map(cat => ({
-            categoryName: cat.name,
-            count: 0,
-            avgStrength: 0,
-            latestContribution: null
-        }));
-        setContributionStats(initialStats);
-    }, [experienceCategories]);
-
-    // Fetch contributions after each evaluation (triggered by realtimeEvaluations change)
-    useEffect(() => {
-        if (!debugEnabled || !sessionId) return;
-        
-        const fetchContributions = async () => {
-            try {
-                const res = await fetch(`/api/interviews/session/${sessionId}/contributions`);
-                if (res.ok) {
-                    const data = await res.json();
-                    setContributionStats(data.categoryStats || []);
-                }
-            } catch (err) {
-                console.error("[BackgroundDebugPanel] Failed to fetch contributions:", err);
-            }
-        };
-
-        fetchContributions();
-    }, [debugEnabled, sessionId, realtimeEvaluations]);
+    
+    // Read contribution stats from Redux (updated by fast-eval) instead of fetching from DB
+    const contributionStats = backgroundState.categoryStats || [];
 
     const stage = useSelector((state: RootState) => state.interview.stage);
     const startedAtMs = backgroundState.startedAtMs;
@@ -72,6 +42,27 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
         const id = setInterval(() => setTick((t) => (t + 1) % 1_000_000), 1000);
         return () => clearInterval(id);
     }, []);
+
+    // Calculate real-time scores (must be before any conditional returns)
+    const experienceScores = useMemo(() => {
+        if (!experienceCategories || !contributionStats) return [];
+        return experienceCategories.map(category => {
+            const stat = contributionStats.find(s => s.categoryName === category.name);
+            return {
+                name: category.name,
+                score: stat?.avgStrength || 0,
+                weight: category.weight
+            };
+        });
+    }, [experienceCategories, contributionStats]);
+
+    const scores = useMemo(() => {
+        return calculateScore(
+            { experienceScores, categoryScores: [] },
+            {},
+            { experienceWeight: 100, codingWeight: 0, aiAssistWeight: 0 }
+        );
+    }, [experienceScores]);
 
     const now = Date.now();
     const limitMs = Number.isFinite(backgroundState.timeboxMs) && backgroundState.timeboxMs! > 0 ? backgroundState.timeboxMs : TIMEBOX_MS;
@@ -259,28 +250,7 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
     const categoryNames = experienceCategories?.map(c => c.name) || [];
     const evaluatingAnswer = backgroundState.evaluatingAnswer;
     const currentQuestionTarget = backgroundState.currentQuestionTarget;
-
-    // Calculate real-time scores
-    const experienceScores = useMemo(() => {
-        if (!experienceCategories || !contributionStats) return [];
-        return experienceCategories.map(category => {
-            const stat = contributionStats.find(s => s.categoryName === category.name);
-            return {
-                name: category.name,
-                score: stat?.avgStrength || 0,
-                weight: category.weight
-            };
-        });
-    }, [experienceCategories, contributionStats]);
-
-    const scores = useMemo(() => {
-        const result = calculateScore(
-            { experienceScores, categoryScores: [] },
-            {},
-            { experienceWeight: 50, codingWeight: 50, aiAssistWeight: 25 }
-        );
-        return result;
-    }, [experienceScores]);
+    const currentFocusTopic = backgroundState.currentFocusTopic;
 
     return (
         <div className="rounded-[28px] border border-slate-200/70 bg-white/80 px-6 py-5 text-sm shadow-lg shadow-slate-900/5 backdrop-blur-xl dark:border-slate-700/60 dark:bg-slate-900/80 dark:text-slate-100">
@@ -345,7 +315,7 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
                                 </div>
                                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-600/10 dark:bg-blue-400/10 rounded-full">
                                     <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
-                                        → {currentQuestionTarget.category}
+                                        → {currentFocusTopic}
                                     </span>
                                 </div>
                             </div>

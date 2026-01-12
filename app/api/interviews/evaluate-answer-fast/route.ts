@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+import prisma from "lib/prisma";
 import OpenAI from "openai";
+import { CONTRIBUTIONS_TARGET } from "shared/constants/interview";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
@@ -16,9 +18,9 @@ const openai = new OpenAI({
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { question, answer, experienceCategories, currentCounts, currentFocusTopic, conversationHistory, excludedTopics } = body;
+        const { sessionId, question, answer, experienceCategories, currentCounts, currentFocusTopic, conversationHistory, excludedTopics, answerHistory } = body;
 
-        if (!question || answer === undefined || !experienceCategories || !currentCounts) {
+        if (!sessionId || !question || answer === undefined || !experienceCategories || !currentCounts) {
             return NextResponse.json(
                 { error: "Missing required fields" },
                 { status: 400 }
@@ -33,6 +35,29 @@ export async function POST(request: NextRequest) {
         }
 
         log.info(LOG_CATEGORY, "[evaluate-answer-fast] Fast evaluation started");
+
+        // Fetch session to get company/job context
+        const session = await prisma.interviewSession.findUnique({
+            where: { id: sessionId },
+            include: {
+                application: {
+                    include: {
+                        job: {
+                            include: {
+                                company: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        if (!session?.application?.job) {
+            throw new Error("Session or job not found");
+        }
+
+        const companyName = session.application.job.company?.name;
+        const jobTitle = session.application.job.title;
 
         const evaluationModel = process.env.NEXT_PUBLIC_OPENAI_EVALUATION_MODEL;
         if (!evaluationModel) {
@@ -53,7 +78,6 @@ export async function POST(request: NextRequest) {
                 scores: [],
                 acknowledgment: "Thanks for your responses.",
                 nextQuestion: null,
-                targetedCategory: null,
                 isDontKnow: false,
                 updatedCounts: currentCounts,
                 newFocusTopic: null,
@@ -61,28 +85,41 @@ export async function POST(request: NextRequest) {
         }
 
         // Build category list with current counts (using active categories only)
-        const TARGET = 5;
+        const TARGET = CONTRIBUTIONS_TARGET;
+        
         const categoryList = activeCategories.map((cat: any) => {
             const stats = currentCounts.find((c: any) => c.categoryName === cat.name);
             return `${cat.name}: ${stats?.count || 0} contributions (avg ${stats?.avgStrength || 0}%)`;
         }).join(', ');
 
-        // Give OpenAI the rules to decide dynamically after scoring
-        let focusInstruction = "";
-        if (currentFocusTopic) {
-            focusInstruction = `Current focus topic: "${currentFocusTopic}".
+        // DETERMINISTIC ROUTING: Pick next topic based on current counts
+        const activeCategoryNames = activeCategories.map((cat: any) => cat.name);
+        const countsForSelection = currentCounts.filter((c: any) => activeCategoryNames.includes(c.categoryName));
 
-After you score this answer, calculate NEW counts:
-- For each category you scored > 0: new count = current count + 1
+        // Partition: active (count < TARGET) vs inactive (count >= TARGET)
+        const active = countsForSelection.filter((c: any) => c.count < TARGET);
 
-Then decide next question topic:
-1. If "${currentFocusTopic}" NEW count < ${TARGET}: Continue asking about "${currentFocusTopic}"
-2. If "${currentFocusTopic}" NEW count >= ${TARGET}:
-   - Find all categories with NEW count < ${TARGET}
-   - If any exist: Ask about the one with HIGHEST NEW count
-   - If none exist (all >= ${TARGET}): Ask about category with LOWEST average score`;
+        let newFocusTopic: string;
+        if (active.length > 0) {
+            // MODE 1: Contribution collection - prefer higher count, tie-break by higher strength
+            newFocusTopic = active.sort((a: any, b: any) => 
+                b.count - a.count || b.avgStrength - a.avgStrength
+            )[0].categoryName;
         } else {
-            focusInstruction = "After scoring, identify which category you gave the HIGHEST score to. Ask your next question about that category.";
+            // MODE 2: Rebalance - pick weakest category (lowest avgStrength)
+            newFocusTopic = countsForSelection.sort((a: any, b: any) => 
+                a.avgStrength - b.avgStrength
+            )[0].categoryName;
+        }
+
+        const focusInstruction = `Ask your next question about: "${newFocusTopic}"`;
+
+        // Build conversation history context
+        let historyContext = "";
+        if (answerHistory && answerHistory.length > 0) {
+            historyContext = `\n\nConversation History:\n${answerHistory.map((entry: any, i: number) => 
+                `Q${i+1}: ${entry.question}\nA${i+1}: ${entry.answer}\nScores: ${entry.scores.map((s: any) => `${s.category}: ${s.strength}`).join(', ')}`
+            ).join('\n\n')}`;
         }
 
         const fastPrompt = `Score this answer and generate next question.
@@ -90,7 +127,7 @@ Then decide next question topic:
 QUESTION: ${question}
 ANSWER: ${answer}
 
-Current status: ${categoryList}
+Current status: ${categoryList}${historyContext}
 
 Step 1 - Detect uncertainty:
 If the answer says "I don't know" or similar ("not sure", "no experience", "haven't worked with that"), set isDontKnow: true
@@ -101,48 +138,61 @@ Step 2 - Score each category 0-100:
 
 Step 3 - Generate acknowledgment and next question:
 ${focusInstruction}
-${conversationHistory?.length > 0 ? `\nLast exchange: ${conversationHistory.slice(-1)[0]?.text?.substring(0, 100)}` : ''}
 
-Generate a short acknowledgment (max 12 words).
+Generate a short, natural acknowledgment (max 4 words). Vary your language - avoid repeating words like "great" or "excellent" from previous turns.
 Generate the next question separately.
 Return JSON:
 {
   "isDontKnow": true/false,
   "scores": [{"category": "Name", "strength": 0-100}],
   "acknowledgment": "...",
-  "nextQuestion": "...",
-  "targetedCategory": "Category Name you're asking about"
+  "nextQuestion": "..."
 }`;
 
+        const messages = [
+            {
+                role: "system" as const,
+                content: companyName && jobTitle 
+                    ? `You are a technical interviewer at ${companyName} evaluating candidates for the ${jobTitle} position. Return valid JSON only.`
+                    : "You are a technical interviewer. Return valid JSON only.",
+            },
+            {
+                role: "user" as const,
+                content: fastPrompt,
+            },
+        ];
+        console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.log("→ OpenAI Request [evaluate-answer-fast]");
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.log("Model:", evaluationModel);
+        console.log("\nSystem:", messages[0].content);
+        console.log("\nUser Prompt:", messages[1].content);
 
         const completion = await openai.chat.completions.create({
             model: evaluationModel,
-            messages: [
-                {
-                    role: "system",
-                    content: "You are a technical interviewer. Return valid JSON only.",
-                },
-                {
-                    role: "user",
-                    content: fastPrompt,
-                },
-            ],
+            messages,
             response_format: { type: "json_object" },
             temperature: 0.3,
         });
 
         const responseText = completion.choices[0]?.message?.content;
+        console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.log("← OpenAI Response [evaluate-answer-fast]");
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.log(JSON.stringify(JSON.parse(responseText || "{}"), null, 2));
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+        
         if (!responseText) {
             throw new Error("OpenAI returned empty response");
         }
 
         const result = JSON.parse(responseText);
         
-        // If this is an "I don't know" answer, increment dontKnowCount in-memory for topic selection
+        // If this is an "I don't know" answer, increment dontKnowCount in-memory for current topic
         let countsForTopicSelection = currentCounts;
-        if (result.isDontKnow && result.targetedCategory) {
+        if (result.isDontKnow && currentFocusTopic) {
             countsForTopicSelection = currentCounts.map((c: any) => {
-                if (c.categoryName === result.targetedCategory) {
+                if (c.categoryName === currentFocusTopic) {
                     return { ...c, dontKnowCount: c.dontKnowCount + 1 };
                 }
                 return c;
@@ -175,7 +225,6 @@ Return JSON:
                         scores: [],
                         acknowledgment: "Thanks for your responses.",
                         nextQuestion: null,
-                        targetedCategory: null,
                         isDontKnow: false,
                         updatedCounts: currentCounts,
                         newFocusTopic: null,
@@ -208,31 +257,6 @@ Return JSON:
             };
         });
 
-        // Determine new focus topic based on updated counts
-        // Filter to only consider active (non-excluded) categories
-        const activeCategoryNames = activeCategories.map((c: any) => c.name);
-        const countsForSelection = updatedCounts.filter((c: any) => activeCategoryNames.includes(c.categoryName));
-        
-        let newFocusTopic = currentFocusTopic;
-        
-        if (!newFocusTopic || !activeCategoryNames.includes(newFocusTopic)) {
-            // Initial state or current topic is now excluded: pick topic with highest count from active categories
-            if (countsForSelection.length > 0) {
-                newFocusTopic = countsForSelection.sort((a: any, b: any) => b.count - a.count)[0].categoryName;
-            }
-        } else {
-            const currentStats = countsForSelection.find((c: any) => c.categoryName === newFocusTopic);
-            if (currentStats && currentStats.count >= TARGET) {
-                // Current topic saturated, need to pivot
-                const underSaturated = countsForSelection.filter((c: any) => c.count < TARGET);
-                if (underSaturated.length > 0) {
-                    // Switch to highest count among under-saturated
-                    newFocusTopic = underSaturated.sort((a: any, b: any) => b.count - a.count)[0].categoryName;
-                }
-                // If all saturated, keep current (Phase 3 doesn't persist focus)
-            }
-        }
-
         log.info(LOG_CATEGORY, "[evaluate-answer-fast] Fast evaluation complete");
 
         return NextResponse.json({
@@ -240,7 +264,6 @@ Return JSON:
             scores: result.scores,
             acknowledgment: result.acknowledgment,
             nextQuestion: result.nextQuestion,
-            targetedCategory: result.targetedCategory,
             isDontKnow: result.isDontKnow || false,
             updatedCounts,
             newFocusTopic,
