@@ -419,40 +419,177 @@ function CompanyJobsContent() {
                         />
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {jobs.map((job) => (
-                            <DashboardCard
-                                key={job.id}
-                                className="group flex flex-col relative"
-                            >
-                                <div className="absolute top-4 right-4 flex gap-2 z-10">
-                                    <button
-                                        type="button"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteJob(job.id);
-                                        }}
-                                        disabled={deleteInFlight === job.id}
-                                        className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-60"
-                                        title="Delete"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
+                    <div className="space-y-6">
+                        {/* Overview Stats */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl p-4 border border-blue-200/50">
+                                <div className="text-sm text-blue-700 font-medium mb-1">Total Jobs</div>
+                                <div className="text-3xl font-bold text-blue-900">{jobs.length}</div>
+                            </div>
+                            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-xl p-4 border border-emerald-200/50">
+                                <div className="text-sm text-emerald-700 font-medium mb-1">Active</div>
+                                <div className="text-3xl font-bold text-emerald-900">
+                                    {jobs.filter(j => {
+                                        const rawJob = jobs.find(rj => rj.id === j.id) as CompanyJobListItem | undefined;
+                                        return rawJob;
+                                    }).length}
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setEditingJobId(job.id);
-                                        router.push(`/company-dashboard/jobs/${encodeURIComponent(job.id)}`);
-                                    }}
-                                    className="text-left w-full"
+                            </div>
+                            <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-xl p-4 border border-purple-200/50">
+                                <div className="text-sm text-purple-700 font-medium mb-1">With Interview</div>
+                                <div className="text-3xl font-bold text-purple-900">
+                                    {jobs.filter(j => {
+                                        const rawJob = jobs.find(rj => rj.id === j.id) as CompanyJobListItem | undefined;
+                                        return rawJob?.interviewContent !== null;
+                                    }).length}
+                                </div>
+                            </div>
+                            <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-xl p-4 border border-amber-200/50">
+                                <div className="text-sm text-amber-700 font-medium mb-1">Avg Complete</div>
+                                <div className="text-3xl font-bold text-amber-900">
+                                    {jobs.length > 0 ? Math.round(
+                                        jobs.reduce((sum, j) => {
+                                            const rawJob = jobs.find(rj => rj.id === j.id) as CompanyJobListItem | undefined;
+                                            const hasInterview = rawJob?.interviewContent !== null;
+                                            const hasDescription = j.description && j.description.length > 0;
+                                            const hasSalary = rawJob?.salary && rawJob.salary.length > 0;
+                                            const hasRequirements = rawJob?.requirements && rawJob.requirements.length > 0;
+                                            const completeness = [hasDescription, hasSalary, hasRequirements, hasInterview].filter(Boolean).length;
+                                            return sum + (completeness / 4) * 100;
+                                        }, 0) / jobs.length
+                                    ) : 0}%
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Section Header */}
+                        <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Your Positions</h3>
+
+                        {/* Jobs Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {/* Create New Job Card */}
+                        <button
+                            type="button"
+                            onClick={() => router.push('/company-dashboard/jobs/new')}
+                            className="group bg-gradient-to-br from-blue-50 to-blue-100/50 hover:from-blue-100 hover:to-blue-200/50 backdrop-blur-sm rounded-2xl border-2 border-dashed border-blue-300 p-8 transition-all hover:shadow-lg hover:scale-[1.02] min-h-[280px] flex flex-col items-center justify-center"
+                        >
+                            <div className="w-16 h-16 rounded-full bg-blue-500 text-white flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                            </div>
+                            <h3 className="text-lg font-semibold text-blue-900 mb-1">Create New Job</h3>
+                            <p className="text-sm text-blue-700">Add a new position</p>
+                        </button>
+
+                        {/* Job Cards */}
+                        {jobs.map((job) => {
+                            const rawJob = jobs.find(j => j.id === job.id) as CompanyJobListItem | undefined;
+                            const hasInterview = rawJob?.interviewContent !== null;
+                            const hasDescription = job.description && job.description.length > 0;
+                            const hasSalary = rawJob?.salary && rawJob.salary.length > 0;
+                            const hasRequirements = rawJob?.requirements && rawJob.requirements.length > 0;
+                            const completeness = [hasDescription, hasSalary, hasRequirements, hasInterview].filter(Boolean).length;
+                            
+                            return (
+                                <div
+                                    key={job.id}
+                                    className="group bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200/60 hover:border-blue-300 hover:shadow-lg transition-all overflow-hidden min-h-[280px] flex flex-col"
                                 >
-                                    <h3 className="text-base font-semibold text-gray-900 group-hover:text-blue-600 transition-colors pr-16">{job.title}</h3>
-                                </button>
-                            </DashboardCard>
-                        ))}
+                                    {/* Header */}
+                                    <div className="p-6 flex-1">
+                                        <div className="flex items-start justify-between mb-3">
+                                            <h3 className="text-lg font-semibold text-gray-900 flex-1 pr-2 line-clamp-2">
+                                                {job.title}
+                                            </h3>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteJob(job.id);
+                                                }}
+                                                disabled={deleteInFlight === job.id}
+                                                className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors disabled:opacity-60 flex-shrink-0"
+                                                title="Delete"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        </div>
+
+                                        {/* Job Info */}
+                                        <div className="space-y-2 mb-4">
+                                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                </svg>
+                                                <span>{job.location}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                                </svg>
+                                                <span className="capitalize">{job.type}</span>
+                                            </div>
+                                            {hasSalary && (
+                                                <div className="flex items-center gap-2 text-sm font-medium text-emerald-700">
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    <span>{rawJob?.salary}</span>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Status Badges */}
+                                        <div className="flex flex-wrap gap-2 mb-4">
+                                            {hasInterview && (
+                                                <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                                                    ✓ Interview
+                                                </span>
+                                            )}
+                                            <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${
+                                                completeness === 4 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                                                completeness >= 2 ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                                                'bg-gray-50 text-gray-600 border border-gray-200'
+                                            }`}>
+                                                {completeness}/4 Complete
+                                            </span>
+                                        </div>
+
+                                        {/* Description Preview */}
+                                        {hasDescription && (
+                                            <p className="text-xs text-gray-500 line-clamp-2">
+                                                {job.description}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div className="border-t border-gray-100 p-4 bg-gray-50/50 flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setEditingJobId(job.id);
+                                                router.push(`/company-dashboard/jobs/${encodeURIComponent(job.id)}`);
+                                            }}
+                                            className="flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                                        >
+                                            Edit
+                                        </button>
+                                        <Link
+                                            href={`/company-dashboard/applicants/${job.id}`}
+                                            className="flex-1 px-3 py-2 text-sm font-medium rounded-lg bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors text-center"
+                                        >
+                                            Applicants
+                                        </Link>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        </div>
                     </div>
                 )}
         </DashboardPageLayout>
