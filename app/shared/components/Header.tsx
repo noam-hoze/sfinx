@@ -258,31 +258,67 @@ export default function Header() {
                                     </span>
                                 )}
                             </Menu.Button>
-                            <Menu.Items className="absolute left-1/2 -translate-x-1/2 mt-2 origin-top-right divide-y divide-gray-100 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none w-20 z-50">
-                                <div className="px-1 py-1 ">
+                            <Menu.Items className="absolute right-0 mt-3 origin-top-right rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 focus:outline-none w-64 z-50 overflow-hidden backdrop-blur-xl">
+                                {/* User Info Section */}
+                                <div className="px-4 py-4 border-b border-gray-100">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center overflow-hidden relative">
+                                            {session.user.image ? (
+                                                <Image
+                                                    src={session.user.image}
+                                                    alt="Profile"
+                                                    fill
+                                                    sizes="40px"
+                                                    className="object-cover"
+                                                />
+                                            ) : (
+                                                <span className="text-sm font-semibold text-white">
+                                                    {(session.user as any).name?.charAt(0)?.toUpperCase() || (session.user as any).email?.charAt(0)?.toUpperCase()}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-semibold text-gray-900 truncate">
+                                                {(session.user as any).name || "User"}
+                                            </p>
+                                            <p className="text-xs text-gray-500 truncate">
+                                                {(session.user as any).email}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* Menu Items */}
+                                <div className="py-2">
                                     <Menu.Item>
                                         {({ active }) => (
                                             <Link
                                                 href={settingsPath}
                                                 className={`${
-                                                    active ? "bg-gray-100" : ""
-                                                } text-gray-900 group flex w-full items-center rounded-md px-2 py-2 text-sm`}
+                                                    active ? "bg-gray-50" : ""
+                                                } group flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 transition-all duration-150 ease-out`}
                                             >
-                                                Settings
+                                                <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                </svg>
+                                                <span>Settings</span>
                                             </Link>
                                         )}
                                     </Menu.Item>
-                                </div>
-                                <div className="px-1 py-1">
+                                    
                                     <Menu.Item>
                                         {({ active }) => (
                                             <button
                                                 onClick={handleSignOut}
                                                 className={`${
-                                                    active ? "bg-gray-100" : ""
-                                                } text-gray-900 group flex w-full items-center rounded-md px-2 py-2 text-sm cursor-pointer`}
+                                                    active ? "bg-gray-50" : ""
+                                                } group flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 transition-all duration-150 ease-out w-full cursor-pointer`}
                                             >
-                                                Sign out
+                                                <svg className="w-5 h-5 text-gray-400 group-hover:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                                </svg>
+                                                <span className="group-hover:text-red-600 transition-colors">Sign out</span>
                                             </button>
                                         )}
                                     </Menu.Item>
