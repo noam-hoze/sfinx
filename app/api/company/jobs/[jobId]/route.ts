@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { log } from "app/shared/services";
 import { authOptions, prisma, invalidatePattern, invalidate } from "app/shared/services/server";
 import { loadCompanyForUser } from "../companyContext";
+import { ensureCompanyRole } from "../companyAuth";
 import { mapJobResponse, coerceSeconds } from "../jobHelpers";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
@@ -11,13 +12,6 @@ const LOG_CATEGORY = LOG_CATEGORIES.COMPANY;
 type RouteContext = {
     params: Promise<{ jobId?: string | string[] }>;
 };
-
-function ensureCompanyRole(session: any) {
-    const role = session?.user?.role;
-    if (role !== "COMPANY") {
-        throw new Error("Company role required");
-    }
-}
 
 function normalizeJobId(jobId: string | string[] | undefined) {
     if (Array.isArray(jobId)) {
@@ -377,4 +371,3 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
         return NextResponse.json({ error: message }, { status });
     }
 }
-

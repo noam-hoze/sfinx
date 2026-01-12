@@ -4,6 +4,7 @@ import { authOptions } from "app/shared/services/auth";
 import prisma from "lib/prisma";
 import { log } from "app/shared/services";
 import { loadCompanyForUser } from "../../companyContext";
+import { ensureCompanyRole } from "../../companyAuth";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.COMPANY;
@@ -15,13 +16,6 @@ interface RouteContext {
 function normalizeJobId(jobId: string | string[] | undefined): string {
     if (Array.isArray(jobId)) return jobId[0] ?? "";
     return jobId ?? "";
-}
-
-function ensureCompanyRole(session: any) {
-    const user = session?.user as { role?: string } | undefined;
-    if (user?.role !== "COMPANY") {
-        throw new Error("Only company users can access this resource");
-    }
 }
 
 /**
@@ -101,8 +95,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
         return NextResponse.json({ config });
     } catch (error: any) {
         log.error(LOG_CATEGORY, "[scoring-config/GET] Error:", error);
-        const message = error.message || "Failed to fetch scoring configuration";
-        const status = error.message?.includes("Forbidden") ? 403 : 500;
+        const message =
+            typeof error?.message === "string"
+                ? error.message
+                : "Failed to fetch scoring configuration";
+        const status =
+            message === "Company role required" || message.includes("Forbidden") ? 403 : 500;
         return NextResponse.json({ error: message }, { status });
     }
 }
@@ -217,9 +215,12 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         return NextResponse.json({ config });
     } catch (error: any) {
         log.error(LOG_CATEGORY, "[scoring-config/PUT] Error:", error);
-        const message = error.message || "Failed to update scoring configuration";
-        const status = error.message?.includes("Forbidden") ? 403 : 500;
+        const message =
+            typeof error?.message === "string"
+                ? error.message
+                : "Failed to update scoring configuration";
+        const status =
+            message === "Company role required" || message.includes("Forbidden") ? 403 : 500;
         return NextResponse.json({ error: message }, { status });
     }
 }
-
