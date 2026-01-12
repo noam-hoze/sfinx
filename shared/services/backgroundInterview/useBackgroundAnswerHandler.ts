@@ -93,28 +93,7 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
           
           try {
             // Call 1: Fast endpoint for scores + next question (blocking, ~1-2s)
-            const conversationHistory = backgroundState.messages.slice(-4);
             const currentFocusTopic = backgroundState.currentFocusTopic;
-            
-            // Build answer history with Q/A pairs and their scores
-            const answerHistory = [];
-            const messages = backgroundState.messages;
-            for (let i = 0; i < messages.length - 1; i++) {
-              if (messages[i].speaker === "ai" && messages[i+1].speaker === "user") {
-                const question = messages[i].text;
-                const answer = messages[i+1].text;
-                
-                // Find scores for this answer from categoryStats history
-                // For now, we'll use current categoryStats as a simplification
-                // TODO: Store per-answer scores in Redux for accurate history
-                const scores = categoryStats.map(stat => ({
-                  category: stat.categoryName,
-                  strength: stat.avgStrength
-                }));
-                
-                answerHistory.push({ question, answer, scores });
-              }
-            }
             
             // Get excluded topics (dontKnowCount >= threshold)
             if (!process.env.NEXT_PUBLIC_DONT_KNOW_THRESHOLD) {
@@ -143,9 +122,7 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
                 experienceCategories,
                 currentCounts: categoryStats,
                 currentFocusTopic,
-                conversationHistory,
                 excludedTopics,
-                answerHistory,
               })
             });
             
@@ -177,11 +154,11 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
               dispatch(setCurrentFocusTopic({ topicName: fastData.newFocusTopic }));
             }
             
-            // Combine acknowledgment and next question
-            if (!fastData.acknowledgment || !fastData.nextQuestion) {
-              throw new Error("Fast API must return both acknowledgment and nextQuestion");
+            // Use next question from fast API
+            if (!fastData.question) {
+              throw new Error("Fast API must return question");
             }
-            nextQuestionText = `${fastData.acknowledgment} ${fastData.nextQuestion}`;
+            nextQuestionText = fastData.question;
             
             // Set question target for debug panel
             if (nextQuestionText && fastData.newFocusTopic) {

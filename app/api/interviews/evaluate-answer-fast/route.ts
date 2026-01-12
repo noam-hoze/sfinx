@@ -76,8 +76,7 @@ export async function POST(request: NextRequest) {
                 success: true,
                 allCategoriesExcluded: true,
                 scores: [],
-                acknowledgment: "Thanks for your responses.",
-                nextQuestion: null,
+                question: null,
                 isDontKnow: false,
                 updatedCounts: currentCounts,
                 newFocusTopic: null,
@@ -114,20 +113,12 @@ export async function POST(request: NextRequest) {
 
         const focusInstruction = `Ask your next question about: "${newFocusTopic}"`;
 
-        // Build conversation history context
-        let historyContext = "";
-        if (answerHistory && answerHistory.length > 0) {
-            historyContext = `\n\nConversation History:\n${answerHistory.map((entry: any, i: number) => 
-                `Q${i+1}: ${entry.question}\nA${i+1}: ${entry.answer}\nScores: ${entry.scores.map((s: any) => `${s.category}: ${s.strength}`).join(', ')}`
-            ).join('\n\n')}`;
-        }
-
         const fastPrompt = `Score this answer and generate next question.
 
-QUESTION: ${question}
-ANSWER: ${answer}
+Last Question: ${question}
+Last Answer: ${answer}
 
-Current status: ${categoryList}${historyContext}
+Current status: ${categoryList}
 
 Step 1 - Detect uncertainty:
 If the answer says "I don't know" or similar ("not sure", "no experience", "haven't worked with that"), set isDontKnow: true
@@ -136,17 +127,23 @@ Otherwise set isDontKnow: false
 Step 2 - Score each category 0-100:
 0=blank, 1-30=vague, 31-60=basic, 61-80=clear, 81-100=exceptional
 
-Step 3 - Generate acknowledgment and next question:
+Step 3 - Generate next question:
 ${focusInstruction}
 
-Generate a short, natural acknowledgment (max 4 words). Vary your language - avoid repeating words like "great" or "excellent" from previous turns.
-Generate the next question separately.
+CLARIFICATION HANDLING:
+If the candidate's last answer is a request for clarification (e.g., "what do you mean?", "could you explain?", "I don't understand the question"), then:
+- Provide a brief clarification of the original question
+- Restate the question more concretely
+- Do NOT advance to a new question
+- Do NOT treat this as a failed answer
+
+Otherwise, write your next question naturally - acknowledge their answer if appropriate, or go direct to the next question. Use the curiosity tools from your system prompt. Vary your approach - don't be repetitive.
+
 Return JSON:
 {
   "isDontKnow": true/false,
   "scores": [{"category": "Name", "strength": 0-100}],
-  "acknowledgment": "...",
-  "nextQuestion": "..."
+  "question": "Your naturally written next question"
 }`;
 
         const messages = [
@@ -223,8 +220,7 @@ Return JSON:
                         success: true,
                         allCategoriesExcluded: true,
                         scores: [],
-                        acknowledgment: "Thanks for your responses.",
-                        nextQuestion: null,
+                        question: null,
                         isDontKnow: false,
                         updatedCounts: currentCounts,
                         newFocusTopic: null,
@@ -246,14 +242,29 @@ Return JSON:
             }
             
             const oldCount = existing?.count || 0;
-            const oldAvg = existing?.avgStrength || 0;
+            const oldAdjustedAvg = existing?.avgStrength || 0;
             const newCount = oldCount + 1;
-            const newAvg = Math.round((oldAvg * oldCount + newScore.strength) / newCount);
+            
+            // Back-calculate raw average from adjusted (adjusted = raw * confidence)
+            let oldRawAvg = 0;
+            if (oldCount > 0 && oldAdjustedAvg > 0) {
+                const oldConfidence = Math.min(1.0, oldCount / TARGET);
+                oldRawAvg = oldConfidence > 0 ? oldAdjustedAvg / oldConfidence : oldAdjustedAvg;
+            }
+            
+            // Calculate new raw average
+            const newRawAvg = (oldRawAvg * oldCount + newScore.strength) / newCount;
+            
+            // Apply confidence multiplier based on sample size (same logic as background-summary)
+            const confidence = Math.min(1.0, newCount / TARGET);
+            const adjustedAvg = Math.round(newRawAvg * confidence);
             
             return {
                 categoryName: category.name,
                 count: newCount,
-                avgStrength: newAvg,
+                avgStrength: adjustedAvg,
+                rawAverage: Math.round(newRawAvg),
+                confidence: confidence,
             };
         });
 
@@ -262,8 +273,7 @@ Return JSON:
         return NextResponse.json({
             success: true,
             scores: result.scores,
-            acknowledgment: result.acknowledgment,
-            nextQuestion: result.nextQuestion,
+            question: result.question,
             isDontKnow: result.isDontKnow || false,
             updatedCounts,
             newFocusTopic,
