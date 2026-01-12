@@ -215,11 +215,10 @@ function InterviewPageContent() {
     }
   }, [currentQuestion]);
 
-  // Handle camera glow with 1s delay after audio ends
+  // Handle camera glow immediately when audio ends
   useEffect(() => {
     if (!isAIAudioPlaying) {
-      const timer = setTimeout(() => setShowCameraGlow(true), 1000);
-      return () => clearTimeout(timer);
+      setShowCameraGlow(true);
     } else {
       setShowCameraGlow(false);
     }
@@ -863,10 +862,10 @@ function InterviewPageContent() {
             <div className={`relative transition-all duration-[600ms] ease-out ${
               showCamera ? 'opacity-100 w-[350px] visible' : 'opacity-0 w-0 invisible'
             }`}>
-              {/* Outer glow layer - no clipping */}
-              {showCamera && (showCameraGlow || isUserRecording) && (
-                <div className="absolute inset-0 rounded-xl ring-4 ring-purple-500 shadow-[0_0_40px_rgba(168,85,247,0.8)] pointer-events-none animate-breathing-glow" />
-              )}
+              {/* Outer glow layer - soft shadow with fade-in */}
+              <div className={`absolute inset-0 rounded-xl shadow-[0_0_25px_rgba(168,85,247,0.5)] pointer-events-none transition-opacity duration-500 ${
+                showCamera && (showCameraGlow || isUserRecording) ? 'opacity-100' : 'opacity-0'
+              }`} />
               
               {/* Inner camera layer */}
               <CameraPreview
