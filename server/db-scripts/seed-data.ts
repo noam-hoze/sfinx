@@ -250,6 +250,8 @@ async function resetDatabase() {
                     image:
                         companyData.id === "meta"
                             ? "/uploads/profiles/meta-profile.png"
+                            : companyData.id === "qm"
+                            ? "/uploads/profiles/manager-qm-1768211217790.png"
                             : undefined,
                 },
             });
