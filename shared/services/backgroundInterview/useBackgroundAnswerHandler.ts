@@ -31,7 +31,10 @@ interface AnswerHandlerResult {
  * Handle answer submission: store, control check, gate evaluation, follow-up or completion.
  * Returns gate status and completion flag. Updates Redux/chat store. Logs all transitions.
  */
-export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) => void) {
+export function useBackgroundAnswerHandler(
+  onEvaluationReceived?: (data: any) => void,
+  onIntentReceived?: (intent: string) => void
+) {
   const dispatch = useDispatch();
   const companyName = useSelector((state: RootState) => state.interview.companyName);
   const sessionId = useSelector((state: RootState) => state.interview.sessionId);
@@ -165,6 +168,11 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
               dispatch(setCurrentQuestionTarget({ question: nextQuestionText, category: fastData.newFocusTopic }));
             }
             
+            // Pass intent to callback for display after audio finishes
+            if (fastData.evaluationIntent && onIntentReceived) {
+              onIntentReceived(fastData.evaluationIntent);
+            }
+            
             // Call 2: Full evaluation async (non-blocking, for reasoning/captions/DB)
             fetch(`/api/interviews/evaluate-answer`, {
               method: "POST",
@@ -275,7 +283,7 @@ export function useBackgroundAnswerHandler(onEvaluationReceived?: (data: any) =>
         throw error;
       }
     },
-    [dispatch, companyName, sessionId, userId, script, categoryStats, onEvaluationReceived, saveMessageToDb]
+    [dispatch, companyName, sessionId, userId, script, categoryStats, onEvaluationReceived, onIntentReceived, saveMessageToDb]
   );
 
   return { handleSubmit };

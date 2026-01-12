@@ -70,6 +70,7 @@ function InterviewPageContent() {
   const companySlug = useSelector((state: RootState) => state.interview.companySlug);
   const roleSlug = useSelector((state: RootState) => state.interview.roleSlug);
   const preloadedFirstQuestion = useSelector((state: RootState) => state.interview.preloadedFirstQuestion);
+  const preloadedFirstIntent = useSelector((state: RootState) => state.interview.preloadedFirstIntent);
   const userId = useSelector((state: RootState) => state.interview.userId);
   const applicationId = useSelector((state: RootState) => state.interview.applicationId);
   const shouldResetFlag = useSelector((state: RootState) => state.interview.shouldReset);
@@ -98,6 +99,8 @@ function InterviewPageContent() {
   const [isAIAudioPlaying, setIsAIAudioPlaying] = useState(false);
   const [showCameraGlow, setShowCameraGlow] = useState(false);
   const [isUserRecording, setIsUserRecording] = useState(false);
+  const [currentIntent, setCurrentIntent] = useState<string>("");
+  const [pendingIntent, setPendingIntent] = useState<string>("");
 
   const skipToCoding = process.env.NEXT_PUBLIC_SKIP_TO_CODING === "true";
   const skipScreenShare = process.env.NEXT_PUBLIC_SKIP_SCREEN_SHARE === "true";
@@ -123,9 +126,14 @@ function InterviewPageContent() {
   const { preload } = useBackgroundPreload();
   const { generateAnnouncement } = useAnnouncementGeneration();
   const { clickSoundRef: refClickSound, startSoundRef: refStartSound, soundsReady } = useSoundPreload();
-  const { handleSubmit: submitAnswer } = useBackgroundAnswerHandler((evalData) => {
-    setBackgroundEvaluations(prev => [...prev, evalData]);
-  });
+  const { handleSubmit: submitAnswer } = useBackgroundAnswerHandler(
+    (evalData) => {
+      setBackgroundEvaluations(prev => [...prev, evalData]);
+    },
+    (intent) => {
+      setPendingIntent(intent);
+    }
+  );
 
   // Sync service sound refs to local refs
   useEffect(() => {
@@ -677,6 +685,11 @@ function InterviewPageContent() {
     setCurrentQuestion(firstQuestion);
     dispatch(addMessage({ text: firstQuestion, speaker: "ai" }));
 
+    // Set pending intent for first question (from preload)
+    if (preloadedFirstIntent) {
+      setPendingIntent(preloadedFirstIntent);
+    }
+
     // Save first question to DB
     if (interviewSessionId) {
       fetch(`/api/interviews/session/${interviewSessionId}/messages?skip-auth=true`, {
@@ -693,7 +706,7 @@ function InterviewPageContent() {
         })
       }).catch(err => log.error(LOG_CATEGORY, "[interview] Failed to save first question:", err));
     }
-  }, [preloadedFirstQuestion, dispatch, interviewSessionId, userId]);
+  }, [preloadedFirstQuestion, preloadedFirstIntent, dispatch, interviewSessionId, userId]);
 
   // Answer submission handler
   const handleSubmitAnswer = async (answer: string) => {
@@ -717,8 +730,15 @@ function InterviewPageContent() {
   };
 
   // Glow state handlers
-  const handleAudioStateChange = useCallback((isPlaying: boolean) => {
+  const handleAudioStateChange = useCallback((isPlaying: boolean, intentText?: string) => {
     setIsAIAudioPlaying(isPlaying);
+    if (isPlaying) {
+      // Clear intent when audio starts
+      setCurrentIntent("");
+    } else if (intentText) {
+      // Set intent when audio finishes
+      setCurrentIntent(intentText);
+    }
   }, []);
 
   const handleRecordingStateChange = useCallback((isRecording: boolean) => {
@@ -805,6 +825,7 @@ function InterviewPageContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex flex-col relative">
+
       {/* Breadcrumbs */}
       {!isPreloading && stage !== "coding" && (
         <div className="pt-8 px-6">
@@ -821,6 +842,8 @@ function InterviewPageContent() {
             <AIInterviewerBox 
               isActive={!isPreloading && stage === "background"} 
               hasGlow={isAIAudioPlaying}
+              mode={isAIAudioPlaying ? "talking" : "idle"}
+              intent={currentIntent}
             />
             <CameraPreview
               isCameraOn={isCameraOn}
@@ -855,6 +878,7 @@ function InterviewPageContent() {
                 userId={userId || undefined}
                 onAudioStateChange={handleAudioStateChange}
                 onRecordingStateChange={handleRecordingStateChange}
+                intentText={pendingIntent}
               />
             )}
           </div>

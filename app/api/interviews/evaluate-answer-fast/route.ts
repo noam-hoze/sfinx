@@ -139,11 +139,30 @@ If the candidate's last answer is a request for clarification (e.g., "what do yo
 
 Otherwise, write your next question naturally - acknowledge their answer if appropriate, or go direct to the next question. Use the curiosity tools from your system prompt. Vary your approach - don't be repetitive.
 
+Step 4 - Describe evaluation intent:
+Write one natural, calm sentence describing the lens or perspective the interviewer is listening through for this answer.
+
+The sentence must NOT restate or paraphrase the question.
+
+Focus on HOW the interviewer is listening, not WHAT is being asked.
+
+Write in a conversational interviewer voice.
+
+Do NOT list skills, tools, categories, scores, or bullets.
+
+Do NOT sound evaluative, instructional, or judgmental.
+
+The intent should add meta-context (e.g. depth, trade-offs, habits, constraints, reasoning style), not duplicate content already in the question.
+
+Example style (do not copy verbatim):
+"What I'm paying attention to here is how you translate principles into consistent practices as systems and teams grow."
+
 Return JSON:
 {
   "isDontKnow": true/false,
   "scores": [{"category": "Name", "strength": 0-100}],
-  "question": "Your naturally written next question"
+  "question": "Your naturally written next question",
+  "evaluationIntent": "Single natural sentence describing listening focus"
 }`;
 
         const messages = [
@@ -315,6 +334,7 @@ Return JSON:
             isDontKnow: result.isDontKnow || false,
             updatedCounts,
             newFocusTopic,
+            evaluationIntent: result.evaluationIntent || "",
         });
     } catch (error) {
         log.error(LOG_CATEGORY, "[evaluate-answer-fast] ❌ Error:", error);

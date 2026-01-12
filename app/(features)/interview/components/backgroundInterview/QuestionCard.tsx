@@ -19,8 +19,9 @@ type QuestionCardProps = {
   getActualRecordingStartTime?: () => Date | null;
   questionNumber?: number;
   userId?: string;
-  onAudioStateChange?: (isPlaying: boolean) => void;
+  onAudioStateChange?: (isPlaying: boolean, intentText?: string) => void;
   onRecordingStateChange?: (isRecording: boolean) => void;
+  intentText?: string;
 };
 
 /**
@@ -53,6 +54,7 @@ export default function QuestionCard({
   userId,
   onAudioStateChange,
   onRecordingStateChange,
+  intentText,
 }: QuestionCardProps) {
   /**
    * Presents a background interview question with TTS playback and text/voice answer capture.
@@ -101,7 +103,7 @@ export default function QuestionCard({
         log.info(LOG_CATEGORY, "[QuestionCard] Muted - skipping TTS, showing controls immediately");
         setIsAudioPlaying(true);
         setAudioFinished(true);
-        onAudioStateChange?.(false);
+        onAudioStateChange?.(false, intentText);
         return;
       }
 
@@ -134,7 +136,7 @@ export default function QuestionCard({
 
           audio.onended = () => {
             setAudioFinished(true);
-            onAudioStateChange?.(false);
+            onAudioStateChange?.(false, intentText);
             URL.revokeObjectURL(url);
             audioRef.current = null;
             log.info(LOG_CATEGORY, "[QuestionCard] TTS playback finished");
@@ -162,7 +164,7 @@ export default function QuestionCard({
         audioRef.current.pause();
         audioRef.current = null;
         setAudioFinished(true);
-        onAudioStateChange?.(false);
+        onAudioStateChange?.(false, intentText);
       } else if (!isMuted) {
         // Unmuted: ensure volume is on
         audioRef.current.volume = 1;
