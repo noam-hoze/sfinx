@@ -57,5 +57,24 @@ export const categoryGenerationSchema = z
     .object({
         codingCategories: codingCategoriesSchema,
         experienceCategories: experienceCategoriesSchema,
+        jobFields: z
+            .object({
+                title: z.string().optional(),
+                location: z.string().optional(),
+                type: z.enum(["FULL_TIME", "PART_TIME", "CONTRACT"]).optional(),
+                salary: z.string().optional(),
+                requirements: z.string().optional(),
+            })
+            .optional(),
+        interviewContent: z
+            .object({
+                backgroundQuestion: z.string().optional(),
+                codingPrompt: z.string().optional(),
+                codingTemplate: z.string().optional(),
+                codingAnswer: z.string().optional(),
+                expectedOutput: z.string().optional(),
+                codingLanguage: z.string().optional(),
+            })
+            .optional(),
     })
     .strict();

@@ -35,6 +35,18 @@ function buildLogContext(request: NextRequest, userId: string) {
 }
 
 /**
+ * Normalizes OpenAI response by converting arrays to strings.
+ */
+function normalizeGenerationResponse(response: any) {
+    if (response.jobFields) {
+        if (Array.isArray(response.jobFields.requirements)) {
+            response.jobFields.requirements = response.jobFields.requirements.join("\n");
+        }
+    }
+    return response;
+}
+
+/**
  * Generates category suggestions from the OpenAI API.
  */
 async function requestCategoryGeneration(input: {
@@ -42,10 +54,12 @@ async function requestCategoryGeneration(input: {
     title: string | null;
 }) {
     const promptTitle = input.title ? `Title: ${input.title}\n` : "";
-    const systemPrompt = `You generate job interview category definitions.\n` +
-        `Return JSON only with keys: experienceCategories, codingCategories.\n` +
-        `Each array should have 4-6 items with {name, description, weight} and experience items also include {example}.\n` +
-        `Weights must be integers that sum to 100 for each array.`;
+    const systemPrompt = `You generate job interview definitions from job descriptions.\n` +
+        `Return JSON with keys: experienceCategories, codingCategories, jobFields, interviewContent.\n` +
+        `- experienceCategories: 4-6 items with {name, description, example, weight}, weights sum to 100\n` +
+        `- codingCategories: 4-6 items with {name, description, weight}, weights sum to 100\n` +
+        `- jobFields: {title, location, type (FULL_TIME/PART_TIME/CONTRACT), salary (format: "$160k" or "$120k - $180k", not text), requirements}\n` +
+        `- interviewContent: {backgroundQuestion (opening question about relevant project), codingPrompt, codingTemplate (starter code), codingAnswer (reference solution), expectedOutput, codingLanguage}`;
     const userPrompt = `${promptTitle}Description:\n${input.description}`;
 
     const openaiClient = new OpenAI({ apiKey: resolveOpenAiKey() });
@@ -63,7 +77,9 @@ async function requestCategoryGeneration(input: {
     if (!responseText) {
         throw new Error("OpenAI returned empty response");
     }
-    return categoryGenerationSchema.parse(JSON.parse(responseText));
+    const parsed = JSON.parse(responseText);
+    const normalized = normalizeGenerationResponse(parsed);
+    return categoryGenerationSchema.parse(normalized);
 }
 
 /**
