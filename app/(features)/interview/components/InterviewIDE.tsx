@@ -426,6 +426,9 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                     finalCode: state.currentCode,
                     codingTask: interviewScript.codingPrompt,
                     categories: jobCategories || [],
+                    referenceCode: interviewScript.codingAnswer,
+                    expectedOutput: interviewScript.expectedOutput,
+                    sessionId: interviewSessionId,
                 }),
             });
 
@@ -553,6 +556,9 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                             finalCode: state.currentCode,
                             codingTask: interviewScript.codingPrompt,
                             categories: jobCategories || [],
+                            referenceCode: interviewScript.codingAnswer,
+                            expectedOutput: interviewScript.expectedOutput,
+                            sessionId: interviewSessionId,
                         }),
                     });
                     
@@ -571,7 +577,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                                 };
                             });
                         }
-                        
                         // Update coding summary with job-specific categories
                         const summaryUpdateUrl = `/api/interviews/session/${interviewSessionId}/coding-summary-update`;
                         
@@ -919,7 +924,9 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 currentCode: currCode,
                 diff: diff,
                 timestamp: timestamp.toISOString(),
-                jobCategories: job.codingCategories
+                jobCategories: job.codingCategories,
+                referenceCode: interviewScript?.codingAnswer,
+                expectedOutput: interviewScript?.expectedOutput
             };
             
             const response = await fetch("/api/interviews/evaluate-code-change", {
@@ -954,7 +961,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         } catch (error) {
             logger.error("[CODE-EVAL] ❌ Error evaluating code change:", error);
         }
-    }, [interviewSessionId, job, generateDiff, setEvaluationDebugData]);
+    }, [interviewSessionId, job, generateDiff, setEvaluationDebugData, interviewScript]);
 
     /**
      * Updates editor code state when user edits.
@@ -1170,6 +1177,12 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                     const savedData = await saveResponse.json();
                     logger.info("✅ [ITERATION] Iteration saved to DB:", savedData);
                     setLastEvaluation(evaluation.evaluation);
+
+                    // Update evaluationDebugData to show in Output tab immediately
+                    setEvaluationDebugData((prev: any) => ({
+                        ...prev,
+                        iterations: [...(prev?.iterations || []), savedData]
+                    }));
                 } else {
                     const errorText = await saveResponse.text();
                     logger.error("❌ [ITERATION] Failed to save iteration:", errorText);

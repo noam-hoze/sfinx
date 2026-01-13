@@ -38,6 +38,14 @@ interface CodingEvaluationDebugPanelProps {
                 }>;
             };
         }>;
+        iterations?: Array<{
+            timestamp: string;
+            iterationNumber: number;
+            evaluation: string;
+            matchPercentage: number;
+            reasoning?: string;
+            output?: string;
+        }>;
         timestamp?: number;
         error?: string;
     } | null;
@@ -237,6 +245,21 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                         )}
                     </button>
                     <button
+                        onClick={() => setActiveTab("output")}
+                        className={`px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap ${
+                            activeTab === "output"
+                                ? "border-b-2 border-orange-500 text-orange-600 dark:text-orange-400"
+                                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                        }`}
+                    >
+                        Output
+                        {evaluationData?.iterations && evaluationData.iterations.length > 0 && (
+                            <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold text-white bg-orange-600 rounded-full">
+                                {evaluationData.iterations.length}
+                            </span>
+                        )}
+                    </button>
+                    <button
                         onClick={() => setActiveTab("external")}
                         className={`px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap ${
                             activeTab === "external"
@@ -274,9 +297,64 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                         {...transformCodingDataToRealtime(
                             evaluationData?.realtimeContributions || [],
                             nextEvaluationTime,
-                            evaluationThrottleMs
+                            evaluationThrottleMs,
+                            jobCategories || undefined
                         )}
                     />
+                )}
+
+                {/* Output Tab */}
+                {activeTab === "output" && (
+                    <div className="flex flex-col gap-4">
+                        <div className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+                            Output correctness checked on each Run click
+                        </div>
+                        {evaluationData?.iterations && evaluationData.iterations.length > 0 ? (
+                            <div className="space-y-2">
+                                {evaluationData.iterations.map((iter: any, idx: number) => {
+                                    const timestamp = new Date(iter.timestamp);
+                                    const matchColor = (iter.matchPercentage || 0) >= 80 
+                                        ? "text-emerald-600 dark:text-emerald-400" 
+                                        : (iter.matchPercentage || 0) >= 50 
+                                        ? "text-yellow-600 dark:text-yellow-400" 
+                                        : "text-red-600 dark:text-red-400";
+                                    
+                                    return (
+                                        <div 
+                                            key={idx}
+                                            className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4"
+                                        >
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-sm font-medium text-slate-900 dark:text-white">
+                                                        Run #{iter.iterationNumber || idx + 1}
+                                                    </span>
+                                                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                                                        {timestamp.toLocaleTimeString()}
+                                                    </span>
+                                                </div>
+                                                <div className={`text-lg font-semibold ${matchColor}`}>
+                                                    {iter.matchPercentage || 0}%
+                                                </div>
+                                            </div>
+                                            <div className="text-sm text-slate-700 dark:text-slate-300">
+                                                Status: <span className="font-medium">{iter.evaluation || "Unknown"}</span>
+                                            </div>
+                                            {iter.reasoning && (
+                                                <div className="mt-2 text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900 p-2 rounded">
+                                                    {iter.reasoning}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="text-sm text-slate-500 dark:text-slate-400 italic">
+                                No iterations yet. Click Run to check output.
+                            </div>
+                        )}
+                    </div>
                 )}
 
                 {/* External Tool Tab */}

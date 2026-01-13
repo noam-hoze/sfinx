@@ -262,6 +262,19 @@ function TelemetryContent() {
             const categoryScores: Array<{name: string; score: number; weight: number}> = [];
             
             if (codingSummary.jobSpecificCategories && jobCodingCategories) {
+                // Categories share the remaining weight (100 - AI Assist weight)
+                const categoryTotalWeight = 100 - scoringConfig.aiAssistWeight;
+                const normalizedWeight = categoryTotalWeight / jobCodingCategories.length;
+                
+                // #region agent log
+                const dbCategories = Object.keys(codingSummary.jobSpecificCategories);
+                const jobCategoryNames = jobCodingCategories.map((c: any) => c.name);
+                console.log('[CPS DEBUG] DB categories:', dbCategories);
+                console.log('[CPS DEBUG] Job categories:', jobCategoryNames);
+                console.log('[CPS DEBUG] Full jobSpecificCategories:', codingSummary.jobSpecificCategories);
+                console.log('[CPS DEBUG] Normalized weight per category:', normalizedWeight);
+                // #endregion
+                
                 jobCodingCategories.forEach((categoryDef: any) => {
                     // Match by base name (before any parentheses)
                     const baseName = categoryDef.name.split(' (')[0];
@@ -270,10 +283,15 @@ function TelemetryContent() {
                     ) || categoryDef.name;
                     
                     const score = codingSummary.jobSpecificCategories[matchingKey]?.score || 0;
+                    
+                    // #region agent log
+                    console.log(`[CPS DEBUG] Matching ${categoryDef.name} -> ${matchingKey} -> score: ${score}`);
+                    // #endregion
+                    
                     categoryScores.push({
                         name: categoryDef.name,
                         score,
-                        weight: categoryDef.weight || 1
+                        weight: normalizedWeight // Use normalized weight (sum to 25)
                     });
                 });
             }
@@ -291,6 +309,12 @@ function TelemetryContent() {
             setCalculatedScore(result.finalScore);
             setCalculatedExperienceScore(result.experienceScore);
             setCalculatedCodingScore(result.codingScore);
+            
+            // #region agent log
+            console.log('[CPS SCORE CALC] Experience:', result.experienceScore, 'Coding:', result.codingScore, 'Final:', result.finalScore);
+            console.log('[CPS SCORE CALC] Category scores WITH WEIGHTS:', categoryScores.map(c => ({name: c.name, score: c.score, weight: c.weight})));
+            console.log('[CPS SCORE CALC] AI Assist:', workstyleMetrics.aiAssistAccountabilityScore, 'Weight:', scoringConfig.aiAssistWeight);
+            // #endregion
         } catch (error) {
             log.error(LOG_CATEGORY, "Error calculating score:", error);
             setCalculatedScore(null);
@@ -405,7 +429,7 @@ function TelemetryContent() {
         parts.push(
             `${
                 candidate.name || "The candidate"
-            } scored ${activeMatchScore}% match.`
+            } scored ${calculatedScore}% match.`
         );
         if (topMetricLabel) parts.push(`Strongest signal: ${topMetricLabel}.`);
         parts.push(
@@ -527,10 +551,10 @@ function TelemetryContent() {
                                 </div>
                                 
                                 {/* Overall Score - just the number */}
-                                {activeMatchScore !== null && (
+                                {calculatedScore !== null && (
                                     <div className="text-right flex-shrink-0">
                                         <span className="text-4xl font-bold text-gray-900 tabular-nums">
-                                            {activeMatchScore}
+                                            {calculatedScore}
                                         </span>
                                     </div>
                                 )}
@@ -594,7 +618,7 @@ function TelemetryContent() {
                             {/* Score Section */}
                             <CollapsibleSection
                                 title="Breakdown"
-                                score={activeMatchScore ?? undefined}
+                                score={calculatedScore ?? undefined}
                                 isExpanded={scoreExpanded}
                                 onToggle={() => setScoreExpanded(!scoreExpanded)}
                             >
@@ -604,7 +628,7 @@ function TelemetryContent() {
                                         codingScore={calculatedCodingScore}
                                         experienceWeight={scoringConfig.experienceWeight}
                                         codingWeight={scoringConfig.codingWeight}
-                                        finalScore={activeMatchScore ?? undefined}
+                                        finalScore={calculatedScore ?? undefined}
                                     />
                                 ) : (
                                     <p className="text-sm text-gray-600">
@@ -725,7 +749,7 @@ function TelemetryContent() {
                         codingSummary={codingSummary}
                         workstyle={workstyle}
                         scoringConfig={scoringConfig}
-                        calculatedScore={activeMatchScore}
+                        calculatedScore={calculatedScore}
                     />
                 </div>
             )}

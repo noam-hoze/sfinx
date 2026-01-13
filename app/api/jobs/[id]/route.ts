@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "app/shared/services/server";
+import { mergeWithPredefinedCategories, type CodingCategory } from "app/api/company/jobs/categorySchemas";
 
 type RouteContext = {
     params: Promise<{ id?: string | string[] }>;
@@ -35,7 +36,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
             );
         }
 
-        return NextResponse.json({ job });
+        // Merge predefined Problem Solving category
+        const mergedCodingCategories = mergeWithPredefinedCategories(job.codingCategories as CodingCategory[] | null);
+        
+        return NextResponse.json({ 
+            job: {
+                ...job,
+                codingCategories: mergedCodingCategories
+            }
+        });
     } catch (error: any) {
         return NextResponse.json(
             {

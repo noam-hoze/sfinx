@@ -61,7 +61,15 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                 {codingCategories
                     ?.filter(categoryDef => categoryDef.weight > 0)
                     .map(categoryDef => {
-                        const data = codingSummary?.jobSpecificCategories?.[categoryDef.name];
+                        // Match by base name (before any parentheses) to handle name mismatches
+                        const baseName = categoryDef.name.split(' (')[0];
+                        const matchingKey = codingSummary?.jobSpecificCategories ? 
+                            Object.keys(codingSummary.jobSpecificCategories).find(key => 
+                                key.startsWith(baseName) || categoryDef.name.startsWith(key)
+                            ) || categoryDef.name
+                            : categoryDef.name;
+                        
+                        const data = codingSummary?.jobSpecificCategories?.[matchingKey];
                         return (
                             <MetricRow
                                 key={categoryDef.name}

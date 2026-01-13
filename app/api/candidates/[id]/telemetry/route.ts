@@ -3,6 +3,7 @@ import { log } from "app/shared/services";
 import { getCached, setCached } from "app/shared/services/server";
 import prisma from "lib/prisma";
 import { calculateScore, type RawScores, type WorkstyleMetrics, type ScoringConfiguration } from "app/shared/utils/calculateScore";
+import { mergeWithPredefinedCategories, type CodingCategory } from "app/api/company/jobs/categorySchemas";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.TELEMETRY;
@@ -387,7 +388,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         job: session.application.job ? {
                             id: session.application.job.id,
                             title: session.application.job.title,
-                            codingCategories: session.application.job.codingCategories,
+                            codingCategories: mergeWithPredefinedCategories(session.application.job.codingCategories as CodingCategory[] | null),
                             experienceCategories: session.application.job.experienceCategories,
                         } : null,
                     } : null,

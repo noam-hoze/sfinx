@@ -154,15 +154,8 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             updates.codingCategories = body.codingCategories;
         }
         if (Object.prototype.hasOwnProperty.call(body, "experienceCategories")) {
-            // #region agent log
-            fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobs/[jobId]/route.ts:159',message:'API received experienceCategories',data:{hasField:true,value:body.experienceCategories,valueType:typeof body.experienceCategories,isArray:Array.isArray(body.experienceCategories)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B-C'})}).catch(()=>{});
-            // #endregion
             updates.experienceCategories = body.experienceCategories;
         }
-
-        // #region agent log
-        fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobs/[jobId]/route.ts:167',message:'Updates object before DB write',data:{hasExperienceCategories:'experienceCategories' in updates,experienceCategoriesValue:updates.experienceCategories,allUpdateKeys:Object.keys(updates)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
-        // #endregion
 
     const { job, company } = await assertOwnership(userId, jobId);
 
@@ -233,9 +226,6 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
         let updated = job;
         if (Object.keys(updates).length > 0) {
-            // #region agent log
-            fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobs/[jobId]/route.ts:240',message:'BEFORE Prisma update',data:{jobId:job.id,updatesKeys:Object.keys(updates),experienceCategoriesInUpdates:updates.experienceCategories,codingCategoriesInUpdates:updates.codingCategories},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'F',runId:'verify-save'})}).catch(()=>{});
-            // #endregion
             updated = await (prisma as any).job.update({
                 where: { id: job.id },
                 data: updates,
@@ -244,13 +234,6 @@ export async function PUT(request: NextRequest, context: RouteContext) {
                     interviewContent: true,
                 },
             });
-            // #region agent log
-            fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobs/[jobId]/route.ts:251',message:'AFTER Prisma update - what Prisma returned',data:{jobId:updated.id,hasExperienceCategories:!!updated.experienceCategories,experienceCategories:updated.experienceCategories,hasCodingCategories:!!updated.codingCategories,codingCategories:updated.codingCategories},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'F',runId:'verify-save'})}).catch(()=>{});
-            // #endregion
-            // #region agent log
-            const dbVerify = await (prisma as any).job.findUnique({where:{id:job.id},select:{experienceCategories:true,codingCategories:true}});
-            fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobs/[jobId]/route.ts:255',message:'DB VERIFICATION - direct query',data:{jobId:job.id,experienceCategoriesInDB:dbVerify.experienceCategories,codingCategoriesInDB:dbVerify.codingCategories},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'G',runId:'verify-save'})}).catch(()=>{});
-            // #endregion
         } else if (interview !== undefined) {
             updated = await (prisma as any).job.findUniqueOrThrow({
                 where: { id: job.id },
@@ -265,14 +248,8 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         invalidate(`applicants:job:${jobId}`);
         invalidatePattern("companies:list:");
         const response = mapJobResponse(updated, updated.company);
-        // #region agent log
-        fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobs/[jobId]/route.ts:264',message:'Sending response to frontend',data:{hasExperienceCategories:!!response.experienceCategories,experienceCategoriesLength:response.experienceCategories?.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
-        // #endregion
         return NextResponse.json(response);
     } catch (error) {
-        // #region agent log
-        fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobs/[jobId]/route.ts:271',message:'Error in save endpoint',data:{error:error instanceof Error?error.message:'unknown',stack:error instanceof Error?error.stack?.substring(0,300):''},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'ERROR'})}).catch(()=>{});
-        // #endregion
         const message = error instanceof Error ? error.message : "Unknown error";
         const status = (() => {
             if (message === "Company role required") {

@@ -18,7 +18,7 @@ const openai = new OpenAI({
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { sessionId, previousCode, currentCode, diff, timestamp, jobCategories } = body;
+        const { sessionId, previousCode, currentCode, diff, timestamp, jobCategories, referenceCode, expectedOutput } = body;
 
         if (!sessionId || !diff || !timestamp || !jobCategories) {
             return NextResponse.json(
@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
         }
 
         log.info(LOG_CATEGORY, "[evaluate-code-change] Evaluating code change for session:", sessionId);
+        log.info(LOG_CATEGORY, "[evaluate-code-change] Has reference code:", !!referenceCode);
 
         // Fetch session with recording data
         const session = await prisma.interviewSession.findUnique({
@@ -49,6 +50,15 @@ export async function POST(request: NextRequest) {
             .map((cat: any) => `- ${cat.name}: ${cat.description}`)
             .join("\n");
 
+        // Add reference solution context if available (for Problem Solving evaluation)
+        const referenceSolutionContext = referenceCode ? `
+REFERENCE SOLUTION (for Problem Solving evaluation):
+\`\`\`
+${referenceCode}
+\`\`\`
+
+${expectedOutput ? `EXPECTED OUTPUT:\n${expectedOutput}\n` : ''}` : '';
+
         // Call OpenAI to evaluate contributions
         const evaluationPrompt = `You are a strict technical evaluator. 
 
@@ -66,7 +76,7 @@ CODE AFTER CHANGES (= before + diff applied):
 \`\`\`
 ${currentCode || ''}
 \`\`\`
-
+${referenceSolutionContext}
 Categories to evaluate:
 ${categoryList}
 
@@ -84,8 +94,18 @@ SCORING GUIDELINES (0-100):
 - **81-100**: Exceptional code showing deep understanding, best practices, or complex solutions
 
 EVALUATION:
+${referenceCode ? `
+**SPECIAL INSTRUCTIONS FOR "Problem Solving" CATEGORY:**
+- Compare the FULL "CODE AFTER CHANGES" to the "REFERENCE SOLUTION"
+- If they are IDENTICAL or implement the EXACT SAME logic/algorithm/structure, give 100/100
+- If they differ in approach or implementation details, score proportionally: 80-95 for very close, 60-79 for similar approach, 40-59 for different approach but working, below 40 for incorrect approach
+- DO NOT penalize for matching the reference - that's the goal!
+
+**FOR OTHER CATEGORIES:**
 - ONLY credit NEW code in the + lines of the diff
 - Use "CODE BEFORE" and "CODE AFTER" to understand context
+` : `- ONLY credit NEW code in the + lines of the diff
+- Use "CODE BEFORE" and "CODE AFTER" to understand context`}
 
 For EVERY category, return:
 {

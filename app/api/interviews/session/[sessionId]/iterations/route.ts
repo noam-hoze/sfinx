@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "app/shared/services/prisma";
 import { CHAPTER_TYPES } from "../../../shared/chapterTypes";
 import { createVideoChapter } from "../../../shared/createVideoChapter";
+import { log } from "app/shared/services";
+
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
 type RouteContext = {
     params: Promise<{ sessionId: string }>;
@@ -85,27 +89,63 @@ export async function POST(
             }
         }
 
-        // Create VideoChapter + VideoCaption for this iteration
-        if (session?.recordingStartedAt && session?.telemetryData?.id && caption) {
+        // Create evidence clips for Problem Solving category
+        if (session?.recordingStartedAt && session?.telemetryData?.id) {
             const iterationTimestamp = timestamp ? new Date(timestamp) : new Date();
             const videoOffset = Math.floor((iterationTimestamp.getTime() - session.recordingStartedAt.getTime()) / 1000);
             
-            console.log("📹 [Iterations API] VideoChapter calculation:");
-            console.log("  - Recording started at:", session.recordingStartedAt.toISOString());
-            console.log("  - Iteration timestamp:", iterationTimestamp.toISOString());
-            console.log("  - Calculated video offset (s):", videoOffset);
-            console.log("  - Iteration count:", iterationCount);
+            log.info(LOG_CATEGORY, "📹 [Iterations API] Creating evidence for iteration", {
+                recordingStartedAt: session.recordingStartedAt.toISOString(),
+                iterationTimestamp: iterationTimestamp.toISOString(),
+                videoOffset,
+                iterationCount
+            });
             
             if (videoOffset >= 0) {
-                await createVideoChapter({
-                    telemetryDataId: session.telemetryData.id,
-                    title: `${CHAPTER_TYPES.ITERATION} ${iterationCount}`,
-                    startTime: videoOffset,
-                    description: `Code execution: ${evaluation}`,
-                    caption: caption,
+                // Create CategoryContribution for Output
+                await prisma.categoryContribution.create({
+                    data: {
+                        interviewSessionId: sessionId,
+                        categoryName: "Output",
+                        timestamp: iterationTimestamp,
+                        codeChange: `Iteration ${iterationCount}: ${evaluation} (${matchPercentage}% match)`,
+                        explanation: reasoning || `Code execution: ${evaluation}`,
+                        contributionStrength: matchPercentage || 0,
+                        caption: caption || `Iteration ${iterationCount}`,
+                    },
                 });
+
+                // Create EvidenceClip - linked to Problem Solving category
+                await prisma.evidenceClip.create({
+                    data: {
+                        telemetryData: {
+                            connect: { id: session.telemetryData.id }
+                        },
+                        category: "JOB_SPECIFIC_CATEGORY",
+                        categoryName: "Problem Solving",
+                        title: `Output Check ${iterationCount}`,
+                        description: reasoning || `Code execution: ${evaluation}`,
+                        startTime: videoOffset,
+                        duration: 15,
+                        contributionStrength: matchPercentage || 0,
+                        thumbnailUrl: null,
+                    },
+                });
+
+                // Create VideoChapter
+                if (caption) {
+                    await createVideoChapter({
+                        telemetryDataId: session.telemetryData.id,
+                        title: `${CHAPTER_TYPES.ITERATION} ${iterationCount}`,
+                        startTime: videoOffset,
+                        description: `Code execution: ${evaluation}`,
+                        caption: caption,
+                    });
+                }
+                
+                log.info(LOG_CATEGORY, `✅ [Iterations API] Created evidence clips for iteration at ${videoOffset}s`);
             } else {
-                console.warn("⚠️ [Iterations API] Negative video offset, skipping VideoChapter creation");
+                log.warn(LOG_CATEGORY, "⚠️ [Iterations API] Negative video offset, skipping evidence creation");
             }
         }
 

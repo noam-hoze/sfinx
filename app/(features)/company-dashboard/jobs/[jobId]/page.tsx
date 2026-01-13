@@ -226,9 +226,6 @@ function CompanyJobDetailContent() {
                 experienceCategories: experienceCategories.length > 0 ? experienceCategories : null,
                 scoringConfig,
             };
-            // #region agent log
-            fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'jobs/[jobId]/page.tsx:220',message:'Frontend sending save payload',data:{hasExperienceCategories:!!payload.experienceCategories,experienceCategoriesLength:payload.experienceCategories?.length,experienceCategories:payload.experienceCategories},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A-B'})}).catch(()=>{});
-            // #endregion
             const hasInterviewContent =
                 interviewState.backgroundQuestion.trim().length > 0 ||
                 interviewState.codingPrompt.trim().length > 0 ||
