@@ -67,11 +67,12 @@ export function calculateScore(
         }
     });
     
-    // Only include AI assist if data exists
+    // Always include AI assist weight in denominator (it's part of coding score)
+    // Add contribution only if score exists
     if (hasAiAssistScore) {
         codingWeightedSum += normalizedAiAssist! * config.aiAssistWeight;
-        totalCodingWeight += config.aiAssistWeight;
     }
+    totalCodingWeight += config.aiAssistWeight;
     
     const codingScore = totalCodingWeight > 0 ? codingWeightedSum / totalCodingWeight : 0;
 

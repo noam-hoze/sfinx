@@ -133,65 +133,98 @@ const QM_PYTHON_INTERVIEW = {
     id: "qm-python-interview",
     backgroundQuestion: QM_PYTHON_BACKGROUND_QUESTION,
     codingPrompt:
-        "Build a Python class called `QuantumCircuitSimulator` that simulates a simple quantum circuit with basic gates. Feel free to ask me anything you want.",
+        "Build a Python class called `QuantumGateValidator` that validates quantum gate sequences. Feel free to ask me anything you want.",
     codingTemplate: `"""
-Task:
-Build a Python class called QuantumCircuitSimulator that:
-1. Initializes with a number of qubits (default 2)
-2. Supports adding basic gates: Hadamard (H), Pauli-X, CNOT
-3. Has a method to measure the circuit state
-4. Uses numpy for state vector representation
+Build a Quantum Gate Sequence Validator that:
+1. Takes a sequence of quantum gate operations as input
+2. Validates gate syntax and qubit indices
+3. Detects common errors (out-of-range qubits, invalid gates, entanglement issues)
+4. Returns a structured validation report
+
+Supported gates: H (Hadamard), X (Pauli-X), CNOT (control, target), RZ (rotation, angle)
 """
 
-import numpy as np
+class QuantumGateValidator:
+    def __init__(self, num_qubits):
+        # Initialize validator with number of qubits
+        pass
+    
+    def validate_sequence(self, operations):
+        # operations: list of tuples like [("H", 0), ("CNOT", 0, 1), ("RZ", 1, 1.57)]
+        # Return dict with: {"valid": bool, "errors": [], "gate_count": int}
+        pass
 
-class QuantumCircuitSimulator:
-    def __init__(self, num_qubits=2):
-        # Your code here
-        pass
-    
-    def hadamard(self, qubit):
-        # Your code here
-        pass
-    
-    def pauli_x(self, qubit):
-        # Your code here
-        pass
-    
-    def measure(self):
-        # Your code here
-        pass
+# Test
+validator = QuantumGateValidator(3)
+result = validator.validate_sequence([("H", 0), ("CNOT", 0, 1), ("X", 5)])
+print(result)
 `,
-    codingAnswer: `import numpy as np
-
-class QuantumCircuitSimulator:
-    def __init__(self, num_qubits=2):
+    codingAnswer: `class QuantumGateValidator:
+    VALID_GATES = {"H", "X", "CNOT", "RZ"}
+    SINGLE_QUBIT_GATES = {"H", "X"}
+    TWO_QUBIT_GATES = {"CNOT"}
+    PARAMETERIZED_GATES = {"RZ"}
+    
+    def __init__(self, num_qubits):
         self.num_qubits = num_qubits
-        self.state = np.zeros(2**num_qubits, dtype=complex)
-        self.state[0] = 1.0
     
-    def hadamard(self, qubit):
-        H = np.array([[1, 1], [1, -1]]) / np.sqrt(2)
-        self._apply_single_qubit_gate(H, qubit)
-        return self
-    
-    def pauli_x(self, qubit):
-        X = np.array([[0, 1], [1, 0]])
-        self._apply_single_qubit_gate(X, qubit)
-        return self
-    
-    def _apply_single_qubit_gate(self, gate, target):
-        n = self.num_qubits
-        full_gate = np.eye(1)
-        for i in range(n):
-            full_gate = np.kron(full_gate, gate if i == target else np.eye(2))
-        self.state = full_gate @ self.state
-    
-    def measure(self):
-        probs = np.abs(self.state)**2
-        return np.random.choice(len(self.state), p=probs)
+    def validate_sequence(self, operations):
+        errors = []
+        gate_count = len(operations)
+        
+        for i, op in enumerate(operations):
+            if not isinstance(op, tuple) or len(op) < 2:
+                errors.append(f"Operation {i}: Invalid format")
+                continue
+            
+            gate = op[0]
+            
+            if gate not in self.VALID_GATES:
+                errors.append(f"{gate} gate: Unknown gate type")
+                continue
+            
+            if gate in self.SINGLE_QUBIT_GATES:
+                if len(op) != 2:
+                    errors.append(f"{gate} gate: Expected 1 qubit index")
+                    continue
+                qubit = op[1]
+                if qubit < 0 or qubit >= self.num_qubits:
+                    errors.append(f"{gate} gate: qubit index {qubit} out of range (max: {self.num_qubits - 1})")
+            
+            elif gate in self.TWO_QUBIT_GATES:
+                if len(op) != 3:
+                    errors.append(f"{gate} gate: Expected 2 qubit indices")
+                    continue
+                control, target = op[1], op[2]
+                if control < 0 or control >= self.num_qubits:
+                    errors.append(f"{gate} gate: control qubit {control} out of range (max: {self.num_qubits - 1})")
+                if target < 0 or target >= self.num_qubits:
+                    errors.append(f"{gate} gate: target qubit {target} out of range (max: {self.num_qubits - 1})")
+                if control == target:
+                    errors.append(f"{gate} gate: control and target qubits must be different")
+            
+            elif gate in self.PARAMETERIZED_GATES:
+                if len(op) != 3:
+                    errors.append(f"{gate} gate: Expected qubit index and angle parameter")
+                    continue
+                qubit, angle = op[1], op[2]
+                if qubit < 0 or qubit >= self.num_qubits:
+                    errors.append(f"{gate} gate: qubit index {qubit} out of range (max: {self.num_qubits - 1})")
+                if not isinstance(angle, (int, float)):
+                    errors.append(f"{gate} gate: angle must be numeric")
+        
+        return {
+            "valid": len(errors) == 0,
+            "errors": errors,
+            "gate_count": gate_count
+        }
+
+# Test
+validator = QuantumGateValidator(3)
+result = validator.validate_sequence([("H", 0), ("CNOT", 0, 1), ("X", 5)])
+print(result)
 `,
-    expectedOutput: `Quantum simulator with state vector manipulation and measurement`,
+    expectedOutput: `{'valid': False, 'errors': ['X gate: qubit index 5 out of range (max: 2)'], 'gate_count': 3}`,
     codingLanguage: "python",
     backgroundQuestionTimeSeconds: 10 * 60, 
     codingQuestionTimeSeconds: 30 * 60,

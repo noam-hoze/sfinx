@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "app/shared/services/prisma";
+import { mergeWithPredefinedCategories, type CodingCategory } from "app/api/company/jobs/categorySchemas";
 
 export async function GET(req: NextRequest) {
     try {
@@ -34,6 +35,9 @@ export async function GET(req: NextRequest) {
         if (!interview) {
             throw new Error(`Interview content missing for job ${jobId}`);
         }
+        
+        const mergedCodingCategories = mergeWithPredefinedCategories(job.codingCategories as CodingCategory[] | null);
+        
         return NextResponse.json({
             backgroundQuestion: interview.backgroundQuestion,
             codingPrompt: interview.codingPrompt,
@@ -44,7 +48,7 @@ export async function GET(req: NextRequest) {
             backgroundQuestionTimeSeconds:
                 interview.backgroundQuestionTimeSeconds,
             codingQuestionTimeSeconds: interview.codingQuestionTimeSeconds,
-            codingCategories: job.codingCategories,
+            codingCategories: mergedCodingCategories,
             experienceCategories: job.experienceCategories,
             jobTitle: job.title,
         });

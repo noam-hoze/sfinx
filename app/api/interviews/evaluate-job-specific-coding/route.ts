@@ -12,7 +12,7 @@ const openaiClient = new OpenAI({
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { finalCode, codingTask, categories } = body;
+        const { finalCode, codingTask, categories, referenceCode, expectedOutput, sessionId } = body;
 
         if (!finalCode || !codingTask || !categories || !Array.isArray(categories)) {
             return NextResponse.json(
@@ -22,9 +22,16 @@ export async function POST(request: NextRequest) {
         }
 
         log.info(LOG_CATEGORY, "[Job-Specific Coding Eval] Evaluating code against categories:", categories.length);
+        log.info(LOG_CATEGORY, "[Job-Specific Coding Eval] Has reference code:", !!referenceCode);
+        log.info(LOG_CATEGORY, "[Job-Specific Coding Eval] Has session ID:", !!sessionId);
 
-        // Build category list for prompt
-        const categoryList = categories
+        // Separate Problem Solving from other categories
+        const problemSolvingCategory = categories.find((cat: any) => cat.name === "Problem Solving");
+        const otherCategories = categories.filter((cat: any) => cat.name !== "Problem Solving");
+
+        // Build category list for prompt (excluding Problem Solving if we have reference code)
+        const evaluationCategories = referenceCode ? otherCategories : categories;
+        const categoryList = evaluationCategories
             .map((cat: any) => `- ${cat.name}: ${cat.description}`)
             .join("\n");
 
@@ -37,7 +44,12 @@ ${codingTask}
 \`\`\`
 ${finalCode}
 \`\`\`
-
+${referenceCode ? `
+**Reference Solution:**
+\`\`\`
+${referenceCode}
+\`\`\`
+` : ''}
 **Evaluation Criteria:**
 ${categoryList}
 
@@ -91,6 +103,88 @@ Return ONLY valid JSON with this exact structure:
         // Validate response structure
         if (!result.categories || typeof result.categories !== "object") {
             throw new Error("Invalid response structure from OpenAI");
+        }
+
+        // Handle Problem Solving specially if we have reference code
+        if (problemSolvingCategory && referenceCode && sessionId) {
+            log.info(LOG_CATEGORY, "[Job-Specific Coding Eval] Evaluating Problem Solving separately");
+
+            try {
+                // Step 1: Get output match from best iteration
+                const iterations = await prisma.iteration.findMany({
+                    where: { interviewSessionId: sessionId },
+                    orderBy: { matchPercentage: 'desc' },
+                    take: 1
+                });
+
+                const bestIteration = iterations[0];
+                const outputMatchPercentage = bestIteration?.matchPercentage || 0;
+
+                log.info(LOG_CATEGORY, `[Job-Specific Coding Eval] Best iteration output match: ${outputMatchPercentage}%`);
+
+                // Step 2: Ask OpenAI for code similarity
+                const codeSimilarityPrompt = `Compare this candidate's code to the reference solution.
+
+**Coding Task:**
+${codingTask}
+
+**Reference Solution:**
+\`\`\`
+${referenceCode}
+\`\`\`
+
+**Candidate's Final Code:**
+\`\`\`
+${finalCode}
+\`\`\`
+
+Evaluate code similarity (0-100) based on:
+- Algorithm/approach used
+- Code structure
+- Problem-solving strategy
+- Edge case handling
+
+Return ONLY JSON:
+{
+  "codeSimilarityScore": number (0-100),
+  "text": "Brief explanation"
+}`;
+
+                const similarityCompletion = await openaiClient.chat.completions.create({
+                    model: "gpt-4o",
+                    messages: [
+                        { role: "system", content: "You are an expert code reviewer. Respond in JSON format." },
+                        { role: "user", content: codeSimilarityPrompt }
+                    ],
+                    temperature: 0.3,
+                    response_format: { type: "json_object" },
+                });
+
+                const similarityContent = similarityCompletion.choices[0]?.message?.content;
+                if (!similarityContent) {
+                    throw new Error("Empty similarity response");
+                }
+
+                const similarityResult = JSON.parse(similarityContent);
+                const codeSimilarityScore = similarityResult.codeSimilarityScore || 0;
+
+                // Step 3: Calculate average ourselves
+                const problemSolvingScore = Math.round((codeSimilarityScore + outputMatchPercentage) / 2);
+
+                log.info(LOG_CATEGORY, `[Job-Specific Coding Eval] Problem Solving - Code: ${codeSimilarityScore}, Output: ${outputMatchPercentage}, Final: ${problemSolvingScore}`);
+                // Add Problem Solving to result
+                result.categories["Problem Solving"] = {
+                    score: problemSolvingScore,
+                    text: `${similarityResult.text || 'Evaluated based on code similarity and output correctness.'} (Code similarity: ${codeSimilarityScore}%, Output match: ${outputMatchPercentage}%)`
+                };
+            } catch (psError: any) {
+                log.error(LOG_CATEGORY, "[Job-Specific Coding Eval] Problem Solving evaluation error:", psError);
+                // Fallback: just use code evaluation
+                result.categories["Problem Solving"] = {
+                    score: 50,
+                    text: "Unable to fully evaluate Problem Solving (missing iteration data)"
+                };
+            }
         }
 
         log.info(LOG_CATEGORY, "[Job-Specific Coding Eval] Evaluation complete");

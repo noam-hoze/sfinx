@@ -34,7 +34,8 @@ interface CodingContribution {
 export function transformCodingDataToRealtime(
     realtimeContributions: CodingContribution[],
     nextEvaluationTime: Date | null,
-    evaluationThrottleMs: number
+    evaluationThrottleMs: number,
+    jobCategories?: Array<{name: string; description: string; weight: number}>
 ): RealTimeContributionsViewProps {
     // Calculate summary stats
     const totalContributions = realtimeContributions.reduce(
@@ -85,13 +86,22 @@ export function transformCodingDataToRealtime(
 
     const TARGET_CONTRIBUTIONS = 5;
     
-    const categoryBreakdown = Array.from(categoryContributions.entries()).map(([category, contribs]) => {
-        const rawAverage = contribs.reduce((sum, c) => sum + c.strength, 0) / contribs.length;
+    // If jobCategories provided, show all categories (even with 0 contributions)
+    // Otherwise, only show categories with contributions (backward compatible)
+    const categoriesToShow = jobCategories 
+        ? jobCategories.map(cat => cat.name)
+        : Array.from(categoryContributions.keys());
+    
+    const categoryBreakdown = categoriesToShow.map(categoryName => {
+        const contribs = categoryContributions.get(categoryName) || [];
+        const rawAverage = contribs.length > 0 
+            ? contribs.reduce((sum, c) => sum + c.strength, 0) / contribs.length 
+            : 0;
         const confidence = Math.min(1.0, contribs.length / TARGET_CONTRIBUTIONS);
         const avgStrength = Math.round(rawAverage * confidence);
         
         return {
-            name: category,
+            name: categoryName,
             avgStrength,
             contributionCount: contribs.length,
             rawAverage: Math.round(rawAverage),

@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { mergeWithPredefinedCategories, type CodingCategory } from "./categorySchemas";
 
 /**
  * Coerces mixed input (string or number) into a positive integer number of seconds.
@@ -27,6 +28,11 @@ type JobWithCompany = Prisma.JobGetPayload<{
 export function mapJobResponse(job: JobWithCompany, company?: JobWithCompany["company"]) {
     const interview = job.interviewContent;
     const owningCompany = company ?? job.company;
+    
+    // Merge predefined Problem Solving with job-specific coding categories
+    const customCodingCategories = job.codingCategories as CodingCategory[] | null;
+    const mergedCodingCategories = mergeWithPredefinedCategories(customCodingCategories);
+    
     return {
         id: job.id,
         title: job.title,
@@ -35,7 +41,7 @@ export function mapJobResponse(job: JobWithCompany, company?: JobWithCompany["co
         description: job.description,
         salary: job.salary,
         requirements: job.requirements,
-        codingCategories: job.codingCategories,
+        codingCategories: mergedCodingCategories,
         experienceCategories: job.experienceCategories,
         interviewContent: interview
             ? {

@@ -27,6 +27,35 @@ export type CodingCategory = z.infer<typeof codingCategorySchema>;
 export type ExperienceCategory = z.infer<typeof experienceCategorySchema>;
 
 /**
+ * Predefined coding category present for every job.
+ */
+export const PREDEFINED_PROBLEM_SOLVING: CodingCategory = {
+    name: "Problem Solving",
+    description: "Approach to breaking down problems, algorithmic thinking, solution design",
+    weight: 0, // Weight gets recalculated when merged with job-specific categories
+};
+
+/**
+ * Merges predefined Problem Solving category with job-specific categories.
+ * Recalculates weights so all categories sum to 25 (since AI Assist = 75%).
+ */
+export function mergeWithPredefinedCategories(customCategories: CodingCategory[] | null): CodingCategory[] {
+    const CATEGORY_TOTAL_WEIGHT = 25; // Categories are 25% of coding score (AI Assist is 75%)
+    
+    if (!customCategories || customCategories.length === 0) {
+        return [{ ...PREDEFINED_PROBLEM_SOLVING, weight: CATEGORY_TOTAL_WEIGHT }];
+    }
+    
+    const totalCategories = customCategories.length + 1;
+    const equalWeight = CATEGORY_TOTAL_WEIGHT / totalCategories;
+    
+    return [
+        { ...PREDEFINED_PROBLEM_SOLVING, weight: equalWeight },
+        ...customCategories.map(cat => ({ ...cat, weight: equalWeight }))
+    ];
+}
+
+/**
  * Validates coding categories input for job APIs.
  */
 export function parseCodingCategories(value: unknown): CodingCategory[] | null {

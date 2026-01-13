@@ -450,6 +450,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                         code={currentCode}
                         isActive={activeTab === "preview"}
                         isDarkMode={isDarkMode}
+                        language={language}
                         onExecutionResult={onExecutionResult}
                     />
                 )}
