@@ -416,30 +416,7 @@ function TelemetryContent() {
         return parts.join(" ");
     })();
 
-    const longStory: string = (() => {
-        if (candidate?.story && candidate.story.trim()) return candidate.story;
-        if (!candidate) return shortStory;
-        const more: string[] = [];
-        if (workstyle && topMetricKey) {
-            const v = workstyle[topMetricKey]?.value ?? undefined;
-            const lvl = workstyle[topMetricKey]?.level ?? undefined;
-            if (v !== undefined)
-                more.push(
-                    `Workstyle shows ${topMetricLabel?.toLowerCase()} at ${v}%${
-                        lvl ? ` (${lvl})` : ""
-                    }.`
-                );
-        }
-        if (gapsCount > 0) {
-            const firstSeverity = gaps?.gaps?.[0]?.severity ?? "";
-            more.push(
-                `Focus areas include ${
-                    firstSeverity ? firstSeverity.toLowerCase() + " " : ""
-                }gaps to address.`
-            );
-        }
-        return `${shortStory} ${more.join(" ")}`.trim();
-    })();
+    const longStory: string = candidate?.story || "";
 
     const onVideoJump = (timestamp: number) => {
         setCurrentVideoTime(timestamp);
