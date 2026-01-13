@@ -654,14 +654,6 @@ function TelemetryContent() {
                                         sessionId={activeSession?.id}
                                     />
                                 )}
-                                {codingSummary && (
-                                    <button
-                                        onClick={() => setCodingModalOpen(true)}
-                                        className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
-                                    >
-                                        Read more
-                                    </button>
-                                )}
                             </CollapsibleSection>
                             
                             {/* Experience Section */}
