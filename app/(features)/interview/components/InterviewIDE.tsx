@@ -594,6 +594,24 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 } catch (jobEvalError) {
                     logger.error("Error generating job-specific evaluation:", jobEvalError);
                 }
+
+                // Generate profile story
+                logger.info(LOG_CATEGORY, "Generating candidate profile story for session:", interviewSessionId);
+                try {
+                    const storyResponse = await fetch("/api/interviews/generate-profile-story", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ sessionId: interviewSessionId }),
+                    });
+                    
+                    if (storyResponse.ok) {
+                        logger.info(LOG_CATEGORY, "✅ Profile story generated");
+                    } else {
+                        logger.error(LOG_CATEGORY, "Failed to generate profile story:", storyResponse.status);
+                    }
+                } catch (storyError) {
+                    logger.error(LOG_CATEGORY, "Error generating profile story:", storyError);
+                }
             }
             setIsInterviewLoading(false);
             
