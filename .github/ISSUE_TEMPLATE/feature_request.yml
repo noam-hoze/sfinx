@@ -1,0 +1,28 @@
+name: Feature Request
+description: Suggest a feature or enhancement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: current_state
+    attributes:
+      label: Current state
+      description: What is missing or painful today?
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What outcome do we want?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      description: Checklist of what "done" means.
+      placeholder: |
+        - [ ] ...
+    validations:
+      required: true
