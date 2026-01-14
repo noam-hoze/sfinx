@@ -76,6 +76,13 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
     // Fetch background contributions for experience score
     const [contributionStats, setContributionStats] = useState<Array<{categoryName: string; avgStrength: number}>>([]);
     
+    // Fetch scoring configuration from DB
+    const [scoringConfig, setScoringConfig] = useState<{
+        experienceWeight: number;
+        codingWeight: number;
+        aiAssistWeight: number;
+    } | null>(null);
+
     useEffect(() => {
         if (!nextEvaluationTime) {
             setCountdown(null);
@@ -119,6 +126,29 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
         return () => clearInterval(interval);
     }, [sessionId]);
 
+    // Fetch scoring configuration
+    useEffect(() => {
+        if (!sessionId) return;
+        
+        const fetchConfig = async () => {
+            try {
+                const res = await fetch(`/api/interviews/session/${sessionId}/scoring-config`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setScoringConfig({
+                        experienceWeight: data.config.experienceWeight,
+                        codingWeight: data.config.codingWeight,
+                        aiAssistWeight: data.config.aiAssistWeight,
+                    });
+                }
+            } catch (err) {
+                log.error(LOG_CATEGORY, "[CodingDebug] Failed to fetch scoring config:", err);
+            }
+        };
+        
+        fetchConfig();
+    }, [sessionId]);
+
     // Calculate real-time scores
     const experienceScores = useMemo(() => {
         if (!experienceCategories || !contributionStats) return [];
@@ -133,7 +163,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
     }, [experienceCategories, contributionStats]);
 
     const codingScores = useMemo(() => {
-        if (!jobCategories || !evaluationData?.realtimeContributions) return [];
+        if (!jobCategories || !evaluationData?.realtimeContributions || !scoringConfig) return [];
         
         const categoryContributions = new Map<string, number[]>();
         
@@ -146,6 +176,11 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
             });
         });
         
+        // Scale category weights to fit within (100 - aiAssistWeight)
+        const dbWeightSum = jobCategories.reduce((sum, cat) => sum + (cat.weight || 1), 0);
+        const targetCategoryWeight = 100 - scoringConfig.aiAssistWeight;
+        const scaleFactor = targetCategoryWeight / dbWeightSum;
+        
         return jobCategories.map(category => {
             const strengths = categoryContributions.get(category.name) || [];
             const rawAvg = strengths.length > 0 
@@ -157,18 +192,19 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
             return {
                 name: category.name,
                 score,
-                weight: category.weight
+                weight: category.weight * scaleFactor
             };
         });
-    }, [jobCategories, evaluationData?.realtimeContributions]);
+    }, [jobCategories, evaluationData?.realtimeContributions, scoringConfig]);
 
     const scores = useMemo(() => {
+        if (!scoringConfig) return { experienceScore: 0, codingScore: 0, finalScore: 0, normalizedWorkstyle: { aiAssist: null } };
         return calculateScore(
             { experienceScores, categoryScores: codingScores },
-            {},
-            { experienceWeight: 50, codingWeight: 50, aiAssistWeight: 25 }
+            { aiAssistAccountabilityScore: activePasteEval?.accountabilityScore },
+            scoringConfig
         );
-    }, [experienceScores, codingScores]);
+    }, [experienceScores, codingScores, scoringConfig, activePasteEval?.accountabilityScore]);
 
     // Loading state
     if (isLoading) {
@@ -223,8 +259,8 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                     experienceScore={scores.experienceScore}
                     codingScore={scores.codingScore}
                     finalScore={scores.finalScore}
-                    experienceWeight={50}
-                    codingWeight={50}
+                    experienceWeight={scoringConfig?.experienceWeight || 50}
+                    codingWeight={scoringConfig?.codingWeight || 50}
                 />
 
                 {/* Tab Navigation */}

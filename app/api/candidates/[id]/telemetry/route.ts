@@ -336,7 +336,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         const backgroundExperienceCategories = (backgroundSummary.experienceCategories as any) || {};
                         const experienceScores = jobExperienceCategories.map((cat: any) => ({
                             name: cat.name,
-                            score: backgroundExperienceCategories[cat.name]?.averageScore || 0,
+                            score: backgroundExperienceCategories[cat.name]?.score || 0,
                             weight: cat.weight || 1
                         }));
 

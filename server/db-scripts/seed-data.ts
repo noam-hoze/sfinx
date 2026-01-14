@@ -341,7 +341,7 @@ async function resetDatabase() {
                 email: "noam.hoze@gmail.com",
                 password: hashedPassword,
                 role: UserRole.CANDIDATE,
-                image: undefined,
+                image: "/uploads/profiles/candidate-noam-hoze-1768308255018.jpeg",
             },
         });
 

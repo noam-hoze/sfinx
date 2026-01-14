@@ -39,20 +39,20 @@ async function generateUnifiedCaption(
         .map(t => `${t.trait}: ${t.evaluation}`)
         .join('\n\n');
 
-    const prompt = `ONE SENTENCE. 10 WORDS MAX. NO MORE.
+    const prompt = `ONE SENTENCE.
 
 ${evaluationsText}
 
-Write ONE short sentence summarizing this. MAX 10 WORDS. DO NOT EXCEED.`;
+Write ONE short sentence summarizing this.`;
 
     const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         temperature: 0.1,
-        max_tokens: 25,
+        max_tokens: 50,
         messages: [
             {
                 role: "system",
-                content: "Generate ONLY short captions. MAX 10 WORDS. Any response over 10 words is REJECTED.",
+                content: "Generate ONLY short captions in one sentence.",
             },
             {
                 role: "user",
