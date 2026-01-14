@@ -263,8 +263,10 @@ function TelemetryContent() {
             
             if (codingSummary.jobSpecificCategories && jobCodingCategories) {
                 // Categories share the remaining weight (100 - AI Assist weight)
+                // Scale DB weights proportionally to fit within remaining space
                 const categoryTotalWeight = 100 - scoringConfig.aiAssistWeight;
-                const normalizedWeight = categoryTotalWeight / jobCodingCategories.length;
+                const dbWeightSum = jobCodingCategories.reduce((sum: number, cat: any) => sum + (cat.weight || 1), 0);
+                const scaleFactor = categoryTotalWeight / dbWeightSum;
                 
                 // #region agent log
                 const dbCategories = Object.keys(codingSummary.jobSpecificCategories);
@@ -272,7 +274,7 @@ function TelemetryContent() {
                 console.log('[CPS DEBUG] DB categories:', dbCategories);
                 console.log('[CPS DEBUG] Job categories:', jobCategoryNames);
                 console.log('[CPS DEBUG] Full jobSpecificCategories:', codingSummary.jobSpecificCategories);
-                console.log('[CPS DEBUG] Normalized weight per category:', normalizedWeight);
+                console.log('[CPS DEBUG] Scale factor:', scaleFactor, 'DB weight sum:', dbWeightSum);
                 // #endregion
                 
                 jobCodingCategories.forEach((categoryDef: any) => {
@@ -283,15 +285,16 @@ function TelemetryContent() {
                     ) || categoryDef.name;
                     
                     const score = codingSummary.jobSpecificCategories[matchingKey]?.score || 0;
+                    const scaledWeight = categoryDef.weight * scaleFactor;
                     
                     // #region agent log
-                    console.log(`[CPS DEBUG] Matching ${categoryDef.name} -> ${matchingKey} -> score: ${score}`);
+                    console.log(`[CPS DEBUG] ${categoryDef.name}: dbWeight=${categoryDef.weight}, scaledWeight=${scaledWeight}, score=${score}`);
                     // #endregion
                     
                     categoryScores.push({
                         name: categoryDef.name,
                         score,
-                        weight: normalizedWeight // Use normalized weight (sum to 25)
+                        weight: scaledWeight
                     });
                 });
             }

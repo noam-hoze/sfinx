@@ -9,6 +9,10 @@ import RealTimeContributionsView from "./debug/RealTimeContributionsView";
 import { transformBackgroundDataToRealtime } from "./debug/transformers/backgroundDataTransformer";
 import ScoreProgressDisplay from "./debug/ScoreProgressDisplay";
 import { calculateScore } from "app/shared/utils/calculateScore";
+import { log } from "app/shared/services/logger";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
 
 interface BackgroundDebugPanelProps {
     timeboxMs?: number;
@@ -36,6 +40,35 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
     const reason = backgroundState.reason;
     const activePasteEval = useSelector((state: RootState) => state.coding.activePasteEvaluation);
 
+    // Fetch scoring configuration from DB
+    const [scoringConfig, setScoringConfig] = useState<{
+        experienceWeight: number;
+        codingWeight: number;
+        aiAssistWeight: number;
+    } | null>(null);
+
+    useEffect(() => {
+        if (!sessionId) return;
+        
+        const fetchConfig = async () => {
+            try {
+                const res = await fetch(`/api/interviews/session/${sessionId}/scoring-config`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setScoringConfig({
+                        experienceWeight: data.config.experienceWeight,
+                        codingWeight: data.config.codingWeight,
+                        aiAssistWeight: data.config.aiAssistWeight,
+                    });
+                }
+            } catch (err) {
+                log.error(LOG_CATEGORY, "[BackgroundDebug] Failed to fetch scoring config:", err);
+            }
+        };
+        
+        fetchConfig();
+    }, [sessionId]);
+
     // Force a repaint every second so countdown updates live
     const [, setTick] = useState(0);
     useEffect(() => {
@@ -57,12 +90,13 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
     }, [experienceCategories, contributionStats]);
 
     const scores = useMemo(() => {
+        if (!scoringConfig) return { experienceScore: 0, codingScore: 0, finalScore: 0, normalizedWorkstyle: { aiAssist: null } };
         return calculateScore(
             { experienceScores, categoryScores: [] },
             {},
-            { experienceWeight: 100, codingWeight: 0, aiAssistWeight: 0 }
+            scoringConfig
         );
-    }, [experienceScores]);
+    }, [experienceScores, scoringConfig]);
 
     const now = Date.now();
     const limitMs = Number.isFinite(backgroundState.timeboxMs) && backgroundState.timeboxMs! > 0 ? backgroundState.timeboxMs : TIMEBOX_MS;
@@ -328,8 +362,8 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
                     experienceScore={scores.experienceScore}
                     codingScore={scores.codingScore}
                     finalScore={scores.finalScore}
-                    experienceWeight={50}
-                    codingWeight={50}
+                    experienceWeight={scoringConfig?.experienceWeight || 50}
+                    codingWeight={scoringConfig?.codingWeight || 50}
                 />
 
                 {/* Real-Time Contributions */}
