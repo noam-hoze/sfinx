@@ -2,6 +2,7 @@ name: Feature Request
 description: Suggest a feature or enhancement
 title: "[Feature]: "
 labels: ["enhancement"]
+assignees: ["noam-hoze"]
 body:
   - type: textarea
     id: current_state
