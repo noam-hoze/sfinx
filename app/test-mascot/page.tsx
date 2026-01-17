@@ -48,20 +48,11 @@ const MascotDisplay = () => {
       // Play audio if available
       if (audioBase64 && audioBase64.length > 0) {
         try {
-          // #region agent log
-          fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:49',message:'Decoding base64 audio',data:{base64Length:audioBase64.length,firstChars:audioBase64.substring(0,30)},timestamp:Date.now(),sessionId:'debug-session',runId:'audio-debug',hypothesisId:'B'})}).catch(()=>{});
-          // #endregion
-          
           const binaryString = atob(audioBase64);
           const pcmData = new Uint8Array(binaryString.length);
           for (let i = 0; i < binaryString.length; i++) {
             pcmData[i] = binaryString.charCodeAt(i);
           }
-          
-          // #region agent log
-          const firstBytes=Array.from(pcmData.slice(0,16)).map(b=>b.toString(16).padStart(2,'0')).join(' ');
-          fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:58',message:'Audio bytes decoded',data:{byteLength:pcmData.length,firstBytesHex:firstBytes,isPCM:pcmData[0]!==0xFF&&pcmData[1]!==0xFB,isMP3:pcmData[0]===0xFF&&(pcmData[1]&0xE0)===0xE0,isWAV:pcmData[0]===0x52&&pcmData[1]===0x49},timestamp:Date.now(),sessionId:'debug-session',runId:'audio-debug',hypothesisId:'A,C,E'})}).catch(()=>{});
-          // #endregion
           
           // Wrap PCM in WAV container (24000 Hz, 16-bit, mono)
           const sampleRate = 24000;
@@ -93,25 +84,11 @@ const MascotDisplay = () => {
           wavData.set(wavHeader, 0);
           wavData.set(pcmData, wavHeader.length);
           
-          // #region agent log
-          const wavFirstBytes=Array.from(wavData.slice(0,16)).map(b=>b.toString(16).padStart(2,'0')).join(' ');
-          fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:95',message:'WAV container created',data:{wavSize:wavData.length,wavFirstBytesHex:wavFirstBytes,isWAVNow:wavData[0]===0x52&&wavData[1]===0x49},timestamp:Date.now(),sessionId:'debug-session',runId:'audio-debug',hypothesisId:'C'})}).catch(()=>{});
-          // #endregion
-          
           const audioBlob = new Blob([wavData], { type: 'audio/wav' });
-          console.log("Audio blob size:", audioBlob.size);
-          
-          // #region agent log
-          fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:68',message:'Audio blob created',data:{blobSize:audioBlob.size,blobType:audioBlob.type},timestamp:Date.now(),sessionId:'debug-session',runId:'audio-debug',hypothesisId:'A,E'})}).catch(()=>{});
-          // #endregion
-          
           const audioUrl = URL.createObjectURL(audioBlob);
           const audio = new Audio(audioUrl);
           await audio.play();
         } catch (audioError) {
-          // #region agent log
-          fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:77',message:'Audio playback failed',data:{error:audioError.message,errorName:audioError.name},timestamp:Date.now(),sessionId:'debug-session',runId:'audio-debug',hypothesisId:'A,C,E'})}).catch(()=>{});
-          // #endregion
           console.error("Audio playback error:", audioError);
         }
       } else {

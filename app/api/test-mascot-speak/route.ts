@@ -65,15 +65,8 @@ export async function POST(request: Request) {
               const jsonStr = line.slice(6);
               const data = JSON.parse(jsonStr);
               
-              // #region agent log
-              fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:50',message:'SSE chunk parsed',data:{type:data.type,hasData:!!data.data,dataLen:data.data?.length,hasAudioSeq:!!data.audio_sequence,audioSeqLen:data.audio_sequence?.length,hasVisemes:!!data.visemes,visemeCount:data.visemes?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'audio-debug',hypothesisId:'A,D'})}).catch(()=>{});
-              // #endregion
-              
               // Handle audio chunks
               if (data.type === 'audio' && data.data) {
-                // #region agent log
-                fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:54',message:'Audio chunk received',data:{chunkIndex:audioChunks.length,firstChars:data.data.substring(0,20),length:data.data.length},timestamp:Date.now(),sessionId:'debug-session',runId:'audio-debug',hypothesisId:'A,B,D'})}).catch(()=>{});
-                // #endregion
                 audioChunks.push(data.data);
               }
               
@@ -84,9 +77,6 @@ export async function POST(request: Request) {
               
               // Alternative: audio_sequence field
               if (data.audio_sequence) {
-                // #region agent log
-                fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:68',message:'Audio sequence received',data:{chunkIndex:audioChunks.length,firstChars:data.audio_sequence.substring(0,20),length:data.audio_sequence.length},timestamp:Date.now(),sessionId:'debug-session',runId:'audio-debug',hypothesisId:'A,B,D'})}).catch(()=>{});
-                // #endregion
                 audioChunks.push(data.audio_sequence);
               }
             } catch (e) {
@@ -98,9 +88,6 @@ export async function POST(request: Request) {
     }
 
     const audioBase64 = audioChunks.join('');
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'route.ts:77',message:'Audio concatenated',data:{chunkCount:audioChunks.length,totalLength:audioBase64.length,firstChars:audioBase64.substring(0,30),visemeCount:visemes.length},timestamp:Date.now(),sessionId:'debug-session',runId:'audio-debug',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
     console.log("[Mascot API] Total visemes collected:", visemes.length);
     console.log("[Mascot API] Audio chunks collected:", audioChunks.length);
     console.log("[Mascot API] Audio base64 length:", audioBase64.length);
