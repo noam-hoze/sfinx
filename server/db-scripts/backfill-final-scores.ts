@@ -1,15 +1,54 @@
 #!/usr/bin/env tsx
 
 import { PrismaClient } from "@prisma/client";
+import { log } from "app/shared/services/logger";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import { calculateScore, type RawScores, type WorkstyleMetrics } from "../../app/shared/utils/calculateScore";
 
-// Use DEV_DATABASE_URL (orange-tree) as user confirmed
-process.env.DATABASE_URL = process.env.DEV_DATABASE_URL || process.env.DATABASE_URL;
+const LOG_CATEGORY = LOG_CATEGORIES.DB;
+
+/**
+ * Resolve database URL with explicit validation.
+ */
+function resolveDatabaseUrl(): string {
+    if (process.env.DEV_DATABASE_URL) {
+        return process.env.DEV_DATABASE_URL;
+    }
+    if (!process.env.DATABASE_URL) {
+        log.error(LOG_CATEGORY, "[backfill-final-scores] Missing DATABASE_URL");
+        throw new Error("DATABASE_URL is required.");
+    }
+    return process.env.DATABASE_URL;
+}
+
+/**
+ * Require a defined value.
+ */
+function requireValue<T>(value: T | null | undefined, label: string): T {
+    if (value === null || value === undefined) {
+        log.error(LOG_CATEGORY, `[backfill-final-scores] Missing ${label}`);
+        throw new Error(`${label} is required.`);
+    }
+    return value;
+}
+
+/**
+ * Require a finite number.
+ */
+function requireNumber(value: unknown, label: string): number {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+        log.error(LOG_CATEGORY, `[backfill-final-scores] Invalid ${label}`, { value });
+        throw new Error(`${label} must be a finite number.`);
+    }
+    return value;
+}
+
+process.env.DATABASE_URL = resolveDatabaseUrl();
 
 const prisma = new PrismaClient();
 
 async function backfillFinalScores() {
-    console.log("🔄 Starting final score backfill...");
+    log.info(LOG_CATEGORY, "🔄 Starting final score backfill...");
 
     const sessions = await prisma.interviewSession.findMany({
         where: {
@@ -38,7 +77,7 @@ async function backfillFinalScores() {
         },
     });
 
-    console.log(`📊 Found ${sessions.length} sessions without finalScore`);
+    log.info(LOG_CATEGORY, `📊 Found ${sessions.length} sessions without finalScore`);
 
     let successCount = 0;
     let failCount = 0;
@@ -48,7 +87,7 @@ async function backfillFinalScores() {
             const { telemetryData, application } = session;
             const job = application.job;
 
-            console.log(`🔍 Checking session ${session.id}:`, {
+            log.info(LOG_CATEGORY, `🔍 Checking session ${session.id}:`, {
                 jobId: job.id,
                 jobTitle: job.title,
                 hasBackgroundSummary: !!telemetryData?.backgroundSummary,
@@ -58,31 +97,38 @@ async function backfillFinalScores() {
             });
 
             if (!telemetryData?.backgroundSummary || !telemetryData?.codingSummary || !job.scoringConfiguration) {
-                console.log(`⏭️  Skipping session ${session.id} - missing required data`);
+                log.warn(LOG_CATEGORY, `⏭️  Skipping session ${session.id} - missing required data`);
                 continue;
             }
 
-            const jobExperienceCategories = (job.experienceCategories as any) || [];
-            const backgroundExperienceCategories = (telemetryData.backgroundSummary.experienceCategories as any) || {};
+            const jobExperienceCategories = requireValue(job.experienceCategories as any, "job.experienceCategories");
+            const backgroundExperienceCategories = requireValue(
+                telemetryData.backgroundSummary.experienceCategories as any,
+                "telemetryData.backgroundSummary.experienceCategories"
+            );
             const experienceScores = jobExperienceCategories.map((cat: any) => ({
-                name: cat.name,
-                score: backgroundExperienceCategories[cat.name]?.score || 0,
-                weight: cat.weight || 1
+                name: requireValue(cat.name, "experienceCategories.name"),
+                score: requireNumber(backgroundExperienceCategories[cat.name]?.score, `experience score for ${cat.name}`),
+                weight: requireNumber(cat.weight, `experience weight for ${cat.name}`),
             }));
 
-            const jobCodingCategories = (job.codingCategories as any) || [];
-            const codingCategoriesData = (telemetryData.codingSummary.jobSpecificCategories as any) || {};
+            const jobCodingCategories = requireValue(job.codingCategories as any, "job.codingCategories");
+            const codingCategoriesData = requireValue(
+                telemetryData.codingSummary.jobSpecificCategories as any,
+                "telemetryData.codingSummary.jobSpecificCategories"
+            );
             const categoryScores = jobCodingCategories.map((cat: any) => {
                 // Match by base name (before any parentheses)
-                const baseName = cat.name.split(' (')[0];
-                const matchingKey = Object.keys(codingCategoriesData).find(key => 
+                const baseName = requireValue(cat.name, "codingCategories.name").split(" (")[0];
+                const matchingKey = Object.keys(codingCategoriesData).find((key) =>
                     key.startsWith(baseName) || cat.name.startsWith(key)
-                ) || cat.name;
-                
+                );
+                const resolvedKey = requireValue(matchingKey, `codingCategories key for ${cat.name}`);
+
                 return {
-                    name: cat.name,
-                    score: codingCategoriesData[matchingKey]?.score || 0,
-                    weight: cat.weight || 1
+                    name: requireValue(cat.name, "codingCategories.name"),
+                    score: requireNumber(codingCategoriesData[resolvedKey]?.score, `coding score for ${cat.name}`),
+                    weight: requireNumber(cat.weight, `coding weight for ${cat.name}`),
                 };
             });
 
@@ -95,14 +141,15 @@ async function backfillFinalScores() {
             });
             
             const avgAccountabilityScore = externalToolUsages.length > 0
-                ? externalToolUsages.reduce((sum, usage) => sum + usage.accountabilityScore, 0) / externalToolUsages.length
+                ? externalToolUsages.reduce((sum, usage) => sum + requireNumber(usage.accountabilityScore, "accountabilityScore"), 0)
+                    / externalToolUsages.length
                 : undefined;
             
             const workstyleMetrics: WorkstyleMetrics = { 
                 aiAssistAccountabilityScore: avgAccountabilityScore
             };
 
-            console.log(`📊 Score calculation inputs for ${session.id}:`, {
+            log.info(LOG_CATEGORY, `📊 Score calculation inputs for ${session.id}:`, {
                 experienceScores,
                 categoryScores,
                 workstyleMetrics,
@@ -112,7 +159,7 @@ async function backfillFinalScores() {
             const result = calculateScore(rawScores, workstyleMetrics, job.scoringConfiguration as any);
             const finalScore = Math.round(result.finalScore);
 
-            console.log(`📊 Score calculation result:`, {
+            log.info(LOG_CATEGORY, "📊 Score calculation result:", {
                 experienceScore: result.experienceScore,
                 codingScore: result.codingScore,
                 finalScore: result.finalScore,
@@ -124,22 +171,22 @@ async function backfillFinalScores() {
                 data: { finalScore },
             });
 
-            console.log(`✅ Session ${session.id}: finalScore = ${finalScore}`);
+            log.info(LOG_CATEGORY, `✅ Session ${session.id}: finalScore = ${finalScore}`);
             successCount++;
         } catch (error) {
-            console.error(`❌ Failed to process session ${session.id}:`, error);
+            log.error(LOG_CATEGORY, `❌ Failed to process session ${session.id}:`, error);
             failCount++;
         }
     }
 
-    console.log(`\n📈 Backfill complete:`);
-    console.log(`   ✅ Success: ${successCount}`);
-    console.log(`   ❌ Failed: ${failCount}`);
+    log.info(LOG_CATEGORY, "📈 Backfill complete:");
+    log.info(LOG_CATEGORY, `   ✅ Success: ${successCount}`);
+    log.info(LOG_CATEGORY, `   ❌ Failed: ${failCount}`);
 
     await prisma.$disconnect();
 }
 
 backfillFinalScores().catch((error) => {
-    console.error("Fatal error:", error);
+    log.error(LOG_CATEGORY, "Fatal error:", error);
     process.exit(1);
 });

@@ -1,5 +1,7 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { resetInterview } from "./interviewSlice";
+import { log } from "app/shared/services/logger";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 
 export type ChatSpeaker = "user" | "ai";
 
@@ -29,6 +31,19 @@ export type BackgroundState = {
     currentQuestionTarget: { question: string; category: string } | null;
     categoryStats: CategoryStats[];
 };
+
+const LOG_CATEGORY = LOG_CATEGORIES.BACKGROUND_INTERVIEW;
+
+/**
+ * Require a finite timebox in milliseconds.
+ */
+function requireTimeboxMs(timeboxMs?: number): number {
+    if (typeof timeboxMs !== "number" || !Number.isFinite(timeboxMs) || timeboxMs <= 0) {
+        log.error(LOG_CATEGORY, "[backgroundSlice] Missing or invalid timeboxMs", { timeboxMs });
+        throw new Error("timeboxMs is required.");
+    }
+    return timeboxMs;
+}
 
 const initialState: BackgroundState = {
     messages: [],
@@ -77,7 +92,7 @@ const backgroundSlice = createSlice({
                     : undefined;
         },
         forceTimeExpiry: (state) => {
-            const limit = state.timeboxMs || 7000;
+            const limit = requireTimeboxMs(state.timeboxMs);
             state.startedAtMs = Date.now() - limit;
         },
         markTransition: (state) => {
@@ -107,9 +122,15 @@ const backgroundSlice = createSlice({
         updateCategoryStats: (state, action: PayloadAction<{ stats: CategoryStats[] }>) => {
             state.categoryStats = action.payload.stats.map(newCat => {
                 const existing = state.categoryStats.find(c => c.categoryName === newCat.categoryName);
+                if (!existing) {
+                    log.error(LOG_CATEGORY, "[backgroundSlice] Missing existing category stats", {
+                        categoryName: newCat.categoryName,
+                    });
+                    throw new Error(`Missing category stats for ${newCat.categoryName}`);
+                }
                 return {
                     ...newCat,
-                    dontKnowCount: existing?.dontKnowCount || 0,
+                    dontKnowCount: existing.dontKnowCount,
                 };
             });
         },

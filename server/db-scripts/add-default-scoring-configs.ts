@@ -1,13 +1,31 @@
 #!/usr/bin/env tsx
 
 import { PrismaClient } from "@prisma/client";
+import { log } from "app/shared/services/logger";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 
-process.env.DATABASE_URL = process.env.DEV_DATABASE_URL || process.env.DATABASE_URL;
+const LOG_CATEGORY = LOG_CATEGORIES.DB;
+
+/**
+ * Resolve database URL with explicit validation.
+ */
+function resolveDatabaseUrl(): string {
+    if (process.env.DEV_DATABASE_URL) {
+        return process.env.DEV_DATABASE_URL;
+    }
+    if (!process.env.DATABASE_URL) {
+        log.error(LOG_CATEGORY, "[add-default-scoring-configs] Missing DATABASE_URL");
+        throw new Error("DATABASE_URL is required.");
+    }
+    return process.env.DATABASE_URL;
+}
+
+process.env.DATABASE_URL = resolveDatabaseUrl();
 
 const prisma = new PrismaClient();
 
 async function addDefaultScoringConfigs() {
-    console.log("🔄 Adding default scoring configurations to jobs...");
+    log.info(LOG_CATEGORY, "🔄 Adding default scoring configurations to jobs...");
 
     const jobsWithoutConfig = await prisma.job.findMany({
         where: {
@@ -19,7 +37,7 @@ async function addDefaultScoringConfigs() {
         },
     });
 
-    console.log(`📊 Found ${jobsWithoutConfig.length} jobs without scoring configuration`);
+    log.info(LOG_CATEGORY, `📊 Found ${jobsWithoutConfig.length} jobs without scoring configuration`);
 
     for (const job of jobsWithoutConfig) {
         try {
@@ -31,17 +49,17 @@ async function addDefaultScoringConfigs() {
                     codingWeight: 50,
                 },
             });
-            console.log(`✅ Added scoring config for job: ${job.title}`);
+            log.info(LOG_CATEGORY, `✅ Added scoring config for job: ${job.title}`);
         } catch (error) {
-            console.error(`❌ Failed to add config for job ${job.title}:`, error);
+            log.error(LOG_CATEGORY, `❌ Failed to add config for job ${job.title}:`, error);
         }
     }
 
-    console.log("\n✅ Done!");
+    log.info(LOG_CATEGORY, "✅ Done!");
     await prisma.$disconnect();
 }
 
 addDefaultScoringConfigs().catch((error) => {
-    console.error("Fatal error:", error);
+    log.error(LOG_CATEGORY, "Fatal error:", error);
     process.exit(1);
 });

@@ -52,8 +52,38 @@ export interface SummaryOutput {
     };
 }
 
+/**
+ * Require a non-empty string.
+ */
+function requireNonEmptyString(value: unknown, label: string): string {
+    if (typeof value !== "string" || value.trim().length === 0) {
+        throw new Error(`${label} is required.`);
+    }
+    return value;
+}
+
+/**
+ * Require a numeric score for a category.
+ */
+function requireCategoryScore(scores: CategoryScores | undefined, categoryName: string): number {
+    const value = scores?.[categoryName];
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+        throw new Error(`Score is required for ${categoryName}.`);
+    }
+    return value;
+}
+
+/**
+ * Require a rationale for a category.
+ */
+function requireCategoryRationale(rationales: CategoryRationales | undefined, categoryName: string): string {
+    return requireNonEmptyString(rationales?.[categoryName], `Rationale for ${categoryName}`);
+}
+
 export function buildBackgroundSummaryPrompt(input: SummaryInput): string {
     const { messages, experienceCategories, scores, rationales, companyName, roleName } = input;
+    const resolvedCompanyName = requireNonEmptyString(companyName, "companyName");
+    const resolvedRoleName = requireNonEmptyString(roleName, "roleName");
 
     // Format conversation transcript
     const transcript = messages
@@ -73,18 +103,22 @@ export function buildBackgroundSummaryPrompt(input: SummaryInput): string {
 
     // Build scores section if provided
     const scoresSection = scoresProvided
-        ? `- AI Evaluation Scores:\n${experienceCategories.map(cat => `  * ${cat.name}: ${scores?.[cat.name] ?? 'N/A'}/100`).join('\n')}`
+        ? `- AI Evaluation Scores:\n${experienceCategories
+            .map(cat => `  * ${cat.name}: ${requireCategoryScore(scores, cat.name)}/100`)
+            .join('\n')}`
         : `- You must estimate scores (0-100) for these categories based on the conversation evidence.`;
 
     // Build rationales section if provided
     const rationalesSection = rationales
-        ? `- AI Evaluation Notes:\n${experienceCategories.map(cat => `  * ${cat.name}: ${rationales[cat.name] || "N/A"}`).join('\n')}`
+        ? `- AI Evaluation Notes:\n${experienceCategories
+            .map(cat => `  * ${cat.name}: ${requireCategoryRationale(rationales, cat.name)}`)
+            .join('\n')}`
         : '';
 
     // Build JSON structure for each category
     const categoryJsonStructure = experienceCategories
         .map(cat => `  "${cat.name}": {
-    "score": ${scoresProvided && scores?.[cat.name] !== undefined ? scores[cat.name] : 0},
+    "score": ${scoresProvided ? requireCategoryScore(scores, cat.name) : 0},
     "assessment": "2-3 paragraph detailed assessment of the candidate's ${cat.name.toLowerCase()}. Explain what the score means in practical terms for the role.",
     "oneLiner": "Single sentence (15-25 words) capturing the key finding about ${cat.name.toLowerCase()}.",
     "evidence": [
@@ -102,9 +136,9 @@ export function buildBackgroundSummaryPrompt(input: SummaryInput): string {
     ]
   }`).join(',\n');
 
-    const system = `You are an executive recruiter writing a candidate assessment report for hiring managers at ${companyName}.
+    const system = `You are an executive recruiter writing a candidate assessment report for hiring managers at ${resolvedCompanyName}.
 
-Your task is to analyze this background interview conversation and create a comprehensive, professional assessment that helps the hiring manager make an informed decision about the candidate for the ${roleName} position.
+Your task is to analyze this background interview conversation and create a comprehensive, professional assessment that helps the hiring manager make an informed decision about the candidate for the ${resolvedRoleName} position.
 
 CONTEXT:
 - This was the background stage of a technical interview
@@ -151,4 +185,3 @@ Return ONLY the JSON object, no other text.`;
 
 export const SUMMARY_MODEL = "gpt-4o";
 export const SUMMARY_TEMPERATURE = 0.3;
-
