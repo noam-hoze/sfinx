@@ -7,17 +7,39 @@ import { calculateScore, type RawScores, type WorkstyleMetrics } from "app/share
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
+/**
+ * Require a non-empty string.
+ */
+function requireNonEmptyString(value: unknown, label: string): string {
+    if (typeof value !== "string" || value.trim().length === 0) {
+        log.error(LOG_CATEGORY, `[Generate Coding Summary] Missing ${label}`);
+        throw new Error(`${label} is required`);
+    }
+    return value;
+}
+
+/**
+ * Require a finite number.
+ */
+function requireNumber(value: unknown, label: string): number {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+        log.error(LOG_CATEGORY, `[Generate Coding Summary] Invalid ${label}`, { value });
+        throw new Error(`${label} is required`);
+    }
+    return value;
+}
+
 export async function POST(request: NextRequest) {
+    const openaiApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+    if (!openaiApiKey) {
+        log.error(LOG_CATEGORY, "[Generate Coding Summary] OpenAI API key not configured");
+        return NextResponse.json(
+            { code: "OPENAI_KEY_MISSING", message: "OpenAI API key not configured" },
+            { status: 401 }
+        );
+    }
+
     try {
-        const openaiApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-        if (!openaiApiKey) {
-            log.error(LOG_CATEGORY, "[Generate Coding Summary] OpenAI API key not configured");
-            return NextResponse.json(
-                { error: "OpenAI API key not configured" },
-                { status: 500 }
-            );
-        }
-        
         const openaiClient = new OpenAI({ apiKey: openaiApiKey });
         
         const body = await request.json();
@@ -29,6 +51,27 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             );
         }
+        if (typeof finalCode !== "string" || finalCode.trim().length === 0) {
+            return NextResponse.json(
+                { code: "FINAL_CODE_REQUIRED", message: "finalCode is required" },
+                { status: 400 }
+            );
+        }
+        if (typeof codingTask !== "string" || codingTask.trim().length === 0) {
+            return NextResponse.json(
+                { code: "CODING_TASK_REQUIRED", message: "codingTask is required" },
+                { status: 400 }
+            );
+        }
+        if (typeof expectedSolution !== "string" || expectedSolution.trim().length === 0) {
+            return NextResponse.json(
+                { code: "EXPECTED_SOLUTION_REQUIRED", message: "expectedSolution is required" },
+                { status: 400 }
+            );
+        }
+        const resolvedFinalCode = finalCode;
+        const resolvedCodingTask = codingTask;
+        const resolvedExpectedSolution = expectedSolution;
 
         log.info(LOG_CATEGORY, "[Generate Coding Summary] Starting summary generation for session:", sessionId);
 
@@ -62,8 +105,15 @@ export async function POST(request: NextRequest) {
 
         // Get scoring configuration (with defaults if not configured)
         const scoringConfig = session.application?.job?.scoringConfiguration;
-        const iterationThresholdModerate = scoringConfig?.iterationSpeedThresholdModerate ?? 5;
-        const iterationThresholdHigh = scoringConfig?.iterationSpeedThresholdHigh ?? 10;
+        const iterationThresholdModerate = scoringConfig?.iterationSpeedThresholdModerate;
+        const iterationThresholdHigh = scoringConfig?.iterationSpeedThresholdHigh;
+        if (!Number.isFinite(iterationThresholdModerate) || !Number.isFinite(iterationThresholdHigh)) {
+            log.error(LOG_CATEGORY, "[Generate Coding Summary] Missing iteration thresholds");
+            return NextResponse.json(
+                { error: "Scoring configuration thresholds are required" },
+                { status: 500 }
+            );
+        }
 
         // Fetch all coding session metrics
         const [iterations, externalToolUsages] = await Promise.all([
@@ -102,7 +152,14 @@ export async function POST(request: NextRequest) {
         const totalPastes = externalToolUsages.length;
         const avgAccountabilityScore = totalPastes > 0
             ? externalToolUsages.reduce((sum, e) => sum + e.accountabilityScore, 0) / totalPastes
-            : 0;
+            : undefined;
+        if (totalPastes > 0 && avgAccountabilityScore === undefined) {
+            log.error(LOG_CATEGORY, "[Generate Coding Summary] Missing accountability scores");
+            return NextResponse.json(
+                { error: "Accountability scores are required" },
+                { status: 500 }
+            );
+        }
         const poorUnderstanding = externalToolUsages.filter((e) => e.understanding === "NONE").length;
 
         // Build comprehensive context for OpenAI
@@ -170,13 +227,13 @@ Iteration Benchmarks for this role:
         const userPrompt = `Analyze this coding session:
 
 **Task:**
-${codingTask || "Not provided"}
+        ${resolvedCodingTask}
 
 **Expected Solution:**
-${expectedSolution || "Not provided"}
+        ${resolvedExpectedSolution}
 
 **Final Code Submitted:**
-${finalCode || "Not provided"}
+        ${resolvedFinalCode}
 
 **Performance Metrics:**
 ${JSON.stringify(metricsContext, null, 2)}
@@ -203,6 +260,10 @@ Provide a comprehensive summary and scores for this candidate's coding performan
         log.info(LOG_CATEGORY, "[Generate Coding Summary] OpenAI response received");
 
         const parsed = JSON.parse(responseText);
+        requireNonEmptyString(parsed?.executiveSummary, "executiveSummary");
+        requireNonEmptyString(parsed?.recommendation, "recommendation");
+        requireNumber(parsed?.codeQuality?.score, "codeQuality.score");
+        requireNonEmptyString(parsed?.codeQuality?.text, "codeQuality.text");
 
         log.info(LOG_CATEGORY, "[Generate Coding Summary] Parsed summary");
 
@@ -230,10 +291,10 @@ Provide a comprehensive summary and scores for this candidate's coding performan
             data: {
                 telemetryDataId: session.telemetryData.id,
                 executiveSummary: parsed.executiveSummary,
-                recommendation: parsed.recommendation || null,
+                recommendation: parsed.recommendation,
                 codeQualityScore: parsed.codeQuality.score,
                 codeQualityText: parsed.codeQuality.text,
-                finalCode: finalCode || null,
+                finalCode: resolvedFinalCode,
             },
         });
 
@@ -244,12 +305,16 @@ Provide a comprehensive summary and scores for this candidate's coding performan
         if (session.telemetryData?.backgroundSummary && session.application.job.scoringConfiguration) {
             try {
                 const job = session.application.job;
-                const jobExperienceCategories = (job.experienceCategories as any) || [];
-                const backgroundExperienceCategories = (session.telemetryData.backgroundSummary.experienceCategories as any) || {};
+                const jobExperienceCategories = job.experienceCategories as any;
+                const backgroundExperienceCategories = session.telemetryData.backgroundSummary.experienceCategories as any;
+                if (!Array.isArray(jobExperienceCategories) || !backgroundExperienceCategories) {
+                    log.error(LOG_CATEGORY, "[Generate Coding Summary] Missing experience categories");
+                    throw new Error("Experience categories are required");
+                }
                 const experienceScores = jobExperienceCategories.map((cat: any) => ({
-                    name: cat.name,
-                    score: backgroundExperienceCategories[cat.name]?.score || 0,
-                    weight: cat.weight || 1
+                    name: requireNonEmptyString(cat.name, "experience category name"),
+                    score: requireNumber(backgroundExperienceCategories[cat.name]?.score, `experience score for ${cat.name}`),
+                    weight: requireNumber(cat.weight, `experience weight for ${cat.name}`),
                 }));
 
                 const rawScores: RawScores = { experienceScores, categoryScores: [] };
@@ -285,4 +350,3 @@ Provide a comprehensive summary and scores for this candidate's coding performan
         );
     }
 }
-

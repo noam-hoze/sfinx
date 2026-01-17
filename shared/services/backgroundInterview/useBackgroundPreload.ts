@@ -16,11 +16,11 @@ import {
 } from "@/shared/state/slices/interviewSlice";
 import { setTimebox as setBackgroundTimebox, initializeCategoryStats } from "@/shared/state/slices/backgroundSlice";
 import { setTimebox as setCodingTimebox } from "@/shared/state/slices/codingSlice";
-import { buildOpenAIBackgroundPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
 import { generateAssistantReply } from "app/(features)/interview/components/chat/openAITextConversationHelpers";
 import { createInterviewSession } from "app/(features)/interview/components/services/interviewSessionService";
 
 const LOG_CATEGORY = LOG_CATEGORIES.BACKGROUND_INTERVIEW;
+const SCRIPT_SCHEMA_ERROR = "BG_SCRIPT_SCHEMA_INVALID";
 
 /**
  * Execute background preload sequence: create user, session, fetch script, generate first question.
@@ -28,6 +28,28 @@ const LOG_CATEGORY = LOG_CATEGORIES.BACKGROUND_INTERVIEW;
  */
 export function useBackgroundPreload() {
   const dispatch = useDispatch();
+
+  /**
+   * Require a non-empty string.
+   */
+  const requireNonEmptyString = (value: unknown, label: string): string => {
+    if (typeof value !== "string" || value.trim().length === 0) {
+      log.error(LOG_CATEGORY, `[preload] Missing ${label}`);
+      throw new Error(`${label} is required`);
+    }
+    return value;
+  };
+
+  /**
+   * Parse first-question JSON and validate fields.
+   */
+  const parseFirstQuestion = (raw: string): { question: string; evaluationIntent: string } => {
+    const parsed = JSON.parse(raw);
+    return {
+      question: requireNonEmptyString(parsed?.question, "first question"),
+      evaluationIntent: requireNonEmptyString(parsed?.evaluationIntent, "evaluation intent"),
+    };
+  };
 
   const preload = useCallback(
     async (
@@ -42,8 +64,8 @@ export function useBackgroundPreload() {
         log.info(LOG_CATEGORY, "[preload] Starting preload sequence...");
 
         const parts = jobId.split("-");
-        const companySlug = parts[0];
-        const roleSlug = parts.slice(1).join("-");
+        const companySlug = requireNonEmptyString(parts[0], "company slug");
+        const roleSlug = requireNonEmptyString(parts.slice(1).join("-"), "role slug");
 
         if (!sessionUserId) {
           throw new Error("Authentication required");
@@ -60,7 +82,7 @@ export function useBackgroundPreload() {
 
         if (!appResp.ok) throw new Error("Failed to create application");
         const appData = await appResp.json();
-        const createdApplicationId = appData.application.id;
+        const createdApplicationId = requireNonEmptyString(appData?.application?.id, "applicationId");
 
         // Step 2: Create interview session
         log.info(LOG_CATEGORY, "[preload] Creating interview session...");
@@ -70,22 +92,41 @@ export function useBackgroundPreload() {
           userId,
         });
 
-        if (!session?.interviewSession?.id) throw new Error("Failed to create interview session");
-        const sessId = session.interviewSession.id;
+        const sessId = requireNonEmptyString(session?.interviewSession?.id, "interview session id");
 
         // Step 3: Fetch interview script (with cache)
         const SCRIPT_CACHE_VERSION = 'v8'; // Increment to invalidate old caches
         const scriptCacheKey = `interview-script-${jobId}-${SCRIPT_CACHE_VERSION}`;
         let scriptData: any = null;
 
+        const requireScriptField = (value: unknown, label: string): string => {
+          if (typeof value !== "string" || value.trim().length === 0) {
+            log.error(LOG_CATEGORY, `[preload] ${SCRIPT_SCHEMA_ERROR}: ${label} missing`);
+            throw new Error(`${label} is required`);
+          }
+          return value;
+        };
+
+        const validateScriptData = (data: any): void => {
+          requireScriptField(data?.companyName, "companyName");
+          requireScriptField(data?.backgroundQuestion, "backgroundQuestion");
+          if (!Array.isArray(data?.experienceCategories)) {
+            log.error(LOG_CATEGORY, `[preload] ${SCRIPT_SCHEMA_ERROR}: experienceCategories missing`);
+            throw new Error("experienceCategories is required");
+          }
+        };
+
         try {
           const cached = localStorage.getItem(scriptCacheKey);
           if (cached) {
-            scriptData = JSON.parse(cached);
+            const parsed = JSON.parse(cached);
+            validateScriptData(parsed);
+            scriptData = parsed;
             log.info(LOG_CATEGORY, "[preload] Script loaded from cache");
           }
         } catch (err) {
-          console.warn("[preload] Failed to read script cache:", err);
+          log.warn(LOG_CATEGORY, "[preload] Invalid script cache; clearing:", err);
+          localStorage.removeItem(scriptCacheKey);
         }
 
         if (!scriptData) {
@@ -93,12 +134,13 @@ export function useBackgroundPreload() {
           const scriptResp = await fetch(`/api/interviews/script?company=${companySlug}&role=${roleSlug}`);
           if (!scriptResp.ok) throw new Error("Failed to load interview script");
           scriptData = await scriptResp.json();
+          validateScriptData(scriptData);
           localStorage.setItem(scriptCacheKey, JSON.stringify(scriptData));
         }
 
         // Step 4: Generate first OpenAI question with intent
         log.info(LOG_CATEGORY, "[preload] Generating first question...");
-        const companyNameFromScript = scriptData.companyName || companySlug.charAt(0).toUpperCase() + companySlug.slice(1);
+        const companyNameFromScript = requireNonEmptyString(scriptData?.companyName, "companyName");
         const instruction = `Ask exactly: "${String(scriptData.backgroundQuestion)}"
 
 Also provide an evaluation intent - one natural, calm sentence describing the lens or perspective you are listening through for this answer.
@@ -115,20 +157,18 @@ Return JSON with format: {"question": "...", "evaluationIntent": "..."}`;
           instruction
         );
 
-        if (!firstQuestionRaw) throw new Error("Failed to generate first question");
+        const firstQuestionRawText = requireNonEmptyString(firstQuestionRaw, "firstQuestionRaw");
 
         // Parse JSON response to extract question and intent
-        let firstQuestion = firstQuestionRaw;
-        let firstIntent = "";
+        let parsedQuestion: { question: string; evaluationIntent: string };
         try {
-          const parsed = JSON.parse(firstQuestionRaw);
-          firstQuestion = parsed.question || firstQuestionRaw;
-          firstIntent = parsed.evaluationIntent || "";
+          parsedQuestion = parseFirstQuestion(firstQuestionRawText);
         } catch (err) {
-          console.warn("[preload] Failed to parse JSON, using raw response");
+          log.error(LOG_CATEGORY, "[preload] Failed to parse first question JSON", err);
+          throw err;
         }
 
-        // Store preloaded data in Redux
+        const { question: firstQuestion, evaluationIntent: firstIntent } = parsedQuestion;
         dispatch(
           setPreloadedData({
             userId,
@@ -148,20 +188,22 @@ Return JSON with format: {"question": "...", "evaluationIntent": "..."}`;
           })
         );
 
-        if (scriptData.codingQuestionTimeSeconds) {
+        if (typeof scriptData.codingQuestionTimeSeconds === "number") {
           dispatch(setCodingTimebox({ timeboxSeconds: scriptData.codingQuestionTimeSeconds }));
         }
 
-        if (scriptData.backgroundQuestionTimeSeconds && onBackgroundTimeSet) {
+        if (typeof scriptData.backgroundQuestionTimeSeconds === "number" && onBackgroundTimeSet) {
           onBackgroundTimeSet(scriptData.backgroundQuestionTimeSeconds);
           const timeboxMs = scriptData.backgroundQuestionTimeSeconds * 1000;
           dispatch(setBackgroundTimebox({ timeboxMs }));
         }
 
-        if (scriptData.experienceCategories && onExperienceCategoriesSet) {
+        if (Array.isArray(scriptData.experienceCategories) && onExperienceCategoriesSet) {
           onExperienceCategoriesSet(scriptData.experienceCategories);
           // Initialize category stats in Redux store
-          const categoryNames = scriptData.experienceCategories.map((c: any) => c.name);
+          const categoryNames = scriptData.experienceCategories.map((c: any) =>
+            requireNonEmptyString(c?.name, "experience category name")
+          );
           dispatch(initializeCategoryStats({ categories: categoryNames }));
         }
 

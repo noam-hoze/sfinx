@@ -9,13 +9,9 @@ import { useDispatch, useSelector } from "react-redux";
 import OpenAI from "openai";
 import { store, RootState } from "@/shared/state/store";
 import { addMessage, setEvaluatingAnswer, setCurrentFocusTopic, setCurrentQuestionTarget, updateCategoryStats, forceTimeExpiry, incrementDontKnowCount } from "@/shared/state/slices/backgroundSlice";
-import {
-  askViaChatCompletion,
-  generateAssistantReply,
-} from "app/(features)/interview/components/chat/openAITextConversationHelpers";
+import { generateAssistantReply } from "app/(features)/interview/components/chat/openAITextConversationHelpers";
 import { shouldTransition } from "@/shared/services/backgroundSessionGuard";
 import { buildOpenAIBackgroundPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
-import { buildControlContextMessages, CONTROL_CONTEXT_TURNS } from "app/shared/services";
 import { log } from "app/shared/services/logger";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
@@ -25,6 +21,28 @@ const LOG_CATEGORY = LOG_CATEGORIES.BACKGROUND_INTERVIEW;
 interface AnswerHandlerResult {
   transitionReason?: string;
   shouldComplete: boolean;
+}
+
+/**
+ * Require a non-empty string.
+ */
+function requireNonEmptyString(value: unknown, label: string): string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    log.error(LOG_CATEGORY, `[backgroundAnswerHandler] Missing ${label}`);
+    throw new Error(`${label} is required`);
+  }
+  return value;
+}
+
+/**
+ * Require a list value.
+ */
+function requireArray<T>(value: T[] | undefined, label: string): T[] {
+  if (!Array.isArray(value)) {
+    log.error(LOG_CATEGORY, `[backgroundAnswerHandler] Missing ${label}`);
+    throw new Error(`${label} is required`);
+  }
+  return value;
 }
 
 /**
@@ -67,15 +85,13 @@ export function useBackgroundAnswerHandler(
 
   const handleSubmit = useCallback(
     async (answer: string, openaiClient: OpenAI | null, candidateName: string): Promise<AnswerHandlerResult> => {
-      if (!openaiClient || !companyName) {
-        log.info(LOG_CATEGORY, "Submit blocked - missing openaiClient or companyName");
-        return { shouldComplete: false };
+      if (!openaiClient) {
+        log.error(LOG_CATEGORY, "Submit blocked - missing openaiClient");
+        throw new Error("OpenAI client is required");
       }
+      const resolvedCompanyName = requireNonEmptyString(companyName, "companyName");
 
       try {
-        // Detect blank answers
-        const isBlankAnswer = answer.trim().length === 0;
-        
         // Add to chat store
         dispatch(addMessage({ text: answer, speaker: "user" }));
         
@@ -84,13 +100,16 @@ export function useBackgroundAnswerHandler(
 
         // PHASE 2: Dual-call flow - fast endpoint for scores/question, async full evaluation
         const backgroundState = store.getState().background;
-        const currentQuestion = backgroundState.messages?.filter(m => m.speaker === "ai").slice(-1)[0]?.text || "";
+        const currentQuestion = requireNonEmptyString(
+          backgroundState.messages?.filter(m => m.speaker === "ai").slice(-1)[0]?.text,
+          "currentQuestion"
+        );
         
         let updatedCategoryStats = categoryStats;
         let nextQuestionText = "";
         
         if (sessionId) {
-          const experienceCategories = script?.experienceCategories || [];
+          const experienceCategories = requireArray(script?.experienceCategories, "experienceCategories");
           const evalTimestamp = new Date().toISOString();
           dispatch(setEvaluatingAnswer({ evaluating: true }));
           
@@ -158,10 +177,7 @@ export function useBackgroundAnswerHandler(
             }
             
             // Use next question from fast API
-            if (!fastData.question) {
-              throw new Error("Fast API must return question");
-            }
-            nextQuestionText = fastData.question;
+            nextQuestionText = requireNonEmptyString(fastData.question, "fastData.question");
             
             // Set question target for debug panel
             if (nextQuestionText && fastData.newFocusTopic) {
@@ -169,8 +185,8 @@ export function useBackgroundAnswerHandler(
             }
             
             // Pass intent to callback for display after audio finishes
-            if (fastData.evaluationIntent && onIntentReceived) {
-              onIntentReceived(fastData.evaluationIntent);
+            if (onIntentReceived) {
+              onIntentReceived(requireNonEmptyString(fastData.evaluationIntent, "fastData.evaluationIntent"));
             }
             
             // Call 2: Full evaluation async (non-blocking, for reasoning/captions/DB)
@@ -240,13 +256,13 @@ export function useBackgroundAnswerHandler(
           if (transitionReason) {
             // Time limit reached - generate closing response
             log.info(LOG_CATEGORY, `Time limit reached (${transitionReason})`);
-            const persona = buildOpenAIBackgroundPrompt(String(companyName), script?.experienceCategories);
-            const firstName = candidateName.split(" ")[0] || "Candidate";
+            const persona = buildOpenAIBackgroundPrompt(resolvedCompanyName, requireArray(script?.experienceCategories, "experienceCategories"));
+            const firstName = requireNonEmptyString(candidateName.split(" ")[0], "candidate first name");
             const closingInstruction = `Say exactly: "Thank you so much ${firstName}, the next steps will be shared with you shortly."`;
 
             try {
               const finalResponse = await generateAssistantReply(openaiClient, persona, closingInstruction);
-              const responseText = finalResponse || "";
+              const responseText = requireNonEmptyString(finalResponse, "final response");
               
               dispatch(addMessage({ text: responseText, speaker: "ai" }));
               saveMessageToDb(responseText, "ai");
