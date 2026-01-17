@@ -11,3 +11,9 @@
 - **Decision:** use the existing OpenAI client and chat completions with JSON output.
 - **Rationale:** OpenAI is already integrated in the codebase, supports response JSON formatting, and avoids adding new SDKs.
 - **Alternatives:** evaluate Anthropic for structured output, or Azure OpenAI for enterprise key management.
+
+## Interview chat request helper
+- **Candidates:** native fetch (existing), axios, ky.
+- **Decision:** reuse native fetch with a shared helper for the interview chat endpoint.
+- **Rationale:** avoids adding dependencies while consolidating error handling and payload construction.
+- **Alternatives:** adopt axios for interceptors or ky for a slimmer wrapper.
