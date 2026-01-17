@@ -13,7 +13,7 @@ interface SfinxLogoProps {
 export default function SfinxLogo({
     width = 180,
     height = 60,
-    className = "w-[180px] h-auto object-contain",
+    className = "",
     priority = false,
 }: SfinxLogoProps) {
     return (
@@ -23,6 +23,7 @@ export default function SfinxLogo({
             width={width}
             height={height}
             className={className}
+            style={{ width: `${width}px`, height: 'auto' }}
             priority={priority}
         />
     );
