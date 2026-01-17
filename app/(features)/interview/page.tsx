@@ -920,6 +920,7 @@ function InterviewPageContent() {
                 text={announcementText}
                 preloadedAudioBlob={announcementAudioBlob}
                 onComplete={handleAnnouncementComplete}
+                onAudioStateChange={handleAudioStateChange}
               />
             )}
           </div>
