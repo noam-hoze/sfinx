@@ -1,15 +1,20 @@
 #!/usr/bin/env tsx
 
 import { PrismaClient } from "@prisma/client";
+import { randomUUID } from "node:crypto";
+import { log } from "app/shared/services";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import { calculateScore, type RawScores, type WorkstyleMetrics } from "../../app/shared/utils/calculateScore";
 
 // Use DEV_DATABASE_URL (orange-tree) as user confirmed
 process.env.DATABASE_URL = process.env.DEV_DATABASE_URL || process.env.DATABASE_URL;
 
 const prisma = new PrismaClient();
+const LOG_CATEGORY = LOG_CATEGORIES.DB;
+const runId = randomUUID();
 
 async function backfillFinalScores() {
-    console.log("🔄 Starting final score backfill...");
+    log.info(LOG_CATEGORY, "Starting final score backfill", { runId });
 
     const sessions = await prisma.interviewSession.findMany({
         where: {
@@ -38,7 +43,10 @@ async function backfillFinalScores() {
         },
     });
 
-    console.log(`📊 Found ${sessions.length} sessions without finalScore`);
+    log.info(LOG_CATEGORY, "Found sessions without finalScore", {
+        runId,
+        sessionCount: sessions.length,
+    });
 
     let successCount = 0;
     let failCount = 0;
@@ -48,17 +56,21 @@ async function backfillFinalScores() {
             const { telemetryData, application } = session;
             const job = application.job;
 
-            console.log(`🔍 Checking session ${session.id}:`, {
+            log.debug(LOG_CATEGORY, "Checking session for backfill", {
+                runId,
+                sessionId: session.id,
                 jobId: job.id,
-                jobTitle: job.title,
-                hasBackgroundSummary: !!telemetryData?.backgroundSummary,
-                hasCodingSummary: !!telemetryData?.codingSummary,
-                hasScoringConfig: !!job.scoringConfiguration,
+                hasBackgroundSummary: Boolean(telemetryData?.backgroundSummary),
+                hasCodingSummary: Boolean(telemetryData?.codingSummary),
+                hasScoringConfig: Boolean(job.scoringConfiguration),
                 scoringConfigId: job.scoringConfiguration?.id,
             });
 
             if (!telemetryData?.backgroundSummary || !telemetryData?.codingSummary || !job.scoringConfiguration) {
-                console.log(`⏭️  Skipping session ${session.id} - missing required data`);
+                log.debug(LOG_CATEGORY, "Skipping session - missing required data", {
+                    runId,
+                    sessionId: session.id,
+                });
                 continue;
             }
 
@@ -102,17 +114,12 @@ async function backfillFinalScores() {
                 aiAssistAccountabilityScore: avgAccountabilityScore
             };
 
-            console.log(`📊 Score calculation inputs for ${session.id}:`, {
-                experienceScores,
-                categoryScores,
-                workstyleMetrics,
-                scoringConfig: job.scoringConfiguration,
-            });
-
             const result = calculateScore(rawScores, workstyleMetrics, job.scoringConfiguration as any);
             const finalScore = Math.round(result.finalScore);
 
-            console.log(`📊 Score calculation result:`, {
+            log.debug(LOG_CATEGORY, "Score calculation result", {
+                runId,
+                sessionId: session.id,
                 experienceScore: result.experienceScore,
                 codingScore: result.codingScore,
                 finalScore: result.finalScore,
@@ -124,22 +131,35 @@ async function backfillFinalScores() {
                 data: { finalScore },
             });
 
-            console.log(`✅ Session ${session.id}: finalScore = ${finalScore}`);
+            log.info(LOG_CATEGORY, "Session finalScore updated", {
+                runId,
+                sessionId: session.id,
+                finalScore,
+            });
             successCount++;
         } catch (error) {
-            console.error(`❌ Failed to process session ${session.id}:`, error);
+            log.error(LOG_CATEGORY, "Failed to process session", {
+                runId,
+                sessionId: session.id,
+                errorMessage: error instanceof Error ? error.message : String(error),
+            });
             failCount++;
         }
     }
 
-    console.log(`\n📈 Backfill complete:`);
-    console.log(`   ✅ Success: ${successCount}`);
-    console.log(`   ❌ Failed: ${failCount}`);
+    log.info(LOG_CATEGORY, "Backfill complete", {
+        runId,
+        successCount,
+        failCount,
+    });
 
     await prisma.$disconnect();
 }
 
 backfillFinalScores().catch((error) => {
-    console.error("Fatal error:", error);
+    log.error(LOG_CATEGORY, "Fatal error during backfill", {
+        runId,
+        errorMessage: error instanceof Error ? error.message : String(error),
+    });
     process.exit(1);
 });

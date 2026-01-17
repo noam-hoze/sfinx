@@ -17,6 +17,7 @@ const openai = new OpenAI({
  * Evaluates background interview answers and creates evidence clips for experience categories
  */
 export async function POST(request: NextRequest) {
+    const requestId = request.headers.get("x-request-id");
     try {
         const body = await request.json();
         const { sessionId, question, answer, timestamp, experienceCategories, currentCounts } = body;
@@ -32,7 +33,10 @@ export async function POST(request: NextRequest) {
             throw new Error("currentCounts is required - must be passed from Redux store");
         }
 
-        log.info(LOG_CATEGORY, "[evaluate-answer] Evaluating answer for session:", sessionId);
+        log.info(LOG_CATEGORY, "[evaluate-answer] Evaluating answer for session", {
+            requestId,
+            sessionId,
+        });
 
         // Fetch session with recording data and job
         const session = await prisma.interviewSession.findUnique({
@@ -65,7 +69,10 @@ export async function POST(request: NextRequest) {
         }
 
         if (!categoriesToEvaluate || categoriesToEvaluate.length === 0) {
-            log.info(LOG_CATEGORY, "[evaluate-answer] No experience categories defined for this job - skipping evaluation");
+            log.info(LOG_CATEGORY, "[evaluate-answer] No experience categories defined for this job - skipping evaluation", {
+                requestId,
+                sessionId,
+            });
             return NextResponse.json({
                 success: true,
                 contributionsCount: 0,
@@ -163,7 +170,10 @@ CRITICAL RULES:
 - Blank or gibberish answers MUST be scored 0 across all categories.
 - Be strict with 0 scores - use them for noise, blank answers, and gibberish.`;
 
-        log.info(LOG_CATEGORY, "[evaluate-answer] Calling OpenAI for evaluation");
+        log.info(LOG_CATEGORY, "[evaluate-answer] Calling OpenAI for evaluation", {
+            requestId,
+            sessionId,
+        });
 
         const evaluationModel = process.env.NEXT_PUBLIC_OPENAI_EVALUATION_MODEL;
         if (!evaluationModel) {
@@ -181,12 +191,13 @@ CRITICAL RULES:
             },
         ];
 
-        console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log("→ OpenAI Request [evaluate-answer FULL]");
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log("Model:", evaluationModel);
-        console.log("\nSystem:", messages[0].content);
-        console.log("\nUser Prompt:", evaluationPrompt.substring(0, 500) + "...");
+        log.info(LOG_CATEGORY, "[evaluate-answer] OpenAI request prepared", {
+            requestId,
+            sessionId,
+            model: evaluationModel,
+            promptLength: evaluationPrompt.length,
+            messageCount: messages.length,
+        });
 
         const completion = await openai.chat.completions.create({
             model: evaluationModel,
@@ -201,13 +212,11 @@ CRITICAL RULES:
 
         const evaluation = JSON.parse(responseText);
         
-        console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log("← OpenAI Response [evaluate-answer FULL]");
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log(JSON.stringify(evaluation, null, 2));
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
-        
-        log.info(LOG_CATEGORY, "[evaluate-answer] OpenAI evaluation:", evaluation);
+        log.info(LOG_CATEGORY, "[evaluate-answer] OpenAI response received", {
+            requestId,
+            sessionId,
+            evaluationCount: Array.isArray(evaluation?.evaluations) ? evaluation.evaluations.length : undefined,
+        });
 
         // Helper: Map contribution strength to normalized points
         const getNormalizedPoints = (strength: number): number => {
@@ -333,12 +342,24 @@ CRITICAL RULES:
 
         // Fire-and-forget DB operations (async, non-blocking)
         Promise.all(dbOperations).then(() => {
-            log.info(LOG_CATEGORY, `[evaluate-answer] ✅ Async DB save complete. ${evaluation.evaluations.filter((e: any) => e.strength > 0).length} contributions saved.`);
+            const savedCount = evaluation.evaluations.filter((e: any) => e.strength > 0).length;
+            log.info(LOG_CATEGORY, "[evaluate-answer] Async DB save complete", {
+                requestId,
+                sessionId,
+                savedCount,
+            });
         }).catch(err => {
-            log.error(LOG_CATEGORY, "[evaluate-answer] ❌ Async DB save failed:", err);
+            log.error(LOG_CATEGORY, "[evaluate-answer] Async DB save failed", {
+                requestId,
+                sessionId,
+                errorMessage: err instanceof Error ? err.message : String(err),
+            });
         });
 
-        log.info(LOG_CATEGORY, `[evaluate-answer] Returning updated counts immediately (DB saves in background)`);
+        log.info(LOG_CATEGORY, "[evaluate-answer] Returning updated counts immediately (DB saves in background)", {
+            requestId,
+            sessionId,
+        });
 
         // Return immediately with in-memory calculated counts
         return NextResponse.json({
@@ -348,11 +369,14 @@ CRITICAL RULES:
             updatedCounts: updatedCounts,
         });
     } catch (error) {
-        log.error(LOG_CATEGORY, "[evaluate-answer] ❌ Error:", error);
+        log.error(LOG_CATEGORY, "[evaluate-answer] Error", {
+            requestId,
+            sessionId,
+            errorMessage: error instanceof Error ? error.message : String(error),
+        });
         return NextResponse.json(
             { error: error instanceof Error ? error.message : "Unknown error" },
             { status: 500 }
         );
     }
 }
-

@@ -15,8 +15,11 @@ export async function POST(
     request: NextRequest,
     context: RouteContext
 ) {
+    const requestId = request.headers.get("x-request-id");
+    let sessionId: string | undefined;
     try {
-        const { sessionId } = await context.params;
+        const params = await context.params;
+        sessionId = params.sessionId;
         
         const {
             timestamp,
@@ -85,7 +88,11 @@ export async function POST(
                     where: { id: session.telemetryData.workstyleMetrics.id },
                     data: { iterationSpeed: iterationCount },
                 });
-                console.log(`✅ [Iterations API] First CORRECT solution at iteration ${iterationCount}`);
+                log.info(LOG_CATEGORY, "[Iterations API] First CORRECT solution", {
+                    requestId,
+                    sessionId,
+                    iterationCount,
+                });
             }
         }
 
@@ -94,7 +101,9 @@ export async function POST(
             const iterationTimestamp = timestamp ? new Date(timestamp) : new Date();
             const videoOffset = Math.floor((iterationTimestamp.getTime() - session.recordingStartedAt.getTime()) / 1000);
             
-            log.info(LOG_CATEGORY, "📹 [Iterations API] Creating evidence for iteration", {
+            log.info(LOG_CATEGORY, "[Iterations API] Creating evidence for iteration", {
+                requestId,
+                sessionId,
                 recordingStartedAt: session.recordingStartedAt.toISOString(),
                 iterationTimestamp: iterationTimestamp.toISOString(),
                 videoOffset,
@@ -143,15 +152,29 @@ export async function POST(
                     });
                 }
                 
-                log.info(LOG_CATEGORY, `✅ [Iterations API] Created evidence clips for iteration at ${videoOffset}s`);
+                log.info(LOG_CATEGORY, "[Iterations API] Created evidence clips for iteration", {
+                    requestId,
+                    sessionId,
+                    videoOffset,
+                    iterationCount,
+                });
             } else {
-                log.warn(LOG_CATEGORY, "⚠️ [Iterations API] Negative video offset, skipping evidence creation");
+                log.warn(LOG_CATEGORY, "[Iterations API] Negative video offset, skipping evidence creation", {
+                    requestId,
+                    sessionId,
+                    videoOffset,
+                    iterationCount,
+                });
             }
         }
 
         return NextResponse.json(iteration);
     } catch (error: any) {
-        console.error("[iterations] Error creating iteration:", error);
+        log.error(LOG_CATEGORY, "[iterations] Error creating iteration", {
+            requestId,
+            sessionId,
+            errorMessage: error instanceof Error ? error.message : String(error),
+        });
         return NextResponse.json(
             {
                 error: "Failed to create iteration",
@@ -166,17 +189,29 @@ export async function GET(
     request: NextRequest,
     context: RouteContext
 ) {
+    const requestId = request.headers.get("x-request-id");
+    let sessionId: string | undefined;
     try {
-        const { sessionId } = await context.params;
+        const params = await context.params;
+        sessionId = params.sessionId;
 
         const iterations = await prisma.iteration.findMany({
             where: { interviewSessionId: sessionId },
             orderBy: { timestamp: "asc" },
         });
 
+        log.debug(LOG_CATEGORY, "[iterations] Iterations fetched", {
+            requestId,
+            sessionId,
+            iterationCount: iterations.length,
+        });
         return NextResponse.json(iterations);
     } catch (error: any) {
-        console.error("[iterations] Error fetching iterations:", error);
+        log.error(LOG_CATEGORY, "[iterations] Error fetching iterations", {
+            requestId,
+            sessionId,
+            errorMessage: error instanceof Error ? error.message : String(error),
+        });
         return NextResponse.json(
             {
                 error: "Failed to fetch iterations",
@@ -186,4 +221,3 @@ export async function GET(
         );
     }
 }
-

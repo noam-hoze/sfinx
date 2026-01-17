@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
+import { log } from "app/shared/services";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
 export async function POST(request: Request) {
+  const requestId = request.headers.get("x-request-id");
   try {
     const { text } = await request.json();
 
@@ -48,11 +53,13 @@ export async function POST(request: Request) {
       headers: { "Content-Type": "audio/mpeg" },
     });
   } catch (error) {
-    console.error("[TTS API] Error:", error);
+    log.error(LOG_CATEGORY, "[TTS API] Error", {
+      requestId,
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "TTS failed" },
       { status: 500 }
     );
   }
 }
-

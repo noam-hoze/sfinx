@@ -23,9 +23,11 @@ interface CategoryScore {
  * Generates a human-readable profile story for a candidate based on interview summaries.
  */
 export async function POST(request: NextRequest) {
+    const requestId = request.headers.get("x-request-id");
+    let sessionId: string | undefined;
     try {
         const body = await request.json();
-        const { sessionId } = body;
+        sessionId = body.sessionId;
 
         if (!sessionId) {
             return NextResponse.json({ error: "Session ID required" }, { status: 400 });
@@ -62,7 +64,10 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        log.info(LOG_CATEGORY, "[Generate Profile Story] Fetching evaluation data for session:", sessionId);
+        log.info(LOG_CATEGORY, "[Generate Profile Story] Fetching evaluation data for session", {
+            requestId,
+            sessionId,
+        });
 
         const [iterations, codingContributions, experienceContributions, externalToolUsages] = await Promise.all([
             prisma.iteration.findMany({ 
@@ -91,7 +96,10 @@ export async function POST(request: NextRequest) {
 
         const hasCodeActivity = iterations.length > 0 || codingContributions.length > 0;
 
-        log.info(LOG_CATEGORY, "[Generate Profile Story] Code activity detected:", hasCodeActivity, {
+        log.info(LOG_CATEGORY, "[Generate Profile Story] Code activity detected", {
+            requestId,
+            sessionId,
+            hasCodeActivity,
             iterations: iterations.length,
             codingContributions: codingContributions.length,
             experienceContributions: experienceContributions.length,
@@ -105,13 +113,18 @@ export async function POST(request: NextRequest) {
             codingContributions
         );
 
-        log.info(LOG_CATEGORY, "[Generate Profile Story] Organized data:", {
+        log.info(LOG_CATEGORY, "[Generate Profile Story] Organized data", {
+            requestId,
+            sessionId,
             strongestCount: organizedData.strongest.length,
             weakestCount: organizedData.weakest.length
         });
 
         // PASS 1: Extract key elements
-        log.info(LOG_CATEGORY, "[Generate Profile Story] Pass 1: Extracting key elements");
+        log.info(LOG_CATEGORY, "[Generate Profile Story] Pass 1: Extracting key elements", {
+            requestId,
+            sessionId,
+        });
         
         const extractionPrompt = buildExtractionPrompt(
             session.candidate.name || "The candidate",
@@ -129,11 +142,20 @@ export async function POST(request: NextRequest) {
         });
 
         const extractedData = JSON.parse(extractionResponse.choices[0]?.message?.content || "{}");
-        
-        log.info(LOG_CATEGORY, "[Generate Profile Story] Extracted data:", extractedData);
+        const extractedKeyCount = extractedData && typeof extractedData === "object"
+            ? Object.keys(extractedData).length
+            : undefined;
+        log.info(LOG_CATEGORY, "[Generate Profile Story] Extracted data summary", {
+            requestId,
+            sessionId,
+            extractedKeyCount,
+        });
 
         // PASS 2: Format into 250 characters
-        log.info(LOG_CATEGORY, "[Generate Profile Story] Pass 2: Formatting to 250 characters");
+        log.info(LOG_CATEGORY, "[Generate Profile Story] Pass 2: Formatting to 250 characters", {
+            requestId,
+            sessionId,
+        });
 
         const formattingPrompt = buildFormattingPrompt(
             session.candidate.name || "The candidate",
@@ -158,7 +180,11 @@ export async function POST(request: NextRequest) {
             const trimmed = story.slice(0, 300);
             const lastPeriod = trimmed.lastIndexOf('.');
             story = lastPeriod > 150 ? trimmed.slice(0, lastPeriod + 1) : trimmed;
-            log.info(LOG_CATEGORY, "[Generate Profile Story] Truncated story to", story.length, "characters (complete sentence)");
+            log.info(LOG_CATEGORY, "[Generate Profile Story] Truncated story to complete sentence", {
+                requestId,
+                sessionId,
+                storyLength: story.length,
+            });
         }
 
         await prisma.telemetryData.update({
@@ -166,10 +192,16 @@ export async function POST(request: NextRequest) {
             data: { story },
         });
 
-        log.info(LOG_CATEGORY, "[Generate Profile Story] Story saved to database");
+        log.info(LOG_CATEGORY, "[Generate Profile Story] Story saved to database", {
+            requestId,
+            sessionId,
+        });
 
         if (!hasCodeActivity) {
-            log.info(LOG_CATEGORY, "[Generate Profile Story] No code activity detected - story reflects zero coding engagement");
+            log.info(LOG_CATEGORY, "[Generate Profile Story] No code activity detected - story reflects zero coding engagement", {
+                requestId,
+                sessionId,
+            });
         }
 
         // Return prompts in development mode for debugging
@@ -182,8 +214,11 @@ export async function POST(request: NextRequest) {
             } : undefined
         });
     } catch (error) {
-        log.error(LOG_CATEGORY, "[Generate Profile Story] Error:", error);
-        console.error("[Generate Profile Story] Full error details:", error);
+        log.error(LOG_CATEGORY, "[Generate Profile Story] Error", {
+            requestId,
+            sessionId,
+            errorMessage: error instanceof Error ? error.message : String(error),
+        });
         
         // Return detailed error in development
         const errorMessage = error instanceof Error ? error.message : String(error);
