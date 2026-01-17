@@ -44,7 +44,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: vitest-results
+          name: vitest-results-node-${{ matrix.node-version }}
           path: |
             coverage
             vitest-results
