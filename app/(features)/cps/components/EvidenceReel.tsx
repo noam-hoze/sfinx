@@ -9,6 +9,10 @@ import {
     defaultLayoutIcons,
 } from "@vidstack/react/player/layouts/default";
 import EvidenceNavigationOverlay from "./EvidenceNavigationOverlay";
+import { log } from "app/shared/services";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.CPS;
 
 interface EvidenceLink {
     timestamp: number;
@@ -86,7 +90,12 @@ export default function EvidenceReel({
                     if (playPromise !== undefined) {
                         playPromise.catch((error: any) => {
                             // Ignore auto-play errors (e.g. not allowed or not ready)
-                            console.warn("[EvidenceReel] Auto-play prevented:", error);
+                            log.warn(LOG_CATEGORY, "[EvidenceReel] Auto-play prevented", {
+                                jumpKey,
+                                jumpToTime,
+                                hasVideoUrl: Boolean(videoUrl),
+                                errorMessage: error instanceof Error ? error.message : String(error),
+                            });
                         });
                     }
                 }

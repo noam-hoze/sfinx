@@ -21,12 +21,19 @@ interface AnnouncementResult {
  */
 export function useAnnouncementGeneration() {
   const generateAnnouncement = useCallback(async (jobTitle: string): Promise<AnnouncementResult> => {
+    const requestId = globalThis.crypto.randomUUID();
     try {
       const announcement = `Hi! Welcome to your ${jobTitle} interview`;
-      log.info(LOG_CATEGORY, "[announcement] Generated text:", announcement);
+      log.info(LOG_CATEGORY, "[announcement] Generated text", {
+        requestId,
+        jobTitle,
+        announcementLength: announcement.length,
+      });
 
       // Fetch TTS audio
-      log.info(LOG_CATEGORY, "[announcement] Generating TTS...");
+      log.info(LOG_CATEGORY, "[announcement] Generating TTS", {
+        requestId,
+      });
       let audioBlob: Blob | null = null;
 
       try {
@@ -39,17 +46,29 @@ export function useAnnouncementGeneration() {
         if (ttsResp.ok) {
           const audioBuffer = await ttsResp.arrayBuffer();
           audioBlob = new Blob([audioBuffer], { type: "audio/mpeg" });
-          log.info(LOG_CATEGORY, "[announcement] TTS generated successfully");
+          log.info(LOG_CATEGORY, "[announcement] TTS generated successfully", {
+            requestId,
+            audioBytes: audioBuffer.byteLength,
+          });
         } else {
-          console.warn("[announcement] TTS failed with status:", ttsResp.status);
+          log.warn(LOG_CATEGORY, "[announcement] TTS failed with status", {
+            requestId,
+            status: ttsResp.status,
+          });
         }
       } catch (err) {
-        console.warn("[announcement] Error calling TTS API:", err);
+        log.warn(LOG_CATEGORY, "[announcement] Error calling TTS API", {
+          requestId,
+          errorMessage: err instanceof Error ? err.message : String(err),
+        });
       }
 
       return { text: announcement, audioBlob };
     } catch (error) {
-      log.error(LOG_CATEGORY, "[announcement] Unexpected error:", error);
+      log.error(LOG_CATEGORY, "[announcement] Unexpected error", {
+        requestId,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
       throw error;
     }
   }, []);

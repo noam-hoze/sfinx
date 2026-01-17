@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import OpenAI from "openai";
+import { log } from "app/shared/services";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
 
 interface Message {
   role: "user" | "assistant";
@@ -142,7 +146,10 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
         readyToEvaluate: false,
       });
     } catch (error) {
-      console.error("Error:", error);
+      log.error(LOG_CATEGORY, "OpenAI request failed", {
+        pasteEvaluationId,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
       alert("Error communicating with OpenAI");
     } finally {
       setIsLoading(false);
@@ -202,7 +209,10 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
           // Remove CONTROL line from displayed text
           aiText = response.replace(/CONTROL:\s*\{[\s\S]*?\}\s*\n?/, "").trim();
         } catch (e) {
-          console.error("Failed to parse CONTROL:", e);
+          log.warn(LOG_CATEGORY, "Failed to parse CONTROL", {
+            pasteEvaluationId,
+            errorMessage: e instanceof Error ? e.message : String(e),
+          });
         }
       }
 
@@ -243,10 +253,17 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
               understandingLevel: score.understandingLevel,
             };
             setQuestionScores(prev => [...prev, newScore]);
-            console.log("Question score:", newScore);
+            log.debug(LOG_CATEGORY, "Question score recorded", {
+              pasteEvaluationId,
+              score: newScore.score,
+              understandingLevel: newScore.understandingLevel,
+            });
           }
         } catch (e) {
-          console.error("Failed to score Q&A:", e);
+          log.error(LOG_CATEGORY, "Failed to score Q&A", {
+            pasteEvaluationId,
+            errorMessage: e instanceof Error ? e.message : String(e),
+          });
         }
       }
 
@@ -255,7 +272,10 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
         await triggerFinalEvaluation(finalMessages);
       }
     } catch (error) {
-      console.error("Error:", error);
+      log.error(LOG_CATEGORY, "OpenAI follow-up failed", {
+        pasteEvaluationId,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
       alert("Error communicating with OpenAI");
     } finally {
       setIsLoading(false);
@@ -283,7 +303,10 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
       
       setFinalEvaluation(evaluation);
     } catch (error) {
-      console.error("Error aggregating evaluation:", error);
+      log.error(LOG_CATEGORY, "Error aggregating evaluation", {
+        pasteEvaluationId,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
     }
   };
 
@@ -523,4 +546,3 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
     </div>
   );
 }
-

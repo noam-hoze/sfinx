@@ -16,9 +16,12 @@ const openai = new OpenAI({
  * Fast evaluation: returns only category scores and next question (no reasoning/captions/DB saves)
  */
 export async function POST(request: NextRequest) {
+    const requestId = request.headers.get("x-request-id");
+    let sessionId: string | undefined;
     try {
         const body = await request.json();
-        const { sessionId, question, answer, experienceCategories, currentCounts, currentFocusTopic, conversationHistory, excludedTopics, answerHistory } = body;
+        sessionId = body.sessionId;
+        const { question, answer, experienceCategories, currentCounts, currentFocusTopic, conversationHistory, excludedTopics, answerHistory } = body;
 
         if (!sessionId || !question || answer === undefined || !experienceCategories || !currentCounts) {
             return NextResponse.json(
@@ -34,7 +37,10 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        log.info(LOG_CATEGORY, "[evaluate-answer-fast] Fast evaluation started");
+        log.info(LOG_CATEGORY, "[evaluate-answer-fast] Fast evaluation started", {
+            requestId,
+            sessionId,
+        });
 
         // Fetch session to get company/job context
         const session = await prisma.interviewSession.findUnique({
@@ -71,7 +77,10 @@ export async function POST(request: NextRequest) {
 
         // Check if all categories excluded
         if (activeCategories.length === 0) {
-            log.info(LOG_CATEGORY, "[evaluate-answer-fast] All categories excluded - ending interview");
+            log.info(LOG_CATEGORY, "[evaluate-answer-fast] All categories excluded - ending interview", {
+                requestId,
+                sessionId,
+            });
             return NextResponse.json({
                 success: true,
                 allCategoriesExcluded: true,
@@ -177,12 +186,13 @@ Return JSON:
                 content: fastPrompt,
             },
         ];
-        console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log("→ OpenAI Request [evaluate-answer-fast]");
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log("Model:", evaluationModel);
-        console.log("\nSystem:", messages[0].content);
-        console.log("\nUser Prompt:", messages[1].content);
+        log.info(LOG_CATEGORY, "[evaluate-answer-fast] OpenAI request prepared", {
+            requestId,
+            sessionId,
+            model: evaluationModel,
+            promptLength: fastPrompt.length,
+            messageCount: messages.length,
+        });
 
         const completion = await openai.chat.completions.create({
             model: evaluationModel,
@@ -192,11 +202,11 @@ Return JSON:
         });
 
         const responseText = completion.choices[0]?.message?.content;
-        console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log("← OpenAI Response [evaluate-answer-fast]");
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log(JSON.stringify(JSON.parse(responseText || "{}"), null, 2));
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+        log.info(LOG_CATEGORY, "[evaluate-answer-fast] OpenAI response received", {
+            requestId,
+            sessionId,
+            responseLength: responseText ? responseText.length : undefined,
+        });
         
         if (!responseText) {
             throw new Error("OpenAI returned empty response");
@@ -234,7 +244,10 @@ Return JSON:
                 
                 // Check if all categories now excluded
                 if (newActiveCategories.length === 0) {
-                    log.info(LOG_CATEGORY, "[evaluate-answer-fast] All categories excluded after increment");
+                    log.info(LOG_CATEGORY, "[evaluate-answer-fast] All categories excluded after increment", {
+                        requestId,
+                        sessionId,
+                    });
                     return NextResponse.json({
                         success: true,
                         allCategoriesExcluded: true,
@@ -325,7 +338,11 @@ Return JSON:
             };
         });
 
-        log.info(LOG_CATEGORY, "[evaluate-answer-fast] Fast evaluation complete");
+        log.info(LOG_CATEGORY, "[evaluate-answer-fast] Fast evaluation complete", {
+            requestId,
+            sessionId,
+            updatedCount: updatedCounts.length,
+        });
 
         return NextResponse.json({
             success: true,
@@ -337,7 +354,11 @@ Return JSON:
             evaluationIntent: result.evaluationIntent || "",
         });
     } catch (error) {
-        log.error(LOG_CATEGORY, "[evaluate-answer-fast] ❌ Error:", error);
+        log.error(LOG_CATEGORY, "[evaluate-answer-fast] Error", {
+            requestId,
+            sessionId,
+            errorMessage: error instanceof Error ? error.message : String(error),
+        });
         return NextResponse.json(
             { error: error instanceof Error ? error.message : "Unknown error" },
             { status: 500 }

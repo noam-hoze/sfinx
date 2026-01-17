@@ -1,34 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions, getCached, setCached } from "app/shared/services/server";
+import { log } from "app/shared/services";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import prisma from "lib/prisma";
+
+const LOG_CATEGORY = LOG_CATEGORIES.COMPANY;
 
 /**
  * Extracts top 2-3 category highlights from interview session data.
  */
 function extractTopHighlights(session: any): string[] {
-  console.log("[HIGHLIGHTS] Session:", session?.id);
-  console.log("[HIGHLIGHTS] TelemetryData:", session?.telemetryData);
-  
   const telemetryArray = Array.isArray(session?.telemetryData) 
     ? session.telemetryData 
     : session?.telemetryData ? [session.telemetryData] : [];
   
   if (telemetryArray.length === 0) {
-    console.log("[HIGHLIGHTS] No telemetry data found");
     return [];
   }
 
   const telemetry = telemetryArray[0];
-  console.log("[HIGHLIGHTS] Telemetry:", telemetry);
-  console.log("[HIGHLIGHTS] BackgroundSummary:", telemetry.backgroundSummary);
-  console.log("[HIGHLIGHTS] CodingSummary:", telemetry.codingSummary);
-  
   const allCategories: Array<{ name: string; score: number }> = [];
 
   if (telemetry.backgroundSummary?.experienceCategories) {
     const expCats = telemetry.backgroundSummary.experienceCategories;
-    console.log("[HIGHLIGHTS] ExperienceCategories:", expCats);
     Object.entries(expCats).forEach(([key, value]: [string, any]) => {
       if (value?.score != null) {
         allCategories.push({ name: value.name || key, score: value.score });
@@ -38,7 +33,6 @@ function extractTopHighlights(session: any): string[] {
 
   if (telemetry.codingSummary?.jobSpecificCategories) {
     const codeCats = telemetry.codingSummary.jobSpecificCategories;
-    console.log("[HIGHLIGHTS] JobSpecificCategories:", codeCats);
     Object.entries(codeCats).forEach(([key, value]: [string, any]) => {
       if (value?.score != null) {
         allCategories.push({ name: value.name || key, score: value.score });
@@ -46,12 +40,10 @@ function extractTopHighlights(session: any): string[] {
     });
   }
 
-  console.log("[HIGHLIGHTS] AllCategories:", allCategories);
   const result = allCategories
     .sort((a, b) => b.score - a.score)
     .slice(0, 3)
     .map((c) => c.name);
-  console.log("[HIGHLIGHTS] Result:", result);
   
   return result;
 }
@@ -64,6 +56,8 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ jobId: string }> }
 ) {
+  const requestId = request.headers.get("x-request-id");
+  let jobId: string | undefined;
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
@@ -75,7 +69,8 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { jobId } = await context.params;
+    const params = await context.params;
+    jobId = params.jobId;
 
     const cacheKey = `applicants:job:${jobId}`;
     const cached = await getCached<any>(cacheKey);
@@ -190,11 +185,14 @@ export async function GET(
     await setCached(cacheKey, result);
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Error fetching job applicants:", error);
+    log.error(LOG_CATEGORY, "Error fetching job applicants", {
+      requestId,
+      jobId,
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
     );
   }
 }
-

@@ -7,6 +7,10 @@ import { useDispatch } from "react-redux";
 import { setNavigationSource } from "@/shared/state/slices/navigationSlice";
 import SfinxSpinner from "app/shared/components/SfinxSpinner";
 import { DashboardPageLayout } from "app/shared/components";
+import { log } from "app/shared/services";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.COMPANY_DASHBOARD;
 
 interface JobWithApplicants {
     id: string;
@@ -161,7 +165,11 @@ export default function ApplicantsByJob() {
                 setJobs(data.jobs);
             }
         } catch (error) {
-            console.error("Failed to fetch jobs:", error);
+            log.error(LOG_CATEGORY, "Failed to fetch jobs", {
+                userId: session?.user?.id,
+                pathname,
+                errorMessage: error instanceof Error ? error.message : String(error),
+            });
         } finally {
             setLoading(false);
         }
