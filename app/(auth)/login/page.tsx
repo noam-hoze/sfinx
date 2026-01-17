@@ -63,7 +63,8 @@ export default function LoginPage() {
                     <SfinxLogo
                         width={180}
                         height={60}
-                        className="w-[180px] h-auto mx-auto"
+                        className="mx-auto object-contain"
+                        priority
                     />
                 </div>
 
