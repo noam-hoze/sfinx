@@ -56,9 +56,18 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             );
         }
-        const resolvedFinalCode = requireNonEmptyString(finalCode, "finalCode");
-        const resolvedCodingTask = requireNonEmptyString(codingTask, "codingTask");
-        const resolvedExpectedSolution = requireNonEmptyString(expectedSolution, "expectedSolution");
+        if (typeof finalCode !== "string" || finalCode.trim().length === 0) {
+            return NextResponse.json({ error: "finalCode is required" }, { status: 400 });
+        }
+        if (typeof codingTask !== "string" || codingTask.trim().length === 0) {
+            return NextResponse.json({ error: "codingTask is required" }, { status: 400 });
+        }
+        if (typeof expectedSolution !== "string" || expectedSolution.trim().length === 0) {
+            return NextResponse.json({ error: "expectedSolution is required" }, { status: 400 });
+        }
+        const resolvedFinalCode = finalCode;
+        const resolvedCodingTask = codingTask;
+        const resolvedExpectedSolution = expectedSolution;
 
         log.info(LOG_CATEGORY, "[Generate Coding Summary] Starting summary generation for session:", sessionId);
 

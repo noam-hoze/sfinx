@@ -20,6 +20,7 @@ import { generateAssistantReply } from "app/(features)/interview/components/chat
 import { createInterviewSession } from "app/(features)/interview/components/services/interviewSessionService";
 
 const LOG_CATEGORY = LOG_CATEGORIES.BACKGROUND_INTERVIEW;
+const SCRIPT_SCHEMA_ERROR = "BG_SCRIPT_SCHEMA_INVALID";
 
 /**
  * Execute background preload sequence: create user, session, fetch script, generate first question.
@@ -98,14 +99,34 @@ export function useBackgroundPreload() {
         const scriptCacheKey = `interview-script-${jobId}-${SCRIPT_CACHE_VERSION}`;
         let scriptData: any = null;
 
+        const requireScriptField = (value: unknown, label: string): string => {
+          if (typeof value !== "string" || value.trim().length === 0) {
+            log.error(LOG_CATEGORY, `[preload] ${SCRIPT_SCHEMA_ERROR}: ${label} missing`);
+            throw new Error(`${label} is required`);
+          }
+          return value;
+        };
+
+        const validateScriptData = (data: any): void => {
+          requireScriptField(data?.companyName, "companyName");
+          requireScriptField(data?.backgroundQuestion, "backgroundQuestion");
+          if (!Array.isArray(data?.experienceCategories)) {
+            log.error(LOG_CATEGORY, `[preload] ${SCRIPT_SCHEMA_ERROR}: experienceCategories missing`);
+            throw new Error("experienceCategories is required");
+          }
+        };
+
         try {
           const cached = localStorage.getItem(scriptCacheKey);
           if (cached) {
-            scriptData = JSON.parse(cached);
+            const parsed = JSON.parse(cached);
+            validateScriptData(parsed);
+            scriptData = parsed;
             log.info(LOG_CATEGORY, "[preload] Script loaded from cache");
           }
         } catch (err) {
-          log.warn(LOG_CATEGORY, "[preload] Failed to read script cache:", err);
+          log.warn(LOG_CATEGORY, "[preload] Invalid script cache; clearing:", err);
+          localStorage.removeItem(scriptCacheKey);
         }
 
         if (!scriptData) {
@@ -113,6 +134,7 @@ export function useBackgroundPreload() {
           const scriptResp = await fetch(`/api/interviews/script?company=${companySlug}&role=${roleSlug}`);
           if (!scriptResp.ok) throw new Error("Failed to load interview script");
           scriptData = await scriptResp.json();
+          validateScriptData(scriptData);
           localStorage.setItem(scriptCacheKey, JSON.stringify(scriptData));
         }
 

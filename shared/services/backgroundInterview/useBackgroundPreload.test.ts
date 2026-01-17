@@ -34,6 +34,7 @@ function setupLocalStorage() {
     global.localStorage = {
         getItem: (key: string) => store.get(key) ?? null,
         setItem: (key: string, value: string) => store.set(key, value),
+        removeItem: (key: string) => store.delete(key),
     } as Storage;
 }
 
@@ -53,10 +54,22 @@ describe("useBackgroundPreload", () => {
         expect(log.error).toHaveBeenCalled();
     });
 
+    it("clears invalid cached script and refetches", async () => {
+        localStorage.setItem("interview-script-acme-role-v8", "not-json");
+        global.fetch = vi.fn()
+            .mockResolvedValueOnce(buildResponse({ application: { id: "app-1" } }))
+            .mockResolvedValueOnce(buildResponse({ companyName: "Acme", backgroundQuestion: "Question?", experienceCategories: [] })) as any;
+        vi.mocked(createInterviewSession).mockResolvedValue({ interviewSession: { id: "sess-1" } } as any);
+        vi.mocked(generateAssistantReply).mockResolvedValue(JSON.stringify({ question: "Q", evaluationIntent: "Listen" }));
+        const { preload } = useBackgroundPreload();
+        await preload("acme-role", "comp-1", {} as any, "user-1");
+        expect(localStorage.getItem("interview-script-acme-role-v8")).not.toBe("not-json");
+    });
+
     it("throws when first question JSON is invalid", async () => {
         global.fetch = vi.fn()
             .mockResolvedValueOnce(buildResponse({ application: { id: "app-1" } }))
-            .mockResolvedValueOnce(buildResponse({ companyName: "Acme", backgroundQuestion: "Question?" })) as any;
+            .mockResolvedValueOnce(buildResponse({ companyName: "Acme", backgroundQuestion: "Question?", experienceCategories: [] })) as any;
         vi.mocked(createInterviewSession).mockResolvedValue({ interviewSession: { id: "sess-1" } } as any);
         vi.mocked(generateAssistantReply).mockResolvedValue("not-json");
         const { preload } = useBackgroundPreload();

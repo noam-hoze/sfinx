@@ -45,7 +45,6 @@ describe("POST /api/interviews/generate-coding-summary", () => {
     it("returns 500 when required fields are missing", async () => {
         process.env.OPENAI_API_KEY = "test-key";
         const response = await POST(buildRequest({ sessionId: "sess-1" }) as any);
-        expect(response.status).toBe(500);
-        expect(log.error).toHaveBeenCalled();
+        expect(response.status).toBe(400);
     });
 });
