@@ -1,6 +1,7 @@
 #!/usr/bin/env tsx
 
 import { PrismaClient } from "@prisma/client";
+import { pathToFileURL } from "url";
 import { log } from "app/shared/services/logger";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import { calculateScore, type RawScores, type WorkstyleMetrics } from "../../app/shared/utils/calculateScore";
@@ -10,7 +11,7 @@ const LOG_CATEGORY = LOG_CATEGORIES.DB;
 /**
  * Resolve database URL with explicit validation.
  */
-function resolveDatabaseUrl(): string {
+export function resolveDatabaseUrl(): string {
     if (process.env.DEV_DATABASE_URL) {
         return process.env.DEV_DATABASE_URL;
     }
@@ -24,7 +25,7 @@ function resolveDatabaseUrl(): string {
 /**
  * Require a defined value.
  */
-function requireValue<T>(value: T | null | undefined, label: string): T {
+export function requireValue<T>(value: T | null | undefined, label: string): T {
     if (value === null || value === undefined) {
         log.error(LOG_CATEGORY, `[backfill-final-scores] Missing ${label}`);
         throw new Error(`${label} is required.`);
@@ -35,7 +36,7 @@ function requireValue<T>(value: T | null | undefined, label: string): T {
 /**
  * Require a finite number.
  */
-function requireNumber(value: unknown, label: string): number {
+export function requireNumber(value: unknown, label: string): number {
     if (typeof value !== "number" || !Number.isFinite(value)) {
         log.error(LOG_CATEGORY, `[backfill-final-scores] Invalid ${label}`, { value });
         throw new Error(`${label} must be a finite number.`);
@@ -43,150 +44,224 @@ function requireNumber(value: unknown, label: string): number {
     return value;
 }
 
-process.env.DATABASE_URL = resolveDatabaseUrl();
+type SessionWithTelemetry = Awaited<ReturnType<PrismaClient["interviewSession"]["findMany"]>>[number];
 
-const prisma = new PrismaClient();
-
-async function backfillFinalScores() {
-    log.info(LOG_CATEGORY, "🔄 Starting final score backfill...");
-
-    const sessions = await prisma.interviewSession.findMany({
-        where: {
-            finalScore: null,
-            telemetryData: {
-                isNot: null,
-            },
-        },
+/**
+ * Fetch sessions missing final scores.
+ */
+async function fetchSessions(prisma: PrismaClient): Promise<SessionWithTelemetry[]> {
+    return prisma.interviewSession.findMany({
+        where: { finalScore: null, telemetryData: { isNot: null } },
         include: {
-            telemetryData: {
-                include: {
-                    backgroundSummary: true,
-                    codingSummary: true,
-                    workstyleMetrics: true,
-                },
-            },
-            application: {
-                include: {
-                    job: {
-                        include: {
-                            scoringConfiguration: true,
-                        },
-                    },
-                },
-            },
+            telemetryData: { include: { backgroundSummary: true, codingSummary: true, workstyleMetrics: true } },
+            application: { include: { job: { include: { scoringConfiguration: true } } } },
         },
     });
+}
 
-    log.info(LOG_CATEGORY, `📊 Found ${sessions.length} sessions without finalScore`);
+/**
+ * Build experience score inputs.
+ */
+function buildExperienceScores(session: SessionWithTelemetry) {
+    const job = session.application.job;
+    const jobExperienceCategories = requireValue(job.experienceCategories as any, "job.experienceCategories");
+    const backgroundExperienceCategories = requireValue(
+        session.telemetryData?.backgroundSummary?.experienceCategories as any,
+        "telemetryData.backgroundSummary.experienceCategories"
+    );
+    return jobExperienceCategories.map((cat: any) => ({
+        name: requireValue(cat.name, "experienceCategories.name"),
+        score: requireNumber(backgroundExperienceCategories[cat.name]?.score, `experience score for ${cat.name}`),
+        weight: requireNumber(cat.weight, `experience weight for ${cat.name}`),
+    }));
+}
 
+/**
+ * Resolve coding category key match.
+ */
+function resolveCategoryKey(codingCategoriesData: Record<string, any>, catName: string): string {
+    const baseName = requireValue(catName, "codingCategories.name").split(" (")[0];
+    const matchingKey = Object.keys(codingCategoriesData).find((key) =>
+        key.startsWith(baseName) || catName.startsWith(key)
+    );
+    return requireValue(matchingKey, `codingCategories key for ${catName}`);
+}
+
+/**
+ * Build coding category score inputs.
+ */
+function buildCategoryScores(session: SessionWithTelemetry) {
+    const job = session.application.job;
+    const jobCodingCategories = requireValue(job.codingCategories as any, "job.codingCategories");
+    const codingCategoriesData = requireValue(
+        session.telemetryData?.codingSummary?.jobSpecificCategories as any,
+        "telemetryData.codingSummary.jobSpecificCategories"
+    );
+    return jobCodingCategories.map((cat: any) => {
+        const resolvedKey = resolveCategoryKey(codingCategoriesData, cat.name);
+        return {
+            name: requireValue(cat.name, "codingCategories.name"),
+            score: requireNumber(codingCategoriesData[resolvedKey]?.score, `coding score for ${cat.name}`),
+            weight: requireNumber(cat.weight, `coding weight for ${cat.name}`),
+        };
+    });
+}
+
+/**
+ * Calculate accountability score.
+ */
+async function calculateAccountabilityScore(prisma: PrismaClient, sessionId: string) {
+    const externalToolUsages = await prisma.externalToolUsage.findMany({
+        where: { interviewSessionId: sessionId },
+        select: { accountabilityScore: true },
+    });
+    if (externalToolUsages.length === 0) return undefined;
+    const total = externalToolUsages.reduce(
+        (sum, usage) => sum + requireNumber(usage.accountabilityScore, "accountabilityScore"),
+        0
+    );
+    return total / externalToolUsages.length;
+}
+
+/**
+ * Log session skip details.
+ */
+function logSessionStatus(session: SessionWithTelemetry) {
+    const job = session.application.job;
+    const telemetryData = session.telemetryData;
+    log.info(LOG_CATEGORY, `🔍 Checking session ${session.id}:`, {
+        jobId: job.id,
+        jobTitle: job.title,
+        hasBackgroundSummary: !!telemetryData?.backgroundSummary,
+        hasCodingSummary: !!telemetryData?.codingSummary,
+        hasScoringConfig: !!job.scoringConfiguration,
+        scoringConfigId: job.scoringConfiguration?.id,
+    });
+}
+
+/**
+ * Update session final score in DB.
+ */
+async function updateSessionScore(prisma: PrismaClient, sessionId: string, finalScore: number) {
+    await prisma.interviewSession.update({ where: { id: sessionId }, data: { finalScore } });
+}
+
+/**
+ * Build workstyle metrics for scoring.
+ */
+async function buildWorkstyleMetrics(prisma: PrismaClient, sessionId: string): Promise<WorkstyleMetrics> {
+    const avgAccountabilityScore = await calculateAccountabilityScore(prisma, sessionId);
+    return { aiAssistAccountabilityScore: avgAccountabilityScore };
+}
+
+/**
+ * Log scoring inputs for a session.
+ */
+function logScoreInputs(sessionId: string, experienceScores: any[], categoryScores: any[], metrics: WorkstyleMetrics, config: any) {
+    log.info(LOG_CATEGORY, `📊 Score calculation inputs for ${sessionId}:`, {
+        experienceScores,
+        categoryScores,
+        workstyleMetrics: metrics,
+        scoringConfig: config,
+    });
+}
+
+/**
+ * Log score calculation output.
+ */
+function logScoreResult(result: { experienceScore: number; codingScore: number; finalScore: number }) {
+    log.info(LOG_CATEGORY, "📊 Score calculation result:", {
+        experienceScore: result.experienceScore,
+        codingScore: result.codingScore,
+        finalScore: result.finalScore,
+        rounded: Math.round(result.finalScore),
+    });
+}
+
+/**
+ * Calculate final score from inputs.
+ */
+function calculateFinalScore(rawScores: RawScores, metrics: WorkstyleMetrics, config: any): number {
+    const result = calculateScore(rawScores, metrics, config);
+    logScoreResult(result);
+    return Math.round(result.finalScore);
+}
+
+/**
+ * Process a single session.
+ */
+async function processSession(prisma: PrismaClient, session: SessionWithTelemetry): Promise<boolean> {
+    logSessionStatus(session);
+    const job = session.application.job;
+    const telemetryData = session.telemetryData;
+    if (!telemetryData?.backgroundSummary || !telemetryData?.codingSummary || !job.scoringConfiguration) {
+        log.warn(LOG_CATEGORY, `⏭️  Skipping session ${session.id} - missing required data`);
+        return false;
+    }
+    const experienceScores = buildExperienceScores(session);
+    const categoryScores = buildCategoryScores(session);
+    const rawScores: RawScores = { experienceScores, categoryScores };
+    const workstyleMetrics = await buildWorkstyleMetrics(prisma, session.id);
+    logScoreInputs(session.id, experienceScores, categoryScores, workstyleMetrics, job.scoringConfiguration);
+    const finalScore = calculateFinalScore(rawScores, workstyleMetrics, job.scoringConfiguration as any);
+    await updateSessionScore(prisma, session.id, finalScore);
+    log.info(LOG_CATEGORY, `✅ Session ${session.id}: finalScore = ${finalScore}`);
+    return true;
+}
+
+/**
+ * Process all sessions needing backfill.
+ */
+async function processSessions(prisma: PrismaClient, sessions: SessionWithTelemetry[]) {
     let successCount = 0;
     let failCount = 0;
-
     for (const session of sessions) {
         try {
-            const { telemetryData, application } = session;
-            const job = application.job;
-
-            log.info(LOG_CATEGORY, `🔍 Checking session ${session.id}:`, {
-                jobId: job.id,
-                jobTitle: job.title,
-                hasBackgroundSummary: !!telemetryData?.backgroundSummary,
-                hasCodingSummary: !!telemetryData?.codingSummary,
-                hasScoringConfig: !!job.scoringConfiguration,
-                scoringConfigId: job.scoringConfiguration?.id,
-            });
-
-            if (!telemetryData?.backgroundSummary || !telemetryData?.codingSummary || !job.scoringConfiguration) {
-                log.warn(LOG_CATEGORY, `⏭️  Skipping session ${session.id} - missing required data`);
-                continue;
-            }
-
-            const jobExperienceCategories = requireValue(job.experienceCategories as any, "job.experienceCategories");
-            const backgroundExperienceCategories = requireValue(
-                telemetryData.backgroundSummary.experienceCategories as any,
-                "telemetryData.backgroundSummary.experienceCategories"
-            );
-            const experienceScores = jobExperienceCategories.map((cat: any) => ({
-                name: requireValue(cat.name, "experienceCategories.name"),
-                score: requireNumber(backgroundExperienceCategories[cat.name]?.score, `experience score for ${cat.name}`),
-                weight: requireNumber(cat.weight, `experience weight for ${cat.name}`),
-            }));
-
-            const jobCodingCategories = requireValue(job.codingCategories as any, "job.codingCategories");
-            const codingCategoriesData = requireValue(
-                telemetryData.codingSummary.jobSpecificCategories as any,
-                "telemetryData.codingSummary.jobSpecificCategories"
-            );
-            const categoryScores = jobCodingCategories.map((cat: any) => {
-                // Match by base name (before any parentheses)
-                const baseName = requireValue(cat.name, "codingCategories.name").split(" (")[0];
-                const matchingKey = Object.keys(codingCategoriesData).find((key) =>
-                    key.startsWith(baseName) || cat.name.startsWith(key)
-                );
-                const resolvedKey = requireValue(matchingKey, `codingCategories key for ${cat.name}`);
-
-                return {
-                    name: requireValue(cat.name, "codingCategories.name"),
-                    score: requireNumber(codingCategoriesData[resolvedKey]?.score, `coding score for ${cat.name}`),
-                    weight: requireNumber(cat.weight, `coding weight for ${cat.name}`),
-                };
-            });
-
-            const rawScores: RawScores = { experienceScores, categoryScores };
-            
-            // Get External Tools accountability score if available
-            const externalToolUsages = await prisma.externalToolUsage.findMany({
-                where: { interviewSessionId: session.id },
-                select: { accountabilityScore: true }
-            });
-            
-            const avgAccountabilityScore = externalToolUsages.length > 0
-                ? externalToolUsages.reduce((sum, usage) => sum + requireNumber(usage.accountabilityScore, "accountabilityScore"), 0)
-                    / externalToolUsages.length
-                : undefined;
-            
-            const workstyleMetrics: WorkstyleMetrics = { 
-                aiAssistAccountabilityScore: avgAccountabilityScore
-            };
-
-            log.info(LOG_CATEGORY, `📊 Score calculation inputs for ${session.id}:`, {
-                experienceScores,
-                categoryScores,
-                workstyleMetrics,
-                scoringConfig: job.scoringConfiguration,
-            });
-
-            const result = calculateScore(rawScores, workstyleMetrics, job.scoringConfiguration as any);
-            const finalScore = Math.round(result.finalScore);
-
-            log.info(LOG_CATEGORY, "📊 Score calculation result:", {
-                experienceScore: result.experienceScore,
-                codingScore: result.codingScore,
-                finalScore: result.finalScore,
-                rounded: finalScore,
-            });
-
-            await prisma.interviewSession.update({
-                where: { id: session.id },
-                data: { finalScore },
-            });
-
-            log.info(LOG_CATEGORY, `✅ Session ${session.id}: finalScore = ${finalScore}`);
-            successCount++;
+            if (await processSession(prisma, session)) successCount += 1;
         } catch (error) {
             log.error(LOG_CATEGORY, `❌ Failed to process session ${session.id}:`, error);
-            failCount++;
+            failCount += 1;
         }
     }
-
     log.info(LOG_CATEGORY, "📈 Backfill complete:");
     log.info(LOG_CATEGORY, `   ✅ Success: ${successCount}`);
     log.info(LOG_CATEGORY, `   ❌ Failed: ${failCount}`);
-
-    await prisma.$disconnect();
 }
 
-backfillFinalScores().catch((error) => {
-    log.error(LOG_CATEGORY, "Fatal error:", error);
-    process.exit(1);
-});
+/**
+ * Run final score backfill.
+ */
+export async function backfillFinalScores(prisma: PrismaClient): Promise<void> {
+    log.info(LOG_CATEGORY, "🔄 Starting final score backfill...");
+    const sessions = await fetchSessions(prisma);
+    log.info(LOG_CATEGORY, `📊 Found ${sessions.length} sessions without finalScore`);
+    await processSessions(prisma, sessions);
+}
+
+/**
+ * Check if this module is the entry point.
+ */
+function isMainModule(): boolean {
+    const entry = process.argv[1];
+    return Boolean(entry && import.meta.url === pathToFileURL(entry).href);
+}
+
+/**
+ * Execute script when run directly.
+ */
+export async function runBackfillFinalScores(): Promise<void> {
+    process.env.DATABASE_URL = resolveDatabaseUrl();
+    const prisma = new PrismaClient();
+    try {
+        await backfillFinalScores(prisma);
+    } finally {
+        await prisma.$disconnect();
+    }
+}
+
+if (isMainModule()) {
+    runBackfillFinalScores().catch((error) => {
+        log.error(LOG_CATEGORY, "Fatal error:", error);
+        process.exit(1);
+    });
+}
