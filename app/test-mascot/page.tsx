@@ -1,3 +1,22 @@
+/**
+ * REFERENCE IMPLEMENTATION - DO NOT DELETE
+ * 
+ * This is the working proof-of-concept for Mascotbot integration.
+ * 
+ * Production implementation located at:
+ * - Services: shared/services/mascot.ts, shared/services/tts.ts
+ * - Utilities: shared/utils/audioConversion.ts
+ * - Component: app/(features)/interview/components/RiveMascot.tsx
+ * - API Route: app/api/mascot/visemes-audio/route.ts
+ * 
+ * Keep this file for troubleshooting and validation purposes.
+ * This implementation demonstrates the complete end-to-end flow:
+ * 1. Text input → Mascotbot API
+ * 2. SSE stream parsing for visemes and PCM audio
+ * 3. PCM to WAV conversion
+ * 4. Rive animation with lip-sync playback
+ */
+
 "use client";
 
 import React, { useState } from "react";
@@ -84,7 +103,7 @@ const MascotDisplay = () => {
           wavData.set(wavHeader, 0);
           wavData.set(pcmData, wavHeader.length);
           
-          const audioBlob = new Blob([wavData], { type: 'audio/wav' });
+          const audioBlob = new Blob([wavData.buffer], { type: 'audio/wav' });
           const audioUrl = URL.createObjectURL(audioBlob);
           const audio = new Audio(audioUrl);
           await audio.play();

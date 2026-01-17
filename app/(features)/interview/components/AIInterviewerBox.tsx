@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import RiveMascot from "./RiveMascot";
+import type { Viseme } from "@/shared/types/mascot";
 
 /**
  * AIInterviewerBox: Displays interviewer state with animations and evaluation intent.
@@ -13,6 +14,7 @@ interface AIInterviewerBoxProps {
     mode?: "talking" | "idle";
     intent?: string;
     isArriving?: boolean;
+    visemes?: Viseme[];
 }
 
 const AIInterviewerBox: React.FC<AIInterviewerBoxProps> = ({ 
@@ -20,7 +22,8 @@ const AIInterviewerBox: React.FC<AIInterviewerBoxProps> = ({
     hasGlow, 
     mode = "talking",
     intent,
-    isArriving = false
+    isArriving = false,
+    visemes = []
 }) => {
     const [previousMode, setPreviousMode] = useState<"talking" | "idle">(mode);
     const mascotEnabled = process.env.NEXT_PUBLIC_MASCOT_ENABLED === "true";
@@ -61,7 +64,8 @@ const AIInterviewerBox: React.FC<AIInterviewerBoxProps> = ({
                     {mascotEnabled ? (
                         <RiveMascot 
                             className={`w-full h-full ${isArriving ? 'animate-in fade-in duration-700' : ''}`}
-                            isSpeaking={mode === "talking"}
+                            visemes={visemes}
+                            isPlaying={mode === "talking"}
                         />
                     ) : (
                         <img 

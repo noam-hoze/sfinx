@@ -100,6 +100,7 @@ function InterviewPageContent() {
   const [codingApplicationId, setCodingApplicationId] = useState<string | null>(applicationId || null);
   const [backgroundQuestionNumber, setBackgroundQuestionNumber] = useState(1);
   const [isAIAudioPlaying, setIsAIAudioPlaying] = useState(false);
+  const [currentVisemes, setCurrentVisemes] = useState<import("@/shared/types/mascot").Viseme[]>([]);
   const [showCameraGlow, setShowCameraGlow] = useState(false);
   const [isUserRecording, setIsUserRecording] = useState(false);
   const [currentIntent, setCurrentIntent] = useState<string>("");
@@ -743,8 +744,11 @@ function InterviewPageContent() {
   };
 
   // Glow state handlers
-  const handleAudioStateChange = useCallback((isPlaying: boolean, intentText?: string) => {
+  const handleAudioStateChange = useCallback((isPlaying: boolean, intentText?: string, visemes?: import("@/shared/types/mascot").Viseme[]) => {
     setIsAIAudioPlaying(isPlaying);
+    if (visemes) {
+      setCurrentVisemes(visemes);
+    }
     if (isPlaying) {
       // Clear intent when audio starts
       setCurrentIntent("");
@@ -883,6 +887,7 @@ function InterviewPageContent() {
                 mode={isAIAudioPlaying ? "talking" : "idle"}
                 intent={currentIntent}
                 isArriving={isArriving}
+                visemes={currentVisemes}
               />
             </div>
             

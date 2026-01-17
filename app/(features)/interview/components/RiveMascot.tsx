@@ -2,40 +2,66 @@
 
 import React, { useEffect } from "react";
 import { useRive } from "@rive-app/react-webgl2";
-import { MascotProvider, MascotClient, useMascot } from "@mascotbot-sdk/react";
+import { MascotProvider, MascotClient, useMascot, useMascotPlayback } from "@mascotbot-sdk/react";
+import type { Viseme } from "@/shared/types/mascot";
 
 /**
- * RiveMascot: Animated avatar with Mascot.bot viseme-based lip sync.
- * Uses Rive animation with Mascotbot SDK for lip sync.
+ * RiveMascot: Animated bear avatar with Mascotbot lip sync
+ * Uses bear.riv with InLesson state machine for lip-sync animation
  */
 interface RiveMascotProps {
   className?: string;
-  isSpeaking?: boolean;
+  visemes?: Viseme[];
+  isPlaying?: boolean;
 }
 
-const MascotContent: React.FC<{ isSpeaking: boolean }> = ({ isSpeaking }) => {
-  const { rive, RiveComponent } = useMascot();
+/**
+ * Inner component that drives lip-sync with viseme data
+ */
+const MascotContent: React.FC<{ visemes?: Viseme[]; isPlaying?: boolean }> = ({ 
+  visemes = [], 
+  isPlaying = false 
+}) => {
+  const { RiveComponent } = useMascot();
+  const playback = useMascotPlayback();
 
   useEffect(() => {
-    if (rive) {
-      const input = rive.stateMachineInputs("State Machine 1")?.[0];
-      if (input) {
-        input.value = isSpeaking;
-      }
-    }
-  }, [isSpeaking, rive]);
+    handlePlayback(playback, visemes, isPlaying);
+  }, [isPlaying, visemes, playback]);
 
   return <RiveComponent />;
 };
 
-const RiveMascot: React.FC<RiveMascotProps> = ({ className = "", isSpeaking = false }) => {
-  const mascotId = "panda";
-  
-  // Mascotbot CDN URL for ready-made mascots
-  const mascotSrc = `https://cdn.mascot.bot/mascots/${mascotId}.riv`;
-  
+/**
+ * Handles lip-sync playback state
+ */
+function handlePlayback(
+  playback: any,
+  visemes: Viseme[],
+  isPlaying: boolean
+): void {
+  if (isPlaying && visemes.length > 0) {
+    playback.reset();
+    playback.add(visemes);
+    playback.play();
+  } else if (!isPlaying) {
+    playback.pause();
+    playback.reset();
+  }
+}
+
+/**
+ * Main RiveMascot component
+ */
+const RiveMascot: React.FC<RiveMascotProps> = ({ 
+  className = "", 
+  visemes = [],
+  isPlaying = false 
+}) => {
   const rive = useRive({
-    src: mascotSrc,
+    src: "/bear.riv",
+    artboard: "Character",
+    stateMachines: "InLesson",
     autoplay: true,
   });
 
@@ -43,7 +69,7 @@ const RiveMascot: React.FC<RiveMascotProps> = ({ className = "", isSpeaking = fa
     <div className={className}>
       <MascotProvider>
         <MascotClient rive={rive}>
-          <MascotContent isSpeaking={isSpeaking} />
+          <MascotContent visemes={visemes} isPlaying={isPlaying} />
         </MascotClient>
       </MascotProvider>
     </div>
