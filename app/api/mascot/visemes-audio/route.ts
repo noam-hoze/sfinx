@@ -1,16 +1,6 @@
 /**
- * REFERENCE IMPLEMENTATION - DO NOT DELETE
- * 
- * This is the working proof-of-concept API route for Mascotbot integration.
- * 
- * Production implementation: app/api/mascot/visemes-audio/route.ts
- * 
- * Keep this file for troubleshooting and validation purposes.
- * This demonstrates the complete Mascotbot API interaction:
- * 1. Request to https://api.mascot.bot/v1/visemes-audio
- * 2. SSE (Server-Sent Events) stream parsing
- * 3. Audio chunk concatenation
- * 4. Viseme data extraction
+ * Production API route for Mascotbot viseme and audio generation
+ * Based on working test implementation at /api/test-mascot-speak
  */
 
 import { NextResponse } from "next/server";
@@ -35,7 +25,6 @@ export async function POST(request: Request) {
 
     console.log("[Mascot API] Generating TTS and visemes for text:", text);
 
-    // Call Mascotbot API with text (generates both audio and visemes)
     const response = await fetch("https://api.mascot.bot/v1/visemes-audio", {
       method: "POST",
       headers: {
@@ -70,9 +59,7 @@ export async function POST(request: Request) {
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
-        
-        // Keep the last incomplete line in buffer
-        buffer = lines.pop() || "";
+        buffer = lines.pop() || ""; // Keep the last incomplete line
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
@@ -80,28 +67,22 @@ export async function POST(request: Request) {
               const jsonStr = line.slice(6);
               const data = JSON.parse(jsonStr);
               
-              // Handle audio chunks
               if (data.type === 'audio' && data.data) {
                 audioChunks.push(data.data);
               }
               
-              // Handle viseme chunks
               if (data.visemes) {
                 visemes.push(...data.visemes);
               }
               
-              // Alternative: audio_sequence field
-              if (data.audio_sequence) {
+              if (data.audio_sequence && typeof data.audio_sequence === 'string') {
                 audioChunks.push(data.audio_sequence);
               }
-            } catch (e) {
-              // Skip incomplete JSON
-            }
+            } catch (e) { /* Skip incomplete JSON */ }
           }
         }
       }
     }
-
     const audioBase64 = audioChunks.join('');
     console.log("[Mascot API] Total visemes collected:", visemes.length);
     console.log("[Mascot API] Audio chunks collected:", audioChunks.length);

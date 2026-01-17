@@ -6,8 +6,48 @@ import { useMute } from "app/shared/contexts";
 import { loadAndCacheSoundEffect } from "@/shared/utils/audioCache";
 import { log } from "app/shared/services/logger";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+import { generateTTS } from "@/shared/services/tts";
+import { generateVisemesAndAudio } from "@/shared/services/mascot";
+import { convertPCMToWAV } from "@/shared/utils/audioConversion";
+import type { Viseme } from "@/shared/types/mascot";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
+
+/**
+ * Generates TTS and optionally mascot visemes
+ */
+async function generateAudioAndVisemes(
+  question: string,
+  mascotEnabled: boolean
+): Promise<{ audioBlob: Blob; visemes: Viseme[] }> {
+  if (mascotEnabled) {
+    return await generateWithMascot(question);
+  }
+  return await generateWithoutMascot(question);
+}
+
+/**
+ * Generates audio with mascot visemes
+ */
+async function generateWithMascot(
+  question: string
+): Promise<{ audioBlob: Blob; visemes: Viseme[] }> {
+  const { visemes, audioBase64 } = await generateVisemesAndAudio(question);
+  const wavBuffer = convertPCMToWAV(audioBase64);
+  const audioBlob = new Blob([wavBuffer], { type: "audio/wav" });
+  return { audioBlob, visemes };
+}
+
+/**
+ * Generates audio without mascot
+ */
+async function generateWithoutMascot(
+  question: string
+): Promise<{ audioBlob: Blob; visemes: Viseme[] }> {
+  const audioBuffer = await generateTTS(question);
+  const audioBlob = new Blob([audioBuffer], { type: "audio/mpeg" });
+  return { audioBlob, visemes: [] };
+}
 
 type QuestionCardProps = {
   question: string;
@@ -19,28 +59,10 @@ type QuestionCardProps = {
   getActualRecordingStartTime?: () => Date | null;
   questionNumber?: number;
   userId?: string;
-  onAudioStateChange?: (isPlaying: boolean, intentText?: string) => void;
+  onAudioStateChange?: (isPlaying: boolean, intentText?: string, visemes?: Viseme[]) => void;
   onRecordingStateChange?: (isRecording: boolean) => void;
   intentText?: string;
 };
-
-/**
- * Calls server-side TTS API to generate audio for text
- */
-async function generateTTS(text: string): Promise<ArrayBuffer> {
-  const response = await fetch("/api/tts", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`TTS API failed (${response.status}): ${errorText}`);
-  }
-
-  return response.arrayBuffer();
-}
 
 export default function QuestionCard({
   question,
@@ -112,23 +134,17 @@ export default function QuestionCard({
       // Generate and play TTS
       (async () => {
         try {
-          log.info(LOG_CATEGORY, "[QuestionCard] Generating TTS for:", question);
-          const audioBuffer = await generateTTS(question);
+          log.info(LOG_CATEGORY, "[QuestionCard] Generating audio for:", question);
+          const { audioBlob, visemes } = await generateAudioAndVisemes(question, mascotEnabled);
           
           // Stop any currently playing audio
           if (audioRef.current) {
             audioRef.current.pause();
             audioRef.current = null;
           }
-
-          // Use Mascot lip sync if enabled
-          if (mascotEnabled) {
-            log.info(LOG_CATEGORY, "[QuestionCard] Mascot enabled but using standard playback (no lip sync in QuestionCard)");
-          }
           
-          // Standard audio playback without lip sync
-          const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
-          const url = URL.createObjectURL(blob);
+          // Create audio element
+          const url = URL.createObjectURL(audioBlob);
           const audio = new Audio(url);
           audioRef.current = audio;
 
@@ -137,8 +153,8 @@ export default function QuestionCard({
 
           audio.onplay = () => {
             setIsAudioPlaying(true);
-            onAudioStateChange?.(true);
-            log.info(LOG_CATEGORY, "[QuestionCard] TTS playback started");
+            onAudioStateChange?.(true, undefined, visemes);
+            log.info(LOG_CATEGORY, "[QuestionCard] Audio playback started");
           };
 
           audio.onended = () => {
@@ -146,7 +162,7 @@ export default function QuestionCard({
             onAudioStateChange?.(false, intentText);
             URL.revokeObjectURL(url);
             audioRef.current = null;
-            log.info(LOG_CATEGORY, "[QuestionCard] TTS playback finished");
+            log.info(LOG_CATEGORY, "[QuestionCard] Audio playback finished");
           };
 
           await audio.play();

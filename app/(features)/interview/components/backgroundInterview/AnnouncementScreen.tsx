@@ -8,30 +8,13 @@ const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { useMute } from "app/shared/contexts";
+import { generateTTS } from "@/shared/services/tts";
 
 type AnnouncementScreenProps = {
   text: string;
   preloadedAudioBlob?: Blob | null;
   onComplete: () => void;
 };
-
-/**
- * Calls server-side TTS API to generate audio for announcement
- */
-async function generateTTS(text: string): Promise<ArrayBuffer> {
-  const response = await fetch("/api/tts", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`TTS API failed (${response.status}): ${errorText}`);
-  }
-
-  return response.arrayBuffer();
-}
 
 export default function AnnouncementScreen({
   text,
