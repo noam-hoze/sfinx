@@ -89,17 +89,31 @@ function TelemetryContent() {
 
                 if (response.ok) {
                     const data = await response.json();
-                    console.log("[CPS] Telemetry data received:", data);
+                    const sessionCount = Array.isArray(data.sessions) ? data.sessions.length : undefined;
+                    const firstSessionId = Array.isArray(data.sessions) ? data.sessions[0]?.id : undefined;
+                    log.info(LOG_CATEGORY, "[CPS] Telemetry data received", {
+                        candidateId,
+                        applicationId,
+                        sessionCount,
+                        firstSessionId,
+                    });
                     // Supports new API shape with sessions[]
                     if (data.sessions) {
-                        console.log("[CPS] Sessions found:", data.sessions.length);
-                        console.log("[CPS] First session videoUrl:", data.sessions[0]?.videoUrl);
+                        log.info(LOG_CATEGORY, "[CPS] Sessions available", {
+                            candidateId,
+                            applicationId,
+                            sessionCount,
+                        });
                         setTelemetryData({ candidate: data.candidate });
                         setSessions(data.sessions || []);
                         setActiveSessionIndex(0);
                     } else {
                         // Backward compatibility with single-session shape
-                        console.log("[CPS] Using legacy format, videoUrl:", data.videoUrl);
+                        log.info(LOG_CATEGORY, "[CPS] Using legacy telemetry format", {
+                            candidateId,
+                            applicationId,
+                            hasVideoUrl: Boolean(data.videoUrl),
+                        });
                         setTelemetryData(data);
                         setSessions([
                             {
@@ -124,7 +138,11 @@ function TelemetryContent() {
                     setTelemetryData(null);
                 }
             } catch (error) {
-                log.error(LOG_CATEGORY, "Error fetching telemetry:", error);
+                log.error(LOG_CATEGORY, "Error fetching telemetry", {
+                    candidateId,
+                    applicationId,
+                    errorMessage: error instanceof Error ? error.message : String(error),
+                });
                 setError("Failed to load telemetry data");
                 setTelemetryData(null);
             } finally {
@@ -160,7 +178,10 @@ function TelemetryContent() {
                     setBackgroundSummary(null);
                 }
             } catch (error) {
-                log.error(LOG_CATEGORY, "Error fetching background summary:", error);
+                log.error(LOG_CATEGORY, "Error fetching background summary", {
+                    sessionId,
+                    errorMessage: error instanceof Error ? error.message : String(error),
+                });
                 setBackgroundSummary(null);
             } finally {
                 setSummaryLoading(false);
@@ -192,7 +213,10 @@ function TelemetryContent() {
                     setCodingSummary(null);
                 }
             } catch (error) {
-                log.error(LOG_CATEGORY, "Error fetching coding summary:", error);
+                log.error(LOG_CATEGORY, "Error fetching coding summary", {
+                    sessionId,
+                    errorMessage: error instanceof Error ? error.message : String(error),
+                });
                 setCodingSummary(null);
             } finally {
                 setCodingSummaryLoading(false);
@@ -222,7 +246,10 @@ function TelemetryContent() {
                     }
                 }
             } catch (error) {
-                log.error(LOG_CATEGORY, "Error fetching scoring configuration:", error);
+                log.error(LOG_CATEGORY, "Error fetching scoring configuration", {
+                    jobId,
+                    errorMessage: error instanceof Error ? error.message : String(error),
+                });
                 setScoringConfig(null);
             }
         };
@@ -269,14 +296,6 @@ function TelemetryContent() {
                 const scaleFactor = categoryTotalWeight / dbWeightSum;
                 
                 // #region agent log
-                const dbCategories = Object.keys(codingSummary.jobSpecificCategories);
-                const jobCategoryNames = jobCodingCategories.map((c: any) => c.name);
-                console.log('[CPS DEBUG] DB categories:', dbCategories);
-                console.log('[CPS DEBUG] Job categories:', jobCategoryNames);
-                console.log('[CPS DEBUG] Full jobSpecificCategories:', codingSummary.jobSpecificCategories);
-                console.log('[CPS DEBUG] Scale factor:', scaleFactor, 'DB weight sum:', dbWeightSum);
-                // #endregion
-                
                 jobCodingCategories.forEach((categoryDef: any) => {
                     // Match by base name (before any parentheses)
                     const baseName = categoryDef.name.split(' (')[0];
@@ -286,10 +305,6 @@ function TelemetryContent() {
                     
                     const score = codingSummary.jobSpecificCategories[matchingKey]?.score || 0;
                     const scaledWeight = categoryDef.weight * scaleFactor;
-                    
-                    // #region agent log
-                    console.log(`[CPS DEBUG] ${categoryDef.name}: dbWeight=${categoryDef.weight}, scaledWeight=${scaledWeight}, score=${score}`);
-                    // #endregion
                     
                     categoryScores.push({
                         name: categoryDef.name,
@@ -312,21 +327,22 @@ function TelemetryContent() {
             setCalculatedScore(result.finalScore);
             setCalculatedExperienceScore(result.experienceScore);
             setCalculatedCodingScore(result.codingScore);
-            
-            // #region agent log
-            console.log('[CPS SCORE CALC] Experience:', result.experienceScore, 'Coding:', result.codingScore, 'Final:', result.finalScore);
-            console.log('[CPS SCORE CALC] Category scores WITH WEIGHTS:', categoryScores.map(c => ({name: c.name, score: c.score, weight: c.weight})));
-            console.log('[CPS SCORE CALC] AI Assist:', workstyleMetrics.aiAssistAccountabilityScore, 'Weight:', scoringConfig.aiAssistWeight);
-            // #endregion
+            log.info(LOG_CATEGORY, "[CPS] Calculated score", {
+                sessionId: activeSession?.id,
+                experienceScore: result.experienceScore,
+                codingScore: result.codingScore,
+                finalScore: result.finalScore,
+            });
         } catch (error) {
-            log.error(LOG_CATEGORY, "Error calculating score:", error);
+            log.error(LOG_CATEGORY, "Error calculating score", {
+                sessionId: activeSession?.id,
+                errorMessage: error instanceof Error ? error.message : String(error),
+            });
             setCalculatedScore(null);
             setCalculatedExperienceScore(null);
             setCalculatedCodingScore(null);
         }
     }, [backgroundSummary, codingSummary, scoringConfig, activeSession?.workstyle, activeSession?.application?.job?.codingCategories, activeSession?.application?.job?.experienceCategories]);
-
-    console.log("[CPS] Active session:", activeSession);
     const formatMonthYear = (dateIso?: string) =>
         dateIso
             ? new Date(dateIso).toLocaleDateString(undefined, {
@@ -336,8 +352,6 @@ function TelemetryContent() {
             : "";
     const { gaps, evidence, chapters, workstyle, videoUrl, duration } =
         activeSession;
-    console.log("[CPS] Extracted videoUrl:", videoUrl, "duration:", duration);
-    console.log("[CPS] Chapters:", chapters, "Count:", chapters?.length || 0);
     const persistenceFlow = activeSession.persistenceFlow || [];
     const learningToAction = activeSession.learningToAction || [];
     const confidenceCurve = activeSession.confidenceCurve || [];

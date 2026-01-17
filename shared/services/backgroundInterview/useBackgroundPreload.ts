@@ -4,7 +4,7 @@
  * Stores preloaded data in Redux. Called during loading phase.
  */
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 import OpenAI from "openai";
 import { log } from "app/shared/services/logger";
@@ -28,6 +28,7 @@ const LOG_CATEGORY = LOG_CATEGORIES.BACKGROUND_INTERVIEW;
  */
 export function useBackgroundPreload() {
   const dispatch = useDispatch();
+  const preloadId = useMemo(() => globalThis.crypto.randomUUID(), []);
 
   const preload = useCallback(
     async (
@@ -39,7 +40,12 @@ export function useBackgroundPreload() {
       onExperienceCategoriesSet?: (categories: Array<{name: string; description: string; weight: number; example?: string}>) => void
     ) => {
       try {
-        log.info(LOG_CATEGORY, "[preload] Starting preload sequence...");
+        log.info(LOG_CATEGORY, "[preload] Starting preload sequence", {
+          preloadId,
+          jobId,
+          companyId,
+          sessionUserId,
+        });
 
         const parts = jobId.split("-");
         const companySlug = parts[0];
@@ -50,7 +56,12 @@ export function useBackgroundPreload() {
         }
 
         // Step 1: Create application for authenticated user
-        log.info(LOG_CATEGORY, "[preload] Creating application for authenticated user...");
+        log.info(LOG_CATEGORY, "[preload] Creating application for authenticated user", {
+          preloadId,
+          jobId,
+          companyId,
+          sessionUserId,
+        });
         const userId = sessionUserId;
         const appResp = await fetch(`/api/applications/create`, {
           method: "POST",
@@ -63,7 +74,12 @@ export function useBackgroundPreload() {
         const createdApplicationId = appData.application.id;
 
         // Step 2: Create interview session
-        log.info(LOG_CATEGORY, "[preload] Creating interview session...");
+        log.info(LOG_CATEGORY, "[preload] Creating interview session", {
+          preloadId,
+          jobId,
+          companyId,
+          sessionUserId,
+        });
         const session = await createInterviewSession({
           applicationId: createdApplicationId,
           companyId,
@@ -82,14 +98,25 @@ export function useBackgroundPreload() {
           const cached = localStorage.getItem(scriptCacheKey);
           if (cached) {
             scriptData = JSON.parse(cached);
-            log.info(LOG_CATEGORY, "[preload] Script loaded from cache");
+            log.info(LOG_CATEGORY, "[preload] Script loaded from cache", {
+              preloadId,
+              jobId,
+            });
           }
         } catch (err) {
-          console.warn("[preload] Failed to read script cache:", err);
+          log.warn(LOG_CATEGORY, "[preload] Failed to read script cache", {
+            preloadId,
+            jobId,
+            errorMessage: err instanceof Error ? err.message : String(err),
+          });
         }
 
         if (!scriptData) {
-          log.info(LOG_CATEGORY, "[preload] Fetching script from API...");
+          log.info(LOG_CATEGORY, "[preload] Fetching script from API", {
+            preloadId,
+            jobId,
+            companyId,
+          });
           const scriptResp = await fetch(`/api/interviews/script?company=${companySlug}&role=${roleSlug}`);
           if (!scriptResp.ok) throw new Error("Failed to load interview script");
           scriptData = await scriptResp.json();
@@ -97,7 +124,11 @@ export function useBackgroundPreload() {
         }
 
         // Step 4: Generate first OpenAI question with intent
-        log.info(LOG_CATEGORY, "[preload] Generating first question...");
+        log.info(LOG_CATEGORY, "[preload] Generating first question", {
+          preloadId,
+          jobId,
+          companyId,
+        });
         const companyNameFromScript = scriptData.companyName || companySlug.charAt(0).toUpperCase() + companySlug.slice(1);
         const instruction = `Ask exactly: "${String(scriptData.backgroundQuestion)}"
 
@@ -125,7 +156,11 @@ Return JSON with format: {"question": "...", "evaluationIntent": "..."}`;
           firstQuestion = parsed.question || firstQuestionRaw;
           firstIntent = parsed.evaluationIntent || "";
         } catch (err) {
-          console.warn("[preload] Failed to parse JSON, using raw response");
+          log.warn(LOG_CATEGORY, "[preload] Failed to parse JSON, using raw response", {
+            preloadId,
+            jobId,
+            errorMessage: err instanceof Error ? err.message : String(err),
+          });
         }
 
         // Store preloaded data in Redux
@@ -165,10 +200,21 @@ Return JSON with format: {"question": "...", "evaluationIntent": "..."}`;
           dispatch(initializeCategoryStats({ categories: categoryNames }));
         }
 
-        log.info(LOG_CATEGORY, "[preload] Preload complete - data stored in Redux");
+        log.info(LOG_CATEGORY, "[preload] Preload complete - data stored in Redux", {
+          preloadId,
+          jobId,
+          companyId,
+          sessionId: sessId,
+        });
         return { success: true, scriptData, firstQuestion, companyNameFromScript };
       } catch (error) {
-        log.error(LOG_CATEGORY, "[preload] Preload failed:", error);
+        log.error(LOG_CATEGORY, "[preload] Preload failed", {
+          preloadId,
+          jobId,
+          companyId,
+          sessionUserId,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
         throw error;
       }
     },

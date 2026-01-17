@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { log } from "app/shared/services";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
 const openaiClient = new OpenAI({
     apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
 });
 
 export async function POST(req: NextRequest) {
+    const requestId = req.headers.get("x-request-id");
     try {
         const {
             actualOutput,
@@ -73,7 +78,10 @@ Evaluate if the actual output matches the expected output. Return ONLY valid JSO
 
         return NextResponse.json(evaluation);
     } catch (error: any) {
-        console.error("[evaluate-output] Error:", error);
+        log.error(LOG_CATEGORY, "[evaluate-output] Error", {
+            requestId,
+            errorMessage: error instanceof Error ? error.message : String(error),
+        });
         return NextResponse.json(
             {
                 error: "Failed to evaluate output",
@@ -83,4 +91,3 @@ Evaluate if the actual output matches the expected output. Return ONLY valid JSO
         );
     }
 }
-

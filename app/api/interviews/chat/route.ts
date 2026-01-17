@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
+import { log } from "app/shared/services";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.OPENAI;
 
 const openai = new OpenAI({
     apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
@@ -11,6 +14,7 @@ const openai = new OpenAI({
  * Handles all OpenAI chat interactions: persona setup, question generation, and follow-ups
  */
 export async function POST(request: NextRequest) {
+    const requestId = request.headers.get("x-request-id");
     try {
         const body = await request.json();
         const { persona, instruction, conversationHistory } = body;
@@ -22,18 +26,15 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log("→ OpenAI Request [chat" + (instruction ? " - initial setup" : " - follow-up") + "]");
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log("Model: gpt-4o-mini");
-        console.log("\nPersona (System):", persona);
-        if (instruction) {
-            console.log("\nInstruction:", instruction);
-        }
-        if (conversationHistory && conversationHistory.length > 0) {
-            console.log("\nConversation History:");
-            console.log(JSON.stringify(conversationHistory, null, 2));
-        }
+        const conversationTurnCount = Array.isArray(conversationHistory) ? conversationHistory.length : undefined;
+        log.info(LOG_CATEGORY, "[chat] OpenAI request prepared", {
+            requestId,
+            hasInstruction: Boolean(instruction),
+            conversationTurnCount,
+            personaLength: persona.length,
+            instructionLength: instruction ? instruction.length : undefined,
+            model: "gpt-4o-mini",
+        });
 
         let messages;
         if (conversationHistory && conversationHistory.length > 0) {
@@ -60,11 +61,10 @@ export async function POST(request: NextRequest) {
 
         const result = completion.choices?.[0]?.message?.content?.trim();
 
-        console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log("← OpenAI Response [generate-question]");
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log(result);
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+        log.info(LOG_CATEGORY, "[chat] OpenAI response received", {
+            requestId,
+            responseLength: result ? result.length : undefined,
+        });
 
         if (!result) {
             throw new Error("OpenAI returned empty response");
@@ -72,7 +72,10 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ response: result });
     } catch (error: any) {
-        console.error("[generate-question] Error:", error);
+        log.error(LOG_CATEGORY, "[chat] OpenAI request failed", {
+            requestId,
+            errorMessage: error instanceof Error ? error.message : String(error),
+        });
         return NextResponse.json(
             { error: error.message || "Failed to generate question" },
             { status: 500 }

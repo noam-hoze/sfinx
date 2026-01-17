@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
+import { log } from "app/shared/services";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
 export async function POST(request: Request) {
+  const requestId = request.headers.get("x-request-id");
   try {
     const formData = await request.formData();
     const audioFile = formData.get("audio") as File;
@@ -28,11 +33,13 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ text: transcription.text });
   } catch (error) {
-    console.error("[Transcribe API] Error:", error);
+    log.error(LOG_CATEGORY, "[Transcribe API] Error", {
+      requestId,
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Transcription failed" },
       { status: 500 }
     );
   }
 }
-

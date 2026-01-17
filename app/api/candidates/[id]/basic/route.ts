@@ -3,6 +3,9 @@ import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "app/shared/services/auth";
 import { log } from "app/shared/services";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.USERS;
 
 const prisma = new PrismaClient();
 
@@ -15,6 +18,8 @@ type RouteContext = {
  * Supports skip-auth for demo mode.
  */
 export async function GET(request: NextRequest, context: RouteContext) {
+    const requestId = request.headers.get("x-request-id");
+    let candidateId: string | undefined;
     try {
         const url = new URL(request.url);
         const skipAuth = url.searchParams.get("skip-auth") === "true";
@@ -26,7 +31,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
             }
         }
 
-        const { id: candidateId } = await context.params;
+        const params = await context.params;
+        candidateId = params.id;
 
         const candidate = await prisma.user.findUnique({
             where: { id: candidateId },
@@ -59,7 +65,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
             score: matchScore,
         });
     } catch (error) {
-        console.error('Error fetching candidate basic info:', error);
+        log.error(LOG_CATEGORY, "Error fetching candidate basic info", {
+            requestId,
+            candidateId,
+            errorMessage: error instanceof Error ? error.message : String(error),
+        });
         return NextResponse.json(
             { error: 'Failed to fetch candidate info' },
             { status: 500 }
