@@ -9,22 +9,28 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { useMute } from "app/shared/contexts";
 import { generateTTS } from "@/shared/services/tts";
+import { generateVisemesAndAudio } from "@/shared/services/mascot";
+import { convertPCMToWAV } from "@/shared/utils/audioConversion";
+import type { Viseme } from "@/shared/types/mascot";
 
 type AnnouncementScreenProps = {
   text: string;
   preloadedAudioBlob?: Blob | null;
   onComplete: () => void;
+  onAudioStateChange?: (isPlaying: boolean, intentText?: string, visemes?: Viseme[]) => void;
 };
 
 export default function AnnouncementScreen({
   text,
   preloadedAudioBlob,
   onComplete,
+  onAudioStateChange,
 }: AnnouncementScreenProps) {
   /**
    * Plays a spoken announcement while revealing the text word by word before advancing the flow.
    */
   const { isMuted } = useMute();
+  const mascotEnabled = process.env.NEXT_PUBLIC_MASCOT_ENABLED === "true";
   const [displayedWords, setDisplayedWords] = useState<string[]>([]);
   const [audioFinished, setAudioFinished] = useState(false);
   const [typingFinished, setTypingFinished] = useState(false);
@@ -54,8 +60,14 @@ export default function AnnouncementScreen({
     (async () => {
       try {
         let blob: Blob;
+        let visemes: Viseme[] = [];
         
-        if (preloadedAudioBlob) {
+        if (mascotEnabled) {
+          const result = await generateVisemesAndAudio(text);
+          visemes = result.visemes;
+          const wavBuffer = convertPCMToWAV(result.audioBase64);
+          blob = new Blob([wavBuffer], { type: "audio/wav" });
+        } else if (preloadedAudioBlob) {
           blob = preloadedAudioBlob;
         } else {
           const audioBuffer = await generateTTS(text);
@@ -69,8 +81,13 @@ export default function AnnouncementScreen({
         // Set initial volume based on mute state
         audio.volume = isMuted ? 0 : 1;
 
+        audio.onplay = () => {
+          onAudioStateChange?.(true, undefined, visemes);
+        };
+
         audio.onended = () => {
           setAudioFinished(true);
+          onAudioStateChange?.(false);
           URL.revokeObjectURL(url);
           audioRef.current = null;
         };
@@ -78,6 +95,7 @@ export default function AnnouncementScreen({
         await audio.play();
       } catch (error) {
         log.error(LOG_CATEGORY, "[Announcement] TTS failed:", error);
+        onAudioStateChange?.(false);
         // Even if audio fails, continue with typing animation
         setAudioFinished(true);
       }
