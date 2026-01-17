@@ -29,7 +29,7 @@ npm test -- <file>    # Run specific test file
 
 ## Test Coverage
 
-### ✅ Completed Test Files (72 tests)
+### ✅ Completed Test Files (120 tests)
 
 #### Utilities
 - `shared/utils/audioCache.test.ts` (8 tests)
@@ -37,10 +37,27 @@ npm test -- <file>    # Run specific test file
   - Blob/ArrayBuffer conversion
   - Cache management
 
-- `shared/services/backgroundSessionGuard.test.ts` (14 tests)
+- `shared/services/backgroundSessionGuard.test.ts` (24 tests)
   - Timer management functions
-  - Session transition logic
+  - Session transition logic with priority handling
   - Category completion detection
+  - Timebox limit selection edge cases
+  - formatCountdown and elapsedMs edge cases
+
+- `app/shared/services/logger.test.ts` (13 tests)
+  - Category filtering (allowlist/blocklist modes)
+  - Log level validation
+  - Allowed file matchers configuration
+  - Multi-argument logging
+
+- `shared/services/backgroundInterview/useBackgroundAnswerHandler.test.ts` (14 tests)
+  - Fast evaluation flow logic
+  - Don't know threshold detection
+  - Excluded topics handling
+  - Transition completion paths
+  - Async full evaluation update handling
+  - Blank answer detection
+  - Environment variable validation
 
 #### Redux State Management
 - `shared/state/slices/cpsSlice.test.ts` (8 tests)
@@ -65,6 +82,11 @@ npm test -- <file>    # Run specific test file
   - Timer functionality
   - Timebox validation
   - State reset
+
+- `shared/state/slices/codingSlice.test.ts` (11 tests)
+  - Chat message handling
+  - Paste evaluation management
+  - Timebox configuration
 
 #### Constants & Prompts
 - `shared/constants/interview.test.ts` (2 tests)
@@ -160,6 +182,7 @@ it("should use localStorage", () => {
 - ✅ Clear mocks and storage between tests
 - ✅ Use descriptive test names
 - ✅ Group related tests with describe blocks
+- ✅ Test priority logic (e.g., all_topics_complete before timebox)
 
 ### DON'T:
 - ❌ Test implementation details
@@ -173,9 +196,7 @@ it("should use localStorage", () => {
 To achieve comprehensive coverage, additional tests should be added for:
 
 ### High Priority
-- [ ] `shared/state/slices/codingSlice.ts`
-- [ ] `shared/services/openAIFlowController.ts`
-- [ ] `shared/services/backgroundInterview/*`
+- [ ] Additional React hooks (requires React Testing Library integration)
 - [ ] Additional prompt builders in `shared/prompts/`
 
 ### Medium Priority
@@ -206,10 +227,10 @@ To achieve comprehensive coverage, additional tests should be added for:
 
 ## Test Metrics
 
-- **Total Test Files**: 8
-- **Total Tests**: 72
+- **Total Test Files**: 11
+- **Total Tests**: 120
 - **Pass Rate**: 100%
-- **Coverage**: ~5% of codebase (198 total source files)
+- **Coverage Areas**: Utilities, Services, State Management, Business Logic
 
 ## Contributing Tests
 

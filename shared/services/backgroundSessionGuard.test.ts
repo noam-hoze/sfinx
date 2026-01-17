@@ -114,5 +114,89 @@ describe("backgroundSessionGuard", () => {
       const result = shouldTransition(gs, { clockMs: 2000, categories });
       expect(result).toBeNull();
     });
+
+    it("should prioritize all_topics_complete over timebox", () => {
+      // Both conditions met - should return all_topics_complete first
+      const categories: CategoryConfidence[] = [
+        { name: "cat1", confidence: 100, avgStrength: 100 },
+        { name: "cat2", confidence: 100, avgStrength: 100 },
+      ];
+      const gs: GuardState = { startedAtMs: 1000 };
+      const result = shouldTransition(gs, {
+        clockMs: 1000 + TIMEBOX_MS + 1000, // Timebox exceeded
+        categories,
+      });
+      expect(result).toBe("all_topics_complete");
+    });
+
+    it("should use state timeboxMs over options timeboxMs", () => {
+      const gs: GuardState = { startedAtMs: 1000, timeboxMs: 300 };
+      const result = shouldTransition(gs, {
+        clockMs: 1400,
+        timeboxMs: 1000, // Options value is higher
+      });
+      expect(result).toBe("timebox"); // State value (300) causes transition
+    });
+
+    it("should fall back to options timeboxMs when state has none", () => {
+      const gs: GuardState = { startedAtMs: 1000 };
+      const result = shouldTransition(gs, {
+        clockMs: 1400,
+        timeboxMs: 300,
+      });
+      expect(result).toBe("timebox");
+    });
+
+    it("should fall back to TIMEBOX_MS when neither state nor options provide valid timebox", () => {
+      const gs: GuardState = { startedAtMs: 1000, timeboxMs: -100 }; // Invalid
+      const result = shouldTransition(gs, {
+        clockMs: 1000 + TIMEBOX_MS + 100,
+        timeboxMs: 0, // Invalid
+      });
+      expect(result).toBe("timebox");
+    });
+
+    it("should handle empty categories array", () => {
+      const gs: GuardState = { startedAtMs: 1000 };
+      const result = shouldTransition(gs, {
+        clockMs: 2000,
+        categories: [],
+      });
+      expect(result).toBeNull();
+    });
+
+    it("should not transition when categories exist but not all complete", () => {
+      const categories: CategoryConfidence[] = [
+        { name: "cat1", confidence: 100, avgStrength: 100 },
+        { name: "cat2", confidence: 80, avgStrength: 99 }, // Not complete
+      ];
+      const gs: GuardState = { startedAtMs: 1000 };
+      const result = shouldTransition(gs, { clockMs: 2000, categories });
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("formatCountdown edge cases", () => {
+    it("should handle very large times", () => {
+      expect(formatCountdown(3600000)).toBe("60:00"); // 1 hour
+      expect(formatCountdown(7200000)).toBe("120:00"); // 2 hours
+    });
+
+    it("should handle fractional seconds", () => {
+      expect(formatCountdown(1500)).toBe("0:01"); // 1.5s rounds down
+      expect(formatCountdown(999)).toBe("0:00"); // <1s shows as 0:00
+    });
+  });
+
+  describe("elapsedMs edge cases", () => {
+    it("should handle very large elapsed times", () => {
+      const gs: GuardState = { startedAtMs: 1000 };
+      expect(elapsedMs(gs, 1000000)).toBe(999000);
+    });
+
+    it("should handle exact same time", () => {
+      const gs: GuardState = { startedAtMs: 5000 };
+      expect(elapsedMs(gs, 5000)).toBe(0);
+    });
   });
 });
