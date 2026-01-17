@@ -61,6 +61,7 @@
 - Specifications: Each feature under `app/(features)/<feature>/` MUST have a local spec at `docs/specs/<feature>.md` and be referenced in commits.
 - Static analysis: Repository MUST pass `tsc --noEmit` and ESLint with project lints.
 - Testing & Coverage: Tests MUST run in CI with coverage ≥ 60% (adjustable by maintainers).
+- Unit Testing Requirement: Every feature or bug fix MUST include a matching unit test in the same change; untested code MUST NOT be merged.
 - File-length gate: CI fails if file-length limits are exceeded (generated files excluded).
 - POC mode: Direct commits allowed; decisions recorded in specs/commits; no PR/issue requirement.
 - Library Scan Gate (MANDATORY): Before implementing any non-trivial utility or infrastructure, teams MUST:
@@ -91,4 +92,4 @@
 - Prefer targeted edits (`search_replace`) over full file rewrites to minimize token usage.
 - Batch related requests together rather than making separate prompts for connected work.
 
-**Version**: 1.6.0
+**Version**: 1.7.0
