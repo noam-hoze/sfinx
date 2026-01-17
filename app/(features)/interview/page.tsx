@@ -23,6 +23,7 @@ import {
 import QuestionCard from "./components/backgroundInterview/QuestionCard";
 import CompletionScreen from "./components/backgroundInterview/CompletionScreen";
 import AnnouncementScreen from "./components/backgroundInterview/AnnouncementScreen";
+import PreInterviewScreen from "./components/backgroundInterview/PreInterviewScreen";
 import SfinxSpinner from "app/shared/components/SfinxSpinner";
 import Breadcrumbs from "app/shared/components/Breadcrumbs";
 import InterviewStageScreen from "app/shared/components/InterviewStageScreen";
@@ -62,6 +63,7 @@ function InterviewPageContent() {
 
   // Local loading state for preload phase
   const [isPreloading, setIsPreloading] = useState(true);
+  const [showPreInterviewScreen, setShowPreInterviewScreen] = useState(false);
   
   // Redux state
   const stage = useSelector((state: RootState) => state.interview.stage);
@@ -374,6 +376,7 @@ function InterviewPageContent() {
 
         log.info(LOG_CATEGORY, "[interview] Preload complete - moving to welcome");
         setIsPreloading(false);
+        setShowPreInterviewScreen(true);
       } catch (error) {
         log.error(LOG_CATEGORY, "[interview] Preload failed:", error);
         setIsPreloading(false);
@@ -476,66 +479,73 @@ function InterviewPageContent() {
     dispatch,
   ]);
 
-  // Auto-start interview for authenticated users after preload
-  useEffect(() => {
-    // CRITICAL: Wait for preload to finish (it sets reduxSessionId)
-    if (isPreloading || skipToCoding || isStarting || showAnnouncement || stage !== null || hasAutoStartedRef.current || !reduxSessionId) {
+  /**
+   * Handles the "Start Interview" button click from PreInterviewScreen.
+   * Requests mic/screen permissions and starts the background interview.
+   */
+  const handleStartInterviewClick = useCallback(async () => {
+    if (isStarting || showAnnouncement || stage !== null || hasAutoStartedRef.current) {
       return;
     }
 
-    const autoStartAuthenticated = async () => {
-      try {
-        hasAutoStartedRef.current = true;
-        setIsStarting(true);
-        log.info(LOG_CATEGORY, "[interview] Auto-starting interview for authenticated user");
+    try {
+      hasAutoStartedRef.current = true;
+      setIsStarting(true);
+      log.info(LOG_CATEGORY, "[interview] Starting interview from PreInterviewScreen");
 
-        // Request mic permissions
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        });
-        setMicStream(stream);
+      // Request mic permissions
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      setMicStream(stream);
 
-        const activeSessionId = await ensureRecordingSession();
-        if (!activeSessionId) {
-          setIsStarting(false);
-          alert("Screen recording is required.");
-          return;
-        }
+      const activeSessionId = await ensureRecordingSession();
+      if (!activeSessionId) {
+        setIsStarting(false);
+        hasAutoStartedRef.current = false;
+        alert("Screen recording is required.");
+        return;
+      }
 
-        // Get user's name from session
-        const userName = (session?.user as any)?.name || "there";
-        const firstName = userName.trim().split(" ")[0];
-        
-        dispatch(start({ candidateName: firstName }));
-        dispatch(setStage({ stage: "background" }));
+      // Get user's name from session
+      const userName = (session?.user as any)?.name || "there";
+      const firstName = userName.trim().split(" ")[0];
+      
+      dispatch(start({ candidateName: firstName }));
+      dispatch(setStage({ stage: "background" }));
 
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-        if (startSoundRef.current) {
-          try {
-            await new Promise<void>((resolve) => {
-              const startSound = startSoundRef.current!;
-              startSound.volume = isMuted ? 0 : 1;
-              startSound.currentTime = 0;
-              startSound.onended = () => resolve();
-              startSound.onerror = () => resolve();
-              startSound.play().catch(() => resolve());
-            });
+      if (startSoundRef.current) {
+        try {
+          await new Promise<void>((resolve) => {
+            const startSound = startSoundRef.current!;
+            startSound.volume = isMuted ? 0 : 1;
+            startSound.currentTime = 0;
+            startSound.onended = () => resolve();
+            startSound.onerror = () => resolve();
+            startSound.play().catch(() => resolve());
+          });
         } catch {}
       }
 
+      setShowPreInterviewScreen(false);
       setIsArriving(true);
       setShowAnnouncement(true);
       setIsStarting(false);
-      } catch (error) {
-        log.error(LOG_CATEGORY, "[interview] Auto-start failed:", error);
-        setIsStarting(false);
-        alert("Microphone access is required.");
-      }
-    };
+    } catch (error) {
+      log.error(LOG_CATEGORY, "[interview] Start interview failed:", error);
+      setIsStarting(false);
+      hasAutoStartedRef.current = false;
+      alert("Microphone access is required.");
+    }
+  }, [isStarting, showAnnouncement, stage, session, ensureRecordingSession, dispatch, isMuted]);
 
-    autoStartAuthenticated();
-  }, [isPreloading, skipToCoding, isStarting, showAnnouncement, stage, reduxSessionId, session, ensureRecordingSession, dispatch, isMuted]);
+  // Auto-start interview for authenticated users after preload
+  useEffect(() => {
+    // CRITICAL: Skip this effect - recording/mic now triggered by PreInterviewScreen button
+    return;
+  }, []);
 
   // Auto-skip to coding when flag is set and user is logged in
   useEffect(() => {
@@ -793,6 +803,24 @@ function InterviewPageContent() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex items-center justify-center p-4">
         <SfinxSpinner size="lg" title="Loading interview" messages="Setting things up" />
+      </div>
+    );
+  }
+
+  if (showPreInterviewScreen && backgroundTimeSeconds) {
+    const backgroundTimeMinutes = Math.round(backgroundTimeSeconds / 60);
+    return (
+      <PreInterviewScreen
+        onStartInterview={handleStartInterviewClick}
+        backgroundTimeMinutes={backgroundTimeMinutes}
+      />
+    );
+  }
+
+  if (isStarting) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex items-center justify-center p-4">
+        <SfinxSpinner size="lg" title="Starting interview" messages="Requesting permissions" />
       </div>
     );
   }
