@@ -75,7 +75,7 @@
     "autoprefixer": "^10.4.21",
     "chrome-devtools-mcp": "^0.13.0",
     "dotenv": "^17.2.2",
-    "jsdom": "^27.4.0",
+    "jsdom": "^25.0.1",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.20.5",
     "typescript": "^5.5.4",
