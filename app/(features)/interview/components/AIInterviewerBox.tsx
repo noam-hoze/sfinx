@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import RiveMascot from "./RiveMascot";
 
 /**
  * AIInterviewerBox: Displays interviewer state with animations and evaluation intent.
@@ -22,6 +23,7 @@ const AIInterviewerBox: React.FC<AIInterviewerBoxProps> = ({
     isArriving = false
 }) => {
     const [previousMode, setPreviousMode] = useState<"talking" | "idle">(mode);
+    const mascotEnabled = process.env.NEXT_PUBLIC_MASCOT_ENABLED === "true";
 
     // Track mode changes for animation direction
     useEffect(() => {
@@ -56,11 +58,18 @@ const AIInterviewerBox: React.FC<AIInterviewerBoxProps> = ({
                                 : 'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40'
                     }`}
                 >
-                    <img 
-                        src="/sfinx-avatar-nobg.png" 
-                        alt="Sfinx" 
-                        className={`w-full h-full object-contain ${isArriving ? 'animate-in fade-in duration-700' : ''}`}
-                    />
+                    {mascotEnabled ? (
+                        <RiveMascot 
+                            className={`w-full h-full ${isArriving ? 'animate-in fade-in duration-700' : ''}`}
+                            isSpeaking={mode === "talking"}
+                        />
+                    ) : (
+                        <img 
+                            src="/sfinx-avatar-nobg.png" 
+                            alt="Sfinx" 
+                            className={`w-full h-full object-contain ${isArriving ? 'animate-in fade-in duration-700' : ''}`}
+                        />
+                    )}
                 </div>
 
                 {/* Intent text - subtle and elegant */}
