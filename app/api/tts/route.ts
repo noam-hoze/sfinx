@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   try {
-    const { text } = await request.json();
+    const body = await request.text();
+    if (!body) {
+      return NextResponse.json({ error: "Empty request body" }, { status: 400 });
+    }
+    const { text } = JSON.parse(body);
 
     if (!text) {
       return NextResponse.json({ error: "Text is required" }, { status: 400 });

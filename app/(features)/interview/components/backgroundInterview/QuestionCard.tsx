@@ -60,6 +60,8 @@ export default function QuestionCard({
    * Presents a background interview question with TTS playback and text/voice answer capture.
    */
   const { isMuted } = useMute();
+  const mascotEnabled = process.env.NEXT_PUBLIC_MASCOT_ENABLED === "true";
+  
   const [answer, setAnswer] = useState("");
   const [inputMode, setInputMode] = useState<"text" | "voice">("text");
   const [prevQuestion, setPrevQuestion] = useState("");
@@ -119,7 +121,12 @@ export default function QuestionCard({
             audioRef.current = null;
           }
 
-          // Create audio element and autoplay
+          // Use Mascot lip sync if enabled
+          if (mascotEnabled) {
+            log.info(LOG_CATEGORY, "[QuestionCard] Mascot enabled but using standard playback (no lip sync in QuestionCard)");
+          }
+          
+          // Standard audio playback without lip sync
           const blob = new Blob([audioBuffer], { type: "audio/mpeg" });
           const url = URL.createObjectURL(blob);
           const audio = new Audio(url);
