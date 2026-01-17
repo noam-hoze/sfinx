@@ -1,0 +1,74 @@
+# GitHub Actions workflow to run Vitest on push and pull requests
+# - Detects package manager (pnpm/yarn/npm) and installs dependencies
+# - Runs Vitest in CI mode
+# - Uploads coverage/results artifacts for inspection
+on:
+  push:
+    branches: [ "master", "main" ]
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+name: Vitest
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Restore cache (lockfile-aware)
+        uses: actions/cache@v4
+        with:
+          # Cache will use whichever lockfile exists
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml', '**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies (detect package manager)
+        run: |
+          set -e
+          if [ -f pnpm-lock.yaml ]; then
+            npm install -g pnpm
+            pnpm install --frozen-lockfile
+          elif [ -f yarn.lock ]; then
+            npm install -g yarn
+            yarn install --frozen-lockfile
+          else
+            npm ci
+          fi
+
+      - name: Run Vitest
+        run: |
+          # run vitest in CI mode; use the project script if present, otherwise fall back to npx
+          if npm run | grep -q "test"; then
+            # prefer test script if it exists
+            npm run test --if-present --silent -- --run || npx vitest run --run
+          else
+            npx vitest run --run
+          fi
+        env:
+          CI: true
+
+      - name: Upload Vitest artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-results
+          path: |
+            coverage
+            vitest-results
+            vitest-report
+            *.xml
+            *.json
