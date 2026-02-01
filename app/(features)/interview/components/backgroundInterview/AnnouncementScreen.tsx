@@ -87,7 +87,7 @@ export default function AnnouncementScreen({
 
         audio.onended = () => {
           setAudioFinished(true);
-          onAudioStateChange?.(false);
+          onAudioStateChange?.(false, undefined, []);  // Pass empty visemes to stop lip sync
           URL.revokeObjectURL(url);
           audioRef.current = null;
         };
@@ -95,7 +95,7 @@ export default function AnnouncementScreen({
         await audio.play();
       } catch (error) {
         log.error(LOG_CATEGORY, "[Announcement] TTS failed:", error);
-        onAudioStateChange?.(false);
+        onAudioStateChange?.(false, undefined, []);  // Pass empty visemes to stop lip sync
         // Even if audio fails, continue with typing animation
         setAudioFinished(true);
       }
