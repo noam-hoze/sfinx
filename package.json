@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
+    "postinstall": "prisma generate",
     "seed": "tsx server/db-scripts/seed-data.ts",
     "sync-db:dev": "tsx server/db-scripts/sync-schema-and-seed.ts --env=dev",
     "sync-db:prod": "tsx server/db-scripts/sync-schema-and-seed.ts --env=prod",
