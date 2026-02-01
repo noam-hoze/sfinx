@@ -127,7 +127,7 @@ export default function QuestionCard({
         log.info(LOG_CATEGORY, "[QuestionCard] Muted - skipping TTS, showing controls immediately");
         setIsAudioPlaying(true);
         setAudioFinished(true);
-        onAudioStateChange?.(false, intentText);
+        onAudioStateChange?.(false, intentText, []);  // Pass empty visemes - no lip sync when muted
         return;
       }
 
@@ -159,7 +159,7 @@ export default function QuestionCard({
 
           audio.onended = () => {
             setAudioFinished(true);
-            onAudioStateChange?.(false, intentText);
+            onAudioStateChange?.(false, intentText, []);  // Pass empty visemes to explicitly stop lip sync
             URL.revokeObjectURL(url);
             audioRef.current = null;
             log.info(LOG_CATEGORY, "[QuestionCard] Audio playback finished");
@@ -187,7 +187,7 @@ export default function QuestionCard({
         audioRef.current.pause();
         audioRef.current = null;
         setAudioFinished(true);
-        onAudioStateChange?.(false, intentText);
+        onAudioStateChange?.(false, intentText, []);  // Pass empty visemes to stop lip sync
       } else if (!isMuted) {
         // Unmuted: ensure volume is on
         audioRef.current.volume = 1;
