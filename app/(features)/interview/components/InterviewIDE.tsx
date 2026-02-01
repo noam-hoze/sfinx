@@ -475,12 +475,12 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             await stopRecording();
             await insertRecordingUrl();
             
-            // Generate coding gaps and summary from session data
+            // Enqueue async evaluation jobs (non-blocking)
             setIsInterviewLoading(true);
             if (interviewSessionId && interviewScript) {
-                logger.info("Generating coding gaps for session:", interviewSessionId);
+                logger.info(LOG_CATEGORY, "Enqueueing evaluation jobs for session:", interviewSessionId);
                 try {
-                    const gapsResponse = await fetch("/api/interviews/generate-coding-gaps", {
+                    const enqueueResponse = await fetch("/api/interviews/enqueue-evaluation-jobs", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
@@ -490,132 +490,16 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                             expectedSolution: interviewScript.codingAnswer,
                         }),
                     });
-                    
-                    if (gapsResponse.ok) {
-                        const gapsData = await gapsResponse.json();
-                        logger.info("✅ Coding gaps generated:", gapsData.gapsCount);
-                    } else {
-                        logger.error("Failed to generate coding gaps:", gapsResponse.status);
-                    }
-                } catch (gapsError) {
-                    logger.error("Error generating coding gaps:", gapsError);
-                }
 
-                // Generate coding summary
-                logger.info("Generating coding summary for session:", interviewSessionId);
-                try {
-                    const summaryResponse = await fetch("/api/interviews/generate-coding-summary", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            sessionId: interviewSessionId,
-                            finalCode: state.currentCode,
-                            codingTask: interviewScript.codingPrompt,
-                            expectedSolution: interviewScript.codingAnswer,
-                        }),
-                    });
-                    
-                    if (summaryResponse.ok) {
-                        const summaryData = await summaryResponse.json();
-                        logger.info("✅ Coding summary generated");
+                    if (enqueueResponse.ok) {
+                        const enqueueData = await enqueueResponse.json();
+                        logger.info(LOG_CATEGORY, "✅ Evaluation jobs enqueued:", enqueueData.jobCount, "jobs");
+                        logger.info(LOG_CATEGORY, "Evaluations will be processed in the background");
                     } else {
-                        logger.error("Failed to generate coding summary:", summaryResponse.status);
+                        logger.error(LOG_CATEGORY, "Failed to enqueue evaluation jobs:", enqueueResponse.status);
                     }
-                } catch (summaryError) {
-                    logger.error("Error generating coding summary:", summaryError);
-                }
-
-                // Generate code quality analysis
-                logger.info("Generating code quality analysis for session:", interviewSessionId);
-                try {
-                    const url = `/api/interviews/session/${interviewSessionId}/code-quality-analysis`;
-                    
-                    const analysisResponse = await fetch(url, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                    });
-                    
-                    if (analysisResponse.ok) {
-                        const analysisData = await analysisResponse.json();
-                        logger.info("✅ Code quality analysis generated");
-                    } else {
-                        logger.error("Failed to generate code quality analysis:", analysisResponse.status);
-                    }
-                } catch (analysisError) {
-                    logger.error("Error generating code quality analysis:", analysisError);
-                }
-
-                // Generate job-specific coding evaluation
-                logger.info("Generating job-specific coding evaluation for session:", interviewSessionId);
-                try {
-                    const jobCategories = job?.codingCategories as Array<{name: string; description: string; weight: number}> | undefined;
-                    const jobEvalResponse = await fetch("/api/interviews/evaluate-job-specific-coding", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            finalCode: state.currentCode,
-                            codingTask: interviewScript.codingPrompt,
-                            categories: jobCategories || [],
-                            referenceCode: interviewScript.codingAnswer,
-                            expectedOutput: interviewScript.expectedOutput,
-                            sessionId: interviewSessionId,
-                        }),
-                    });
-                    
-                    if (jobEvalResponse.ok) {
-                        const jobEvalData = await jobEvalResponse.json();
-                        logger.info("✅ Job-specific coding evaluation complete:", jobEvalData);
-                        
-                        // Enrich evaluation data with descriptions from job categories
-                        const enrichedCategories: Record<string, any> = {};
-                        if (jobCategories) {
-                            Object.entries(jobEvalData.categories || {}).forEach(([name, data]: [string, any]) => {
-                                const categoryDef = jobCategories.find((c: any) => c.name === name);
-                                enrichedCategories[name] = {
-                                    ...data,
-                                    description: categoryDef?.description || "",
-                                };
-                            });
-                        }
-                        // Update coding summary with job-specific categories
-                        const summaryUpdateUrl = `/api/interviews/session/${interviewSessionId}/coding-summary-update`;
-                        
-                        const updateResponse = await fetch(summaryUpdateUrl, {
-                            method: "PATCH",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                jobSpecificCategories: enrichedCategories,
-                            }),
-                        });
-                        
-                        if (updateResponse.ok) {
-                            logger.info("✅ Coding summary updated with job-specific categories");
-                        } else {
-                            logger.error("Failed to update coding summary:", updateResponse.status);
-                        }
-                    } else {
-                        logger.error("Failed to generate job-specific evaluation:", jobEvalResponse.status);
-                    }
-                } catch (jobEvalError) {
-                    logger.error("Error generating job-specific evaluation:", jobEvalError);
-                }
-
-                // Generate profile story
-                logger.info(LOG_CATEGORY, "Generating candidate profile story for session:", interviewSessionId);
-                try {
-                    const storyResponse = await fetch("/api/interviews/generate-profile-story", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ sessionId: interviewSessionId }),
-                    });
-                    
-                    if (storyResponse.ok) {
-                        logger.info(LOG_CATEGORY, "✅ Profile story generated");
-                    } else {
-                        logger.error(LOG_CATEGORY, "Failed to generate profile story:", storyResponse.status);
-                    }
-                } catch (storyError) {
-                    logger.error(LOG_CATEGORY, "Error generating profile story:", storyError);
+                } catch (enqueueError) {
+                    logger.error(LOG_CATEGORY, "Error enqueueing evaluation jobs:", enqueueError);
                 }
             }
             setIsInterviewLoading(false);

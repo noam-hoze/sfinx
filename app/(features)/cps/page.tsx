@@ -48,7 +48,9 @@ function TelemetryContent() {
     const [summaryLoading, setSummaryLoading] = useState(false);
     const [codingSummaryLoading, setCodingSummaryLoading] = useState(false);
     const [isNavigating, setIsNavigating] = useState(false);
-    
+    const [evaluationStatus, setEvaluationStatus] = useState<any>(null);
+    const [isEvaluating, setIsEvaluating] = useState(false);
+
     // Collapsible sections state
     const [scoreExpanded, setScoreExpanded] = useState(true);
     const [experienceExpanded, setExperienceExpanded] = useState(true);
@@ -201,6 +203,57 @@ function TelemetryContent() {
 
         fetchCodingSummary();
     }, [activeSessionIndex, sessions, activeSession?.id]);
+
+    // Poll evaluation status for sessions that are still evaluating
+    useEffect(() => {
+        const sessionId = activeSession?.id;
+        const sessionStatus = activeSession?.status;
+
+        if (!sessionId || sessionId === "single" || sessionStatus !== "EVALUATING") {
+            setIsEvaluating(false);
+            setEvaluationStatus(null);
+            return;
+        }
+
+        setIsEvaluating(true);
+        log.info(LOG_CATEGORY, "Session is evaluating, starting status polling");
+
+        const pollStatus = async () => {
+            try {
+                const response = await fetch(
+                    `/api/interviews/evaluation-status?sessionId=${sessionId}`
+                );
+
+                if (response.ok) {
+                    const status = await response.json();
+                    setEvaluationStatus(status);
+
+                    // If evaluation is complete, refresh the summaries
+                    if (status.overallStatus === "COMPLETED") {
+                        log.info(LOG_CATEGORY, "Evaluations completed, refreshing data");
+                        setIsEvaluating(false);
+
+                        // Trigger re-fetch of summaries by updating the sessions array
+                        // This will cause the summary useEffects to re-run
+                        const updatedSessions = [...sessions];
+                        updatedSessions[activeSessionIndex] = {
+                            ...updatedSessions[activeSessionIndex],
+                            status: "COMPLETED",
+                        };
+                        setSessions(updatedSessions);
+                    }
+                }
+            } catch (error) {
+                log.error(LOG_CATEGORY, "Error polling evaluation status:", error);
+            }
+        };
+
+        // Poll immediately and then every 3 seconds
+        pollStatus();
+        const interval = setInterval(pollStatus, 3000);
+
+        return () => clearInterval(interval);
+    }, [activeSessionIndex, activeSession?.id, activeSession?.status, sessions]);
 
     // Fetch scoring configuration for the job
     useEffect(() => {
@@ -527,6 +580,37 @@ function TelemetryContent() {
                     <div className="mb-3">
                         <Breadcrumbs items={breadcrumbTrail} />
                     </div>
+
+                    {/* Evaluation Status Banner */}
+                    {isEvaluating && evaluationStatus && (
+                        <div className="mb-3 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <div className="flex items-center gap-3">
+                                <div className="flex-shrink-0">
+                                    <svg className="animate-spin h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                </div>
+                                <div className="flex-1">
+                                    <h3 className="text-sm font-medium text-blue-900">
+                                        AI Evaluations in Progress
+                                    </h3>
+                                    <p className="text-sm text-blue-700 mt-1">
+                                        {evaluationStatus.stats.completed} of {evaluationStatus.stats.total} evaluations completed ({evaluationStatus.progress}%)
+                                    </p>
+                                    <div className="mt-2">
+                                        <div className="h-2 bg-blue-200 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-blue-600 transition-all duration-300"
+                                                style={{ width: `${evaluationStatus.progress}%` }}
+                                            ></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 xl:grid-cols-[480px_1fr] gap-3">
                         {/* Left Card: Name and Job Title */}
                         <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-6 shadow-[0_2px_8px_rgba(0,0,0,0.08)]">

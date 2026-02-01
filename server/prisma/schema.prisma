@@ -196,6 +196,29 @@ model InterviewSession {
   iterations            Iteration[]
   externalToolUsages    ExternalToolUsage[]
   categoryContributions CategoryContribution[]
+  evaluationJobs        EvaluationJob[]
+}
+
+/// Tracks async evaluation jobs for interview completion
+model EvaluationJob {
+  id                 String           @id @default(cuid())
+  interviewSessionId String
+  jobType            String           // "coding-gaps" | "coding-summary" | "code-quality" | "job-specific-coding" | "profile-story"
+  status             String           @default("PENDING") // "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED"
+  priority           Int              @default(0) // Higher priority jobs run first
+  payload            Json             // Job-specific data (finalCode, codingTask, etc.)
+  result             Json?            // Job result data
+  error              String?          // Error message if failed
+  attempts           Int              @default(0) // Number of processing attempts
+  maxAttempts        Int              @default(3) // Maximum retry attempts
+  createdAt          DateTime         @default(now())
+  startedAt          DateTime?        // When job processing started
+  completedAt        DateTime?        // When job completed/failed
+  updatedAt          DateTime         @updatedAt
+  interviewSession   InterviewSession @relation(fields: [interviewSessionId], references: [id], onDelete: Cascade)
+
+  @@index([status, priority, createdAt])
+  @@index([interviewSessionId])
 }
 
 model TelemetryData {
