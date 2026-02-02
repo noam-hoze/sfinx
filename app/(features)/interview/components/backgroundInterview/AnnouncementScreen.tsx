@@ -8,6 +8,7 @@ const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
 import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { useMute } from "app/shared/contexts";
+import { useWordByWordAnimation } from "../hooks/useWordByWordAnimation";
 
 type AnnouncementScreenProps = {
   text: string;
@@ -42,12 +43,17 @@ export default function AnnouncementScreen({
    * Plays a spoken announcement while revealing the text word by word before advancing the flow.
    */
   const { isMuted } = useMute();
-  const [displayedWords, setDisplayedWords] = useState<string[]>([]);
   const [audioFinished, setAudioFinished] = useState(false);
-  const [typingFinished, setTypingFinished] = useState(false);
   const [fadingOut, setFadingOut] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const hasStartedRef = useRef(false);
+
+  // Use word-by-word animation hook
+  const { displayedWords, isTypingComplete: typingFinished } = useWordByWordAnimation({
+    text,
+    enabled: true,
+    wordsPerSecond: 3,
+  });
 
   useEffect(() => {
     // Prevent multiple executions of the same announcement
@@ -56,16 +62,10 @@ export default function AnnouncementScreen({
     }
     
     hasStartedRef.current = true;
-    
-    // Reset state when text changes
-    setDisplayedWords([]);
-    setAudioFinished(false);
-    setTypingFinished(false);
-    setFadingOut(false);
 
-    const words = text.split(" ");
-    const WORDS_PER_SECOND = 3;
-    const MS_PER_WORD = 1000 / WORDS_PER_SECOND;
+    // Reset state when text changes
+    setAudioFinished(false);
+    setFadingOut(false);
 
     // Play TTS (preloaded or generate on-demand)
     (async () => {
@@ -100,29 +100,7 @@ export default function AnnouncementScreen({
       }
     })();
 
-    // Start typing animation - use index to avoid any state/closure issues
-    let currentIndex = 0;
-    
-    const interval = setInterval(() => {
-      if (currentIndex < words.length) {
-        const wordToAdd = words[currentIndex];
-        currentIndex++;
-        
-        setDisplayedWords((prev) => {
-          // Prevent duplicates when component re-renders during mute toggle
-          if (prev.length > 0 && prev[prev.length - 1] === wordToAdd) {
-            return prev;
-          }
-          return [...prev, wordToAdd];
-        });
-      } else {
-        setTypingFinished(true);
-        clearInterval(interval);
-      }
-    }, MS_PER_WORD);
-
     return () => {
-      clearInterval(interval);
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
