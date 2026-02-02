@@ -8,7 +8,7 @@ import { useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import OpenAI from "openai";
 import { store, RootState } from "@/shared/state/store";
-import { addMessage, setEvaluatingAnswer, setCurrentFocusTopic, setCurrentQuestionTarget, updateCategoryStats, forceTimeExpiry, incrementDontKnowCount } from "@/shared/state/slices/backgroundSlice";
+import { addMessage, setEvaluatingAnswer, setCurrentFocusTopic, setCurrentQuestionTarget, updateCategoryStats, forceTimeExpiry, incrementQuestionSequence, incrementClarificationRetry } from "@/shared/state/slices/backgroundSlice";
 import {
   askViaChatCompletion,
   generateAssistantReply,
@@ -41,6 +41,7 @@ export function useBackgroundAnswerHandler(
   const userId = useSelector((state: RootState) => state.interview.userId);
   const script = useSelector((state: RootState) => state.interview.script);
   const categoryStats = useSelector((state: RootState) => state.background.categoryStats);
+  const clarificationRetryCount = useSelector((state: RootState) => state.background.clarificationRetryCount);
 
   const saveMessageToDb = useCallback(async (text: string, speaker: "user" | "ai" | "system") => {
     if (!sessionId) return;
@@ -126,6 +127,7 @@ export function useBackgroundAnswerHandler(
                 currentCounts: categoryStats,
                 currentFocusTopic,
                 excludedTopics,
+                clarificationRetryCount,
               })
             });
             
@@ -138,14 +140,12 @@ export function useBackgroundAnswerHandler(
               dispatch(forceTimeExpiry());
               return { shouldComplete: true, transitionReason: "all_categories_excluded" };
             }
-            
-            // Increment don't know count if detected
-            if (fastData.isDontKnow && fastData.newFocusTopic) {
-              log.info(LOG_CATEGORY, `"I don't know" detected for category: ${fastData.newFocusTopic}`);
-              
-              dispatch(incrementDontKnowCount({ category: fastData.newFocusTopic }));
+
+            // Log if "I don't know" was detected (API handles the count increment)
+            if (fastData.isDontKnow && currentFocusTopic) {
+              log.info(LOG_CATEGORY, `"I don't know" detected for category: ${currentFocusTopic}`);
             }
-            
+
             // Use fast results immediately
             if (fastData.updatedCounts) {
               updatedCategoryStats = fastData.updatedCounts;
@@ -172,7 +172,25 @@ export function useBackgroundAnswerHandler(
             if (fastData.evaluationIntent && onIntentReceived) {
               onIntentReceived(fastData.evaluationIntent);
             }
-            
+
+            // Handle retry counter (clarification or gibberish)
+            if (fastData.isClarificationRequest || fastData.isGibberish) {
+              const retryType = fastData.isGibberish ? "Gibberish" : "Clarification";
+              // Candidate asked for clarification or gave gibberish
+              if (clarificationRetryCount < 2) {
+                // Under threshold - increment retry count (will prompt again)
+                dispatch(incrementClarificationRetry());
+                log.info(LOG_CATEGORY, `${retryType} detected, retry count now: ${clarificationRetryCount + 1}`);
+              } else {
+                // At threshold (3rd attempt) - move to next question
+                dispatch(incrementQuestionSequence());
+                log.info(LOG_CATEGORY, `Retry threshold reached (3) after ${retryType}, moving to next question`);
+              }
+            } else {
+              // Normal answer - increment question sequence (new question asked)
+              dispatch(incrementQuestionSequence());
+            }
+
             // Call 2: Full evaluation async (non-blocking, for reasoning/captions/DB)
             fetch(`/api/interviews/evaluate-answer`, {
               method: "POST",
@@ -183,7 +201,7 @@ export function useBackgroundAnswerHandler(
                 answer,
                 timestamp: evalTimestamp,
                 experienceCategories,
-                currentCounts: categoryStats,
+                currentCounts: updatedCategoryStats, // Use updated counts with dontKnowCount incremented
               })
             }).then(async (fullResponse) => {
               const fullData = await fullResponse.json();
