@@ -28,6 +28,8 @@ export type BackgroundState = {
     currentFocusTopic: string | null;
     currentQuestionTarget: { question: string; category: string } | null;
     categoryStats: CategoryStats[];
+    currentQuestionSequence: number;
+    clarificationRetryCount: number;
 };
 
 const initialState: BackgroundState = {
@@ -37,6 +39,8 @@ const initialState: BackgroundState = {
     currentFocusTopic: null,
     currentQuestionTarget: null,
     categoryStats: [],
+    currentQuestionSequence: 0,
+    clarificationRetryCount: 0,
 };
 
 const backgroundSlice = createSlice({
@@ -105,13 +109,8 @@ const backgroundSlice = createSlice({
             }));
         },
         updateCategoryStats: (state, action: PayloadAction<{ stats: CategoryStats[] }>) => {
-            state.categoryStats = action.payload.stats.map(newCat => {
-                const existing = state.categoryStats.find(c => c.categoryName === newCat.categoryName);
-                return {
-                    ...newCat,
-                    dontKnowCount: existing?.dontKnowCount || 0,
-                };
-            });
+            // API now returns dontKnowCount, so just use it directly
+            state.categoryStats = action.payload.stats;
         },
         incrementDontKnowCount: (
             state,
@@ -123,6 +122,16 @@ const backgroundSlice = createSlice({
             if (cat) {
                 cat.dontKnowCount += 1;
             }
+        },
+        incrementQuestionSequence: (state) => {
+            state.currentQuestionSequence += 1;
+            state.clarificationRetryCount = 0; // Reset retry count for new question
+        },
+        incrementClarificationRetry: (state) => {
+            state.clarificationRetryCount += 1;
+        },
+        resetClarificationRetry: (state) => {
+            state.clarificationRetryCount = 0;
         },
     },
     extraReducers: (builder) => {
@@ -145,6 +154,9 @@ export const {
     initializeCategoryStats,
     updateCategoryStats,
     incrementDontKnowCount,
+    incrementQuestionSequence,
+    incrementClarificationRetry,
+    resetClarificationRetry,
 } = backgroundSlice.actions;
 
 export default backgroundSlice.reducer;
