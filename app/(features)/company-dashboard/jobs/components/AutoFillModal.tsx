@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 interface AutoFillModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onGenerate: (description: string) => Promise<void>;
+    onGenerate: (description: string, prompt?: string) => Promise<void>;
     isGenerating: boolean;
 }
 
@@ -19,6 +19,7 @@ export default function AutoFillModal({
     const [shouldRender, setShouldRender] = useState(false);
     const [isVisible, setIsVisible] = useState(false);
     const [description, setDescription] = useState("");
+    const [prompt, setPrompt] = useState("");
 
     useEffect(() => {
         if (isOpen) {
@@ -46,8 +47,9 @@ export default function AutoFillModal({
         const trimmed = description.trim();
         if (trimmed.length === 0) return;
 
-        await onGenerate(trimmed);
+        await onGenerate(trimmed, prompt.trim() || undefined);
         setDescription("");
+        setPrompt("");
         onClose();
     };
 
@@ -95,18 +97,38 @@ export default function AutoFillModal({
                 </div>
 
                 <div className="p-6 space-y-4">
-                    <p className="text-sm text-gray-600">
-                        Describe the job position and requirements. AI will extract and generate all job fields, interview content, and evaluation categories.
-                    </p>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Custom Instructions (Optional)
+                        </label>
+                        <textarea
+                            value={prompt}
+                            onChange={(e) => setPrompt(e.target.value)}
+                            placeholder="Example: Read information from https://example.com/job-details and use it to generate the job description..."
+                            className="w-full min-h-[100px] rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none text-sm"
+                            disabled={isGenerating}
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                            Add custom instructions like fetching data from URLs or specific formatting requirements
+                        </p>
+                    </div>
 
-                    <textarea
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Example: We're looking for a Senior Full-Stack Engineer with 5+ years of experience in React and Node.js. The role involves building scalable web applications, mentoring junior developers, and collaborating with product teams..."
-                        className="w-full min-h-[240px] rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none"
-                        disabled={isGenerating}
-                        autoFocus
-                    />
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Job Description
+                        </label>
+                        <p className="text-sm text-gray-600 mb-2">
+                            Describe the job position and requirements. AI will extract and generate all job fields, interview content, and evaluation categories.
+                        </p>
+                        <textarea
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            placeholder="Example: We're looking for a Senior Full-Stack Engineer with 5+ years of experience in React and Node.js. The role involves building scalable web applications, mentoring junior developers, and collaborating with product teams..."
+                            className="w-full min-h-[240px] rounded-xl border border-gray-200 px-4 py-3 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none"
+                            disabled={isGenerating}
+                            autoFocus
+                        />
+                    </div>
 
                     <div className="flex items-center justify-between pt-2">
                         <p className="text-xs text-gray-500">

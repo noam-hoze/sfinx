@@ -86,6 +86,7 @@ const defaultScoringConfig: ScoringConfigState = {
 async function fetchCategorySuggestions(input: {
     title: string;
     description: string;
+    prompt?: string;
 }): Promise<CategoryGenerationResponse> {
     const response = await fetch("/api/company/jobs/generate-categories", {
         method: "POST",
@@ -118,13 +119,14 @@ function CreateJobContent() {
     /**
      * Generates all job fields from description prompt.
      */
-    const handleAutoFillGenerate = async (description: string) => {
+    const handleAutoFillGenerate = async (description: string, prompt?: string) => {
         setCategoryGenerating(true);
         setError(null);
         try {
             const generated = await fetchCategorySuggestions({
                 title: createState.title,
                 description,
+                prompt,
             });
             setExperienceCategories(generated.experienceCategories);
             setCodingCategories(generated.codingCategories);

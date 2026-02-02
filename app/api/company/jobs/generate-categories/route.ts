@@ -52,14 +52,20 @@ function normalizeGenerationResponse(response: any) {
 async function requestCategoryGeneration(input: {
     description: string;
     title: string | null;
+    customPrompt: string | null;
 }) {
     const promptTitle = input.title ? `Title: ${input.title}\n` : "";
-    const systemPrompt = `You generate job interview definitions from job descriptions.\n` +
+    const baseSystemPrompt = `You generate job interview definitions from job descriptions.\n` +
         `Return JSON with keys: experienceCategories, codingCategories, jobFields, interviewContent.\n` +
         `- experienceCategories: 4-6 items with {name, description, example, weight}, weights sum to 100\n` +
         `- codingCategories: 4-6 items with {name, description, weight}, weights sum to 100\n` +
         `- jobFields: {title, location, type (FULL_TIME/PART_TIME/CONTRACT), salary (format: "$160k" or "$120k - $180k", not text), requirements}\n` +
         `- interviewContent: {backgroundQuestion (opening question about relevant project), codingPrompt, codingTemplate (starter code), codingAnswer (reference solution), expectedOutput, codingLanguage}`;
+    
+    const systemPrompt = input.customPrompt 
+        ? `${input.customPrompt}\n\n${baseSystemPrompt}`
+        : baseSystemPrompt;
+    
     const userPrompt = `${promptTitle}Description:\n${input.description}`;
 
     const openaiClient = new OpenAI({ apiKey: resolveOpenAiKey() });
@@ -107,10 +113,15 @@ async function readCategoryRequest(request: NextRequest) {
         throw new Error("Job description is required");
     }
     if (typeof body.title !== "string") {
-        return { description, title: null };
+        return { description, title: null, customPrompt: null };
     }
     const title = body.title.trim();
-    return { description, title: title.length > 0 ? title : null };
+    const customPrompt = typeof body.prompt === "string" ? body.prompt.trim() : null;
+    return { 
+        description, 
+        title: title.length > 0 ? title : null,
+        customPrompt: customPrompt && customPrompt.length > 0 ? customPrompt : null
+    };
 }
 
 /**
@@ -119,16 +130,17 @@ async function readCategoryRequest(request: NextRequest) {
 async function handleCategoryGeneration(request: NextRequest) {
     const session = await getServerSession(authOptions);
     const userId = requireCompanyUserId(session);
-    const { description, title } = await readCategoryRequest(request);
+    const { description, title, customPrompt } = await readCategoryRequest(request);
     const context = buildLogContext(request, userId);
 
     log.info(LOG_CATEGORY, "[job-categories] Requesting category generation", {
         ...context,
         descriptionLength: description.length,
         hasTitle: Boolean(title),
+        hasCustomPrompt: Boolean(customPrompt),
     });
 
-    const generated = await requestCategoryGeneration({ description, title });
+    const generated = await requestCategoryGeneration({ description, title, customPrompt });
     log.info(LOG_CATEGORY, "[job-categories] Categories generated", {
         ...context,
         codingCount: generated.codingCategories.length,
