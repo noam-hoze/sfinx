@@ -122,6 +122,16 @@ export async function POST(request: NextRequest) {
                             codingAnswer && codingAnswer.trim().length > 0
                                 ? codingAnswer
                                 : null,
+                        expectedOutput:
+                            typeof interview.expectedOutput === "string" &&
+                            interview.expectedOutput.trim().length > 0
+                                ? interview.expectedOutput
+                                : null,
+                        codingLanguage:
+                            typeof interview.codingLanguage === "string" &&
+                            interview.codingLanguage.trim().length > 0
+                                ? interview.codingLanguage
+                                : "python",
                         backgroundQuestionTimeSeconds: coerceSeconds(
                             (interview as any).backgroundQuestionTimeSeconds,
                             900
