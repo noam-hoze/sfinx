@@ -269,6 +269,22 @@ media-player {
   animation: intent-fade-in 500ms ease-out 600ms forwards;
 }
 
+/* Tooltip appear animation - Apple-style smooth */
+@keyframes tooltip-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-tooltip-appear {
+  animation: tooltip-appear 250ms cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
 /* Announcement wrapper smooth collapse */
 .announcement-wrapper {
   overflow: hidden;
