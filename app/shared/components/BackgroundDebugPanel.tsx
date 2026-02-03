@@ -285,13 +285,20 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
     const evaluatingAnswer = backgroundState.evaluatingAnswer;
     const currentQuestionTarget = backgroundState.currentQuestionTarget;
     const currentFocusTopic = backgroundState.currentFocusTopic;
+    const currentQuestionSequence = backgroundState.currentQuestionSequence;
+    const clarificationRetryCount = backgroundState.clarificationRetryCount;
+
+    // Get dontKnowCount for current focus topic
+    const currentTopicStats = contributionStats.find(s => s.categoryName === currentFocusTopic);
+    const currentDontKnowCount = currentTopicStats?.dontKnowCount || 0;
+    const dontKnowThreshold = parseInt(process.env.NEXT_PUBLIC_DONT_KNOW_THRESHOLD || '2', 10);
 
     return (
         <div className="rounded-[28px] border border-slate-200/70 bg-white/80 px-6 py-5 text-sm shadow-lg shadow-slate-900/5 backdrop-blur-xl dark:border-slate-700/60 dark:bg-slate-900/80 dark:text-slate-100">
             <div className="flex flex-col gap-5">
                 {/* Header */}
-                <div className="flex flex-wrap items-start justify-between gap-6">
-                    <div className="flex-1">
+                <div className="flex items-center justify-between gap-6">
+                    <div>
                         <div className="text-[11px] uppercase tracking-[0.32em] text-slate-500 dark:text-slate-400">
                             {panelTitle}
                         </div>
@@ -310,31 +317,76 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
                             )}
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-slate-600 dark:text-slate-300">
-                        <div className="flex flex-col gap-1">
-                            <span className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500">
-                                Timer
+                    
+                    {/* Score Stats - centered */}
+                    <div className="flex items-center gap-3">
+                        <div className="flex flex-col items-center gap-1 px-6 py-2 rounded-xl bg-purple-50 dark:bg-purple-900/20 min-w-[100px]">
+                            <span className="text-lg font-semibold text-purple-700 dark:text-purple-400">
+                                {Math.round(scores.experienceScore)}%
                             </span>
-                            <span className="font-mono text-base text-slate-900 dark:text-white">
-                                {countdown}
+                            <span className="text-[9px] uppercase tracking-wider text-purple-600 dark:text-purple-500">
+                                Experience
                             </span>
                         </div>
-                        <div className="flex flex-col gap-1">
-                            <button
-                                onClick={handleForceTimeExpiry}
-                                className="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors dark:bg-red-700 dark:hover:bg-red-600"
-                            >
-                                Force Gate
-                            </button>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <span className="text-[10px] uppercase tracking-[0.3em] text-slate-400 dark:text-slate-500">
-                                Reason
+                        <div className="flex flex-col items-center gap-1 px-6 py-2 rounded-xl bg-blue-50 dark:bg-blue-900/20 min-w-[100px]">
+                            <span className="text-lg font-semibold text-blue-700 dark:text-blue-400">
+                                {Math.round(scores.codingScore)}%
                             </span>
-                            <span className="capitalize">{reasonLabel}</span>
+                            <span className="text-[9px] uppercase tracking-wider text-blue-600 dark:text-blue-500">
+                                Coding
+                            </span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1 px-6 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 min-w-[100px]">
+                            <span className="text-lg font-semibold text-emerald-700 dark:text-emerald-400">
+                                {Math.round(scores.finalScore)}%
+                            </span>
+                            <span className="text-[9px] uppercase tracking-wider text-emerald-600 dark:text-emerald-500">
+                                Final
+                            </span>
                         </div>
                     </div>
+
+                    <div className="flex items-center gap-3">
+                        <div className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/30 min-w-[80px]">
+                            <span className="font-mono text-lg font-semibold text-slate-900 dark:text-white">
+                                {countdown}
+                            </span>
+                            <span className="text-[9px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                Timer
+                            </span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/30 min-w-[120px]">
+                            <span className="font-mono text-lg font-semibold text-slate-900 dark:text-white">
+                                Q#{currentQuestionSequence} : {clarificationRetryCount}/3
+                            </span>
+                            <span className="text-[9px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                Question : Clarify
+                            </span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/30 min-w-[100px]">
+                            <span className="font-mono text-lg font-semibold text-slate-900 dark:text-white">
+                                {currentFocusTopic ? `${currentFocusTopic.split(' ')[0]}: ${currentDontKnowCount}/${dontKnowThreshold}` : '—'}
+                            </span>
+                            <span className="text-[9px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                Category : Don&apos;t Know
+                            </span>
+                        </div>
+                        <button
+                            onClick={handleForceTimeExpiry}
+                            className="px-4 py-1.5 text-sm font-medium text-red-600 hover:text-white hover:bg-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-600 dark:hover:text-white rounded-full transition-all border border-red-200 dark:border-red-800"
+                        >
+                            End
+                        </button>
+                    </div>
                 </div>
+                
+                {/* Reason indicator - moved below header */}
+                {reason && reason !== "—" && (
+                    <div className="flex items-center gap-2 text-xs">
+                        <span className="text-slate-400 dark:text-slate-500">Exit reason:</span>
+                        <span className="capitalize text-slate-600 dark:text-slate-300">{reasonLabel}</span>
+                    </div>
+                )}
 
                 {/* Current Question Target */}
                 {currentQuestionTarget && (
@@ -356,15 +408,6 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
                         </div>
                     </div>
                 )}
-
-                {/* Score Progress */}
-                <ScoreProgressDisplay
-                    experienceScore={scores.experienceScore}
-                    codingScore={scores.codingScore}
-                    finalScore={scores.finalScore}
-                    experienceWeight={scoringConfig?.experienceWeight || 50}
-                    codingWeight={scoringConfig?.codingWeight || 50}
-                />
 
                 {/* Real-Time Contributions */}
                 <RealTimeContributionsView

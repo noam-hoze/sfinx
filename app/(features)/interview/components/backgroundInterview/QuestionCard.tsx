@@ -10,6 +10,7 @@ import { generateTTS } from "@/shared/services/tts";
 import { generateVisemesAndAudio } from "@/shared/services/mascot";
 import { convertPCMToWAV } from "@/shared/utils/audioConversion";
 import type { Viseme } from "@/shared/types/mascot";
+import { useWordByWordAnimation } from "../hooks/useWordByWordAnimation";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
 
@@ -101,6 +102,14 @@ export default function QuestionCard({
   const submitClickTimeRef = useRef<Date>(new Date());
   const VIDEO_EVIDENCE_OFFSET_MS = 1000; // Same as coding stage
 
+  // Word-by-word animation for question text
+  const [questionAnimationEnabled, setQuestionAnimationEnabled] = useState(false);
+  const { displayedWords, isTypingComplete, completeAnimation } = useWordByWordAnimation({
+    text: question,
+    enabled: questionAnimationEnabled,
+    wordsPerSecond: 3,
+  });
+
   // Preload sounds on mount - wait for them to be fully ready (with caching)
   React.useEffect(() => {
     loadAndCacheSoundEffect("/sounds/controls-appear.mp3", "controls-appear").then(controlsSound => {
@@ -122,14 +131,18 @@ export default function QuestionCard({
       setAnswer(""); // Clear any previous answer
       setIsTranscribing(false); // Reset transcription state
 
-      // If muted, skip TTS and show controls immediately
+      // If muted, skip TTS, animation, and show controls immediately
       if (isMuted) {
-        log.info(LOG_CATEGORY, "[QuestionCard] Muted - skipping TTS, showing controls immediately");
+        log.info(LOG_CATEGORY, "[QuestionCard] Muted - skipping TTS and animation, showing controls immediately");
+        setQuestionAnimationEnabled(false); // No animation when muted before start
         setIsAudioPlaying(true);
         setAudioFinished(true);
         onAudioStateChange?.(false, intentText, []);  // Pass empty visemes - no lip sync when muted
         return;
       }
+
+      // Enable animation for new question
+      setQuestionAnimationEnabled(true);
 
       // Generate and play TTS
       (async () => {
@@ -180,6 +193,13 @@ export default function QuestionCard({
 
   // Handle mute toggle during playback - special behavior for QuestionCard
   React.useEffect(() => {
+    // Handle animation completion when muted during animation
+    if (isMuted && questionAnimationEnabled && !isTypingComplete) {
+      log.info(LOG_CATEGORY, "[QuestionCard] Mute toggled ON during animation - completing animation smoothly");
+      completeAnimation();
+    }
+
+    // Handle audio
     if (audioRef.current) {
       if (isMuted && !audioFinished) {
         // Special "read mode" behavior: stop audio and show controls immediately
@@ -193,7 +213,7 @@ export default function QuestionCard({
         audioRef.current.volume = 1;
       }
     }
-  }, [isMuted, audioFinished, onAudioStateChange]);
+  }, [isMuted, audioFinished, questionAnimationEnabled, isTypingComplete, completeAnimation, onAudioStateChange, intentText]);
 
   // Play sound when controls appear (after audio finishes)
   React.useEffect(() => {
@@ -360,7 +380,7 @@ export default function QuestionCard({
   };
 
   return (
-    <div className="w-full max-w-3xl">
+    <div className="w-[48rem] max-w-full">
       <AnimatePresence mode="wait">
         {(isAudioPlaying || ttsError) && (
           <motion.div
@@ -369,21 +389,22 @@ export default function QuestionCard({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: -300, opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="w-full"
           >
             {/* Single card with question and controls */}
             <motion.div
                 initial={{ backgroundColor: "rgba(255, 255, 255, 0)" }}
-                animate={{ 
+                animate={{
                   backgroundColor: audioFinished ? "rgba(255, 255, 255, 1)" : "rgba(255, 255, 255, 0)",
                   boxShadow: audioFinished ? "0 10px 15px -3px rgb(0 0 0 / 0.1)" : "0 0 0 0 rgb(0 0 0 / 0)"
                 }}
                 transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
-                className="rounded-2xl overflow-hidden border border-gray-200"
+                className="rounded-2xl overflow-hidden border border-gray-200 w-full"
               >
                 {/* Question Section */}
-                <div className="p-8 pb-6">
-                  <p className="text-2xl text-gray-800 leading-relaxed font-light">
-                    {question || "Loading question..."}
+                <div className="p-8 pb-6 w-full min-h-[120px]">
+                  <p className="text-2xl text-gray-800 leading-relaxed font-light text-left w-full">
+                    {questionAnimationEnabled ? displayedWords.join(" ") : question || "Loading question..."}
                   </p>
                   {ttsError && (
                     <div className="mt-4 flex items-center gap-2 text-red-600 text-sm">

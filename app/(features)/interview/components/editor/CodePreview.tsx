@@ -84,6 +84,12 @@ render(DefaultComponent);
                             const pyodide = await window.loadPyodide({
                                 indexURL: "https://cdn.jsdelivr.net/pyodide/v0.24.1/full/",
                             });
+
+                            // Pre-install numpy for coding challenges
+                            log.info(LOG_CATEGORY, "[CodePreview] Installing numpy...");
+                            await pyodide.loadPackage('numpy');
+                            log.info(LOG_CATEGORY, "[CodePreview] ✅ numpy installed successfully");
+
                             pyodideRef.current = pyodide;
                             log.info(LOG_CATEGORY, "[CodePreview] ✅ Pyodide loaded successfully");
                             setPyodideLoading(false);

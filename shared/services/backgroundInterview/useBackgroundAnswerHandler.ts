@@ -8,7 +8,7 @@ import { useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import OpenAI from "openai";
 import { store, RootState } from "@/shared/state/store";
-import { addMessage, setEvaluatingAnswer, setCurrentFocusTopic, setCurrentQuestionTarget, updateCategoryStats, forceTimeExpiry, incrementDontKnowCount } from "@/shared/state/slices/backgroundSlice";
+import { addMessage, setEvaluatingAnswer, setCurrentFocusTopic, setCurrentQuestionTarget, updateCategoryStats, forceTimeExpiry, incrementQuestionSequence, incrementClarificationRetry } from "@/shared/state/slices/backgroundSlice";
 import {
   askViaChatCompletion,
   generateAssistantReply,
@@ -41,6 +41,7 @@ export function useBackgroundAnswerHandler(
   const userId = useSelector((state: RootState) => state.interview.userId);
   const script = useSelector((state: RootState) => state.interview.script);
   const categoryStats = useSelector((state: RootState) => state.background.categoryStats);
+  const clarificationRetryCount = useSelector((state: RootState) => state.background.clarificationRetryCount);
 
   const saveMessageToDb = useCallback(async (text: string, speaker: "user" | "ai" | "system") => {
     if (!sessionId) return;
@@ -93,9 +94,11 @@ export function useBackgroundAnswerHandler(
           const experienceCategories = script?.experienceCategories || [];
           const evalTimestamp = new Date().toISOString();
           dispatch(setEvaluatingAnswer({ evaluating: true }));
-          
+
+          // Feature flag check for split evaluation
+          const useSplitEvaluation = process.env.NEXT_PUBLIC_USE_SPLIT_EVALUATION === 'true';
+
           try {
-            // Call 1: Fast endpoint for scores + next question (blocking, ~1-2s)
             const currentFocusTopic = backgroundState.currentFocusTopic;
             
             // Get excluded topics (dontKnowCount >= threshold)
@@ -114,8 +117,153 @@ export function useBackgroundAnswerHandler(
             if (excludedTopics.length > 0) {
               log.info(LOG_CATEGORY, `Excluded topics (dontKnowCount >= ${dontKnowThreshold}): ${excludedTopics.join(', ')}`);
             }
-            
-            const fastResponse = await fetch(`/api/interviews/evaluate-answer-fast`, {
+
+            if (useSplitEvaluation) {
+              // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+              // NEW FLOW: 3-call architecture (question, scoring, evaluation)
+              // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+              // CALL 1: Next Question (BLOCKING, ~300-500ms)
+              log.info(LOG_CATEGORY, "[split-eval] Calling next-question endpoint...");
+              const questionResponse = await fetch(`/api/interviews/next-question`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  sessionId,
+                  lastQuestion: currentQuestion,
+                  lastAnswer: answer,
+                  experienceCategories,
+                  currentCounts: categoryStats,
+                  currentFocusTopic,
+                  excludedTopics,
+                  clarificationRetryCount,
+                })
+              });
+
+              const questionData = await questionResponse.json();
+              log.info(LOG_CATEGORY, `[split-eval] Next question received in ${questionData.latencyMs || 0}ms`);
+
+              // Check if all categories excluded
+              if (questionData.allCategoriesExcluded) {
+                log.info(LOG_CATEGORY, "All categories excluded - ending background interview");
+                dispatch(setEvaluatingAnswer({ evaluating: false }));
+                dispatch(forceTimeExpiry());
+                return { shouldComplete: true, transitionReason: "all_categories_excluded" };
+              }
+
+              // Update focus topic immediately
+              if (questionData.newFocusTopic) {
+                dispatch(setCurrentFocusTopic({ topicName: questionData.newFocusTopic }));
+              }
+
+              // Use next question from response
+              if (!questionData.question) {
+                throw new Error("Next-question API must return question");
+              }
+              nextQuestionText = questionData.question;
+
+              // Set question target for debug panel
+              if (nextQuestionText && questionData.newFocusTopic) {
+                dispatch(setCurrentQuestionTarget({ question: nextQuestionText, category: questionData.newFocusTopic }));
+              }
+
+              // Handle retry counter (clarification or gibberish)
+              if (questionData.shouldIncrementRetry) {
+                const retryType = questionData.isGibberish ? "Gibberish" : "Clarification";
+                dispatch(incrementClarificationRetry());
+                log.info(LOG_CATEGORY, `${retryType} detected, retry count now: ${clarificationRetryCount + 1}`);
+              } else if (!questionData.shouldMoveOn) {
+                // Normal answer - increment question sequence
+                dispatch(incrementQuestionSequence());
+              } else {
+                // At threshold - moving to next question
+                dispatch(incrementQuestionSequence());
+                log.info(LOG_CATEGORY, "Retry threshold reached, moving to next question");
+              }
+
+              // Log if "I don't know" was detected (quick regex-based detection)
+              if (questionData.isDontKnow && currentFocusTopic) {
+                log.info(LOG_CATEGORY, `"I don't know" detected (quick) for category: ${currentFocusTopic}`);
+              }
+
+              // CALL 2: Score Answer (ASYNC, ~2-3s, non-blocking)
+              log.info(LOG_CATEGORY, "[split-eval] Calling score-answer endpoint (async)...");
+              fetch(`/api/interviews/score-answer`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  sessionId,
+                  question: currentQuestion,
+                  answer,
+                  experienceCategories,
+                  currentCounts: categoryStats,
+                  currentFocusTopic,
+                })
+              }).then(async (scoreResponse) => {
+                const scoreData = await scoreResponse.json();
+                log.info(LOG_CATEGORY, `[split-eval] Scores received in ${scoreData.latencyMs || 0}ms`);
+
+                // Update Redux with scores (~2-3s after submit)
+                if (scoreData.updatedCounts) {
+                  dispatch(updateCategoryStats({ stats: scoreData.updatedCounts }));
+                }
+
+                // Pass intent to callback for display
+                if (scoreData.evaluationIntent && onIntentReceived) {
+                  onIntentReceived(scoreData.evaluationIntent);
+                }
+
+                // Log "I don't know" detection (OpenAI result is authoritative)
+                if (scoreData.isDontKnow && currentFocusTopic) {
+                  log.info(LOG_CATEGORY, `"I don't know" detected (OpenAI) for category: ${currentFocusTopic}`);
+                }
+              }).catch((err) => {
+                log.error(LOG_CATEGORY, "[split-eval] Score-answer failed:", err);
+              });
+
+              // CALL 3: Full Evaluation (ASYNC, ~8-10s, non-blocking)
+              log.info(LOG_CATEGORY, "[split-eval] Calling full evaluation endpoint (async)...");
+              fetch(`/api/interviews/evaluate-answer`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  sessionId,
+                  question: currentQuestion,
+                  answer,
+                  timestamp: evalTimestamp,
+                  experienceCategories,
+                  currentCounts: categoryStats,
+                })
+              }).then(async (fullResponse) => {
+                const fullData = await fullResponse.json();
+                log.info(LOG_CATEGORY, "[split-eval] Full evaluation complete");
+
+                // Correct Redux with full evaluation counts (if different)
+                if (fullData.updatedCounts) {
+                  dispatch(updateCategoryStats({ stats: fullData.updatedCounts }));
+                  log.info(LOG_CATEGORY, "[split-eval] Redux updated with full-eval counts");
+                }
+
+                // Pass evaluations to callback for debug panel
+                if (fullData.allEvaluations && onEvaluationReceived) {
+                  onEvaluationReceived({
+                    timestamp: evalTimestamp,
+                    question: currentQuestion,
+                    answer,
+                    evaluations: fullData.allEvaluations,
+                  });
+                }
+              }).catch((err) => {
+                log.error(LOG_CATEGORY, "[split-eval] Full evaluation failed:", err);
+              });
+
+            } else {
+              // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+              // OLD FLOW: Keep existing dual-call for backward compatibility
+              // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+              log.info(LOG_CATEGORY, "[dual-call] Using old evaluate-answer-fast flow");
+              const fastResponse = await fetch(`/api/interviews/evaluate-answer-fast`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -126,6 +274,7 @@ export function useBackgroundAnswerHandler(
                 currentCounts: categoryStats,
                 currentFocusTopic,
                 excludedTopics,
+                clarificationRetryCount,
               })
             });
             
@@ -138,14 +287,12 @@ export function useBackgroundAnswerHandler(
               dispatch(forceTimeExpiry());
               return { shouldComplete: true, transitionReason: "all_categories_excluded" };
             }
-            
-            // Increment don't know count if detected
-            if (fastData.isDontKnow && fastData.newFocusTopic) {
-              log.info(LOG_CATEGORY, `"I don't know" detected for category: ${fastData.newFocusTopic}`);
-              
-              dispatch(incrementDontKnowCount({ category: fastData.newFocusTopic }));
+
+            // Log if "I don't know" was detected (API handles the count increment)
+            if (fastData.isDontKnow && currentFocusTopic) {
+              log.info(LOG_CATEGORY, `"I don't know" detected for category: ${currentFocusTopic}`);
             }
-            
+
             // Use fast results immediately
             if (fastData.updatedCounts) {
               updatedCategoryStats = fastData.updatedCounts;
@@ -172,43 +319,62 @@ export function useBackgroundAnswerHandler(
             if (fastData.evaluationIntent && onIntentReceived) {
               onIntentReceived(fastData.evaluationIntent);
             }
-            
-            // Call 2: Full evaluation async (non-blocking, for reasoning/captions/DB)
-            fetch(`/api/interviews/evaluate-answer`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                sessionId,
-                question: currentQuestion,
-                answer,
-                timestamp: evalTimestamp,
-                experienceCategories,
-                currentCounts: categoryStats,
-              })
-            }).then(async (fullResponse) => {
-              const fullData = await fullResponse.json();
-              log.info(LOG_CATEGORY, "[async] Full evaluation complete");
-              
-              // Update Redux with corrected counts from full evaluation
-              if (fullData.updatedCounts) {
-                dispatch(updateCategoryStats({ stats: fullData.updatedCounts }));
-                log.info(LOG_CATEGORY, "[async] Redux updated with full-eval counts");
+
+            // Handle retry counter (clarification or gibberish)
+            if (fastData.isClarificationRequest || fastData.isGibberish) {
+              const retryType = fastData.isGibberish ? "Gibberish" : "Clarification";
+              // Candidate asked for clarification or gave gibberish
+              if (clarificationRetryCount < 2) {
+                // Under threshold - increment retry count (will prompt again)
+                dispatch(incrementClarificationRetry());
+                log.info(LOG_CATEGORY, `${retryType} detected, retry count now: ${clarificationRetryCount + 1}`);
+              } else {
+                // At threshold (3rd attempt) - move to next question
+                dispatch(incrementQuestionSequence());
+                log.info(LOG_CATEGORY, `Retry threshold reached (3) after ${retryType}, moving to next question`);
               }
-              
-              if (fullData.allEvaluations && onEvaluationReceived) {
-                onEvaluationReceived({
-                  timestamp: evalTimestamp,
+            } else {
+              // Normal answer - increment question sequence (new question asked)
+              dispatch(incrementQuestionSequence());
+            }
+
+              // Call 2: Full evaluation async (non-blocking, for reasoning/captions/DB)
+              fetch(`/api/interviews/evaluate-answer`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  sessionId,
                   question: currentQuestion,
                   answer,
-                  evaluations: fullData.allEvaluations,
-                });
-              }
-            }).catch((err) => {
-              log.error(LOG_CATEGORY, "[async] Full evaluation failed:", err);
-            });
-            
+                  timestamp: evalTimestamp,
+                  experienceCategories,
+                  currentCounts: updatedCategoryStats, // Use updated counts with dontKnowCount incremented
+                })
+              }).then(async (fullResponse) => {
+                const fullData = await fullResponse.json();
+                log.info(LOG_CATEGORY, "[dual-call] Full evaluation complete");
+
+                // Update Redux with corrected counts from full evaluation
+                if (fullData.updatedCounts) {
+                  dispatch(updateCategoryStats({ stats: fullData.updatedCounts }));
+                  log.info(LOG_CATEGORY, "[dual-call] Redux updated with full-eval counts");
+                }
+
+                if (fullData.allEvaluations && onEvaluationReceived) {
+                  onEvaluationReceived({
+                    timestamp: evalTimestamp,
+                    question: currentQuestion,
+                    answer,
+                    evaluations: fullData.allEvaluations,
+                  });
+                }
+              }).catch((err) => {
+                log.error(LOG_CATEGORY, "[dual-call] Full evaluation failed:", err);
+              });
+            }
+
           } catch (err) {
-            log.error(LOG_CATEGORY, "Failed fast evaluation:", err);
+            log.error(LOG_CATEGORY, useSplitEvaluation ? "Failed split evaluation:" : "Failed fast evaluation:", err);
           } finally {
             dispatch(setEvaluatingAnswer({ evaluating: false }));
           }

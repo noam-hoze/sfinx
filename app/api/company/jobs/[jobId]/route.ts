@@ -200,6 +200,16 @@ export async function PUT(request: NextRequest, context: RouteContext) {
                         typeof interview.codingAnswer === "string"
                             ? interview.codingAnswer
                             : null,
+                    expectedOutput:
+                        typeof interview.expectedOutput === "string" &&
+                        interview.expectedOutput.trim().length > 0
+                            ? interview.expectedOutput
+                            : null,
+                    codingLanguage:
+                        typeof interview.codingLanguage === "string" &&
+                        interview.codingLanguage.trim().length > 0
+                            ? interview.codingLanguage
+                            : job.interviewContent?.codingLanguage ?? "python",
                     backgroundQuestionTimeSeconds: coerceSeconds(
                         (interview as any).backgroundQuestionTimeSeconds,
                         job.interviewContent?.backgroundQuestionTimeSeconds ?? 900
