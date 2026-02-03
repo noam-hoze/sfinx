@@ -26,8 +26,6 @@ const MascotContent: React.FC<{ visemes?: Viseme[]; isPlaying?: boolean }> = ({
   const playback = useMascotPlayback();
   const instanceId = useRef(Math.random().toString(36).substr(2, 9));
   const renderCount = useRef(0);
-  const previousVisemesRef = useRef<Viseme[]>([]);
-  const previousIsPlayingRef = useRef<boolean>(false);
   renderCount.current++;
 
   // Log on every effect trigger with detailed data
@@ -49,11 +47,7 @@ const MascotContent: React.FC<{ visemes?: Viseme[]; isPlaying?: boolean }> = ({
     fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:'EFFECT',data:logData})}).catch(()=>{});
     // #endregion
 
-    handlePlayback(playback, visemes, isPlaying, previousVisemesRef, previousIsPlayingRef);
-
-    // Update refs for next comparison
-    previousVisemesRef.current = visemes;
-    previousIsPlayingRef.current = isPlaying;
+    handlePlayback(playback, visemes, isPlaying);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying, visemes]);  // Removed playback - its reference changes every render but points to same instance
 
@@ -80,53 +74,28 @@ const MascotContent: React.FC<{ visemes?: Viseme[]; isPlaying?: boolean }> = ({
 
 /**
  * Handles lip-sync playback state
- * Only resets when actually needed (stopping playback or changing visemes)
  */
 function handlePlayback(
   playback: any,
   visemes: Viseme[],
-  isPlaying: boolean,
-  previousVisemesRef: React.MutableRefObject<Viseme[]>,
-  previousIsPlayingRef: React.MutableRefObject<boolean>
+  isPlaying: boolean
 ): void {
-  const previousVisemes = previousVisemesRef.current;
-  const previousIsPlaying = previousIsPlayingRef.current;
-
-  // Check if visemes actually changed (by reference or length)
-  const visemesChanged = previousVisemes !== visemes || previousVisemes.length !== visemes.length;
-
   // #region agent log
-  fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:'HANDLE_PLAYBACK',isPlaying,previousIsPlaying,visemesCount:visemes.length,visemesChanged})}).catch(()=>{});
+  fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:'HANDLE_PLAYBACK',isPlaying,visemesCount:visemes.length})}).catch(()=>{});
   // #endregion
 
-  // Case 1: Starting playback with new visemes
-  if (isPlaying && visemes.length > 0 && (!previousIsPlaying || visemesChanged)) {
-    // Reset only if we were previously playing something else
-    if (previousIsPlaying || previousVisemes.length > 0) {
-      playback.pause();
-      playback.reset();
-    }
+  // Always stop current playback first to prevent overlap between questions
+  playback.pause();
+  playback.reset();
 
+  if (isPlaying && visemes.length > 0) {
     playback.add(visemes);
     playback.play();
     // #region agent log
     fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:'PLAYBACK_START',visemesCount:visemes.length})}).catch(()=>{});
     // #endregion
   }
-  // Case 2: Stopping playback
-  else if (!isPlaying && previousIsPlaying) {
-    playback.pause();
-    playback.reset();
-    // #region agent log
-    fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:'PLAYBACK_STOP'})}).catch(()=>{});
-    // #endregion
-  }
-  // Case 3: Already playing same visemes - do nothing (avoid unnecessary resets)
-  else if (isPlaying && !visemesChanged) {
-    // #region agent log
-    fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:'PLAYBACK_CONTINUE',note:'Same visemes, no reset needed'})}).catch(()=>{});
-    // #endregion
-  }
+  // When !isPlaying or visemes.length === 0, playback stays stopped (already paused/reset above)
 }
 
 /**
