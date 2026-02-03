@@ -11,12 +11,21 @@ export const createInterviewSession = async ({
     userId,
     recordingStartedAt,
 }: CreateInterviewSessionParams) => {
-    const url = "/api/interviews/session";
+    // Add skip-auth query param when userId is provided
+    const skipAuth = !!userId;
+    const url = skipAuth
+        ? "/api/interviews/session?skip-auth=true"
+        : "/api/interviews/session";
 
     const body: Record<string, any> = {
         applicationId,
         companyId,
     };
+
+    // Include userId in body when provided (required for skip-auth)
+    if (userId) {
+        body.userId = userId;
+    }
 
     if (recordingStartedAt) {
         body.recordingStartedAt = recordingStartedAt.toISOString();

@@ -363,21 +363,26 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
               /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] Filtered messages count:", backgroundMessages.length);
 
               if (backgroundMessages.length > 0) {
-                // Get session ID from Redux store
+                // Get session ID and user ID from Redux store
                 const sessionId = ms.sessionId;
-                
+                const userId = ms.userId;
+
                 /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] sessionId from Redux store:", sessionId);
-                
-                if (sessionId) {
+                /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] userId from Redux store:", userId);
+
+                if (sessionId && userId) {
                   // Save messages first (await to ensure they're persisted before summary generation)
                   /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] Calling POST /messages with", backgroundMessages.length, "messages");
                   
                   (async () => {
                     try {
-                      const url = `/api/interviews/session/${sessionId}/messages`;
-                      
-                      const body: Record<string, any> = { messages: backgroundMessages };
-                      
+                      const url = `/api/interviews/session/${sessionId}/messages?skip-auth=true`;
+
+                      const body: Record<string, any> = {
+                        messages: backgroundMessages,
+                        userId: userId
+                      };
+
                       const messagesRes = await fetch(url, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
@@ -385,24 +390,33 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
                       });
                       
                       /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] POST /messages response:", messagesRes.status, messagesRes.statusText);
-                      const messagesData = await messagesRes.json();
-                      /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] POST /messages data:", messagesData);
-                      
+
                       if (!messagesRes.ok) {
-                        /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[background][persist] Failed to save messages, skipping summary generation");
+                        const errorData = await messagesRes.json().catch(() => ({ error: "Failed to parse error response" }));
+                        /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[background][persist] Failed to save messages", {
+                          status: messagesRes.status,
+                          statusText: messagesRes.statusText,
+                          error: errorData,
+                          sessionId,
+                          messageCount: backgroundMessages.length
+                        });
                         return;
                       }
-                      
+
+                      const messagesData = await messagesRes.json();
+                      /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] POST /messages data:", messagesData);
+
                       // Messages saved successfully, now trigger summary generation
-                      const summaryUrl = `/api/interviews/session/${sessionId}/background-summary`;
-                      
+                      const summaryUrl = `/api/interviews/session/${sessionId}/background-summary?skip-auth=true`;
+
                       const summaryPayload: Record<string, any> = {
                         companyName: ms.companyName,
                         roleName: ms.roleSlug?.replace(/-/g, " "),
+                        userId: userId
                       };
-                      
+
                       /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] Calling POST /background-summary with payload:", summaryPayload);
-                      
+
                       try {
                         const summaryRes = await fetch(summaryUrl, {
                           method: "POST",
@@ -421,7 +435,10 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
                     }
                   })();
                 } else {
-                  /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[background][persist] sessionId is null, cannot persist");
+                  /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[background][persist] Missing required data", {
+                    hasSessionId: !!sessionId,
+                    hasUserId: !!userId
+                  });
                 }
               } else {
                 /* eslint-disable no-console */ log.warn(LOG_CATEGORY, "[background][persist] No messages to persist");
