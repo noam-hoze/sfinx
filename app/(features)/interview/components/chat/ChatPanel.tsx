@@ -44,7 +44,7 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
     const [showQuickReply, setShowQuickReply] = useState(false);
     const [buttonClicked, setButtonClicked] = useState(false);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
-    const inputRef = useRef<HTMLInputElement>(null);
+    const inputRef = useRef<HTMLTextAreaElement>(null);
 
     // Track active paste evaluation changes
     useEffect(() => {
