@@ -188,9 +188,9 @@ function JobApplicantsContent() {
                             <span className="text-gray-400">-</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-center">
+                        <td className="px-20 py-4">
                           {applicant.highlights?.length > 0 ? (
-                            <div className="flex flex-wrap gap-2 justify-center">
+                            <div className="flex flex-wrap gap-2">
                               {applicant.highlights.map((highlight, idx) => (
                                 <span
                                   key={idx}
