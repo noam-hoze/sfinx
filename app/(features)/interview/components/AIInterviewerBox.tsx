@@ -52,13 +52,12 @@ const AIInterviewerBox: React.FC<AIInterviewerBoxProps> = ({
             }`}>
                 <div className="w-full h-full relative p-6">
                 {/* Sfinx avatar - animates between announcement, center, and corner */}
-                <div 
+                <div
                     className={`transition-all duration-[800ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
                         isArriving
                             ? 'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-48 h-48'
-                            : mode === "idle" && intent 
-                                ? 'absolute top-4 right-4 w-16 h-16' 
-                                : 'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40'
+                            // Commented out corner animation: mode === "idle" && intent ? 'absolute top-4 right-4 w-16 h-16'
+                            : 'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40'
                     }`}
                 >
                     {mascotEnabled ? (
