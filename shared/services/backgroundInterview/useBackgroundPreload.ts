@@ -14,7 +14,7 @@ import {
   setSessionId,
   setCompanyContext,
 } from "@/shared/state/slices/interviewSlice";
-import { setTimebox as setBackgroundTimebox, initializeCategoryStats } from "@/shared/state/slices/backgroundSlice";
+import { setTimebox as setBackgroundTimebox, initializeCategoryStats, setCurrentFocusTopic } from "@/shared/state/slices/backgroundSlice";
 import { setTimebox as setCodingTimebox } from "@/shared/state/slices/codingSlice";
 import { buildOpenAIBackgroundPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
 import { generateAssistantReply } from "app/(features)/interview/components/chat/openAITextConversationHelpers";
@@ -163,6 +163,16 @@ Return JSON with format: {"question": "...", "evaluationIntent": "..."}`;
           // Initialize category stats in Redux store
           const categoryNames = scriptData.experienceCategories.map((c: any) => c.name);
           dispatch(initializeCategoryStats({ categories: categoryNames }));
+
+          // Set currentFocusTopic from DB category or fallback to first category
+          if (scriptData.backgroundQuestionCategory) {
+            dispatch(setCurrentFocusTopic({ topicName: scriptData.backgroundQuestionCategory }));
+            log.info(LOG_CATEGORY, `[preload] Set first question category from DB: ${scriptData.backgroundQuestionCategory}`);
+          } else if (categoryNames.length > 0) {
+            // Fallback to first available category if DB field not set
+            dispatch(setCurrentFocusTopic({ topicName: categoryNames[0] }));
+            log.info(LOG_CATEGORY, `[preload] No DB category, using first: ${categoryNames[0]}`);
+          }
         }
 
         log.info(LOG_CATEGORY, "[preload] Preload complete - data stored in Redux");

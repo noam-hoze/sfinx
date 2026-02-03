@@ -34,7 +34,8 @@ export async function POST(request: NextRequest) {
             answer,
             experienceCategories,
             currentCounts,
-            currentFocusTopic
+            currentFocusTopic,
+            clientSideIncremented
         } = body;
 
         if (!sessionId || !question || answer === undefined || !experienceCategories || !currentCounts) {
@@ -250,6 +251,61 @@ Return JSON:
         });
 
         log.info(LOG_CATEGORY, `[score-answer] Scoring complete in ${elapsed}ms`);
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // INCREMENT DONT_KNOW_COUNT IF DETECTED
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'score-answer/route.ts:257',message:'Before dontKnow check',data:{isDontKnow:result.isDontKnow,currentFocusTopic,answer,updatedCountsLength:updatedCounts.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,C'})}).catch(()=>{});
+        // #endregion
+
+        if (result.isDontKnow && currentFocusTopic) {
+            // Skip increment if already done client-side
+            if (clientSideIncremented) {
+                log.info(LOG_CATEGORY, `[score-answer] Skip increment for "${currentFocusTopic}" - already done client-side`);
+                updatedCounts = updatedCounts; // No change needed, keep as-is
+            } else {
+                // #region agent log
+                fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'score-answer/route.ts:262',message:'Inside dontKnow increment block',data:{currentFocusTopic,beforeMap:updatedCounts.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+                // #endregion
+
+                // Increment dontKnowCount for current focus topic
+                updatedCounts = updatedCounts.map((c: any) => {
+                    if (c.categoryName === currentFocusTopic) {
+                        return { ...c, dontKnowCount: (c.dontKnowCount || 0) + 1 };
+                    }
+                    return c;
+                });
+
+                // #region agent log
+                fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'score-answer/route.ts:272',message:'After map operation',data:{afterMap:updatedCounts.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+                // #endregion
+
+                log.info(LOG_CATEGORY, `[score-answer] Server-side increment for "${currentFocusTopic}"`);
+            }
+
+            // Check exclusions
+            const threshold = parseInt(process.env.NEXT_PUBLIC_DONT_KNOW_THRESHOLD || '2', 10);
+            const categoryCount = updatedCounts.find((c: any) => c.categoryName === currentFocusTopic);
+
+            if (categoryCount && categoryCount.dontKnowCount >= threshold) {
+                log.info(LOG_CATEGORY, `[score-answer] Category "${currentFocusTopic}" reached threshold (${threshold})`);
+            }
+
+            // #region agent log
+            fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'score-answer/route.ts:286',message:'Before return with updatedCounts',data:{returnValue:updatedCounts.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
+
+            return NextResponse.json({
+                success: true,
+                scores: result.scores,
+                isDontKnow: result.isDontKnow || false,
+                updatedCounts: updatedCounts,
+                evaluationIntent: result.evaluationIntent || "",
+                latencyMs: elapsed,
+            });
+        }
 
         return NextResponse.json({
             success: true,

@@ -113,6 +113,11 @@ export async function POST(request: NextRequest) {
                             background && background.trim().length > 0
                                 ? background
                                 : null,
+                        backgroundQuestionCategory:
+                            typeof interview.backgroundQuestionCategory === "string" &&
+                            interview.backgroundQuestionCategory.trim().length > 0
+                                ? interview.backgroundQuestionCategory
+                                : null,
                         codingPrompt: codingPromptRaw,
                         codingTemplate:
                             codingTemplate && codingTemplate.trim().length > 0

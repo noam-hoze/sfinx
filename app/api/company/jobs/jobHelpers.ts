@@ -47,6 +47,7 @@ export function mapJobResponse(job: JobWithCompany, company?: JobWithCompany["co
             ? {
                   id: interview.id,
                   backgroundQuestion: interview.backgroundQuestion,
+                  backgroundQuestionCategory: interview.backgroundQuestionCategory,
                   codingPrompt: interview.codingPrompt,
                   codingTemplate: interview.codingTemplate,
                   codingAnswer: interview.codingAnswer,

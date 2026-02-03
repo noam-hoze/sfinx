@@ -3,6 +3,7 @@ import DurationPicker from "app/shared/components/forms/DurationPicker";
 
 export interface InterviewContentState {
     backgroundQuestion: string;
+    backgroundQuestionCategory: string;
     codingPrompt: string;
     codingTemplate: string;
     codingAnswer: string;
@@ -13,6 +14,13 @@ export interface InterviewContentState {
 export interface InterviewDurationState {
     backgroundSeconds: number;
     codingSeconds: number;
+}
+
+interface ExperienceCategory {
+    name: string;
+    description: string;
+    example?: string;
+    weight?: number;
 }
 
 interface InterviewContentSectionProps {
@@ -33,6 +41,7 @@ interface InterviewContentSectionProps {
     allowEmptyCodingPrompt?: boolean;
     activeTab?: TabType;
     onTabChange?: (tab: TabType) => void;
+    experienceCategories?: ExperienceCategory[];
 }
 
 type TabType = 'experience' | 'coding';
@@ -56,6 +65,7 @@ export function InterviewContentSection({
     allowEmptyCodingPrompt = false,
     activeTab: externalActiveTab,
     onTabChange,
+    experienceCategories = [],
 }: InterviewContentSectionProps) {
     const { backgroundQuestion, codingPrompt, codingTemplate, codingAnswer, expectedOutput } =
         state;
@@ -126,6 +136,27 @@ export function InterviewContentSection({
                                 className="mt-2 w-full min-h-[120px] rounded-xl border border-gray-200 px-4 py-3 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60 bg-white"
                                 placeholder="Tell us about your most recent project..."
                             />
+                        </label>
+                    </div>
+                    <div className="px-6 py-4 bg-white">
+                        <label className="flex flex-col text-sm font-medium text-gray-700">
+                            Category to Evaluate
+                            <select
+                                value={state.backgroundQuestionCategory}
+                                onChange={(e) => onChange({ ...state, backgroundQuestionCategory: e.target.value })}
+                                disabled={disabled || experienceCategories.length === 0}
+                                className="mt-2 rounded-xl border border-gray-200 px-4 py-3 outline-none transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                <option value="">Select category...</option>
+                                {experienceCategories.map((category) => (
+                                    <option key={category.name} value={category.name}>
+                                        {category.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <span className="mt-1 text-xs text-gray-500">
+                                Which experience category should this question evaluate? This helps track "I don't know" responses per category.
+                            </span>
                         </label>
                     </div>
                 </div>
@@ -224,6 +255,7 @@ export function InterviewContentSection({
 
 export const emptyInterviewContentState: InterviewContentState = {
     backgroundQuestion: "",
+    backgroundQuestionCategory: "",
     codingPrompt: "",
     codingTemplate: "",
     codingAnswer: "",

@@ -141,6 +141,8 @@ model InterviewContent {
   id                            String   @id @default(cuid())
   /// Background question presented before the coding challenge.
   backgroundQuestion            String?
+  /// Category from experienceCategories that this background question evaluates.
+  backgroundQuestionCategory    String?
   /// Coding challenge prompt shown to the candidate.
   codingPrompt                  String
   /// Starter template inserted into the coding editor.

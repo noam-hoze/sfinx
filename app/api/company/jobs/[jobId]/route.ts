@@ -191,6 +191,11 @@ export async function PUT(request: NextRequest, context: RouteContext) {
                         typeof interview.backgroundQuestion === "string"
                             ? interview.backgroundQuestion
                             : null,
+                    backgroundQuestionCategory:
+                        typeof interview.backgroundQuestionCategory === "string" &&
+                        interview.backgroundQuestionCategory.trim().length > 0
+                            ? interview.backgroundQuestionCategory
+                            : null,
                     codingPrompt,
                     codingTemplate:
                         typeof interview.codingTemplate === "string"

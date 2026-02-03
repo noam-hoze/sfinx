@@ -417,6 +417,7 @@ mean: -3.212493419647217
 std: 2.5917365550994873
 sha256: 2bb3dcf324d82b9ec99a6592433a31c139f07855bcdb626a4d16ecfe7a319fff`,
     codingLanguage: "python",
+    backgroundQuestionCategory: "Deep Learning Expertise",
     backgroundQuestionTimeSeconds: 15 * 60,
     codingQuestionTimeSeconds: 45 * 60,
 };
@@ -791,6 +792,7 @@ async function resetDatabase() {
             },
             update: {
                 backgroundQuestion: AXONPULSE_DL_INTERVIEW.backgroundQuestion,
+                backgroundQuestionCategory: AXONPULSE_DL_INTERVIEW.backgroundQuestionCategory,
                 codingPrompt: AXONPULSE_DL_INTERVIEW.codingPrompt,
                 codingTemplate: AXONPULSE_DL_INTERVIEW.codingTemplate,
                 codingAnswer: AXONPULSE_DL_INTERVIEW.codingAnswer,
@@ -802,6 +804,7 @@ async function resetDatabase() {
             create: {
                 id: AXONPULSE_DL_INTERVIEW.id,
                 backgroundQuestion: AXONPULSE_DL_INTERVIEW.backgroundQuestion,
+                backgroundQuestionCategory: AXONPULSE_DL_INTERVIEW.backgroundQuestionCategory,
                 codingPrompt: AXONPULSE_DL_INTERVIEW.codingPrompt,
                 codingTemplate: AXONPULSE_DL_INTERVIEW.codingTemplate,
                 codingAnswer: AXONPULSE_DL_INTERVIEW.codingAnswer,

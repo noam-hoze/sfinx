@@ -537,6 +537,7 @@ function CreateJobContent() {
                                 allowEmptyCodingPrompt={false}
                                 activeTab={interviewTab}
                                 onTabChange={setInterviewTab}
+                                experienceCategories={experienceCategories}
                             />
                         </section>
 

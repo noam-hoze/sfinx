@@ -139,6 +139,9 @@ function CompanyJobDetailContent() {
                         backgroundQuestion: optionalString(
                             data.interviewContent.backgroundQuestion
                         ),
+                        backgroundQuestionCategory: optionalString(
+                            data.interviewContent.backgroundQuestionCategory
+                        ),
                         codingPrompt: data.interviewContent.codingPrompt,
                         codingTemplate: optionalString(
                             data.interviewContent.codingTemplate
@@ -649,6 +652,7 @@ function CompanyJobDetailContent() {
                             subtitle="Adjust the background conversation, coding prompt, and timers associated with this job."
                             activeTab={interviewTab}
                             onTabChange={setInterviewTab}
+                            experienceCategories={experienceCategories}
                         />
                     </section>
 
