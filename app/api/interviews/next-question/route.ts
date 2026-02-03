@@ -286,7 +286,15 @@ Then naturally transition to your next question about: "${newFocusTopic}"`;
 SKIP DETECTED:
 The candidate indicated they don't know or have no experience with this topic.
 
-Acknowledge briefly with transition: "Understood. In that case...", "Alright, moving on...", or "Got it. Let me ask about..."
+Acknowledge briefly with transition (VARY your response, don't repeat the same phrase):
+- "Understood. In that case..."
+- "Alright, moving on..."
+- "Got it. Let me ask about..."
+- "Noted. Let's shift to..."
+- "Fair enough. How about..."
+- "I see. Let me ask you about..."
+
+Pick a DIFFERENT acknowledgment each time to maintain natural conversation flow.
 
 Then naturally transition to your next question about: "${newFocusTopic}"`;
         } else if (appearsToBeQuestion) {
