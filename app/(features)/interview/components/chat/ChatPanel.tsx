@@ -40,37 +40,12 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
     }));
     const isRecording = useSelector((s: RootState) => s.interview.isRecording);
     const isPendingReply = useSelector((s: RootState) => s.coding.pendingReply);
-    const activePasteEval = useSelector((s: RootState) => s.coding.activePasteEvaluation);
-    const [activePasteEvalId, setActivePasteEvalId] = useState<string | undefined>();
-    const [showQuickReply, setShowQuickReply] = useState(false);
-    const [buttonClicked, setButtonClicked] = useState(false);
     const [isVoiceRecording, setIsVoiceRecording] = useState(false);
     const [isTranscribing, setIsTranscribing] = useState(false);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
-
-    // Track active paste evaluation changes
-    useEffect(() => {
-        const newActivePasteEvalId = activePasteEval?.pasteEvaluationId;
-        
-        // Reset buttonClicked if paste eval ID changed (new paste)
-        if (newActivePasteEvalId !== activePasteEvalId) {
-            setButtonClicked(false);
-        }
-        setActivePasteEvalId(newActivePasteEvalId);
-        
-        // Show quick reply if there's an active paste eval, user hasn't answered yet, and button wasn't clicked
-        setShowQuickReply(
-            !!activePasteEval && 
-            activePasteEval.answerCount === 0 && 
-            !!activePasteEval.currentQuestion &&
-            !buttonClicked
-        );
-    }, [activePasteEval, activePasteEvalId, buttonClicked]);
-
-    useEffect(() => {}, [transcriptions, isRecording]);
 
     // Auto-focus input when it gets re-enabled
     useEffect(() => {
@@ -250,21 +225,6 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
                                     </div>
                                 </div>
                             ))}
-                            {showQuickReply && activePasteEvalId && (
-                                <div className="flex justify-center my-2">
-                                    <button
-                                        onClick={async () => {
-                                            setButtonClicked(true);
-                                            if (onSendText) {
-                                                await onSendText("I don't know");
-                                            }
-                                        }}
-                                        className="px-4 py-2 bg-green-100 hover:bg-green-200 dark:bg-green-900 dark:hover:bg-green-800 text-gray-900 dark:text-white rounded-lg text-sm font-medium transition-colors border border-green-300 dark:border-green-700"
-                                    >
-                                        I don't know
-                                    </button>
-                                </div>
-                            )}
                             {isPendingReply && <TypingIndicator />}
                         </>
                     )}
