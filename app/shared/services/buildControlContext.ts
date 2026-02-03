@@ -4,9 +4,19 @@ import type { ChatMessage } from "../../../shared/state/slices/backgroundSlice";
 /**
  * Build up to the last K messages (overall, not per-speaker), preserving
  * chronological order, mapped to Chat Completions roles.
+ *
+ * @param k - Number of messages to include
+ * @param stage - Optional interview stage ('background' or 'coding'). If not provided, reads from store.
  */
-export function buildControlContextMessages(k: number) {
-    const { messages } = store.getState().background;
+export function buildControlContextMessages(k: number, stage?: "background" | "coding") {
+    // If stage not provided, read current stage from store
+    const currentStage = stage ?? store.getState().interview.stage;
+
+    // Read from correct slice based on stage
+    const { messages } = currentStage === "background"
+        ? store.getState().background
+        : store.getState().coding;
+
     // Filter out paste evaluation messages to keep main interview context clean
     const filtered = messages.filter(m => !m.isPasteEval);
     const slice = filtered.slice(-Math.max(1, k));
@@ -21,9 +31,18 @@ export function buildControlContextMessages(k: number) {
  * - Returns a tuple of [systemMessage, assistantMessage, userMessage]
  * - System message embeds (read-only) a truncated prior history for reference only
  * - The only scorable content is the last user answer; the assistant turn is the last AI question
+ *
+ * @param k - Number of prior messages to include in reference history
+ * @param stage - Optional interview stage ('background' or 'coding'). If not provided, reads from store.
  */
-export function buildDeltaControlMessages(k: number) {
-    const { messages } = store.getState().background;
+export function buildDeltaControlMessages(k: number, stage?: "background" | "coding") {
+    // If stage not provided, read current stage from store
+    const currentStage = stage ?? store.getState().interview.stage;
+
+    // Read from correct slice based on stage
+    const { messages } = currentStage === "background"
+        ? store.getState().background
+        : store.getState().coding;
     if (!messages.length) return { system: "", assistant: "", user: "" };
 
     // Find last user answer

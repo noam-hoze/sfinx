@@ -138,6 +138,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     const followupBaselineRef = useRef<string>(propCurrentCode);
     const pasteDecorationsRef = useRef<string[]>([]);
     const highlightRequestRef = useRef<string | null>(null);
+    const wheelListenerCleanupRef = useRef<(() => void) | null>(null);
     
     // Function to highlight pasted code in editor
     const highlightPastedCode = useCallback((pastedCode: string) => {
@@ -211,6 +212,16 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
         };
     }, [highlightPastedCode, clearPasteHighlight]);
 
+    // Cleanup wheel event listener on unmount
+    useEffect(() => {
+        return () => {
+            if (wheelListenerCleanupRef.current) {
+                wheelListenerCleanupRef.current();
+                wheelListenerCleanupRef.current = null;
+            }
+        };
+    }, []);
+
     // Watch for dark mode changes and update Monaco theme
     useEffect(() => {
         const observer = new MutationObserver(() => {
@@ -237,7 +248,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
 
     const handleEditorDidMount = (editor: any, monaco: any) => {
         editorRef.current = editor;
-        
+
         // Notify parent that editor is ready
         onEditorReady?.(editor);
 
@@ -245,24 +256,71 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
         lastChangeTimeRef.current = Date.now();
         pasteStartTimeRef.current = Date.now();
 
+        // Handle scroll propagation - allow page scroll when editor can't scroll
+        const editorDomNode = editor.getDomNode();
+        if (editorDomNode) {
+            const handleWheel = (e: WheelEvent) => {
+                const scrollTop = editor.getScrollTop();
+                const scrollHeight = editor.getScrollHeight();
+                const clientHeight = editorDomNode.clientHeight;
+
+                // If content doesn't overflow (no scrolling needed)
+                if (scrollHeight <= clientHeight) {
+                    // Let the page scroll - don't let Monaco consume the event
+                    e.preventDefault();
+                    window.scrollBy(0, e.deltaY);
+                    return;
+                }
+
+                const isScrollingDown = e.deltaY > 0;
+                const isScrollingUp = e.deltaY < 0;
+
+                const isAtBottom = scrollTop + clientHeight >= scrollHeight - 1;
+                const isAtTop = scrollTop <= 1;
+
+                // If trying to scroll beyond editor boundaries
+                if ((isScrollingDown && isAtBottom) || (isScrollingUp && isAtTop)) {
+                    // Prevent Monaco from consuming the event and scroll the page instead
+                    e.preventDefault();
+                    window.scrollBy(0, e.deltaY);
+                    return;
+                }
+
+                // Editor can scroll - let Monaco handle it normally (don't interfere)
+            };
+
+            // Use capture phase to check boundaries before Monaco handles it
+            editorDomNode.addEventListener('wheel', handleWheel, {
+                capture: true,
+                passive: false
+            });
+
+            // Store cleanup function
+            wheelListenerCleanupRef.current = () => {
+                editorDomNode.removeEventListener('wheel', handleWheel, {
+                    capture: true
+                });
+            };
+        }
+
         // Listen for native paste events in Monaco
         editor.onDidPaste((e: any) => {
             const model = editor.getModel();
             if (!model) return;
-            
+
             // Get the range that was pasted
             const range = e.range;
             const pastedText = model.getValueInRange(range);
-            
+
             // Only process if paste is substantial (>= 80 chars)
             if (pastedText.length >= 80) {
                 const now = Date.now();
-                
-                log.info(LOG_CATEGORY, 
+
+                log.info(LOG_CATEGORY,
                     "🚨 Paste detected via native event - external tool usage",
                     { pastedLength: pastedText.length, timestamp: now }
                 );
-                
+
                 // Direct callback with timestamp
                 onPasteDetected?.(pastedText, now);
             }

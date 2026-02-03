@@ -992,7 +992,8 @@ ${codingAnswer}
 The candidate is working on this task. Respond to their question while following the behavioral rules above.`;
           
           // Get conversation history (last 30 messages, filtered for paste eval)
-          const historyMessages = buildControlContextMessages(CONTROL_CONTEXT_TURNS);
+          // Explicitly pass "coding" stage to ensure we read from codingSlice
+          const historyMessages = buildControlContextMessages(CONTROL_CONTEXT_TURNS, "coding");
           
           // Set pending state before API call
           /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[coding] Setting pending for coding question");

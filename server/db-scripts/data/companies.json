@@ -22,5 +22,17 @@
     "openRoles": [
       { "title": "Senior Python Engineer", "type": "full-time", "location": "Tel Aviv, Israel", "salary": "$140k - $200k" }
     ]
+  },
+  {
+    "id": "axonpulse",
+    "name": "AxonPulse",
+    "logo": "/logos/axonpulse-logo.png",
+    "industry": "AI/Machine Learning",
+    "locations": ["Tel Aviv, Israel"],
+    "size": "startup",
+    "cultureTags": ["Innovation"],
+    "openRoles": [
+      { "title": "Deep Learning Engineer", "type": "full-time", "location": "Remote", "salary": "$120k - $180k" }
+    ]
   }
 ]

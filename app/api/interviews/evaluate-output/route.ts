@@ -35,6 +35,12 @@ ${actualOutput}
 Code Snapshot:
 ${codeSnapshot || "(not provided)"}
 
+IMPORTANT EVALUATION RULES:
+- Focus on the actual VALUES (numbers, hashes) matching, not whitespace or formatting
+- Ignore minor differences in spacing, indentation, or line breaks
+- If shape, mean, std, and sha256 values match numerically, mark as "correct" even if formatting differs slightly
+- Only mark as "incorrect" if the actual numerical values or hash don't match
+
 Evaluate if the actual output matches the expected output. Return ONLY valid JSON in this exact format:
 {
   "evaluation": "correct" | "partial" | "incorrect",

@@ -159,23 +159,29 @@ export async function GET(
     });
 
     // Transform to applicant format
-    const applicants = applications.map((app) => {
-      const latestSession = app.interviewSessions[0];
-      const matchScore = latestSession?.finalScore ?? null;
-      const highlights = extractTopHighlights(latestSession);
+    const applicants = applications
+      .map((app) => {
+        const latestSession = app.interviewSessions[0];
+        const matchScore = latestSession?.finalScore ?? null;
+        const highlights = extractTopHighlights(latestSession);
 
-      return {
-        id: app.candidate.id,
-        name: app.candidate.name || "Unknown",
-        email: app.candidate.email,
-        image: app.candidate.image,
-        matchScore,
-        appliedAt: app.appliedAt.toISOString(),
-        interviewCompleted: !!latestSession,
-        applicationId: app.id,
-        highlights,
-      };
-    });
+        return {
+          id: app.candidate.id,
+          name: app.candidate.name || "Unknown",
+          email: app.candidate.email,
+          image: app.candidate.image,
+          matchScore,
+          appliedAt: app.appliedAt.toISOString(),
+          interviewCompleted: !!latestSession,
+          applicationId: app.id,
+          highlights,
+        };
+      })
+      .sort((a, b) => {
+        if (a.matchScore === null) return 1;
+        if (b.matchScore === null) return -1;
+        return b.matchScore - a.matchScore;
+      });
 
     const result = {
       job: {

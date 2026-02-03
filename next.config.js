@@ -19,7 +19,10 @@ const nextConfig = {
         },
     },
     images: {
-        domains: ["i.pravatar.cc"],
+        domains: ["i.pravatar.cc", "api.dicebear.com"],
+        dangerouslyAllowSVG: true,
+        contentDispositionType: "attachment",
+        contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
         remotePatterns: [
             {
                 protocol: "https",

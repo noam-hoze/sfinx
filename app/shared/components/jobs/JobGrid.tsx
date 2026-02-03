@@ -85,7 +85,7 @@ export function JobGrid({
                 const href = getHref ? getHref(job) : null;
                 const card = (
                     <div
-                        className={`group bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200 shadow-sm p-6 hover:bg-white/80 hover:shadow-lg hover:border-gray-300 transition-all duration-300 ease-out hover:scale-105`}
+                        className={`group bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200 shadow-sm p-6 hover:bg-white/80 hover:shadow-lg hover:border-gray-300 transition-all duration-300 ease-out hover:scale-105 flex flex-col h-full`}
                         onClick={() => {
                             if (onCardClick) {
                                 onCardClick(job);
@@ -94,13 +94,13 @@ export function JobGrid({
                         role={onCardClick ? "button" : "presentation"}
                     >
                         {showLogo && (
-                            <div className="relative w-24 h-24 mx-auto mb-4 bg-white rounded-xl flex items-center justify-center p-3">
+                            <div className="relative w-32 h-32 mx-auto mb-4 bg-white rounded-xl flex items-center justify-center p-3">
                                 {company.logo ? (
                                     <Image
                                         src={company.logo}
                                         alt={`${company.name} logo`}
-                                        width={72}
-                                        height={72}
+                                        width={104}
+                                        height={104}
                                         className="object-contain"
                                     />
                                 ) : (
@@ -112,23 +112,10 @@ export function JobGrid({
                         )}
 
                         <div className="text-center">
-                            {showCompanyName && (
-                                <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-                                    {company.name}
-                                </h3>
-                            )}
                             <p className="text-sm text-gray-600 mb-1">{job.title}</p>
-                            <p className="text-xs text-gray-500 mb-1">
-                                {job.location} • {job.type}
-                            </p>
-                            {job.description ? (
-                                <p className="text-xs text-gray-500 line-clamp-2">
-                                    {job.description}
-                                </p>
-                            ) : null}
                         </div>
 
-                        <div className="mt-3 flex flex-wrap gap-1 justify-center">
+                        <div className="mt-auto pt-3 flex flex-col gap-2 items-center">
                             <span className="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full">
                                 {company.industry}
                             </span>

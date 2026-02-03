@@ -13,6 +13,7 @@ interface ContributionStats {
     avgStrength: number;
     rawAverage?: number;
     confidence?: number;
+    dontKnowCount?: number;
 }
 
 interface BackgroundEvaluation {
@@ -31,11 +32,14 @@ export function transformBackgroundDataToRealtime(
     contributionStats: ContributionStats[],
     realtimeEvaluations: BackgroundEvaluation[]
 ): RealTimeContributionsViewProps {
+    // Get threshold from environment
+    const dontKnowThreshold = parseInt(process.env.NEXT_PUBLIC_DONT_KNOW_THRESHOLD || '2', 10);
+
     // Calculate summary stats
     const summaryStats = {
         totalEvaluations: realtimeEvaluations.length,
         totalContributions: contributionStats.reduce((sum, stat) => sum + stat.count, 0),
-        categoriesHit: contributionStats.length,
+        categoriesHit: contributionStats.filter(stat => stat.count > 0).length,
         // No nextEvaluation for background stage
     };
 
@@ -56,12 +60,17 @@ export function transformBackgroundDataToRealtime(
             });
         });
 
+        const dontKnowCount = stat.dontKnowCount || 0;
+        const isExcluded = dontKnowCount >= dontKnowThreshold;
+
         return {
             name: stat.categoryName,
             avgStrength: Math.round(stat.avgStrength),
             contributionCount: stat.count,
             rawAverage: stat.rawAverage,
             confidence: stat.confidence,
+            dontKnowCount,
+            isExcluded,
             contributions
         };
     });
