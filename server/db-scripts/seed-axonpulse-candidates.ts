@@ -79,6 +79,25 @@ function getRandomElement<T>(array: T[]): T {
     return array[Math.floor(Math.random() * array.length)];
 }
 
+// Generate random categories for highlights
+function generateCategories(baseScore: number) {
+    const experienceCategories = {
+        neural_networks: { name: "Neural Networks", score: Math.max(0, Math.min(100, baseScore + gaussianRandom(0, 15))) },
+        deep_learning: { name: "Deep Learning", score: Math.max(0, Math.min(100, baseScore + gaussianRandom(0, 15))) },
+        computer_vision: { name: "Computer Vision", score: Math.max(0, Math.min(100, baseScore + gaussianRandom(0, 15))) },
+        nlp: { name: "Natural Language Processing", score: Math.max(0, Math.min(100, baseScore + gaussianRandom(0, 15))) },
+    };
+
+    const codingCategories = {
+        pytorch: { name: "PyTorch", score: Math.max(0, Math.min(100, baseScore + gaussianRandom(0, 15))) },
+        tensorflow: { name: "TensorFlow", score: Math.max(0, Math.min(100, baseScore + gaussianRandom(0, 15))) },
+        python: { name: "Python", score: Math.max(0, Math.min(100, baseScore + gaussianRandom(0, 15))) },
+        model_optimization: { name: "Model Optimization", score: Math.max(0, Math.min(100, baseScore + gaussianRandom(0, 15))) },
+    };
+
+    return { experienceCategories, codingCategories };
+}
+
 // Generate random email
 function generateEmail(name: string): string {
     const domains = ["gmail.com", "yahoo.com", "outlook.com", "linkedin.com", "tech.io"];
@@ -119,6 +138,21 @@ async function seedAxonPulseCandidates() {
         }
 
         log.info(LOG_CATEGORY, `Found AxonPulse job: ${deepLearningJob.id}`);
+
+        // Delete existing AxonPulse candidates
+        log.info(LOG_CATEGORY, "Deleting existing AxonPulse candidates...");
+        const existingApplications = await prisma.application.findMany({
+            where: { jobId: deepLearningJob.id },
+            select: { candidateId: true },
+        });
+        
+        if (existingApplications.length > 0) {
+            const candidateIds = existingApplications.map(app => app.candidateId);
+            await prisma.user.deleteMany({
+                where: { id: { in: candidateIds } },
+            });
+            log.info(LOG_CATEGORY, `Deleted ${candidateIds.length} existing candidates`);
+        }
 
         // Hash password once
         const hashedPassword = await bcrypt.hash("sfinx", 12);
@@ -199,13 +233,32 @@ async function seedAxonPulseCandidates() {
                     },
                 });
 
-                // Create telemetry data with score
+                // Generate categories for highlights
+                const { experienceCategories, codingCategories } = generateCategories(candidateData.score);
+
+                // Create telemetry data with score and summaries
                 await prisma.telemetryData.create({
                     data: {
                         interviewSessionId: interviewSession.id,
                         matchScore: candidateData.score,
                         confidence: candidateData.score >= 75 ? "HIGH" : candidateData.score >= 50 ? "MEDIUM" : "LOW",
                         story: `Candidate scored ${candidateData.score} on the Deep Learning Engineer screening interview.`,
+                        backgroundSummary: {
+                            create: {
+                                executiveSummary: `Strong candidate with ${candidateData.score >= 75 ? "excellent" : candidateData.score >= 50 ? "solid" : "developing"} background in deep learning.`,
+                                experienceCategories: experienceCategories,
+                                conversationJson: {},
+                                evidenceJson: {},
+                            },
+                        },
+                        codingSummary: {
+                            create: {
+                                executiveSummary: `Demonstrated ${candidateData.score >= 75 ? "exceptional" : candidateData.score >= 50 ? "competent" : "basic"} coding skills.`,
+                                codeQualityScore: candidateData.score,
+                                codeQualityText: candidateData.score >= 75 ? "Excellent" : candidateData.score >= 50 ? "Good" : "Needs Improvement",
+                                jobSpecificCategories: codingCategories,
+                            },
+                        },
                     },
                 });
 
