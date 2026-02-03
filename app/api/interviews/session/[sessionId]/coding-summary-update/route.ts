@@ -9,10 +9,10 @@ const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: { sessionId: string } }
+    { params }: { params: Promise<{ sessionId: string }> }
 ) {
     try {
-        const { sessionId } = params;
+        const { sessionId } = await params;
         const body = await request.json();
         const { jobSpecificCategories } = body;
 
