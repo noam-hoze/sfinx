@@ -853,7 +853,7 @@ function InterviewPageContent() {
   if (stage === "coding" && showCodingIDE) {
     return (
       <InterviewRecordingProvider value={recordingControls}>
-        <InterviewIDE />
+        <InterviewIDE micStream={micStream} />
       </InterviewRecordingProvider>
     );
   }
