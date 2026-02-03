@@ -9,3 +9,15 @@ export { useBackgroundPreload } from "./useBackgroundPreload";
 export { useAnnouncementGeneration } from "./useAnnouncementGeneration";
 export { useSoundPreload } from "./useSoundPreload";
 export { useBackgroundAnswerHandler } from "./useBackgroundAnswerHandler";
+
+// Answer classification utilities and types
+export {
+  buildClassificationPrompt,
+  isGibberishAnswer,
+  isExactDontKnow,
+  shouldIncrementRetryCounter,
+  shouldMoveToNextQuestion,
+  type AnswerType,
+  type ClassifiedQuestionResponse,
+  type ClassificationPromptParams
+} from './answerClassification';
