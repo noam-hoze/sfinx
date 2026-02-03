@@ -26,9 +26,10 @@ interface ChatPanelProps {
     isInputDisabled?: boolean;
     isInterviewActive?: boolean;
     isAgentConnected?: boolean;
+    micStream?: MediaStream | null;
 }
 
-const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisabled = false, isInterviewActive = false, isAgentConnected = false }: ChatPanelProps) => {
+const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisabled = false, isInterviewActive = false, isAgentConnected = false, micStream }: ChatPanelProps) => {
     const messages = useSelector((s: RootState) => s.coding.messages);
     const transcriptions: TranscriptionMessage[] = messages.map((m) => ({
         id: m.id,
@@ -43,8 +44,12 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
     const [activePasteEvalId, setActivePasteEvalId] = useState<string | undefined>();
     const [showQuickReply, setShowQuickReply] = useState(false);
     const [buttonClicked, setButtonClicked] = useState(false);
+    const [isVoiceRecording, setIsVoiceRecording] = useState(false);
+    const [isTranscribing, setIsTranscribing] = useState(false);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
 
     // Track active paste evaluation changes
     useEffect(() => {
@@ -83,6 +88,61 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
             });
         }
     }, [messages.length, isPendingReply]);
+
+    const startVoiceRecording = async () => {
+        if (!micStream) return;
+
+        try {
+            const mimeType = "audio/webm;codecs=opus";
+            const mediaRecorder = new MediaRecorder(micStream, { mimeType });
+            mediaRecorderRef.current = mediaRecorder;
+            audioChunksRef.current = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = async () => {
+                setIsTranscribing(true);
+                const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+
+                const formData = new FormData();
+                formData.append("audio", audioBlob, "recording.webm");
+
+                try {
+                    const response = await fetch("/api/transcribe", {
+                        method: "POST",
+                        body: formData,
+                    });
+
+                    const { text } = await response.json();
+                    if (inputRef.current) {
+                        const currentText = inputRef.current.value;
+                        inputRef.current.value = currentText ? `${currentText} ${text}` : text;
+                        inputRef.current.focus();
+                    }
+                } catch (error) {
+                    log.error(LOG_CATEGORY, "Transcription error:", error);
+                } finally {
+                    setIsTranscribing(false);
+                }
+            };
+
+            mediaRecorder.start();
+            setIsVoiceRecording(true);
+        } catch (error) {
+            log.error(LOG_CATEGORY, "Failed to start recording:", error);
+        }
+    };
+
+    const stopVoiceRecording = () => {
+        if (mediaRecorderRef.current && isVoiceRecording) {
+            mediaRecorderRef.current.stop();
+            setIsVoiceRecording(false);
+        }
+    };
 
     return (
         <div className="h-full flex flex-col bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700">
@@ -241,13 +301,38 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
                                 }
                             }}
                         />
-                        <button
-                            type="submit"
-                            className="px-3 py-2 text-sm rounded-md bg-sfinx-purple text-white hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled={isInputDisabled}
-                        >
-                            Send
-                        </button>
+                        <div className="flex gap-1">
+                            <button
+                                type="button"
+                                onClick={isVoiceRecording ? stopVoiceRecording : startVoiceRecording}
+                                disabled={isInputDisabled || !micStream}
+                                className={`p-2 rounded-md transition-all duration-200 ${
+                                    isVoiceRecording
+                                        ? "bg-red-100 hover:bg-red-200 dark:bg-red-900/20 dark:hover:bg-red-900/30"
+                                        : isTranscribing
+                                        ? "bg-blue-100 dark:bg-blue-900/20"
+                                        : "hover:bg-gray-200 dark:hover:bg-gray-700"
+                                } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                title={isVoiceRecording ? "Stop recording" : isTranscribing ? "Transcribing..." : "Start recording"}
+                            >
+                                {isTranscribing ? (
+                                    <div className="w-5 h-5 flex items-center justify-center">
+                                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+                                    </div>
+                                ) : isVoiceRecording ? (
+                                    <Mic className="w-5 h-5 text-red-500 animate-pulse" />
+                                ) : (
+                                    <Mic className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                                )}
+                            </button>
+                            <button
+                                type="submit"
+                                className="px-3 py-2 text-sm rounded-md bg-sfinx-purple text-white hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={isInputDisabled}
+                            >
+                                Send
+                            </button>
+                        </div>
                     </form>
                 ) : (
                     <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
