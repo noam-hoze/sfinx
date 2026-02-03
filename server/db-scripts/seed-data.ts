@@ -296,16 +296,24 @@ def log_mel_spectrogram(x, sr=SR, n_fft=N_FFT, hop=HOP, n_mels=N_MELS, eps=EPS):
 
 # ====== Grader output (do not change) ======
 if __name__ == "__main__":
-    x = make_signal()
-    S = log_mel_spectrogram(x)
+    try:
+        x = make_signal()
+        S = log_mel_spectrogram(x)
 
-    S_round = np.round(S, 6).astype(np.float32)
-    digest = hashlib.sha256(S_round.tobytes()).hexdigest()
+        S_round = np.round(S, 6).astype(np.float32)
+        digest = hashlib.sha256(S_round.tobytes()).hexdigest()
 
-    print("shape:", S_round.shape)
-    print("mean:", float(S_round.mean()))
-    print("std:", float(S_round.std()))
-    print("sha256:", digest)
+        print("shape:", S_round.shape)
+        print("mean:", float(S_round.mean()))
+        print("std:", float(S_round.std()))
+        print("sha256:", digest)
+    except NotImplementedError:
+        print("⚠️  Please implement the three TODO functions:")
+        print("   1. stft_magnitude()")
+        print("   2. mel_filterbank()")
+        print("   3. log_mel_spectrogram()")
+        print("")
+        print("Once implemented, click Run again to see your results!")
 `,
     codingAnswer: `import numpy as np
 import hashlib

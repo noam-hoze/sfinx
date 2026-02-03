@@ -38,17 +38,28 @@ export const PREDEFINED_PROBLEM_SOLVING: CodingCategory = {
 /**
  * Merges predefined Problem Solving category with job-specific categories.
  * Recalculates weights so all categories sum to 25 (since AI Assist = 75%).
+ * Skips adding Problem Solving if it already exists in custom categories to prevent duplicates.
  */
 export function mergeWithPredefinedCategories(customCategories: CodingCategory[] | null): CodingCategory[] {
     const CATEGORY_TOTAL_WEIGHT = 25; // Categories are 25% of coding score (AI Assist is 75%)
-    
+
     if (!customCategories || customCategories.length === 0) {
         return [{ ...PREDEFINED_PROBLEM_SOLVING, weight: CATEGORY_TOTAL_WEIGHT }];
     }
-    
+
+    // Check if Problem Solving already exists in custom categories
+    const hasProblemSolving = customCategories.some(cat => cat.name === "Problem Solving");
+
+    if (hasProblemSolving) {
+        // Problem Solving already exists, just recalculate weights for existing categories
+        const equalWeight = CATEGORY_TOTAL_WEIGHT / customCategories.length;
+        return customCategories.map(cat => ({ ...cat, weight: equalWeight }));
+    }
+
+    // Add Problem Solving to custom categories
     const totalCategories = customCategories.length + 1;
     const equalWeight = CATEGORY_TOTAL_WEIGHT / totalCategories;
-    
+
     return [
         { ...PREDEFINED_PROBLEM_SOLVING, weight: equalWeight },
         ...customCategories.map(cat => ({ ...cat, weight: equalWeight }))
