@@ -27,6 +27,7 @@ interface RightPanelProps {
     setInputLocked?: (locked: boolean) => void;
     onHighlightPastedCode?: (pastedCode: string) => void;
     interviewSessionId?: string | null;
+    micStream?: MediaStream | null;
 }
 
 const RightPanel: React.FC<RightPanelProps> = ({
@@ -52,6 +53,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
     codingDurationSeconds,
     setInputLocked,
     interviewSessionId,
+    micStream,
 }) => {
     return (
         <div className="h-full flex flex-col border-t">
@@ -98,6 +100,7 @@ const RightPanel: React.FC<RightPanelProps> = ({
                     isInputDisabled={isTextInputLocked}
                     isInterviewActive={isInterviewActive}
                     isAgentConnected={isAgentConnected}
+                    micStream={micStream}
                 />
             </div>
         </div>

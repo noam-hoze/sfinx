@@ -61,6 +61,7 @@ interface InterviewerContentProps {
     setJobCategories: (categories: Array<{name: string; description: string; weight: number}> | null) => void;
     evaluationThrottleMs: number;
     setEvaluationThrottleMs: (ms: number) => void;
+    micStream?: MediaStream | null;
 }
 
 /**
@@ -81,6 +82,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     setJobCategories,
     evaluationThrottleMs,
     setEvaluationThrottleMs,
+    micStream,
 }) => {
     const {
         state,
@@ -1358,6 +1360,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                             }}
                             interviewSessionId={interviewSessionId}
                             userId={reduxUserId || undefined}
+                            micStream={micStream}
                         />
                     </Panel>
                 </PanelGroup>
@@ -1378,7 +1381,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 /**
  * Wrapper component that renders both the main content and debug panel
  */
-const InterviewIDEWithDebug = () => {
+const InterviewIDEWithDebug = ({ micStream }: InterviewIDEProps) => {
     const { isDebugVisible } = useDebug();
     const isDebugModeEnabled = process.env.NEXT_PUBLIC_DEBUG_MODE === "true";
     const [evaluationDebugData, setEvaluationDebugData] = useState<any>(null);
@@ -1393,7 +1396,7 @@ const InterviewIDEWithDebug = () => {
         }
         return Number(envValue);
     });
-    
+
     const onTestEvaluationReady = useCallback((callback: () => void) => {
         setTestEvaluationCallback(() => callback);
     }, []);
@@ -1406,7 +1409,7 @@ const InterviewIDEWithDebug = () => {
     
     return (
         <div>
-            <InterviewerContent 
+            <InterviewerContent
                 isDebugVisible={isDebugVisible}
                 evaluationDebugData={evaluationDebugData}
                 setEvaluationDebugData={setEvaluationDebugData}
@@ -1420,6 +1423,7 @@ const InterviewIDEWithDebug = () => {
                 setJobCategories={setJobCategories}
                 evaluationThrottleMs={evaluationThrottleMs}
                 setEvaluationThrottleMs={setEvaluationThrottleMs}
+                micStream={micStream}
             />
             
             {/* Debug Panel - below IDE in document flow, scroll down to see it */}
@@ -1442,10 +1446,14 @@ const InterviewIDEWithDebug = () => {
 /**
  * Root wrapper that provides interview context and renders the main content.
  */
-const InterviewIDE = () => {
+interface InterviewIDEProps {
+    micStream?: MediaStream | null;
+}
+
+const InterviewIDE = ({ micStream }: InterviewIDEProps) => {
     return (
         <InterviewProvider>
-            <InterviewIDEWithDebug />
+            <InterviewIDEWithDebug micStream={micStream} />
         </InterviewProvider>
     );
 };
