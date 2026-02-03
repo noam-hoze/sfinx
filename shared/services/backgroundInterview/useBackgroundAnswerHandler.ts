@@ -19,6 +19,7 @@ import { buildControlContextMessages, CONTROL_CONTEXT_TURNS } from "app/shared/s
 import { log } from "app/shared/services/logger";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
+import { isExactDontKnow } from "./answerClassification";
 
 const LOG_CATEGORY = LOG_CATEGORIES.BACKGROUND_INTERVIEW;
 
@@ -119,7 +120,7 @@ export function useBackgroundAnswerHandler(
             }
 
             // Detect exact "I don't know" for client-side optimization
-            const isExactDontKnow = answer.trim().toLowerCase() === "i don't know";
+            const isExactDontKnowAnswer = isExactDontKnow(answer);
 
             if (useSplitEvaluation) {
               // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -140,7 +141,7 @@ export function useBackgroundAnswerHandler(
                   currentFocusTopic,
                   excludedTopics,
                   clarificationRetryCount,
-                  clientSideIncremented: isExactDontKnow,
+                  clientSideIncremented: isExactDontKnowAnswer,
                 })
               });
 
@@ -171,23 +172,23 @@ export function useBackgroundAnswerHandler(
                 dispatch(setCurrentQuestionTarget({ question: nextQuestionText, category: questionData.newFocusTopic }));
               }
 
-              // Handle retry counter (clarification or gibberish)
+              // Handle retry counter based on SERVER classification (OpenAI is source of truth)
               if (questionData.shouldIncrementRetry) {
                 const retryType = questionData.isGibberish ? "Gibberish" : "Clarification";
                 dispatch(incrementClarificationRetry());
-                log.info(LOG_CATEGORY, `${retryType} detected, retry count now: ${clarificationRetryCount + 1}`);
+                log.info(LOG_CATEGORY, `${retryType} detected by OpenAI, retry count now: ${clarificationRetryCount + 1}`);
               } else if (!questionData.shouldMoveOn) {
                 // Normal answer - increment question sequence
                 dispatch(incrementQuestionSequence());
               } else {
                 // At threshold - moving to next question
                 dispatch(incrementQuestionSequence());
-                log.info(LOG_CATEGORY, "Retry threshold reached, moving to next question");
+                log.info(LOG_CATEGORY, "Retry threshold reached per OpenAI classification, moving to next question");
               }
 
-              // Log if "I don't know" was detected (quick regex-based detection)
+              // Log if "I don't know" was detected by OpenAI
               if (questionData.isDontKnow && currentFocusTopic) {
-                log.info(LOG_CATEGORY, `"I don't know" detected (quick) for category: ${currentFocusTopic}`);
+                log.info(LOG_CATEGORY, `"I don't know" detected by OpenAI for category: ${currentFocusTopic}`);
               }
 
               // CALL 2: Score Answer (ASYNC, ~2-3s, non-blocking)
@@ -205,7 +206,7 @@ export function useBackgroundAnswerHandler(
                   experienceCategories,
                   currentCounts: categoryStats,
                   currentFocusTopic,
-                  clientSideIncremented: isExactDontKnow,
+                  clientSideIncremented: isExactDontKnowAnswer,
                 })
               }).then(async (scoreResponse) => {
                 const scoreData = await scoreResponse.json();
@@ -334,9 +335,9 @@ export function useBackgroundAnswerHandler(
               return { shouldComplete: true, transitionReason: "all_categories_excluded" };
             }
 
-            // Log if "I don't know" was detected (API handles the count increment)
+            // Log if "I don't know" was detected by OpenAI (API handles the count increment)
             if (fastData.isDontKnow && currentFocusTopic) {
-              log.info(LOG_CATEGORY, `"I don't know" detected for category: ${currentFocusTopic}`);
+              log.info(LOG_CATEGORY, `"I don't know" detected by OpenAI for category: ${currentFocusTopic}`);
             }
 
             // Use fast results immediately
@@ -366,18 +367,18 @@ export function useBackgroundAnswerHandler(
               onIntentReceived(fastData.evaluationIntent);
             }
 
-            // Handle retry counter (clarification or gibberish)
+            // Handle retry counter based on SERVER classification (OpenAI is source of truth)
             if (fastData.isClarificationRequest || fastData.isGibberish) {
               const retryType = fastData.isGibberish ? "Gibberish" : "Clarification";
               // Candidate asked for clarification or gave gibberish
               if (clarificationRetryCount < 2) {
                 // Under threshold - increment retry count (will prompt again)
                 dispatch(incrementClarificationRetry());
-                log.info(LOG_CATEGORY, `${retryType} detected, retry count now: ${clarificationRetryCount + 1}`);
+                log.info(LOG_CATEGORY, `${retryType} detected by OpenAI, retry count now: ${clarificationRetryCount + 1}`);
               } else {
                 // At threshold (3rd attempt) - move to next question
                 dispatch(incrementQuestionSequence());
-                log.info(LOG_CATEGORY, `Retry threshold reached (3) after ${retryType}, moving to next question`);
+                log.info(LOG_CATEGORY, `Retry threshold reached (3) after ${retryType} detected by OpenAI, moving to next question`);
               }
             } else {
               // Normal answer - increment question sequence (new question asked)

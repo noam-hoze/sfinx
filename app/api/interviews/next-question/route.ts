@@ -4,6 +4,14 @@ import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import prisma from "lib/prisma";
 import OpenAI from "openai";
 import { CONTRIBUTIONS_TARGET } from "shared/constants/interview";
+import {
+    buildClassificationPrompt,
+    isGibberishAnswer,
+    shouldIncrementRetryCounter,
+    shouldMoveToNextQuestion,
+    type AnswerType,
+    type ClassifiedQuestionResponse
+} from "shared/services/backgroundInterview/answerClassification";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
@@ -119,31 +127,14 @@ export async function POST(request: NextRequest) {
         }).join(', ');
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // FAST DETECTION: Regex-based patterns (no AI call needed)
+        // FAST DETECTION: Regex-based gibberish only (OpenAI handles classification)
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
         // GIBBERISH DETECTION: Check if answer is nonsensical or meaningless
-        const isGibberish = (() => {
-            const trimmed = lastAnswer.trim();
-            // Very short (< 3 chars) or only repeating characters
-            if (trimmed.length < 3 || /^(.)\1+$/.test(trimmed)) return true;
-            // Only special characters/numbers
-            if (!/[a-zA-Z]/.test(trimmed)) return true;
-            // Repeated patterns like "asdf" or "blah blah blah"
-            if (/^(\w{2,4})\s*\1\s*\1/.test(trimmed.toLowerCase())) return true;
-            // Random keyboard mashing (3+ consonants in a row, repeated)
-            if (/([bcdfghjklmnpqrstvwxyz]{3,})/gi.test(trimmed) && trimmed.length < 15) return true;
-            return false;
-        })();
+        const isGibberish = isGibberishAnswer(lastAnswer);
 
-        // CLARIFICATION DETECTION: Check if candidate is asking for clarification
-        const isClarificationRequest = !isGibberish && /\b(what do you mean|can you explain|could you clarify|I don't understand|what does that mean|can you rephrase|could you repeat)\b/i.test(lastAnswer);
-
-        // ACKNOWLEDGMENT DETECTION: Check if candidate appears to be asking a general question
-        const appearsToBeQuestion = !isGibberish && !isClarificationRequest && /\b(why|can you|could you|how come|tell me more about|explain)\b/i.test(lastAnswer);
-
-        // "I DON'T KNOW" QUICK DETECTION (regex-based, for flow control)
-        const isDontKnowQuick = /\b(I don't know|not sure|no experience|haven't worked with|unfamiliar with|can't recall)\b/i.test(lastAnswer);
+        // Note: Clarification and "I don't know" detection moved to OpenAI classification
+        // (more accurate, handles creative phrasings like "huh?", "sorry?", etc.)
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         // DETERMINISTIC TOPIC SELECTION
@@ -152,8 +143,12 @@ export async function POST(request: NextRequest) {
         const activeCategoryNames = activeCategories.map((cat: any) => cat.name);
         let countsForSelection = currentCounts.filter((c: any) => activeCategoryNames.includes(c.categoryName));
 
+        // Fast "I don't know" detection for topic selection (internal logic only)
+        // OpenAI will provide the actual classification returned to frontend
+        const isDontKnowForTopicSelection = /\b(I don't know|not sure|no experience|haven't worked with|unfamiliar with|can't recall)\b/i.test(lastAnswer);
+
         // If "I don't know" detected, increment dontKnowCount for current focus topic
-        if (isDontKnowQuick && currentFocusTopic) {
+        if (isDontKnowForTopicSelection && currentFocusTopic) {
             countsForSelection = countsForSelection.map((c: any) => {
                 if (c.categoryName === currentFocusTopic) {
                     return { ...c, dontKnowCount: c.dontKnowCount + 1 };
@@ -190,7 +185,7 @@ export async function POST(request: NextRequest) {
                         newFocusTopic: null,
                         isGibberish: false,
                         isClarificationRequest: false,
-                        isDontKnow: isDontKnowQuick,
+                        isDontKnow: isDontKnowForTopicSelection,
                         shouldIncrementRetry: false,
                         shouldMoveOn: false,
                     });
@@ -224,127 +219,18 @@ export async function POST(request: NextRequest) {
         }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // BUILD FOCUS INSTRUCTION FOR OPENAI PROMPT
+        // OPENAI PROMPT: QUESTION GENERATION WITH CLASSIFICATION
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-        let focusInstruction = `Ask your next question about: "${newFocusTopic}"`;
-        let clarificationHandling = "";
-        let shouldIncrementRetry = false;
-        let shouldMoveOn = false;
-
-        if (isGibberish) {
-            if (retryCount < CLARIFICATION_THRESHOLD - 1) {
-                // Under threshold: prompt for real answer
-                clarificationHandling = `
-GIBBERISH DETECTED (Attempt ${retryCount + 1} of ${CLARIFICATION_THRESHOLD}):
-The candidate provided a nonsensical or meaningless answer (e.g., random characters, very short response, keyboard mashing).
-
-Say: "I didn't catch that. Could you provide a more detailed answer?"
-
-Do NOT advance to a new question. Give them another chance to provide a meaningful response.`;
-                shouldIncrementRetry = true;
-            } else {
-                // At threshold: politely move on
-                clarificationHandling = `
-RETRY THRESHOLD REACHED (${CLARIFICATION_THRESHOLD} attempts):
-The candidate has not provided meaningful answers after multiple attempts. It's time to move forward.
-
-Say: "I understand you might not have experience with this, so let's move forward to something else."
-
-Then naturally transition to your next question about: "${newFocusTopic}"`;
-                focusInstruction = ""; // Don't repeat the focus instruction
-                shouldMoveOn = true;
-            }
-        } else if (isClarificationRequest) {
-            if (retryCount < CLARIFICATION_THRESHOLD - 1) {
-                // Under threshold: clarify and confirm understanding
-                clarificationHandling = `
-CLARIFICATION REQUEST DETECTED (Attempt ${retryCount + 1} of ${CLARIFICATION_THRESHOLD}):
-The candidate is asking for clarification about your previous question.
-
-1. Provide a brief, clear explanation of what you meant (1-2 sentences)
-2. Rephrase the question using simpler or more concrete language
-3. Confirm understanding by asking: "Does that make sense? Can you try answering now?"
-
-Do NOT advance to a new question. Do NOT treat this as a failed answer.`;
-                shouldIncrementRetry = true;
-            } else {
-                // At threshold: politely move on
-                clarificationHandling = `
-RETRY THRESHOLD REACHED (${CLARIFICATION_THRESHOLD} attempts):
-The candidate has asked for clarification multiple times. It's time to move forward.
-
-Say: "I understand you might not have experience with this, so let's move forward to something else."
-
-Then naturally transition to your next question about: "${newFocusTopic}"`;
-                focusInstruction = ""; // Don't repeat the focus instruction
-                shouldMoveOn = true;
-            }
-        } else if (isDontKnowQuick) {
-            // "I don't know" / Skip response - ensure acknowledgment
-            focusInstruction = `
-SKIP DETECTED:
-The candidate indicated they don't know or have no experience with this topic.
-
-Acknowledge briefly with transition (VARY your response, don't repeat the same phrase):
-- "Understood. In that case..."
-- "Alright, moving on..."
-- "Got it. Let me ask about..."
-- "Noted. Let's shift to..."
-- "Fair enough. How about..."
-- "I see. Let me ask you about..."
-
-Pick a DIFFERENT acknowledgment each time to maintain natural conversation flow.
-
-Then naturally transition to your next question about: "${newFocusTopic}"`;
-        } else if (appearsToBeQuestion) {
-            focusInstruction = `
-ACKNOWLEDGMENT INSTRUCTION:
-The candidate appears to have asked a question. Provide a brief (1 sentence) response that addresses their question without over-explaining, then continue to your next question naturally.
-
-${focusInstruction}`;
-        }
-
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-        // OPENAI PROMPT: QUESTION GENERATION ONLY (NO SCORING)
-        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-        const quickPrompt = `Generate next question only.
-
-Last Question: ${lastQuestion}
-Last Answer: ${lastAnswer}
-
-Current status: ${categoryList}
-
-${clarificationHandling || focusInstruction}
-
-RESPONSE PATTERNS (maintain conversational flow):
-
-When candidate says "I don't know" / Skip:
-- Brief acknowledgment + transition: "Understood. In that case...", "Alright, moving on...", "Got it. Let me ask about..."
-- Do NOT say: "That's fine", "No worries", "Perfectly fine", "No problem", "Not every role requires..."
-- Then ask your next question naturally
-
-When answer is substantive/detailed:
-- Acknowledge what they said: "I see you used X approach.", "So you prioritized Y over Z.", "You mentioned A was a constraint."
-- Then probe deeper: "What trade-offs did you consider?", "Why that approach?", "What made that difficult?"
-- Show you're listening, then dive deeper
-
-When answer is vague/weak:
-- Brief neutral acknowledgment: "Got it.", "I see."
-- Then probe for specifics or move to next question
-
-When candidate asks clarification:
-- Rephrase the question with context/example
-- Do NOT over-explain or provide hints
-- Wait for their answer
-
-Tone: Professional, engaged, curious. Not comforting, not robotic. Like a real technical interviewer who's listening.
-
-Return JSON:
-{
-  "question": "Your naturally written next question"
-}`;
+        const quickPrompt = buildClassificationPrompt({
+            lastQuestion,
+            lastAnswer,
+            categoryList,
+            newFocusTopic,
+            clarificationRetryCount: retryCount,
+            clarificationThreshold: CLARIFICATION_THRESHOLD,
+            isGibberish,
+        });
 
         const messages = [
             {
@@ -388,9 +274,21 @@ Return JSON:
             throw new Error("OpenAI returned empty response");
         }
 
-        const result = JSON.parse(responseText);
+        const result = JSON.parse(responseText) as ClassifiedQuestionResponse;
 
-        log.info(LOG_CATEGORY, `[next-question] Question generated in ${elapsed}ms`);
+        // Validate response structure
+        if (!result.detectedAnswerType || !result.question) {
+            throw new Error("OpenAI response missing required fields");
+        }
+
+        // Derive classification flags from OpenAI's judgment (single source of truth)
+        const answerType: AnswerType = result.detectedAnswerType;
+        const isClarificationRequest = answerType === 'clarification_request';
+        const isDontKnow = answerType === 'dont_know';
+        const shouldIncrementRetry = shouldIncrementRetryCounter(answerType, retryCount, CLARIFICATION_THRESHOLD);
+        const shouldMoveOn = shouldMoveToNextQuestion(answerType, retryCount, CLARIFICATION_THRESHOLD);
+
+        log.info(LOG_CATEGORY, `[next-question] Classification: ${answerType}, Question generated in ${elapsed}ms`);
 
         return NextResponse.json({
             success: true,
@@ -398,7 +296,7 @@ Return JSON:
             newFocusTopic,
             isGibberish,
             isClarificationRequest,
-            isDontKnow: isDontKnowQuick,
+            isDontKnow,
             shouldIncrementRetry,
             shouldMoveOn,
             latencyMs: elapsed, // For monitoring

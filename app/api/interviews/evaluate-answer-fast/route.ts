@@ -4,6 +4,11 @@ import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import prisma from "lib/prisma";
 import OpenAI from "openai";
 import { CONTRIBUTIONS_TARGET } from "shared/constants/interview";
+import {
+    buildClassificationPrompt,
+    isGibberishAnswer,
+    type AnswerType
+} from "shared/services/backgroundInterview/answerClassification";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
@@ -98,24 +103,10 @@ export async function POST(request: NextRequest) {
         }).join(', ');
 
         // GIBBERISH DETECTION: Check if answer is nonsensical or meaningless
-        const isGibberish = (() => {
-            const trimmed = answer.trim();
-            // Very short (< 3 chars) or only repeating characters
-            if (trimmed.length < 3 || /^(.)\1+$/.test(trimmed)) return true;
-            // Only special characters/numbers
-            if (!/[a-zA-Z]/.test(trimmed)) return true;
-            // Repeated patterns like "asdf" or "blah blah blah"
-            if (/^(\w{2,4})\s*\1\s*\1/.test(trimmed.toLowerCase())) return true;
-            // Random keyboard mashing (3+ consonants in a row, repeated)
-            if (/([bcdfghjklmnpqrstvwxyz]{3,})/gi.test(trimmed) && trimmed.length < 15) return true;
-            return false;
-        })();
+        const isGibberish = isGibberishAnswer(answer);
 
-        // CLARIFICATION DETECTION: Check if candidate is asking for clarification
-        const isClarificationRequest = !isGibberish && /\b(what do you mean|can you explain|could you clarify|I don't understand|what does that mean|can you rephrase|could you repeat)\b/i.test(answer);
-
-        // ACKNOWLEDGMENT DETECTION: Check if candidate appears to be asking a general question
-        const appearsToBeQuestion = !isGibberish && !isClarificationRequest && /\b(why|can you|could you|how come|tell me more about|explain)\b/i.test(answer);
+        // Note: Clarification and "I don't know" detection moved to OpenAI classification
+        // (more accurate, handles creative phrasings like "huh?", "sorry?", etc.)
 
         // DETERMINISTIC ROUTING: Pick next topic based on current counts
         const activeCategoryNames = activeCategories.map((cat: any) => cat.name);
@@ -137,98 +128,27 @@ export async function POST(request: NextRequest) {
             )[0].categoryName;
         }
 
-        // Build focus instruction based on gibberish, clarification status, and retry count
-        let focusInstruction = `Ask your next question about: "${newFocusTopic}"`;
-        let clarificationHandling = "";
+        // Build classification prompt (shared with next-question endpoint)
+        const classificationPrompt = buildClassificationPrompt({
+            lastQuestion: question,
+            lastAnswer: answer,
+            categoryList,
+            newFocusTopic,
+            clarificationRetryCount: retryCount,
+            clarificationThreshold: CLARIFICATION_THRESHOLD,
+            isGibberish,
+        });
 
-        if (isGibberish) {
-            if (retryCount < CLARIFICATION_THRESHOLD - 1) {
-                // Under threshold: prompt for real answer
-                clarificationHandling = `
-GIBBERISH DETECTED (Attempt ${retryCount + 1} of ${CLARIFICATION_THRESHOLD}):
-The candidate provided a nonsensical or meaningless answer (e.g., random characters, very short response, keyboard mashing).
+        // Extend classification prompt with scoring and evaluation intent
+        const fastPrompt = `${classificationPrompt}
 
-Say: "I didn't catch that. Could you provide a more detailed answer?"
+ADDITIONAL SCORING TASK:
+After classifying the answer and generating the question, also provide scores.
 
-Do NOT advance to a new question. Give them another chance to provide a meaningful response.`;
-            } else {
-                // At threshold: politely move on
-                clarificationHandling = `
-RETRY THRESHOLD REACHED (${CLARIFICATION_THRESHOLD} attempts):
-The candidate has not provided meaningful answers after multiple attempts. It's time to move forward.
-
-Say: "I understand you might not have experience with this, so let's move forward to something else."
-
-Then naturally transition to your next question about: "${newFocusTopic}"`;
-                focusInstruction = ""; // Don't repeat the focus instruction
-            }
-        } else if (isClarificationRequest) {
-            if (retryCount < CLARIFICATION_THRESHOLD - 1) {
-                // Under threshold: clarify and confirm understanding
-                clarificationHandling = `
-CLARIFICATION REQUEST DETECTED (Attempt ${retryCount + 1} of ${CLARIFICATION_THRESHOLD}):
-The candidate is asking for clarification about your previous question.
-
-1. Provide a brief, clear explanation of what you meant (1-2 sentences)
-2. Rephrase the question using simpler or more concrete language
-3. Confirm understanding by asking: "Does that make sense? Can you try answering now?"
-
-Do NOT advance to a new question. Do NOT treat this as a failed answer.`;
-            } else {
-                // At threshold: politely move on
-                clarificationHandling = `
-RETRY THRESHOLD REACHED (${CLARIFICATION_THRESHOLD} attempts):
-The candidate has asked for clarification multiple times. It's time to move forward.
-
-Say: "I understand you might not have experience with this, so let's move forward to something else."
-
-Then naturally transition to your next question about: "${newFocusTopic}"`;
-                focusInstruction = ""; // Don't repeat the focus instruction
-            }
-        } else if (appearsToBeQuestion) {
-            focusInstruction = `
-ACKNOWLEDGMENT INSTRUCTION:
-The candidate appears to have asked a question. Provide a brief (1 sentence) response that addresses their question without over-explaining, then continue to your next question naturally.
-
-${focusInstruction}`;
-        }
-
-        const fastPrompt = `Score this answer and generate next question.
-
-Last Question: ${question}
-Last Answer: ${answer}
-
-Current status: ${categoryList}
-
-Step 1 - Detect uncertainty:
-If the answer says "I don't know" or similar ("not sure", "no experience", "haven't worked with that"), set isDontKnow: true
-Otherwise set isDontKnow: false
-
-Step 2 - Score each category 0-100:
+Step 1 - Score each category 0-100:
 0=blank, 1-30=vague, 31-60=basic, 61-80=clear, 81-100=exceptional
 
-Step 3 - Generate next question:
-${clarificationHandling || focusInstruction}
-
-ACKNOWLEDGMENT GUIDANCE:
-When you detected isDontKnow=true in Step 1:
-- Start with a brief, natural acknowledgment (1 sentence) such as:
-  * "That's perfectly fine - not every role requires that experience"
-  * "No worries, let's explore a different angle"
-  * "I understand - that's a specialized area"
-  * "Thanks for being direct about that"
-- Then transition smoothly to your next question
-
-When the answer received low scores (1-30 range, vague tier) in Step 2:
-- Acknowledge it naturally (1 sentence) such as:
-  * "I appreciate you sharing that perspective"
-  * "Thanks for that context"
-  * "That gives me a starting point"
-- Then transition to your next question
-
-Otherwise, write your next question naturally - you may acknowledge their answer if appropriate, or go direct to the next question. Use the curiosity tools from your system prompt. Vary your phrasing to avoid repetition.
-
-Step 4 - Describe evaluation intent:
+Step 2 - Describe evaluation intent:
 Write one natural, calm sentence describing the lens or perspective the interviewer is listening through for this answer.
 
 The sentence must NOT restate or paraphrase the question.
@@ -248,9 +168,9 @@ Example style (do not copy verbatim):
 
 Return JSON:
 {
-  "isDontKnow": true/false,
-  "scores": [{"category": "Name", "strength": 0-100}],
+  "detectedAnswerType": "clarification_request" | "dont_know" | "substantive",
   "question": "Your naturally written next question",
+  "scores": [{"category": "Name", "strength": 0-100}],
   "evaluationIntent": "Single natural sentence describing listening focus"
 }`;
 
@@ -292,6 +212,16 @@ Return JSON:
         }
 
         const result = JSON.parse(responseText);
+
+        // Validate response structure
+        if (!result.detectedAnswerType || !result.question || !result.scores) {
+            throw new Error("OpenAI response missing required fields");
+        }
+
+        // Derive classification flags from OpenAI's judgment (single source of truth)
+        const answerType: AnswerType = result.detectedAnswerType;
+        const isClarificationRequest = answerType === 'clarification_request';
+        const isDontKnow = answerType === 'dont_know';
 
         // If this is an "I don't know" answer, increment dontKnowCount in-memory for the topic being evaluated
         let countsForTopicSelection = currentCounts;
@@ -439,13 +369,13 @@ Return JSON:
             };
         });
 
-        log.info(LOG_CATEGORY, "[evaluate-answer-fast] Fast evaluation complete");
+        log.info(LOG_CATEGORY, `[evaluate-answer-fast] Classification: ${answerType}, Fast evaluation complete`);
 
         return NextResponse.json({
             success: true,
             scores: result.scores,
             question: result.question,
-            isDontKnow: result.isDontKnow || false,
+            isDontKnow,
             isClarificationRequest,
             isGibberish,
             updatedCounts,
