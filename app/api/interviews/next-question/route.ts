@@ -301,23 +301,27 @@ Current status: ${categoryList}
 
 ${clarificationHandling || focusInstruction}
 
-ACKNOWLEDGMENT GUIDANCE:
-When the candidate says "I don't know" or similar ("not sure", "no experience", "haven't worked with that"):
-- Start with a brief, natural acknowledgment (1 sentence) such as:
-  * "That's perfectly fine - not every role requires that experience"
-  * "No worries, let's explore a different angle"
-  * "I understand - that's a specialized area"
-  * "Thanks for being direct about that"
-- Then transition smoothly to your next question
+RESPONSE PATTERNS (CRITICAL - follow exactly):
 
-When the answer is vague or low quality:
-- Acknowledge it naturally (1 sentence) such as:
-  * "I appreciate you sharing that perspective"
-  * "Thanks for that context"
-  * "That gives me a starting point"
-- Then transition to your next question
+When candidate says "I don't know" / Skip:
+- Use ONLY neutral acknowledgment: "Understood", "Alright", "Noted"
+- Do NOT say: "That's fine", "No worries", "Perfectly fine", "No problem"
+- Do NOT say: "Let's explore...", "Let's move to..." (controller decides topics)
+- Then ask your next question
 
-Otherwise, write your next question naturally - you may acknowledge their answer if appropriate, or go direct to the next question. Use the curiosity tools from your system prompt. Vary your phrasing to avoid repetition.
+When answer is vague/weak:
+- Brief neutral acknowledgment: "Got it", "I see"
+- Then probe deeper with trade-offs, constraints, or edge cases
+
+When candidate asks clarification:
+- Rephrase the question with context/example
+- Do NOT over-explain or provide hints
+- Wait for their answer
+
+Otherwise:
+- Brief acknowledgment ("Got it", "I see") THEN probe deeper
+- OR go direct to next question
+- Use curiosity tools: trade-offs, constraints, failures, edge cases
 
 Return JSON:
 {
