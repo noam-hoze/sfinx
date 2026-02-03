@@ -7,10 +7,26 @@ import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 
 const LOG_CATEGORY = LOG_CATEGORIES.DB;
 
-if (!process.env.DATABASE_URL) {
-    log.error(LOG_CATEGORY, "❌ DATABASE_URL is not set. Please run via sync:dev or sync:prod");
+// Parse CLI flag: --env=dev or --env=prod
+const envArg = process.argv.find(arg => arg.startsWith('--env='));
+const environment = envArg?.split('=')[1] || 'dev'; // Default to dev
+
+if (!['dev', 'prod'].includes(environment)) {
+    log.error(LOG_CATEGORY, "❌ Please specify --env=dev or --env=prod");
     process.exit(1);
 }
+
+const databaseUrl = environment === 'dev' 
+    ? process.env.DEV_DATABASE_URL 
+    : process.env.PROD_DATABASE_URL;
+
+if (!databaseUrl) {
+    log.error(LOG_CATEGORY, `❌ ${environment === 'dev' ? 'DEV_DATABASE_URL' : 'PROD_DATABASE_URL'} is not set`);
+    process.exit(1);
+}
+
+log.info(LOG_CATEGORY, `Running on: ${environment.toUpperCase()}`);
+process.env.DATABASE_URL = databaseUrl;
 
 const prisma = new PrismaClient();
 
