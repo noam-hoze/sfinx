@@ -146,9 +146,9 @@ const MascotDisplay = () => {
 
 export default function TestMascotPage() {
   const rive = useRive({
-    src: "/bear.riv",
+    src: "/realisticFemale.riv",
     artboard: "Character",
-    stateMachines: "InLesson",  // Correct state machine name from bear.riv
+    stateMachines: "InLesson",  // Correct state machine name from realisticFemale.riv
     autoplay: true,
   });
 

@@ -17,23 +17,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Text required" }, { status: 400 });
     }
 
-    const apiKey = process.env.NEXT_PUBLIC_MASCOTBOT_API_KEY;
-    if (!apiKey) {
-      console.error("[Mascot API] API key missing");
-      return NextResponse.json({ error: "API key missing" }, { status: 500 });
+    const mascotApiKey = process.env.NEXT_PUBLIC_MASCOTBOT_API_KEY;
+    const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+    const voiceId = process.env.ELEVEN_LABS_CANDIDATE_VOICE_ID;
+
+    if (!mascotApiKey) {
+      console.error("[Mascot API] Mascotbot API key missing");
+      return NextResponse.json({ error: "Mascotbot API key missing" }, { status: 500 });
+    }
+
+    if (!elevenLabsApiKey) {
+      console.error("[Mascot API] ElevenLabs API key missing");
+      return NextResponse.json({ error: "ElevenLabs API key missing" }, { status: 500 });
+    }
+
+    if (!voiceId) {
+      console.error("[Mascot API] Voice ID missing");
+      return NextResponse.json({ error: "Voice ID missing" }, { status: 500 });
     }
 
     console.log("[Mascot API] Generating TTS and visemes for text:", text);
+    console.log("[Mascot API] Using ElevenLabs voice ID:", voiceId);
 
     const response = await fetch("https://api.mascot.bot/v1/visemes-audio", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
+        "Authorization": `Bearer ${mascotApiKey}`,
       },
       body: JSON.stringify({
         text,
-        voice: "am_fenrir",
+        tts_engine: "elevenlabs",
+        tts_api_key: elevenLabsApiKey,
+        voice: voiceId,
+        speed: 1.0,
       }),
     });
 
@@ -66,19 +83,22 @@ export async function POST(request: Request) {
             try {
               const jsonStr = line.slice(6);
               const data = JSON.parse(jsonStr);
-              
+              console.log("[Mascot API] SSE event type:", data.type, "keys:", Object.keys(data));
+
               if (data.type === 'audio' && data.data) {
                 audioChunks.push(data.data);
               }
-              
+
               if (data.visemes) {
                 visemes.push(...data.visemes);
               }
-              
+
               if (data.audio_sequence && typeof data.audio_sequence === 'string') {
                 audioChunks.push(data.audio_sequence);
               }
-            } catch (e) { /* Skip incomplete JSON */ }
+            } catch (e) {
+              console.error("[Mascot API] Failed to parse SSE line:", line.substring(0, 100));
+            }
           }
         }
       }
@@ -87,6 +107,14 @@ export async function POST(request: Request) {
     console.log("[Mascot API] Total visemes collected:", visemes.length);
     console.log("[Mascot API] Audio chunks collected:", audioChunks.length);
     console.log("[Mascot API] Audio base64 length:", audioBase64.length);
+    console.log("[Mascot API] First 100 chars of audio:", audioBase64.substring(0, 100));
+    console.log("[Mascot API] Audio looks like base64:", /^[A-Za-z0-9+/=]*$/.test(audioBase64));
+
+    if (!audioBase64 || audioBase64.length === 0) {
+      console.error("[Mascot API] No audio data received");
+      return NextResponse.json({ error: "No audio data received" }, { status: 500 });
+    }
+
     return NextResponse.json({ visemes, audioBase64 });
   } catch (error) {
     console.error("Error:", error);
