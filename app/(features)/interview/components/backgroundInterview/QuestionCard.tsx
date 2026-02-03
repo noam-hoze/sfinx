@@ -95,6 +95,8 @@ export default function QuestionCard({
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [recordingError, setRecordingError] = useState<string | null>(null);
+  const [showBlankAnswerDialog, setShowBlankAnswerDialog] = useState(false);
+  const [dontAskAgain, setDontAskAgain] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -242,20 +244,100 @@ export default function QuestionCard({
     };
   }, [isRecording]);
 
+  // Keyboard shortcuts for dialog
+  React.useEffect(() => {
+    if (showBlankAnswerDialog) {
+      const handler = (e: KeyboardEvent) => {
+        if (e.key === "Escape") handleGoBack();
+        if (e.key === "Enter") handleSkipQuestion();
+      };
+
+      document.addEventListener("keydown", handler);
+      return () => document.removeEventListener("keydown", handler);
+    }
+  }, [showBlankAnswerDialog, dontAskAgain]);
+
+  // Gibberish detection helper (matches backend logic)
+  const isGibberishAnswer = (text: string): boolean => {
+    const trimmed = text.trim();
+
+    // Very short (< 3 chars) or only repeating characters
+    if (trimmed.length < 3 || /^(.)\1+$/.test(trimmed)) return true;
+
+    // Only special characters/numbers (no letters)
+    if (!/[a-zA-Z]/.test(trimmed)) return true;
+
+    // Single character repeated many times
+    if (/^(.)\1{4,}$/.test(trimmed)) return true;
+
+    // Too many consonants in a row (keyboard mashing)
+    if (/([bcdfghjklmnpqrstvwxyz]{3,})/gi.test(trimmed) && trimmed.length < 15) return true;
+
+    return false;
+  };
+
   const handleSubmit = async () => {
-    // Capture click time BEFORE submitting
+    // Check if answer is blank or gibberish
+    const isBlank = answer.trim().length === 0;
+    const isGibberish = !isBlank && isGibberishAnswer(answer);
+
+    if (isBlank || isGibberish) {
+      // Check localStorage preference (SSR-safe)
+      if (typeof window !== "undefined") {
+        const disabled = localStorage.getItem("sfinx:skipBlankAnswerDialog:disabled");
+        if (disabled === "true") {
+          // Auto-submit "I don't know" without showing dialog
+          submitClickTimeRef.current = new Date();
+          if (interviewSessionId) {
+            createBackgroundEvidenceLink("I don't know").catch(err =>
+              log.error(LOG_CATEGORY, '[QuestionCard] Failed to create evidence link:', err)
+            );
+          }
+          onSubmitAnswer("I don't know");
+          setAnswer("");
+          return;
+        }
+      }
+
+      // Show confirmation dialog
+      setShowBlankAnswerDialog(true);
+      return;
+    }
+
+    // Existing submit logic for valid answers
     submitClickTimeRef.current = new Date();
-    
-    // Create evidence link (non-blocking)
     if (interviewSessionId) {
-      createBackgroundEvidenceLink(answer).catch(err => 
+      createBackgroundEvidenceLink(answer).catch(err =>
         log.error(LOG_CATEGORY, '[QuestionCard] Failed to create evidence link:', err)
       );
     }
-    
-    // Proceed with normal submission
     onSubmitAnswer(answer);
     setAnswer("");
+  };
+
+  const handleSkipQuestion = () => {
+    // Save preference if checkbox is checked
+    if (dontAskAgain && typeof window !== "undefined") {
+      localStorage.setItem("sfinx:skipBlankAnswerDialog:disabled", "true");
+    }
+
+    // Close dialog and submit "I don't know"
+    setShowBlankAnswerDialog(false);
+    submitClickTimeRef.current = new Date();
+
+    if (interviewSessionId) {
+      createBackgroundEvidenceLink("I don't know").catch(err =>
+        log.error(LOG_CATEGORY, '[QuestionCard] Failed to create evidence link:', err)
+      );
+    }
+
+    onSubmitAnswer("I don't know");
+    setAnswer("");
+  };
+
+  const handleGoBack = () => {
+    setShowBlankAnswerDialog(false);
+    setDontAskAgain(false); // Reset checkbox state
   };
 
   /**
@@ -630,6 +712,84 @@ export default function QuestionCard({
                   </div>
                 </motion.div>
               </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Blank Answer Confirmation Dialog */}
+      <AnimatePresence>
+        {showBlankAnswerDialog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-6"
+            onClick={handleGoBack}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
+              className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Title */}
+              <h2 className="text-2xl font-semibold text-gray-900 mb-3">
+                No answer yet
+              </h2>
+
+              {/* Body */}
+              <p className="text-base text-gray-600 mb-6">
+                Would you like to skip this question?
+              </p>
+
+              {/* Buttons */}
+              <div className="flex gap-3 mb-6">
+                <button
+                  onClick={handleGoBack}
+                  className="flex-1 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                >
+                  Go Back
+                </button>
+                <button
+                  onClick={handleSkipQuestion}
+                  className="flex-1 px-6 py-3 bg-sfinx-purple text-white rounded-lg hover:opacity-90 transition-opacity font-medium"
+                >
+                  Skip
+                </button>
+              </div>
+
+              {/* Checkbox */}
+              <label className="flex items-center gap-3 cursor-pointer">
+                <div
+                  className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                    dontAskAgain
+                      ? "bg-sfinx-purple border-sfinx-purple"
+                      : "border-gray-300 bg-white"
+                  }`}
+                  onClick={() => setDontAskAgain(!dontAskAgain)}
+                >
+                  {dontAskAgain && (
+                    <svg
+                      className="w-3 h-3 text-white"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={3}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  )}
+                </div>
+                <span className="text-sm text-gray-600">Don't ask again</span>
+              </label>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
