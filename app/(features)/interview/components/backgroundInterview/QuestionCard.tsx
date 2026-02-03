@@ -11,6 +11,9 @@ import { generateVisemesAndAudio } from "@/shared/services/mascot";
 import { convertPCMToWAV } from "@/shared/utils/audioConversion";
 import type { Viseme } from "@/shared/types/mascot";
 import { useWordByWordAnimation } from "../hooks/useWordByWordAnimation";
+import { useDispatch, useSelector } from "react-redux";
+import { incrementDontKnowCount } from "@/shared/state/slices/backgroundSlice";
+import type { RootState } from "@/shared/state/store";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
 
@@ -84,7 +87,11 @@ export default function QuestionCard({
    */
   const { isMuted } = useMute();
   const mascotEnabled = process.env.NEXT_PUBLIC_MASCOT_ENABLED === "true";
-  
+
+  // Redux state for client-side counter optimization
+  const dispatch = useDispatch();
+  const currentFocusTopic = useSelector((state: RootState) => state.background.currentFocusTopic);
+
   const [answer, setAnswer] = useState("");
   const [inputMode, setInputMode] = useState<"text" | "voice">("text");
   const [prevQuestion, setPrevQuestion] = useState("");
@@ -300,6 +307,7 @@ export default function QuestionCard({
     // Check if answer is blank or gibberish
     const isBlank = answer.trim().length === 0;
     const isGibberish = !isBlank && isGibberishAnswer(answer);
+    const isExactDontKnow = answer.trim().toLowerCase() === "i don't know";
 
     if (isBlank || isGibberish) {
       // Check localStorage preference (SSR-safe)
@@ -313,6 +321,13 @@ export default function QuestionCard({
               log.error(LOG_CATEGORY, '[QuestionCard] Failed to create evidence link:', err)
             );
           }
+
+          // CLIENT-SIDE INCREMENT for auto-skip
+          if (currentFocusTopic) {
+            dispatch(incrementDontKnowCount({ category: currentFocusTopic }));
+            log.info(LOG_CATEGORY, `[QuestionCard] Client-side increment for auto-skip: ${currentFocusTopic}`);
+          }
+
           onSubmitAnswer("I don't know");
           setAnswer("");
           return;
@@ -331,6 +346,13 @@ export default function QuestionCard({
         log.error(LOG_CATEGORY, '[QuestionCard] Failed to create evidence link:', err)
       );
     }
+
+    // CLIENT-SIDE INCREMENT for exact "I don't know" text
+    if (isExactDontKnow && currentFocusTopic) {
+      dispatch(incrementDontKnowCount({ category: currentFocusTopic }));
+      log.info(LOG_CATEGORY, `[QuestionCard] Client-side increment for exact text: ${currentFocusTopic}`);
+    }
+
     onSubmitAnswer(answer);
     setAnswer("");
   };
@@ -349,6 +371,12 @@ export default function QuestionCard({
       createBackgroundEvidenceLink("I don't know").catch(err =>
         log.error(LOG_CATEGORY, '[QuestionCard] Failed to create evidence link:', err)
       );
+    }
+
+    // IMMEDIATE CLIENT-SIDE INCREMENT
+    if (currentFocusTopic) {
+      dispatch(incrementDontKnowCount({ category: currentFocusTopic }));
+      log.info(LOG_CATEGORY, `[QuestionCard] Client-side increment for skip: ${currentFocusTopic}`);
     }
 
     onSubmitAnswer("I don't know");

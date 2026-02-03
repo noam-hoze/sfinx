@@ -118,6 +118,9 @@ export function useBackgroundAnswerHandler(
               log.info(LOG_CATEGORY, `Excluded topics (dontKnowCount >= ${dontKnowThreshold}): ${excludedTopics.join(', ')}`);
             }
 
+            // Detect exact "I don't know" for client-side optimization
+            const isExactDontKnow = answer.trim().toLowerCase() === "i don't know";
+
             if (useSplitEvaluation) {
               // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
               // NEW FLOW: 3-call architecture (question, scoring, evaluation)
@@ -137,6 +140,7 @@ export function useBackgroundAnswerHandler(
                   currentFocusTopic,
                   excludedTopics,
                   clarificationRetryCount,
+                  clientSideIncremented: isExactDontKnow,
                 })
               });
 
@@ -188,6 +192,9 @@ export function useBackgroundAnswerHandler(
 
               // CALL 2: Score Answer (ASYNC, ~2-3s, non-blocking)
               log.info(LOG_CATEGORY, "[split-eval] Calling score-answer endpoint (async)...");
+              // #region agent log
+              fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBackgroundAnswerHandler.ts:191',message:'Before score-answer call',data:{answer,currentFocusTopic,categoryStatsSnapshot:categoryStats.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,D'})}).catch(()=>{});
+              // #endregion
               fetch(`/api/interviews/score-answer`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -198,14 +205,29 @@ export function useBackgroundAnswerHandler(
                   experienceCategories,
                   currentCounts: categoryStats,
                   currentFocusTopic,
+                  clientSideIncremented: isExactDontKnow,
                 })
               }).then(async (scoreResponse) => {
                 const scoreData = await scoreResponse.json();
                 log.info(LOG_CATEGORY, `[split-eval] Scores received in ${scoreData.latencyMs || 0}ms`);
 
+                // #region agent log
+                fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBackgroundAnswerHandler.ts:208',message:'Score-answer response received',data:{isDontKnow:scoreData.isDontKnow,updatedCounts:scoreData.updatedCounts?.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+                // #endregion
+
                 // Update Redux with scores (~2-3s after submit)
                 if (scoreData.updatedCounts) {
                   dispatch(updateCategoryStats({ stats: scoreData.updatedCounts }));
+                  // #region agent log
+                  fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBackgroundAnswerHandler.ts:217',message:'Redux dispatch updateCategoryStats called',data:{dispatchedStats:scoreData.updatedCounts.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+                  // #endregion
+                  
+                  // #region agent log
+                  setTimeout(() => {
+                    const stateAfterDispatch = store.getState().background.categoryStats;
+                    fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBackgroundAnswerHandler.ts:224',message:'Redux state after dispatch (100ms later)',data:{reduxState:stateAfterDispatch.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+                  }, 100);
+                  // #endregion
                 }
 
                 // Pass intent to callback for display
@@ -219,10 +241,16 @@ export function useBackgroundAnswerHandler(
                 }
               }).catch((err) => {
                 log.error(LOG_CATEGORY, "[split-eval] Score-answer failed:", err);
+                // #region agent log
+                fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBackgroundAnswerHandler.ts:235',message:'Score-answer call failed',data:{error:err?.toString()},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+                // #endregion
               });
 
               // CALL 3: Full Evaluation (ASYNC, ~8-10s, non-blocking)
               log.info(LOG_CATEGORY, "[split-eval] Calling full evaluation endpoint (async)...");
+              // #region agent log
+              fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBackgroundAnswerHandler.ts:246',message:'Before full-eval call',data:{categoryStatsSnapshot:categoryStats.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'F'})}).catch(()=>{});
+              // #endregion
               fetch(`/api/interviews/evaluate-answer`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -238,10 +266,28 @@ export function useBackgroundAnswerHandler(
                 const fullData = await fullResponse.json();
                 log.info(LOG_CATEGORY, "[split-eval] Full evaluation complete");
 
+                // #region agent log
+                fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBackgroundAnswerHandler.ts:262',message:'Full-eval response received',data:{updatedCounts:fullData.updatedCounts?.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'F'})}).catch(()=>{});
+                // #endregion
+
                 // Correct Redux with full evaluation counts (if different)
                 if (fullData.updatedCounts) {
-                  dispatch(updateCategoryStats({ stats: fullData.updatedCounts }));
-                  log.info(LOG_CATEGORY, "[split-eval] Redux updated with full-eval counts");
+                  // Preserve dontKnowCount from current Redux state (score-answer has already updated it)
+                  const currentReduxState = store.getState().background.categoryStats;
+                  const mergedCounts = fullData.updatedCounts.map((fullCat: any) => {
+                    const reduxCat = currentReduxState.find((c: any) => c.categoryName === fullCat.categoryName);
+                    return {
+                      ...fullCat,
+                      dontKnowCount: reduxCat?.dontKnowCount || 0, // Preserve dontKnowCount from Redux
+                    };
+                  });
+
+                  // #region agent log
+                  fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBackgroundAnswerHandler.ts:276',message:'Dispatching merged counts (preserving dontKnowCount)',data:{beforeMerge:fullData.updatedCounts.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount})),afterMerge:mergedCounts.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'F',runId:'post-fix'})}).catch(()=>{});
+                  // #endregion
+
+                  dispatch(updateCategoryStats({ stats: mergedCounts }));
+                  log.info(LOG_CATEGORY, "[split-eval] Redux updated with full-eval counts (dontKnowCount preserved)");
                 }
 
                 // Pass evaluations to callback for debug panel

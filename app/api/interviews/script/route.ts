@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
         
         return NextResponse.json({
             backgroundQuestion: interview.backgroundQuestion,
+            backgroundQuestionCategory: interview.backgroundQuestionCategory,
             codingPrompt: interview.codingPrompt,
             codingTemplate: interview.codingTemplate,
             codingAnswer: interview.codingAnswer,
