@@ -474,7 +474,7 @@ async function resetDatabase() {
                 },
             });
 
-            // Create company profile
+            // Create company profile   
             await prisma.companyProfile.create({
                 data: {
                     userId: user.id,
