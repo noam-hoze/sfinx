@@ -26,6 +26,7 @@ const AIInterviewerBox: React.FC<AIInterviewerBoxProps> = ({
     visemes = []
 }) => {
     const [previousMode, setPreviousMode] = useState<"talking" | "idle">(mode);
+    const [isInfoHovered, setIsInfoHovered] = useState(false);
     const mascotEnabled = process.env.NEXT_PUBLIC_MASCOT_ENABLED === "true";
 
     // Track mode changes for animation direction
@@ -75,12 +76,17 @@ const AIInterviewerBox: React.FC<AIInterviewerBoxProps> = ({
                     )}
                 </div>
 
-                {/* Intent text - subtle and elegant */}
+                {/* Info icon with hover tooltip */}
                 {mode === "idle" && intent && (
-                    <div className="flex gap-3 items-start pt-2 animate-intent-fade-in opacity-60">
-                        <div className="w-7 h-7 rounded-full bg-gray-100/50 flex items-center justify-center flex-shrink-0 mt-1">
+                    <div 
+                        className="absolute top-4 right-4"
+                        onMouseEnter={() => setIsInfoHovered(true)}
+                        onMouseLeave={() => setIsInfoHovered(false)}
+                    >
+                        {/* Info icon button */}
+                        <div className="w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm shadow-md flex items-center justify-center cursor-pointer transition-all duration-200 ease-out hover:scale-110 hover:shadow-lg">
                             <svg 
-                                className="w-4 h-4 text-gray-400" 
+                                className="w-5 h-5 text-gray-600" 
                                 fill="none" 
                                 stroke="currentColor" 
                                 viewBox="0 0 24 24"
@@ -88,14 +94,28 @@ const AIInterviewerBox: React.FC<AIInterviewerBoxProps> = ({
                                 <path 
                                     strokeLinecap="round" 
                                     strokeLinejoin="round" 
-                                    strokeWidth={1.5} 
-                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" 
+                                    strokeWidth={2} 
+                                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" 
                                 />
                             </svg>
                         </div>
-                        <p className="text-sm leading-relaxed text-gray-500 font-normal pr-20">
+                        
+                        {/* Tooltip */}
+                        <div 
+                            className={`absolute top-full right-0 mt-2 w-72 bg-gray-900/70 backdrop-blur-md text-white text-sm px-4 py-3 rounded-lg shadow-xl pointer-events-none transition-all duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] ${
+                                isInfoHovered 
+                                    ? 'opacity-100 translate-y-0' 
+                                    : 'opacity-0 -translate-y-2 pointer-events-none'
+                            }`}
+                        >
                             {intent}
-                        </p>
+                            {/* Tooltip arrow */}
+                            <div className={`absolute bottom-full right-3 -mb-1 transition-opacity duration-300 ${
+                                isInfoHovered ? 'opacity-100' : 'opacity-0'
+                            }`}>
+                                <div className="w-2 h-2 bg-gray-900/70 transform rotate-45"></div>
+                            </div>
+                        </div>
                     </div>
                 )}
                 </div>
