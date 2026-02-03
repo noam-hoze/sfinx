@@ -414,7 +414,7 @@ if __name__ == "__main__":
 `,
     expectedOutput: `shape: (40, 97)
 mean: -3.212493419647217
-std: 2.5917365550994873
+std: 2.597136555899487
 sha256: 2bb3dcf324d82b9ec99a6592433a31c139f07855bcdb626a4d16ecfe7a319fff`,
     codingLanguage: "python",
     backgroundQuestionTimeSeconds: 15 * 60,
