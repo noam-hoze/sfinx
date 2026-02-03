@@ -246,16 +246,36 @@ export default function QuestionCard({
 
   // Keyboard shortcuts for dialog
   React.useEffect(() => {
-    if (showBlankAnswerDialog) {
-      const handler = (e: KeyboardEvent) => {
-        if (e.key === "Escape") handleGoBack();
-        if (e.key === "Enter") handleSkipQuestion();
-      };
+    if (!showBlankAnswerDialog) return;
 
-      document.addEventListener("keydown", handler);
-      return () => document.removeEventListener("keydown", handler);
-    }
-  }, [showBlankAnswerDialog, dontAskAgain]);
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        // Go Back logic
+        setShowBlankAnswerDialog(false);
+        setDontAskAgain(false);
+      }
+      if (e.key === "Enter") {
+        // Skip logic
+        if (dontAskAgain && typeof window !== "undefined") {
+          localStorage.setItem("sfinx:skipBlankAnswerDialog:disabled", "true");
+        }
+        setShowBlankAnswerDialog(false);
+        submitClickTimeRef.current = new Date();
+
+        if (interviewSessionId) {
+          createBackgroundEvidenceLink("I don't know").catch(err =>
+            log.error(LOG_CATEGORY, '[QuestionCard] Failed to create evidence link:', err)
+          );
+        }
+
+        onSubmitAnswer("I don't know");
+        setAnswer("");
+      }
+    };
+
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [showBlankAnswerDialog, dontAskAgain, interviewSessionId, onSubmitAnswer]);
 
   // Gibberish detection helper (matches backend logic)
   const isGibberishAnswer = (text: string): boolean => {
