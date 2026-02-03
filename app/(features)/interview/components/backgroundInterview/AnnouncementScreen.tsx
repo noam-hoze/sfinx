@@ -17,6 +17,7 @@ import { useWordByWordAnimation } from "../hooks/useWordByWordAnimation";
 type AnnouncementScreenProps = {
   text: string;
   preloadedAudioBlob?: Blob | null;
+  preloadedVisemes?: Viseme[];
   onComplete: () => void;
   onAudioStateChange?: (isPlaying: boolean, intentText?: string, visemes?: Viseme[]) => void;
 };
@@ -24,6 +25,7 @@ type AnnouncementScreenProps = {
 export default function AnnouncementScreen({
   text,
   preloadedAudioBlob,
+  preloadedVisemes,
   onComplete,
   onAudioStateChange,
 }: AnnouncementScreenProps) {
@@ -61,15 +63,23 @@ export default function AnnouncementScreen({
       try {
         let blob: Blob;
         let visemes: Viseme[] = [];
-        
-        if (mascotEnabled) {
+
+        // Use preloaded audio and visemes if available
+        if (preloadedAudioBlob && preloadedVisemes) {
+          log.info(LOG_CATEGORY, "[Announcement] Using preloaded audio and visemes");
+          blob = preloadedAudioBlob;
+          visemes = preloadedVisemes;
+        } else if (preloadedAudioBlob) {
+          log.info(LOG_CATEGORY, "[Announcement] Using preloaded audio (no visemes)");
+          blob = preloadedAudioBlob;
+        } else if (mascotEnabled) {
+          log.info(LOG_CATEGORY, "[Announcement] Generating mascot audio on-demand");
           const result = await generateVisemesAndAudio(text);
           visemes = result.visemes;
           const wavBuffer = convertPCMToWAV(result.audioBase64);
           blob = new Blob([wavBuffer], { type: "audio/wav" });
-        } else if (preloadedAudioBlob) {
-          blob = preloadedAudioBlob;
         } else {
+          log.info(LOG_CATEGORY, "[Announcement] Generating TTS audio on-demand");
           const audioBuffer = await generateTTS(text);
           blob = new Blob([audioBuffer], { type: "audio/mpeg" });
         }
@@ -82,6 +92,7 @@ export default function AnnouncementScreen({
         audio.volume = isMuted ? 0 : 1;
 
         audio.onplay = () => {
+          log.info(LOG_CATEGORY, "[Announcement] Audio playing - passing", visemes.length, "visemes to state handler");
           onAudioStateChange?.(true, undefined, visemes);
         };
 
@@ -107,7 +118,7 @@ export default function AnnouncementScreen({
         audioRef.current = null;
       }
     };
-  }, [text, preloadedAudioBlob]);
+  }, [text, preloadedAudioBlob, preloadedVisemes, mascotEnabled, isMuted, onAudioStateChange]);
 
   // Handle mute toggle - only change volume, don't stop playback
   React.useEffect(() => {
