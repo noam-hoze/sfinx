@@ -15,6 +15,7 @@ async function syncSchemaAndSeed() {
         // Parse CLI flag: --env=dev or --env=prod
         const envArg = process.argv.find(arg => arg.startsWith('--env='));
         const environment = envArg?.split('=')[1];
+        const skipStudio = process.argv.includes('--skip-studio');
         
         if (!environment || !['dev', 'prod'].includes(environment)) {
             throw new Error("Please specify --env=dev or --env=prod");
@@ -79,9 +80,11 @@ async function syncSchemaAndSeed() {
 
         await prisma.$disconnect();
 
-        // 5. Open Prisma Studio for quick inspection
-        log.info(LOG_CATEGORY, "Opening Prisma Studio...");
-        execSync("pnpm prisma studio --schema server/prisma/schema.prisma", execOptions);
+        // 5. Open Prisma Studio for quick inspection (unless --skip-studio)
+        if (!skipStudio) {
+            log.info(LOG_CATEGORY, "Opening Prisma Studio...");
+            execSync("pnpm prisma studio --schema server/prisma/schema.prisma", execOptions);
+        }
     } catch (error) {
         log.error(LOG_CATEGORY, "❌ Error during database reset:", error);
         process.exit(1);
