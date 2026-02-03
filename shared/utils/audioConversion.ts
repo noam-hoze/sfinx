@@ -24,7 +24,13 @@ export function convertPCMToWAV(
   try {
     pcmData = base64ToUint8Array(base64PCM);
   } catch (error) {
-    throw new Error('Invalid base64 PCM data');
+    console.error('[audioConversion] Failed to decode base64:', {
+      length: base64PCM.length,
+      firstChars: base64PCM.substring(0, 100),
+      lastChars: base64PCM.substring(base64PCM.length - 100),
+      error: error instanceof Error ? error.message : String(error)
+    });
+    throw new Error(`Invalid base64 PCM data: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   const wavHeader = createWAVHeader(pcmData.length, sampleRate);
@@ -34,13 +40,46 @@ export function convertPCMToWAV(
 
 /**
  * Decodes base64 string to Uint8Array
+ * Uses manual decoding to avoid browser atob() length limitations
  */
 function base64ToUint8Array(base64: string): Uint8Array {
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
+  // Clean the base64 string - remove any whitespace/newlines
+  const cleanedBase64 = base64.replace(/\s/g, '');
+
+  // Base64 character lookup table
+  const lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const lookupTable: {[key: string]: number} = {};
+  for (let i = 0; i < lookup.length; i++) {
+    lookupTable[lookup[i]] = i;
   }
+
+  // Calculate output length
+  let paddingLength = 0;
+  if (cleanedBase64.endsWith('==')) paddingLength = 2;
+  else if (cleanedBase64.endsWith('=')) paddingLength = 1;
+
+  const outputLength = (cleanedBase64.length * 3) / 4 - paddingLength;
+  const bytes = new Uint8Array(outputLength);
+
+  // Decode base64 manually
+  let byteIndex = 0;
+  for (let i = 0; i < cleanedBase64.length; i += 4) {
+    // Get 4 base64 characters (or less for the last group)
+    const char1 = lookupTable[cleanedBase64[i]] || 0;
+    const char2 = lookupTable[cleanedBase64[i + 1]] || 0;
+    const char3 = lookupTable[cleanedBase64[i + 2]] || 0;
+    const char4 = lookupTable[cleanedBase64[i + 3]] || 0;
+
+    // Convert to 3 bytes
+    const byte1 = (char1 << 2) | (char2 >> 4);
+    const byte2 = ((char2 & 15) << 4) | (char3 >> 2);
+    const byte3 = ((char3 & 3) << 6) | char4;
+
+    bytes[byteIndex++] = byte1;
+    if (byteIndex < outputLength) bytes[byteIndex++] = byte2;
+    if (byteIndex < outputLength) bytes[byteIndex++] = byte3;
+  }
+
   return bytes;
 }
 

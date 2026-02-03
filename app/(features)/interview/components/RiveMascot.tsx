@@ -7,7 +7,7 @@ import type { Viseme } from "@/shared/types/mascot";
 
 /**
  * RiveMascot: Animated bear avatar with Mascotbot lip sync
- * Uses bear.riv with InLesson state machine for lip-sync animation
+ * Uses realisticFemale.riv with InLesson state machine for lip-sync animation
  */
 interface RiveMascotProps {
   className?: string;
@@ -107,7 +107,7 @@ const RiveMascot: React.FC<RiveMascotProps> = ({
   isPlaying = false 
 }) => {
   const rive = useRive({
-    src: "/bear.riv",
+    src: "/realisticFemale.riv",
     artboard: "Character",
     stateMachines: "InLesson",
     autoplay: true,

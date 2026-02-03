@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the integration of Mascotbot lip-sync animation into the Sfinx interview flow. The implementation provides synchronized animated avatar movements with Text-to-Speech audio using the bear.riv character.
+This document describes the integration of Mascotbot lip-sync animation into the Sfinx interview flow. The implementation provides synchronized animated avatar movements with Text-to-Speech audio using the realisticFemale.riv character.
 
 ## Architecture
 
@@ -89,7 +89,7 @@ React component rendering animated bear with lip-sync.
 - `isPlaying?: boolean` - Whether audio is playing
 
 **Configuration:**
-- Rive file: `/public/bear.riv`
+- Rive file: `/public/realisticFemale.riv`
 - Artboard: "Character"
 - State Machine: "InLesson"
 - Uses `useMascotPlayback()` hook from Mascotbot SDK
@@ -180,7 +180,7 @@ NEXT_PUBLIC_MASCOTBOT_API_KEY=your_api_key_here
 
 ### Rive File Requirements
 
-**File:** `/public/bear.riv`
+**File:** `/public/realisticFemale.riv`
 
 **Required Structure:**
 - Artboard Name: "Character"
@@ -299,7 +299,7 @@ Both files marked with header comments explaining they are reference implementat
 
 **Debug:**
 - Check console for "Visemes received: N"
-- Verify `bear.riv` has "Character" artboard and "InLesson" state machine
+- Verify `realisticFemale.riv` has "Character" artboard and "InLesson" state machine
 - Check Network tab for `/api/mascot/visemes-audio` response
 
 #### 3. Audio plays but no visemes
@@ -340,4 +340,4 @@ Both files marked with header comments explaining they are reference implementat
 
 ## Version History
 
-- **v1.0.0** (2026-01-17) - Initial integration with bear.riv, 100% test coverage
+- **v1.0.0** (2026-01-17) - Initial integration with realisticFemale.riv, 100% test coverage
