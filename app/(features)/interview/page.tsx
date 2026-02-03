@@ -85,7 +85,6 @@ function InterviewPageContent() {
   const [isArriving, setIsArriving] = useState(false);
   const [announcementText, setAnnouncementText] = useState("");
   const [announcementAudioBlob, setAnnouncementAudioBlob] = useState<Blob | null>(null);
-  const [announcementVisemes, setAnnouncementVisemes] = useState<import("@/shared/types/mascot").Viseme[] | undefined>(undefined);
   const [currentQuestion, setCurrentQuestion] = useState<string>("");
   const [isFirstQuestion, setIsFirstQuestion] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -371,18 +370,11 @@ function InterviewPageContent() {
         const sessionUserId = (session?.user as any)?.id;
         await preload(urlJobId, urlCompanyId, openaiClient, sessionUserId, setBackgroundTimeSeconds, setExperienceCategories);
 
-        // Generate announcement (with audio and visemes preloaded)
+        // Generate announcement
         const jobTitle = roleSlugFromUrl.split("-").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-        const { text, audioBlob, visemes } = await generateAnnouncement(jobTitle);
-        log.info(LOG_CATEGORY, "[interview] Preloaded announcement:", {
-          textLength: text.length,
-          hasAudio: !!audioBlob,
-          audioSize: audioBlob?.size || 0,
-          visemesCount: visemes?.length || 0
-        });
+        const { text, audioBlob } = await generateAnnouncement(jobTitle);
         setAnnouncementText(text);
         setAnnouncementAudioBlob(audioBlob);
-        setAnnouncementVisemes(visemes);
 
         log.info(LOG_CATEGORY, "[interview] Preload complete - moving to welcome");
         setIsPreloading(false);
@@ -940,7 +932,6 @@ function InterviewPageContent() {
                 key={announcementText}
                 text={announcementText}
                 preloadedAudioBlob={announcementAudioBlob}
-                preloadedVisemes={announcementVisemes}
                 onComplete={handleAnnouncementComplete}
                 onAudioStateChange={handleAudioStateChange}
               />
