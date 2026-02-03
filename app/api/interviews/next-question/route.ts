@@ -280,6 +280,15 @@ Then naturally transition to your next question about: "${newFocusTopic}"`;
                 focusInstruction = ""; // Don't repeat the focus instruction
                 shouldMoveOn = true;
             }
+        } else if (isDontKnowQuick) {
+            // "I don't know" / Skip response - ensure acknowledgment
+            focusInstruction = `
+SKIP DETECTED:
+The candidate indicated they don't know or have no experience with this topic.
+
+Acknowledge briefly with transition: "Understood. In that case...", "Alright, moving on...", or "Got it. Let me ask about..."
+
+Then naturally transition to your next question about: "${newFocusTopic}"`;
         } else if (appearsToBeQuestion) {
             focusInstruction = `
 ACKNOWLEDGMENT INSTRUCTION:
