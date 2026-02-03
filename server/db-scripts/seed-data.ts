@@ -468,6 +468,8 @@ async function resetDatabase() {
                             ? "/uploads/profiles/meta-profile.png"
                             : companyData.id === "qm"
                             ? "/uploads/profiles/manager-qm-1768211217790.png"
+                            : companyData.id === "axonpulse"
+                            ? "/uploads/manager-axonpulse-1770097368584.png"
                             : undefined,
                 },
             });
