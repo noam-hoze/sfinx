@@ -11,6 +11,7 @@ import { JobApplicationProvider, MuteProvider, DebugProvider, InterviewPreloadPr
 import Providers from "./providers";
 import Header from "./shared/components/Header";
 import Footer from "./shared/components/Footer";
+import Sidebar from "./shared/components/Sidebar";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -32,12 +33,15 @@ export default function RootLayout({
                         <DebugProvider>
                             <MuteProvider>
                                 <JobApplicationProvider>
-                                    <div className="flex flex-col min-h-screen">
-                                        <Header />
-                                        <main className="flex-1">
-                                            {children}
-                                        </main>
-                                        <Footer />
+                                    <div className="flex min-h-screen">
+                                        <Sidebar />
+                                        <div className="flex flex-col flex-1">
+                                            <Header />
+                                            <main className="flex-1">
+                                                {children}
+                                            </main>
+                                            <Footer />
+                                        </div>
                                     </div>
                                 </JobApplicationProvider>
                             </MuteProvider>
