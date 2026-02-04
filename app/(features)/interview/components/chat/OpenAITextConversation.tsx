@@ -16,6 +16,8 @@ import React, {
 import { useSearchParams } from "next/navigation";
 import OpenAI from "openai";
 import { useDispatch } from "react-redux";
+import { useMute } from "app/shared/contexts/mute-context";
+import { loadAndCacheSoundEffect } from "@/shared/utils/audioCache";
 import {
   addMessage,
   setPendingReply,
@@ -80,8 +82,10 @@ const OpenAITextConversation = forwardRef<any, Props>(
     if (!candidateName) {
       throw new Error("OpenAITextConversation requires a candidateName");
     }
-    
+
     const dispatch = useDispatch();
+    const { isMuted } = useMute();
+    const toolUsageSoundRef = useRef<HTMLAudioElement | null>(null);
     const openAIApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
     if (!openAIApiKey) {
       throw new Error("NEXT_PUBLIC_OPENAI_API_KEY is required");
@@ -95,6 +99,13 @@ const OpenAITextConversation = forwardRef<any, Props>(
     if (isNaN(questionsLimit) || questionsLimit <= 0) {
       throw new Error("NEXT_PUBLIC_MAX_PASTE_QUESTIONS must be a positive integer");
     }
+
+    // Load tool usage sound effect on mount
+    useEffect(() => {
+      loadAndCacheSoundEffect("/sounds/controls-appear.mp3", "controls-appear").then(sound => {
+        toolUsageSoundRef.current = sound;
+      });
+    }, []);
 
     const openaiClient = useMemo(
       () =>
@@ -291,22 +302,33 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
           // Use paste detection timestamp for evidence link (when green highlight appears)
           const aiQuestionTimestamp = timestamp;
           post(initialQuestion, "ai", { isPasteEval: true, pasteEvaluationId });
-          
+
+          // Play tool usage sound effect (same as question completion sound)
+          if (toolUsageSoundRef.current) {
+            try {
+              toolUsageSoundRef.current.volume = isMuted ? 0 : 1;
+              toolUsageSoundRef.current.currentTime = 0; // Reset to start
+              toolUsageSoundRef.current.play().catch(err => log.error(LOG_CATEGORY, "Tool usage sound error:", err));
+            } catch (error) {
+              log.error(LOG_CATEGORY, "[paste_eval] Failed to play tool usage sound:", error);
+            }
+          }
+
           // Trigger editor highlight now that AI question is posted
           onHighlightPastedCode?.(pastedCode);
-          
+
           // Update debug panel with question
           dispatch(setPasteQuestion(initialQuestion));
           dispatch(updatePasteVideoMetadata({
             aiQuestionTimestamp,
           }));
-          
+
           try {
             /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval][question_asked]", { pasteEvaluationId, question: initialQuestion });
           } catch {}
         }
       },
-      [dispatch, openaiClient, post, interviewSessionId, onHighlightPastedCode]
+      [dispatch, openaiClient, post, interviewSessionId, onHighlightPastedCode, isMuted]
     );
 
     /** Injects the coding prompt once the guard advances into the coding session. */
