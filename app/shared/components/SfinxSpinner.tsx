@@ -38,7 +38,7 @@ export default function SfinxSpinner({ size = "md", className = "", title, messa
     <div className="text-center -mt-32">
     <div className={`atom ${className}`} style={{ opacity: 0 }}>
       <div className="nucleus">
-        <span className="nucleus-text">S</span>
+        <img src="/sfinx-avatar-nobg.png" alt="Sfinx" className="nucleus-image" />
       </div>
       
       <div className="orbit orbit-1">
@@ -95,11 +95,11 @@ export default function SfinxSpinner({ size = "md", className = "", title, messa
           z-index: 10;
         }
 
-        .nucleus-text {
-          color: #7c3aed;
-          font-weight: bold;
-          font-size: ${s.fontSize};
-          text-shadow: 0 0 10px rgba(124, 58, 237, 0.5);
+        .nucleus-image {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: 50%;
         }
 
         .orbit::before {
