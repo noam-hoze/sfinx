@@ -445,6 +445,14 @@ function TelemetryContent() {
 
     const longStory: string = candidate?.story || "";
 
+    // Story now contains inline HTML for color emphasis - render directly
+    const renderStoryWithEmphasis = () => {
+        if (!longStory) return null;
+
+        // Story contains HTML with inline styles from OpenAI
+        return <span dangerouslySetInnerHTML={{ __html: longStory }} />;
+    };
+
     const onVideoJump = (timestamp: number) => {
         setCurrentVideoTime(timestamp);
         setJumpKey((k) => k + 1);
@@ -572,7 +580,7 @@ function TelemetryContent() {
                                         Candidate Profile Story
                                     </h2>
                                     <p className="text-sm text-gray-700 leading-relaxed">
-                                        {longStory}
+                                        {renderStoryWithEmphasis()}
                                     </p>
                                 </div>
                                 

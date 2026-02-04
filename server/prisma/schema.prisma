@@ -206,6 +206,7 @@ model TelemetryData {
   matchScore         Int
   confidence         String
   story              String
+  storyEmphasis      Json?
   hasFairnessFlag    Boolean            @default(false)
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
