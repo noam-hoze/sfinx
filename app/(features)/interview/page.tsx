@@ -30,7 +30,7 @@ import InterviewStageScreen from "app/shared/components/InterviewStageScreen";
 import { InterviewIDE } from "./components";
 import CameraPreview from "./components/CameraPreview";
 import AIInterviewerBox from "./components/AIInterviewerBox";
-import { useMute } from "app/shared/contexts";
+import { useMute, useInterviewPreload } from "app/shared/contexts";
 import { useCamera } from "./components/hooks/useCamera";
 import { useScreenRecording } from "./components/hooks/useScreenRecording";
 import { InterviewRecordingProvider } from "./components/InterviewRecordingContext";
@@ -57,6 +57,7 @@ function InterviewPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isMuted } = useMute();
+  const { isMascotReady } = useInterviewPreload();
   const { isDebugVisible, setShowDebugButton } = useDebug();
   const dispatch = useDispatch();
   const { data: session, status: sessionStatus } = useSession();
