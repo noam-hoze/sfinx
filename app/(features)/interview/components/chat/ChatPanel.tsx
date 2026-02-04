@@ -10,6 +10,7 @@ import { useSelector } from "react-redux";
 import type { RootState } from "@/shared/state/store";
 import { MessageSquare, Mic, MicOff } from "lucide-react";
 import TypingIndicator from "./TypingIndicator";
+import MessageContent from "./MessageContent";
 
 interface TranscriptionMessage {
     id: string;
@@ -218,7 +219,9 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
                                                     : "You"}
                                             </span>
                                         </div>
-                                        <p>{message.text}</p>
+                                        <div className="text-sm">
+                                            <MessageContent text={message.text} isAI={message.speaker === "ai"} />
+                                        </div>
                                         <span className="text-xs opacity-50 mt-1 block">
                                             {message.timestamp.toLocaleTimeString()}
                                         </span>
