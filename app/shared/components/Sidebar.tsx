@@ -8,6 +8,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { Menu } from "@headlessui/react";
 import SfinxLogo from "./SfinxLogo";
 import { getActiveNavItem } from "../config/navigation";
+import { useJobPageContext } from "../context/JobPageContext";
 
 export default function Sidebar() {
     const { data: session } = useSession();
@@ -22,6 +23,17 @@ export default function Sidebar() {
 
     if (noSidebarPaths.includes(pathname)) {
         return null;
+    }
+
+    // Check if we're on a job page
+    const isJobPage = pathname.includes("/company-dashboard/jobs/new") || (pathname.includes("/company-dashboard/jobs/") && !pathname.endsWith("/company-dashboard/jobs"));
+
+    // Try to get job page context (will be null if not in a job page)
+    let jobPageContext: ReturnType<typeof useJobPageContext> | null = null;
+    try {
+        jobPageContext = useJobPageContext();
+    } catch {
+        // Context is not available or not in a job page
     }
 
     const handleSignOut = async () => {
@@ -69,7 +81,132 @@ export default function Sidebar() {
 
             {/* Navigation Links */}
             <nav className="flex-1 px-3 py-4 space-y-2 overflow-y-auto">
-                {navItems.map((item) => {
+                {/* Job Page Navigation */}
+                {isJobPage && jobPageContext && (
+                    <>
+                        {/* Back to Jobs */}
+                        <Link
+                            href="/company-dashboard/jobs"
+                            className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors font-medium"
+                        >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                            </svg>
+                            {!isCollapsed && <span>Back to Jobs</span>}
+                        </Link>
+
+                        {!isCollapsed && <div className="border-t border-gray-200 my-2" />}
+
+                        {/* Job Sections */}
+                        {[
+                            {
+                                id: "details",
+                                label: "Job Details",
+                                subItems: [
+                                    { id: "title", label: "Title" },
+                                    { id: "location", label: "Location" },
+                                    { id: "type", label: "Type" },
+                                    { id: "salary", label: "Salary" },
+                                    { id: "description", label: "Description" },
+                                    { id: "requirements", label: "Requirements" },
+                                ]
+                            },
+                            {
+                                id: "interview",
+                                label: "Interview Content",
+                                subItems: [
+                                    { id: "background-question", label: "Starter Question", tab: 'experience' as const },
+                                    { id: "coding-prompt", label: "Coding Prompt", tab: 'coding' as const },
+                                    { id: "coding-template", label: "Coding Template", tab: 'coding' as const },
+                                    { id: "coding-answer", label: "Reference Answer", tab: 'coding' as const },
+                                    { id: "expected-output", label: "Expected Output", tab: 'coding' as const },
+                                ]
+                            },
+                            {
+                                id: "scoring",
+                                label: "Scoring Configuration",
+                                subItems: [
+                                    { id: "category-weights", label: "Category Weights" },
+                                    { id: "experience-dimensions", label: "Experience Dimensions" },
+                                    { id: "coding-dimensions", label: "Coding Dimensions" },
+                                ]
+                            },
+                        ].map((section) => (
+                            <div key={section.id}>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        jobPageContext.setActiveSection(section.id);
+                                        if (section.subItems) {
+                                            jobPageContext.setExpandedSections(
+                                                jobPageContext.expandedSections.includes(section.id)
+                                                    ? jobPageContext.expandedSections.filter(s => s !== section.id)
+                                                    : [...jobPageContext.expandedSections, section.id]
+                                            );
+                                        }
+                                        document.getElementById(section.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+                                    }}
+                                    className={`w-full flex items-center justify-between text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                                        jobPageContext.activeSection === section.id
+                                            ? "bg-sfinx-purple text-white shadow-sm"
+                                            : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                                    }`}
+                                >
+                                    {!isCollapsed && <span>{section.label}</span>}
+                                    {isCollapsed && <span title={section.label}>{section.label.charAt(0)}</span>}
+                                    {section.subItems && (
+                                        <svg
+                                            className={`w-4 h-4 transition-transform duration-200 ${
+                                                jobPageContext.expandedSections.includes(section.id) ? 'rotate-90' : ''
+                                            } ${isCollapsed ? 'hidden' : ''}`}
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    )}
+                                </button>
+                                {jobPageContext.expandedSections.includes(section.id) && section.subItems && !isCollapsed && (
+                                    <div className="ml-3 mt-1 space-y-1 border-l border-gray-200 pl-3">
+                                        {section.subItems.map((subItem: any) => (
+                                            <button
+                                                key={subItem.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    if (subItem.tab && jobPageContext.setInterviewTab) {
+                                                        jobPageContext.setInterviewTab(subItem.tab);
+                                                        setTimeout(() => {
+                                                            const element = document.getElementById(subItem.id);
+                                                            element?.scrollIntoView({ behavior: "smooth", block: "center" });
+                                                            setTimeout(() => {
+                                                                const input = element?.querySelector('input, textarea') as HTMLInputElement | HTMLTextAreaElement;
+                                                                input?.focus();
+                                                            }, 300);
+                                                        }, 100);
+                                                    } else {
+                                                        const element = document.getElementById(subItem.id);
+                                                        element?.scrollIntoView({ behavior: "smooth", block: "center" });
+                                                        setTimeout(() => {
+                                                            const input = element?.querySelector('input, textarea') as HTMLInputElement | HTMLTextAreaElement;
+                                                            input?.focus();
+                                                        }, 300);
+                                                    }
+                                                }}
+                                                className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all"
+                                            >
+                                                {subItem.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </>
+                )}
+
+                {/* Regular Navigation */}
+                {!isJobPage && navItems.map((item) => {
                     const isActive = activeNavPath === item.href;
                     return (
                         <Link
@@ -99,7 +236,7 @@ export default function Sidebar() {
             </nav>
 
             {/* Create New Job Button (Company Only) */}
-            {role === "COMPANY" && (
+            {role === "COMPANY" && !isJobPage && (
                 <div className="px-3 py-4 border-t border-gray-200">
                     <button
                         type="button"

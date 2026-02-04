@@ -7,6 +7,7 @@ import { AuthGuard } from "app/shared/components";
 import { log } from "app/shared/services";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import { readResponseError } from "app/shared/utils/http";
+import { JobPageProvider } from "app/shared/context/JobPageContext";
 import InterviewContentSection, {
     InterviewContentState,
     InterviewDurationState,
@@ -269,129 +270,17 @@ function CreateJobContent() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex">
-            {/* Sidebar */}
-            <div className="w-64 bg-white border-r border-gray-200 sticky top-0 h-screen flex flex-col">
-                <div className="p-6 border-b border-gray-200">
-                    <Link
-                        href="/company-dashboard/jobs"
-                        className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                    >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                        </svg>
-                        Back to Jobs
-                    </Link>
-                </div>
-                <nav className="flex-1 p-4 overflow-y-auto">
-                    <div className="space-y-1">
-                        {[
-                            { 
-                                id: "details", 
-                                label: "Job Details",
-                                subItems: [
-                                    { id: "title", label: "Title" },
-                                    { id: "location", label: "Location" },
-                                    { id: "type", label: "Type" },
-                                    { id: "salary", label: "Salary" },
-                                    { id: "description", label: "Description" },
-                                    { id: "requirements", label: "Requirements" },
-                                ]
-                            },
-                            { 
-                                id: "interview", 
-                                label: "Interview Content",
-                                subItems: [
-                                    { id: "background-question", label: "Starter Question", tab: 'experience' as const },
-                                    { id: "coding-prompt", label: "Coding Prompt", tab: 'coding' as const },
-                                    { id: "coding-template", label: "Coding Template", tab: 'coding' as const },
-                                    { id: "coding-answer", label: "Reference Answer", tab: 'coding' as const },
-                                    { id: "expected-output", label: "Expected Output", tab: 'coding' as const },
-                                ]
-                            },
-                            { 
-                                id: "scoring", 
-                                label: "Scoring Configuration",
-                                subItems: [
-                                    { id: "category-weights", label: "Category Weights" },
-                                    { id: "experience-dimensions", label: "Experience Dimensions" },
-                                    { id: "coding-dimensions", label: "Coding Dimensions" },
-                                ]
-                            },
-                        ].map((section) => (
-                            <div key={section.id}>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setActiveSection(section.id);
-                                        if (section.subItems) {
-                                            setExpandedSections(prev => 
-                                                prev.includes(section.id) 
-                                                    ? prev.filter(s => s !== section.id)
-                                                    : [...prev, section.id]
-                                            );
-                                        }
-                                        document.getElementById(section.id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-                                    }}
-                                    className={`w-full flex items-center justify-between text-left px-3 py-2 rounded-lg text-sm transition-all ${
-                                        activeSection === section.id
-                                            ? "bg-blue-50 text-blue-600 font-medium"
-                                            : "text-gray-700 hover:bg-gray-50 hover:text-gray-900 font-medium"
-                                    }`}
-                                >
-                                    {section.label}
-                                    {section.subItems && (
-                                        <svg 
-                                            className={`w-4 h-4 transition-transform ${expandedSections.includes(section.id) ? 'rotate-90' : ''}`}
-                                            fill="none" 
-                                            stroke="currentColor" 
-                                            viewBox="0 0 24 24"
-                                        >
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                        </svg>
-                                    )}
-                                </button>
-                                {expandedSections.includes(section.id) && section.subItems && (
-                                    <div className="ml-3 mt-1 space-y-1 border-l border-gray-200 pl-3">
-                                        {section.subItems.map((subItem: any) => (
-                                            <button
-                                                key={subItem.id}
-                                                type="button"
-                                                onClick={() => {
-                                                    if (subItem.tab) {
-                                                        setInterviewTab(subItem.tab);
-                                                        setTimeout(() => {
-                                                            const element = document.getElementById(subItem.id);
-                                                            element?.scrollIntoView({ behavior: "smooth", block: "center" });
-                                                            setTimeout(() => {
-                                                                const input = element?.querySelector('input, textarea') as HTMLInputElement | HTMLTextAreaElement;
-                                                                input?.focus();
-                                                            }, 300);
-                                                        }, 100);
-                                                    } else {
-                                                        const element = document.getElementById(subItem.id);
-                                                        element?.scrollIntoView({ behavior: "smooth", block: "center" });
-                                                        setTimeout(() => {
-                                                            const input = element?.querySelector('input, textarea') as HTMLInputElement | HTMLTextAreaElement;
-                                                            input?.focus();
-                                                        }, 300);
-                                                    }
-                                                }}
-                                                className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-all"
-                                            >
-                                                {subItem.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </nav>
-            </div>
-
-            {/* Main Content */}
-            <div className="flex-1 overflow-y-auto">
+        <JobPageProvider value={{
+            activeSection,
+            setActiveSection,
+            expandedSections,
+            setExpandedSections,
+            interviewTab,
+            setInterviewTab,
+        }}>
+            <div className="min-h-screen bg-gray-50">
+                {/* Main Content */}
+                <div className="overflow-y-auto">
                 <div className="max-w-4xl mx-auto p-12">
                     <div className="mb-8 flex items-start justify-between">
                         <div>
@@ -854,13 +743,15 @@ function CreateJobContent() {
                 </div>
             </div>
 
-            <AutoFillModal
-                isOpen={showAutoFillModal}
-                onClose={() => setShowAutoFillModal(false)}
-                onGenerate={handleAutoFillGenerate}
-                isGenerating={categoryGenerating}
-            />
-        </div>
+                <AutoFillModal
+                    isOpen={showAutoFillModal}
+                    onClose={() => setShowAutoFillModal(false)}
+                    onGenerate={handleAutoFillGenerate}
+                    isGenerating={categoryGenerating}
+                />
+                </div>
+            </div>
+        </JobPageProvider>
     );
 }
 
