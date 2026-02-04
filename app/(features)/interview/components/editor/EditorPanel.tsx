@@ -73,6 +73,8 @@ interface EditorPanelProps {
         status: "success" | "error";
         output: string;
     }) => void;
+    isCameraOn?: boolean;
+    selfVideoRef?: React.RefObject<HTMLVideoElement>;
 }
 
 const EditorPanel: React.FC<EditorPanelProps> = ({
@@ -96,6 +98,8 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     onEditorReady,
     onAskFollowup,
     onExecutionResult,
+    isCameraOn = false,
+    selfVideoRef,
 }) => {
     if (propCurrentCode === undefined) {
         throw new Error("EditorPanel requires currentCode");
@@ -481,7 +485,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
             </div>
 
             {/* Dynamic Content */}
-            <div className="flex-1">
+            <div className="flex-1 relative">
                 {activeTab === "editor" ? (
                     <Editor
                         height="100%"
@@ -511,6 +515,19 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                         language={language}
                         onExecutionResult={onExecutionResult}
                     />
+                )}
+
+                {/* Camera Feed in Bottom Right */}
+                {isCameraOn && selfVideoRef && (
+                    <div className="absolute bottom-4 right-4 w-64 h-48 rounded-lg overflow-hidden shadow-lg border-2 border-gray-200 dark:border-gray-700 bg-black">
+                        <video
+                            ref={selfVideoRef}
+                            className="w-full h-full object-cover [transform:scaleX(-1)]"
+                            muted
+                            playsInline
+                            autoPlay
+                        />
+                    </div>
                 )}
             </div>
         </div>
