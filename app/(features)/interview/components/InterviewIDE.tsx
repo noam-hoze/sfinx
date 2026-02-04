@@ -652,23 +652,21 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                     logger.error("Error generating job-specific evaluation:", jobEvalError);
                 }
 
-                // Generate profile story
+                // Generate profile story - MUST succeed per constitution (no fallbacks)
                 logger.info(LOG_CATEGORY, "Generating candidate profile story for session:", interviewSessionId);
-                try {
-                    const storyResponse = await fetch("/api/interviews/generate-profile-story", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ sessionId: interviewSessionId }),
-                    });
-                    
-                    if (storyResponse.ok) {
-                        logger.info(LOG_CATEGORY, "✅ Profile story generated");
-                    } else {
-                        logger.error(LOG_CATEGORY, "Failed to generate profile story:", storyResponse.status);
-                    }
-                } catch (storyError) {
-                    logger.error(LOG_CATEGORY, "Error generating profile story:", storyError);
+                const storyResponse = await fetch("/api/interviews/generate-profile-story", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ sessionId: interviewSessionId }),
+                });
+
+                if (!storyResponse.ok) {
+                    const errorData = await storyResponse.json().catch(() => ({}));
+                    logger.error(LOG_CATEGORY, "❌ CRITICAL: Profile story generation failed:", storyResponse.status, errorData);
+                    throw new Error(`Profile story generation failed with status ${storyResponse.status}: ${JSON.stringify(errorData)}`);
                 }
+
+                logger.info(LOG_CATEGORY, "✅ Profile story generated successfully");
             }
             setIsInterviewLoading(false);
             
