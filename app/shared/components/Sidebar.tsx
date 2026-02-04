@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
@@ -14,6 +15,7 @@ export default function Sidebar() {
     const router = useRouter();
     const pathname = usePathname();
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [menuButtonRef, setMenuButtonRef] = useState<HTMLElement | null>(null);
 
     const role = (session?.user as any)?.role;
     const activeNavPath = getActiveNavItem(pathname, role === "COMPANY" ? "COMPANY" : "CANDIDATE");
@@ -42,7 +44,7 @@ export default function Sidebar() {
     return (
         <aside className={`hidden md:flex bg-white border-r border-gray-200 flex-col transition-all duration-300 ease-in-out ${
             isCollapsed ? 'w-20' : 'w-64'
-        } h-screen sticky top-0 ${
+        } h-screen sticky top-0 z-40 ${
             pathname === '/interview' ? '-translate-x-full' : 'translate-x-0'
         }`}>
             {/* Header with Logo and Toggle */}
@@ -75,7 +77,7 @@ export default function Sidebar() {
                         <Link
                             key={item.href}
                             href={item.href}
-                            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                            className={`flex items-center ${isCollapsed ? 'justify-center' : 'gap-3'} px-3 py-2.5 rounded-lg transition-all duration-200 ${
                                 isActive
                                     ? "bg-sfinx-purple text-white shadow-md"
                                     : "text-gray-700 hover:bg-gray-100"
@@ -123,7 +125,24 @@ export default function Sidebar() {
             {session?.user && (
                 <div className="px-3 py-4 border-t border-gray-200">
                     <Menu as="div" className="relative">
-                        <Menu.Button className="w-full flex items-center gap-3 hover:bg-gray-100 rounded-lg p-2 transition-colors cursor-pointer">
+                        {({ open }) => (
+                            <>
+                                {/* Backdrop overlay with smooth fade - rendered at document root */}
+                                {typeof window !== 'undefined' && createPortal(
+                                    <div
+                                        className={`fixed inset-0 bg-black/30 backdrop-blur-[2px] transition-all duration-300 ease-in-out ${
+                                            open ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                                        }`}
+                                        style={{ zIndex: 50 }}
+                                        aria-hidden="true"
+                                    />,
+                                    document.body
+                                )}
+
+                                <Menu.Button
+                                    ref={setMenuButtonRef}
+                                    className="w-full flex items-center gap-3 hover:bg-gray-100 rounded-lg p-2 transition-colors cursor-pointer"
+                                >
                             <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden relative flex-shrink-0">
                                 {session.user.image ? (
                                     <Image
@@ -151,7 +170,16 @@ export default function Sidebar() {
                                 </div>
                             )}
                         </Menu.Button>
-                        <Menu.Items className="absolute bottom-full left-0 mb-2 rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 focus:outline-none w-72 z-50 overflow-hidden backdrop-blur-xl">
+
+                        {/* Portal the menu items to document.body for proper z-index stacking */}
+                        {typeof window !== 'undefined' && menuButtonRef && createPortal(
+                            <div style={{
+                                position: 'fixed',
+                                bottom: window.innerHeight - menuButtonRef.getBoundingClientRect().top + 8,
+                                left: menuButtonRef.getBoundingClientRect().left,
+                                zIndex: 100
+                            }}>
+                                <Menu.Items className="rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 focus:outline-none w-72 overflow-hidden backdrop-blur-xl">
                             {/* User Info Section */}
                             <div className="px-4 py-4 border-b border-gray-100">
                                 <div className="flex items-center gap-3">
@@ -216,7 +244,12 @@ export default function Sidebar() {
                                     )}
                                 </Menu.Item>
                             </div>
-                        </Menu.Items>
+                                </Menu.Items>
+                            </div>,
+                            document.body
+                        )}
+                            </>
+                        )}
                     </Menu>
                 </div>
             )}
