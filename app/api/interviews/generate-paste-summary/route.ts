@@ -41,7 +41,11 @@ ${qaHistory}
 **Average Score:** ${averageScore}/100
 
 **Your Task:**
-Provide a 1-2 sentence summary of the candidate's overall understanding and accountability for this code. Be concise and specific.
+Write 1-2 sentences that SPECIFICALLY explain what the candidate understood about the code, referencing actual concepts or parts they grasped. Even with low scores, identify and describe what they got right or attempted to explain. Focus on what they DID understand, not what they didn't. Be descriptive and evidence-based.
+
+Examples:
+- Score 28/100: "The candidate understood the basic component structure and identified the useState hook, but struggled to explain lifecycle methods and data flow."
+- Score 65/100: "The candidate demonstrated solid understanding of prop handling and event binding, with some gaps in explaining optimization techniques."
 
 Return ONLY the summary text (no JSON, no extra formatting).`;
 

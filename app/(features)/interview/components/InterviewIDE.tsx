@@ -317,8 +317,32 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                         answeredQuestions: activePasteEval.questionScores.length,
                         topics: topics.map(t => ({ name: t.name, pct: t.percentage }))
                     });
-                    
+
                     try {
+                        // Generate caption using OpenAI
+                        let caption = `External tool: ${understanding} understanding (${avgScore}/100)`;
+                        try {
+                            const summaryResponse = await fetch("/api/interviews/generate-paste-summary", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    pastedContent: activePasteEval.pastedContent,
+                                    questionAnswers: activePasteEval.questionScores,
+                                    averageScore: avgScore,
+                                }),
+                            });
+
+                            if (summaryResponse.ok) {
+                                const summaryData = await summaryResponse.json();
+                                caption = summaryData.summary || caption;
+                                logger.info("✅ [PASTE_EVAL] Generated caption:", caption);
+                            } else {
+                                logger.warn("⚠️ [PASTE_EVAL] Failed to generate caption, using fallback");
+                            }
+                        } catch (captionError) {
+                            logger.error("❌ [PASTE_EVAL] Caption generation failed:", captionError);
+                        }
+
                         const dbPayload = {
                             timestamp: activePasteEval.timestamp,
                             pastedContent: activePasteEval.pastedContent,
@@ -329,9 +353,9 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                             understanding,
                             accountabilityScore: avgScore,
                             reasoning: `Candidate answered ${activePasteEval.questionScores.length} question(s) before submitting. ${activePasteEval.questionScores.map((qs: any, i: number) => `Q${i+1} (score: ${qs.score}): ${qs.reasoning}`).join(" ")}`,
-                            caption: `External tool: ${understanding} understanding (${avgScore}/100)`,
+                            caption,
                         };
-                        
+
                         const response = await fetch(`/api/interviews/session/${interviewSessionId}/external-tools`, {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
