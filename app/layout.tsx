@@ -7,7 +7,7 @@ import "vidstack/player/styles/base.css";
 import "vidstack/player/styles/default/theme.css";
 import "vidstack/player/styles/default/layouts/video.css";
 import "./globals.css";
-import { JobApplicationProvider, MuteProvider, DebugProvider } from "./shared/contexts";
+import { JobApplicationProvider, MuteProvider, DebugProvider, InterviewPreloadProvider } from "./shared/contexts";
 import Providers from "./providers";
 import Header from "./shared/components/Header";
 import Footer from "./shared/components/Footer";
@@ -28,19 +28,21 @@ export default function RootLayout({
         <html lang="en">
             <body className={inter.className} suppressHydrationWarning={true}>
                 <Providers>
-                    <DebugProvider>
-                        <MuteProvider>
-                            <JobApplicationProvider>
-                                <div className="flex flex-col min-h-screen">
-                                    <Header />
-                                    <main className="flex-1">
-                                        {children}
-                                    </main>
-                                    <Footer />
-                                </div>
-                            </JobApplicationProvider>
-                        </MuteProvider>
-                    </DebugProvider>
+                    <InterviewPreloadProvider>
+                        <DebugProvider>
+                            <MuteProvider>
+                                <JobApplicationProvider>
+                                    <div className="flex flex-col min-h-screen">
+                                        <Header />
+                                        <main className="flex-1">
+                                            {children}
+                                        </main>
+                                        <Footer />
+                                    </div>
+                                </JobApplicationProvider>
+                            </MuteProvider>
+                        </DebugProvider>
+                    </InterviewPreloadProvider>
                 </Providers>
             </body>
         </html>

@@ -13,6 +13,7 @@ interface RiveMascotProps {
   className?: string;
   visemes?: Viseme[];
   isPlaying?: boolean;
+  onReady?: () => void;
 }
 
 /**
@@ -101,10 +102,11 @@ function handlePlayback(
 /**
  * Main RiveMascot component
  */
-const RiveMascot: React.FC<RiveMascotProps> = ({ 
-  className = "", 
+const RiveMascot: React.FC<RiveMascotProps> = ({
+  className = "",
   visemes = [],
-  isPlaying = false 
+  isPlaying = false,
+  onReady
 }) => {
   const rive = useRive({
     src: "/realisticFemale.riv",
@@ -112,6 +114,12 @@ const RiveMascot: React.FC<RiveMascotProps> = ({
     stateMachines: "InLesson",
     autoplay: true,
   });
+
+  useEffect(() => {
+    if (rive.rive && onReady) {
+      onReady();
+    }
+  }, [rive.rive, onReady]);
 
   return (
     <div className={className}>
