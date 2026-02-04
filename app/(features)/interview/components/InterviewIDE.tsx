@@ -20,7 +20,6 @@ import { useSession, signOut } from "next-auth/react";
 import { Menu } from "@headlessui/react";
 import EditorPanel from "./editor/EditorPanel";
 import InterviewOverlay from "./InterviewOverlay";
-import CameraPreview from "./CameraPreview";
 import HeaderControls from "./HeaderControls";
 import RightPanel from "./RightPanel";
 import CodingEvaluationDebugPanel from "./debug/CodingEvaluationDebugPanel";
@@ -1323,8 +1322,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
                         {/* HeaderControls (Camera, Timer, Start/Submit) */}
                         <HeaderControls
-                            isCameraOn={isCameraOn}
-                            onToggleCamera={toggleCamera}
                             isCodingStarted={isCodingStarted}
                             hasSubmitted={Boolean(state.hasSubmitted)}
                             timeLeft={timeLeft}
@@ -1474,10 +1471,8 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                                     } catch {}
                                 }}
                                 onExecutionResult={handleExecutionResult}
-                            />
-                            <CameraPreview
                                 isCameraOn={isCameraOn}
-                                videoRef={selfVideoRef}
+                                selfVideoRef={selfVideoRef}
                             />
                         </div>
                     </Panel>
