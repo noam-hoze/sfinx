@@ -98,6 +98,73 @@ function generateCategories(baseScore: number) {
     return { experienceCategories, codingCategories };
 }
 
+// Generate contextual profile summary based on score
+function generateProfileSummary(score: number, categories: { experienceCategories: any; codingCategories: any }): { story: string; backgroundSummaryText: string; codingSummaryText: string } {
+    let tier: string;
+    let performance: string;
+    let confidence: string;
+    let backgroundText: string;
+    let codingText: string;
+    let storyText: string;
+
+    if (score >= 95) {
+        tier = "Elite";
+        performance = "exceptional performance across all dimensions";
+        confidence = "outstanding";
+        backgroundText = "Elite performer with exceptional depth in ML theory and cutting-edge deep learning techniques. Demonstrates mastery of neural architectures and advanced optimization strategies.";
+        codingText = "Exceptional code quality with expert-level proficiency in PyTorch and TensorFlow. Writes production-ready, optimized implementations with sophisticated error handling and architectural patterns.";
+        storyText = `<span style="color: rgba(52, 199, 89, 0.9)">Elite performer</span> with <span style="color: rgba(52, 199, 89, 0.9)">exceptional expertise</span> in deep learning. Demonstrates mastery of neural architectures and delivers production-grade code.`;
+    } else if (score >= 85) {
+        tier = "Advanced";
+        performance = "strong performance with expert-level skills";
+        confidence = "high";
+        backgroundText = "Advanced practitioner with strong theoretical foundation in deep learning. Demonstrates strong understanding of neural networks and model optimization techniques. Well-versed in research-grade implementations.";
+        codingText = "Strong coding skills with proficient use of PyTorch and TensorFlow. Implements clean, well-structured code with good optimization practices. Shows understanding of performance considerations.";
+        storyText = `<span style="color: rgba(52, 199, 89, 0.9)">Advanced practitioner</span> in deep learning with <span style="color: rgba(52, 199, 89, 0.9)">strong technical foundation</span>. Demonstrates solid coding practices and good understanding of ML concepts.`;
+    } else if (score >= 75) {
+        tier = "Proficient";
+        performance = "solid performance with good technical competency";
+        confidence = "high";
+        backgroundText = "Proficient ML engineer with solid understanding of deep learning fundamentals. Competent in neural networks, and has practical experience with model optimization and deployment considerations.";
+        codingText = "Good coding skills with competent usage of PyTorch and TensorFlow. Writes functional code that works correctly. Shows understanding of common ML patterns and best practices.";
+        storyText = `<span style="color: rgba(52, 199, 89, 0.9)">Proficient engineer</span> with solid deep learning knowledge. Good coding abilities and practical understanding of ML workflows.`;
+    } else if (score >= 60) {
+        tier = "Competent";
+        performance = "competent performance with developing advanced skills";
+        confidence = "medium";
+        backgroundText = "Competent engineer with foundational understanding of deep learning. Demonstrates knowledge of basic neural network concepts and some experience with optimization techniques. Room for growth in advanced topics.";
+        codingText = "Competent coding skills with functional implementations in PyTorch and TensorFlow. Code is generally correct but may lack optimization or advanced patterns. Shows understanding of core ML concepts.";
+        storyText = `<span style="color: rgba(52, 199, 89, 0.9)">Competent engineer</span> with foundational ML knowledge. Able to implement working solutions with <span style="color: rgba(255, 59, 48, 0.9)">room for growth</span> in advanced areas.`;
+    } else if (score >= 50) {
+        tier = "Developing";
+        performance = "developing performance with solid foundational understanding";
+        confidence = "medium";
+        backgroundText = "Developing ML engineer with basic understanding of deep learning concepts. Familiar with neural networks at an introductory level. Needs further development in advanced topics and practical applications.";
+        codingText = "Developing coding skills with basic implementations of ML models. Code is functional but may have inefficiencies or lack polish. Shows understanding of fundamentals with growth potential.";
+        storyText = `Developing ML engineer with <span style="color: rgba(52, 199, 89, 0.9)">basic foundational knowledge</span>. Shows potential but needs <span style="color: rgba(255, 59, 48, 0.9)">further development</span> in advanced areas.`;
+    } else if (score >= 40) {
+        tier = "Emerging";
+        performance = "emerging skills with foundational concepts in progress";
+        confidence = "low";
+        backgroundText = "Emerging engineer with basic familiarity with deep learning concepts. Limited practical experience with neural networks. Would benefit from mentorship and focused development in core ML areas.";
+        codingText = "Basic coding skills with simple ML implementations. Code works but lacks optimization and may have structural issues. Needs development in best practices and advanced patterns.";
+        storyText = `<span style="color: rgba(255, 59, 48, 0.9)">Emerging engineer</span> with basic ML knowledge. Shows potential but requires <span style="color: rgba(255, 59, 48, 0.9)">significant development</span> in technical depth.`;
+    } else {
+        tier = "Entry-Level";
+        performance = "entry-level performance with limited practical experience";
+        confidence = "low";
+        backgroundText = "Entry-level candidate with limited background in deep learning. Needs substantial development in ML fundamentals, neural networks, and practical implementation skills.";
+        codingText = "Entry-level coding skills. ML implementations are basic and may have correctness issues. Needs development in problem-solving, code quality, and ML-specific practices.";
+        storyText = `Entry-level candidate with <span style="color: rgba(255, 59, 48, 0.9)">limited ML experience</span>. Requires <span style="color: rgba(255, 59, 48, 0.9)">comprehensive training</span> in deep learning fundamentals.`;
+    }
+
+    return {
+        story: storyText,
+        backgroundSummaryText: backgroundText,
+        codingSummaryText: codingText,
+    };
+}
+
 // Generate random email
 function generateEmail(name: string): string {
     const domains = ["gmail.com", "yahoo.com", "outlook.com", "linkedin.com", "tech.io"];
@@ -236,16 +303,19 @@ async function seedAxonPulseCandidates() {
                 // Generate categories for highlights
                 const { experienceCategories, codingCategories } = generateCategories(candidateData.score);
 
+                // Generate contextual profile summary based on score
+                const { story, backgroundSummaryText, codingSummaryText } = generateProfileSummary(candidateData.score, { experienceCategories, codingCategories });
+
                 // Create telemetry data with score and summaries
                 await prisma.telemetryData.create({
                     data: {
                         interviewSessionId: interviewSession.id,
                         matchScore: candidateData.score,
                         confidence: candidateData.score >= 75 ? "HIGH" : candidateData.score >= 50 ? "MEDIUM" : "LOW",
-                        story: `Candidate scored ${candidateData.score} on the Deep Learning Engineer screening interview.`,
+                        story: story,
                         backgroundSummary: {
                             create: {
-                                executiveSummary: `Strong candidate with ${candidateData.score >= 75 ? "excellent" : candidateData.score >= 50 ? "solid" : "developing"} background in deep learning.`,
+                                executiveSummary: backgroundSummaryText,
                                 experienceCategories: experienceCategories,
                                 conversationJson: {},
                                 evidenceJson: {},
@@ -253,7 +323,7 @@ async function seedAxonPulseCandidates() {
                         },
                         codingSummary: {
                             create: {
-                                executiveSummary: `Demonstrated ${candidateData.score >= 75 ? "exceptional" : candidateData.score >= 50 ? "competent" : "basic"} coding skills.`,
+                                executiveSummary: codingSummaryText,
                                 codeQualityScore: candidateData.score,
                                 codeQualityText: candidateData.score >= 75 ? "Excellent" : candidateData.score >= 50 ? "Good" : "Needs Improvement",
                                 jobSpecificCategories: codingCategories,
