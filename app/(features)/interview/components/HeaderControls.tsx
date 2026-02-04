@@ -1,11 +1,8 @@
 "use client";
 
 import React from "react";
-import { Camera, CameraOff } from "lucide-react";
 
 interface HeaderControlsProps {
-    isCameraOn: boolean;
-    onToggleCamera: () => void;
     isCodingStarted: boolean;
     hasSubmitted: boolean;
     timeLeft: number;
@@ -21,8 +18,6 @@ interface HeaderControlsProps {
 }
 
 const HeaderControls: React.FC<HeaderControlsProps> = ({
-    isCameraOn,
-    onToggleCamera,
     isCodingStarted,
     hasSubmitted,
     timeLeft,
@@ -51,18 +46,6 @@ const HeaderControls: React.FC<HeaderControlsProps> = ({
                     </svg>
                 </button>
             )}
-            {/* Camera toggle */}
-            <button
-                onClick={onToggleCamera}
-                className="p-2.5 rounded-full transition-all duration-200 bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 cursor-pointer"
-                title={isCameraOn ? "Turn camera off" : "Turn camera on"}
-            >
-                {isCameraOn ? (
-                    <CameraOff className="w-5 h-5" />
-                ) : (
-                    <Camera className="w-5 h-5" />
-                )}
-            </button>
 
             {/* Timer Display */}
             {isCodingStarted && (
