@@ -47,6 +47,7 @@ import {
   buildControlContextMessages,
   CONTROL_CONTEXT_TURNS,
 } from "../../../../shared/services";
+import { formatInitialTaskMessage } from "@/shared/utils/formatTaskMessage";
 
 // Paste evaluation constants
 const MAX_NUM_OF_TOPICS = 4; // Cap topics to ensure reasonable evaluation length
@@ -451,7 +452,10 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
             try {
               /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[coding][posting_task]", taskText);
             } catch {}
-            post(taskText, "ai");
+            // TODO: Only formatting initial task message for demo
+            // Need to handle other message types and make this more generic
+            const formattedTask = formatInitialTaskMessage(taskText);
+            post(formattedTask, "ai");
             if (automaticMode && onCodingPromptReady) {
               try {
                 onCodingPromptReady();
