@@ -23,11 +23,11 @@ export default function Header() {
     const { isDebugVisible, showDebugButton } = useDebug();
     const role = (session?.user as any)?.role;
 
-    const noHeaderPaths = ["/", "/login", "/signup"];
-
-    if (noHeaderPaths.includes(pathname)) {
-        return null;
-    }
+    // Header is no longer used in the app:
+    // - Main app pages use sidebar-only design (no top header)
+    // - Interview page has its own custom header in InterviewIDE
+    // Therefore, this root Header component should not render anywhere
+    return null;
 
     const handleSignOut = async () => {
         await signOut({ callbackUrl: "/login" });

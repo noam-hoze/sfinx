@@ -40,9 +40,11 @@ export default function Sidebar() {
         ];
 
     return (
-        <aside className={`hidden md:flex bg-white border-r border-gray-200 flex-col transition-all duration-300 ${
+        <aside className={`hidden md:flex bg-white border-r border-gray-200 flex-col transition-all duration-300 ease-in-out ${
             isCollapsed ? 'w-20' : 'w-64'
-        } h-screen sticky top-0`}>
+        } h-screen sticky top-0 ${
+            pathname === '/interview' ? '-translate-x-full' : 'translate-x-0'
+        }`}>
             {/* Header with Logo and Toggle */}
             <div className="px-4 py-6 border-b border-gray-200 flex items-center justify-between gap-2">
                 {!isCollapsed && (

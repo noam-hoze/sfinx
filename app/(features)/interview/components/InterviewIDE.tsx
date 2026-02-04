@@ -15,7 +15,9 @@ import React, {
 import { useRouter, useSearchParams } from "next/navigation";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import Image from "next/image";
-import { useSession } from "next-auth/react";
+import Link from "next/link";
+import { useSession, signOut } from "next-auth/react";
+import { Menu } from "@headlessui/react";
 import EditorPanel from "./editor/EditorPanel";
 import InterviewOverlay from "./InterviewOverlay";
 import CameraPreview from "./CameraPreview";
@@ -28,6 +30,7 @@ import {
     useJobApplication,
     useDebug,
 } from "../../../shared/contexts";
+import SfinxLogo from "../../../shared/components/SfinxLogo";
 import { useCamera } from "./hooks/useCamera";
 import { useInterviewTimer } from "./hooks/useInterviewTimer";
 import { useThemePreference } from "./hooks/useThemePreference";
@@ -49,6 +52,7 @@ const getInitialCode = () => DEFAULT_CODE;
 
 interface InterviewerContentProps {
     isDebugVisible: boolean;
+    showDebugButton: boolean;
     evaluationDebugData: any;
     setEvaluationDebugData: (data: any) => void;
     isEvaluationLoading: boolean;
@@ -70,6 +74,7 @@ interface InterviewerContentProps {
  */
 const InterviewerContent: React.FC<InterviewerContentProps> = ({
     isDebugVisible,
+    showDebugButton,
     evaluationDebugData,
     setEvaluationDebugData,
     isEvaluationLoading,
@@ -1281,18 +1286,42 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
     const companyLogo = useMemo(() => job?.company?.logo, [job]);
 
+    const handleSignOut = async () => {
+        await signOut({ callbackUrl: "/login" });
+    };
+
+    const role = (session?.user as any)?.role;
+    const settingsPath = role === "COMPANY" ? "/company-dashboard/settings" : "/settings";
+
     return (
         <div className="h-screen flex flex-col bg-soft-white text-deep-slate dark:bg-gray-900 dark:text-white relative">
-            <header className="border-b border-gray-200/30 dark:border-gray-700/30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl px-3 py-3">
-                <div className="grid grid-cols-3 items-center max-w-8xl mx-auto">
-                    <div className="flex flex-col items-start">
-                        <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                            {job?.title || "Position"}
-                        </p>
-                    </div>
-                    <div className="flex justify-center items-center justify-self-center">
-                    </div>
-                    <div className="justify-self-end">
+            <header className="animate-slide-down border-b border-gray-200/30 dark:border-gray-700/30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl px-6 py-4">
+                <div className="flex items-center justify-between max-w-8xl mx-auto">
+                    {/* Left: Sfinx Logo (clickable to exit) */}
+                    <Link href="/job-search" className="flex items-center cursor-pointer">
+                        <SfinxLogo width={100} height={32} className="w-[100px] h-auto" />
+                    </Link>
+
+                    {/* Right: Controls and Avatar */}
+                    <div className="flex items-center gap-4">
+                        {/* Debug Toggle Button */}
+                        {isDebugModeEnabled && showDebugButton && (
+                            <button
+                                onClick={() => {
+                                    window.dispatchEvent(new CustomEvent('toggleDebugPanel'));
+                                }}
+                                className={`w-10 h-10 rounded-full border-2 border-sfinx-purple transition-all flex items-center justify-center ${
+                                    isDebugVisible ? 'bg-sfinx-purple text-white' : 'text-sfinx-purple hover:bg-sfinx-purple hover:text-white'
+                                }`}
+                                title="Toggle Debug Panel"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                                </svg>
+                            </button>
+                        )}
+
+                        {/* HeaderControls (Camera, Timer, Start/Submit) */}
                         <HeaderControls
                             isCameraOn={isCameraOn}
                             onToggleCamera={toggleCamera}
@@ -1309,6 +1338,96 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                             onToggleDebug={() => {}}
                             codingDurationSeconds={codingDurationSeconds}
                         />
+
+                        {/* Avatar Menu */}
+                        {session?.user && (
+                            <Menu as="div" className="relative">
+                                <Menu.Button className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden relative cursor-pointer">
+                                    {session.user.image ? (
+                                        <Image
+                                            key={session.user.image}
+                                            src={session.user.image}
+                                            alt="Profile"
+                                            fill
+                                            sizes="40px"
+                                            className="object-cover rounded-full"
+                                        />
+                                    ) : (
+                                        <span className="text-xs font-medium text-gray-700">
+                                            {(session.user as any).name?.charAt(0)?.toUpperCase() ||
+                                                (session.user as any).email?.charAt(0)?.toUpperCase()}
+                                        </span>
+                                    )}
+                                </Menu.Button>
+                                <Menu.Items className="absolute right-0 mt-3 origin-top-right rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 focus:outline-none w-64 z-50 overflow-hidden backdrop-blur-xl">
+                                    {/* User Info Section */}
+                                    <div className="px-4 py-4 border-b border-gray-100">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center overflow-hidden relative">
+                                                {session.user.image ? (
+                                                    <Image
+                                                        src={session.user.image}
+                                                        alt="Profile"
+                                                        fill
+                                                        sizes="40px"
+                                                        className="object-cover"
+                                                    />
+                                                ) : (
+                                                    <span className="text-sm font-semibold text-white">
+                                                        {(session.user as any).name?.charAt(0)?.toUpperCase() ||
+                                                            (session.user as any).email?.charAt(0)?.toUpperCase()}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-semibold text-gray-900 truncate">
+                                                    {(session.user as any).name || "User"}
+                                                </p>
+                                                <p className="text-xs text-gray-500 truncate">
+                                                    {(session.user as any).email}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Menu Items */}
+                                    <div className="py-2">
+                                        <Menu.Item>
+                                            {({ active }) => (
+                                                <Link
+                                                    href={settingsPath}
+                                                    className={`${
+                                                        active ? "bg-gray-50" : ""
+                                                    } group flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 transition-all duration-150 ease-out`}
+                                                >
+                                                    <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    </svg>
+                                                    <span>Settings</span>
+                                                </Link>
+                                            )}
+                                        </Menu.Item>
+
+                                        <Menu.Item>
+                                            {({ active }) => (
+                                                <button
+                                                    onClick={handleSignOut}
+                                                    className={`${
+                                                        active ? "bg-gray-50" : ""
+                                                    } group flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 transition-all duration-150 ease-out w-full cursor-pointer`}
+                                                >
+                                                    <svg className="w-5 h-5 text-gray-400 group-hover:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                                    </svg>
+                                                    <span className="group-hover:text-red-600 transition-colors">Sign out</span>
+                                                </button>
+                                            )}
+                                        </Menu.Item>
+                                    </div>
+                                </Menu.Items>
+                            </Menu>
+                        )}
                     </div>
                 </div>
             </header>
@@ -1430,7 +1549,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
  * Wrapper component that renders both the main content and debug panel
  */
 const InterviewIDEWithDebug = ({ micStream }: InterviewIDEProps) => {
-    const { isDebugVisible } = useDebug();
+    const { isDebugVisible, showDebugButton } = useDebug();
     const isDebugModeEnabled = process.env.NEXT_PUBLIC_DEBUG_MODE === "true";
     const [evaluationDebugData, setEvaluationDebugData] = useState<any>(null);
     const [isEvaluationLoading, setIsEvaluationLoading] = useState(false);
@@ -1459,6 +1578,7 @@ const InterviewIDEWithDebug = ({ micStream }: InterviewIDEProps) => {
         <div>
             <InterviewerContent
                 isDebugVisible={isDebugVisible}
+                showDebugButton={showDebugButton}
                 evaluationDebugData={evaluationDebugData}
                 setEvaluationDebugData={setEvaluationDebugData}
                 isEvaluationLoading={isEvaluationLoading}
