@@ -1295,7 +1295,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
     return (
         <div className="h-screen flex flex-col bg-soft-white text-deep-slate dark:bg-gray-900 dark:text-white relative">
-            <header className="animate-slide-down border-b border-gray-200/30 dark:border-gray-700/30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl px-6 py-4">
+            <header className="border-b border-gray-200/30 dark:border-gray-700/30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl px-6 py-4">
                 <div className="flex items-center justify-between max-w-8xl mx-auto">
                     {/* Left: Sfinx Logo (clickable to exit) */}
                     <Link href="/job-search" className="flex items-center cursor-pointer">
