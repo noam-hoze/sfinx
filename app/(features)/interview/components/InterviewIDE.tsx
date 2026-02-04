@@ -295,37 +295,87 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             const activePasteEval = codingState.activePasteEvaluation;
             
             if (activePasteEval && !activePasteEval.accountabilityScore && interviewSessionId) {
-                logger.info("📋 [PASTE_EVAL] Saving unanswered paste evaluation with score 0");
+                // Check if there are partial answers (some questions answered but evaluation incomplete)
+                const hasPartialAnswers = activePasteEval.questionScores && activePasteEval.questionScores.length > 0;
                 
-                // Save to DB with score 0 (failed accountability)
-                try {
-                    const dbPayload = {
-                        timestamp: activePasteEval.timestamp,
-                        pastedContent: activePasteEval.pastedContent,
-                        characterCount: activePasteEval.pastedContent.length,
-                        aiQuestion: activePasteEval.topics?.map((t: any) => t.question).join("\n") || "No response provided",
-                        aiQuestionTimestamp: activePasteEval.aiQuestionTimestamp || Date.now(),
-                        userAnswer: "",
-                        understanding: "none",
-                        accountabilityScore: 0,
-                        reasoning: "User submitted without answering paste accountability questions",
-                        caption: "External Tool Usage - No Response",
-                    };
+                if (hasPartialAnswers) {
+                    // Calculate score from partial answers using topic percentages
+                    const topics = activePasteEval.topics || [];
+                    const avgScore = topics.length > 0
+                        ? Math.round(topics.reduce((sum, t) => sum + t.percentage, 0) / topics.length)
+                        : 0;
                     
-                    const response = await fetch(`/api/interviews/session/${interviewSessionId}/external-tools`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify(dbPayload),
+                    const understanding = avgScore >= 80 ? "full" : avgScore >= 50 ? "partial" : "none";
+                    
+                    logger.info("📋 [PASTE_EVAL] Saving partially answered paste evaluation", {
+                        avgScore,
+                        answeredQuestions: activePasteEval.questionScores.length,
+                        topics: topics.map(t => ({ name: t.name, pct: t.percentage }))
                     });
                     
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(`API returned ${response.status}: ${errorData.error || 'Unknown error'}`);
+                    try {
+                        const dbPayload = {
+                            timestamp: activePasteEval.timestamp,
+                            pastedContent: activePasteEval.pastedContent,
+                            characterCount: activePasteEval.pastedContent.length,
+                            aiQuestion: activePasteEval.questionScores.map((qs: any) => qs.question).join("\n"),
+                            aiQuestionTimestamp: activePasteEval.aiQuestionTimestamp || Date.now(),
+                            userAnswer: activePasteEval.questionScores.map((qs: any) => qs.answer).join("\n"),
+                            understanding,
+                            accountabilityScore: avgScore,
+                            reasoning: `Candidate answered ${activePasteEval.questionScores.length} question(s) before submitting. ${activePasteEval.questionScores.map((qs: any, i: number) => `Q${i+1} (score: ${qs.score}): ${qs.reasoning}`).join(" ")}`,
+                            caption: `External tool: ${understanding} understanding (${avgScore}/100)`,
+                        };
+                        
+                        const response = await fetch(`/api/interviews/session/${interviewSessionId}/external-tools`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(dbPayload),
+                        });
+                        
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(`API returned ${response.status}: ${errorData.error || 'Unknown error'}`);
+                        }
+                        
+                        logger.info("✅ [PASTE_EVAL] Saved partial paste evaluation");
+                    } catch (error) {
+                        logger.error("❌ [PASTE_EVAL] Failed to save partial paste:", error);
                     }
+                } else {
+                    // Truly unanswered - no questions answered at all
+                    logger.info("📋 [PASTE_EVAL] Saving unanswered paste evaluation with score 0");
                     
-                    logger.info("✅ [PASTE_EVAL] Saved unanswered paste with score 0");
-                } catch (error) {
-                    logger.error("❌ [PASTE_EVAL] Failed to save unanswered paste:", error);
+                    // Save to DB with score 0 (failed accountability)
+                    try {
+                        const dbPayload = {
+                            timestamp: activePasteEval.timestamp,
+                            pastedContent: activePasteEval.pastedContent,
+                            characterCount: activePasteEval.pastedContent.length,
+                            aiQuestion: activePasteEval.topics?.map((t: any) => t.question).join("\n") || "No response provided",
+                            aiQuestionTimestamp: activePasteEval.aiQuestionTimestamp || Date.now(),
+                            userAnswer: "",
+                            understanding: "none",
+                            accountabilityScore: 0,
+                            reasoning: "User submitted without answering paste accountability questions",
+                            caption: "External Tool Usage - No Response",
+                        };
+                        
+                        const response = await fetch(`/api/interviews/session/${interviewSessionId}/external-tools`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify(dbPayload),
+                        });
+                        
+                        if (!response.ok) {
+                            const errorData = await response.json();
+                            throw new Error(`API returned ${response.status}: ${errorData.error || 'Unknown error'}`);
+                        }
+                        
+                        logger.info("✅ [PASTE_EVAL] Saved unanswered paste with score 0");
+                    } catch (error) {
+                        logger.error("❌ [PASTE_EVAL] Failed to save unanswered paste:", error);
+                    }
                 }
             }
             
