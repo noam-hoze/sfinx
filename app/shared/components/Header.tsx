@@ -5,14 +5,12 @@ import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Menu } from "@headlessui/react";
 import { useSelector } from "react-redux";
 import type { RootState } from "@/shared/state/store";
 import { log } from "../services";
-import SfinxLogo from "./SfinxLogo";
 import { useMute, useDebug } from "../contexts";
-import { getActiveNavItem } from "../config/navigation";
 
 const logger = log;
 
@@ -23,61 +21,13 @@ export default function Header() {
     const searchParams = useSearchParams();
     const { isMuted, toggleMute } = useMute();
     const { isDebugVisible, showDebugButton } = useDebug();
-    
-    // Sliding indicator state
-    const [indicatorStyle, setIndicatorStyle] = useState({ width: 0, left: 0 });
-    const navRef = useRef<HTMLElement>(null);
-    const linkRefs = useRef<{ [key: string]: HTMLAnchorElement | null }>({});
-
-    const linkStyles =
-        "text-base font-medium transition-all duration-200 ease-in-out rounded-lg px-4 py-2 transform";
-    const activeLinkStyles = "text-blue-700 scale-110";
-    const inactiveLinkStyles = "text-gray-500 hover:text-gray-900";
-
-    // Get role first before using it
     const role = (session?.user as any)?.role;
-    
-    // Get active navigation item using hierarchy
-    const activeNavPath = getActiveNavItem(pathname, role === "COMPANY" ? "COMPANY" : "CANDIDATE");
-    
-    // Function to update indicator position
-    const updateIndicator = useCallback(() => {
-        if (!navRef.current) return;
 
-        const navRect = navRef.current.getBoundingClientRect();
-        const headerRect = navRef.current
-            .closest("header")
-            ?.getBoundingClientRect();
-
-        if (!headerRect) return;
-
-        const activeLink = Object.values(linkRefs.current).find((link) => {
-            if (!link) return false;
-            return link.classList.contains("text-blue-700"); // Check for active class
-        });
-
-        if (activeLink) {
-            const linkRect = activeLink.getBoundingClientRect();
-            setIndicatorStyle({
-                width: linkRect.width,
-                left: linkRect.left - headerRect.left,
-            });
-        }
-    }, []);
-
-    const noHeaderPaths = ["/", "/login", "/signup"];
-
-    // Update indicator on pathname change or mount
-    useEffect(() => {
-        // Small delay to ensure DOM is ready
-        const timer = setTimeout(updateIndicator, 100);
-        return () => clearTimeout(timer);
-    }, [pathname, activeNavPath, updateIndicator]);
-
-    if (noHeaderPaths.includes(pathname)) {
-        return null;
-    }
-
+    // Header is no longer used in the app:
+    // - Main app pages use sidebar-only design (no top header)
+    // - Interview page has its own custom header in InterviewIDE
+    // Therefore, this root Header component should not render anywhere
+    return null;
 
     const handleSignOut = async () => {
         await signOut({ callbackUrl: "/login" });
@@ -86,247 +36,140 @@ export default function Header() {
     const settingsPath = role === "COMPANY" ? "/company-dashboard/settings" : "/settings";
 
     return (
-        <header className="bg-white border-b border-gray-200 px-4 py-4 relative">
-            <div className="grid grid-cols-[auto_1fr_auto] items-center gap-64">
-                {/* Logo/Brand */}
-                <Link href="/" className="flex items-center">
-                    <SfinxLogo
-                        width={120}
-                        height={40}
-                        className="w-[120px] h-auto"
-                    />
-                </Link>
+        <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+            {/* Left: Empty for now (could add breadcrumbs here in the future) */}
+            <div></div>
 
-                {/* Center: Primary Navigation */}
-                <nav
-                    ref={navRef}
-                    className="flex items-center gap-24 justify-start relative"
-                >
-                    {/* {(session?.user as any)?.role === "COMPANY" && (
-                        <Link
-                            ref={(el) => {
-                                linkRefs.current["/company-dashboard"] = el;
-                            }}
-                            href="/company-dashboard"
-                            className={`${linkStyles} ${
-                                pathname === "/company-dashboard"
-                                    ? activeLinkStyles
-                                    : inactiveLinkStyles
-                            }`}
-                        >
-                            Dashboard
-                        </Link>
-                    )} */}
-                    {role === "COMPANY" && (
-                        <>
-                            <Link
-                                ref={(el) => {
-                                    linkRefs.current["/company-dashboard"] = el;
-                                }}
-                                href="/company-dashboard"
-                                className={`${linkStyles} ${
-                                    activeNavPath === "/company-dashboard"
-                                        ? activeLinkStyles
-                                        : inactiveLinkStyles
-                                }`}
-                            >
-                                Applicants
-                            </Link>
-                            <Link
-                                ref={(el) => {
-                                    linkRefs.current["/company-dashboard/jobs"] = el;
-                                }}
-                                href="/company-dashboard/jobs"
-                                className={`${linkStyles} ${
-                                    activeNavPath === "/company-dashboard/jobs"
-                                        ? activeLinkStyles
-                                        : inactiveLinkStyles
-                                }`}
-                            >
-                                Jobs
-                            </Link>
-                        </>
-                    )}
-                    {role === "CANDIDATE" && (
-                        <>
-                            <Link
-                                ref={(el) => {
-                                    linkRefs.current["/job-search"] = el;
-                                }}
-                                href="/job-search"
-                                className={`${linkStyles} ${
-                                    activeNavPath === "/job-search"
-                                        ? activeLinkStyles
-                                        : inactiveLinkStyles
-                                }`}
-                            >
-                                Jobs
-                            </Link>
-                        </>
-                    )}
-                    </nav>
+            {/* Right: Actions and User Menu */}
+            <div className="flex items-center justify-end gap-4">
+                {/* Debug Panel Toggle Button */}
+                {process.env.NEXT_PUBLIC_DEBUG_MODE === "true" && showDebugButton && (
+                    <button
+                        onClick={() => {
+                            // Toggle debug panel - dispatch custom event
+                            window.dispatchEvent(new CustomEvent('toggleDebugPanel'));
+                        }}
+                        className={`w-10 h-10 rounded-full border-2 border-sfinx-purple transition-all flex items-center justify-center ${
+                            isDebugVisible ? 'bg-sfinx-purple text-white' : 'text-sfinx-purple hover:bg-sfinx-purple hover:text-white'
+                        }`}
+                        title="Toggle Debug Panel"
+                    >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                        </svg>
+                    </button>
+                )}
 
-                {/* Sliding indicator */}
-                <div
-                    className="absolute bottom-0 left-0 h-[1px] bg-blue-700 transition-all duration-300 ease-in-out"
-                    style={{
-                        width: indicatorStyle.width,
-                        left: indicatorStyle.left,
-                    }}
-                />
-
-                {/* User Avatar and Menu / Demo Restart Button */}
-                <div className="flex items-center justify-end gap-4">
-                    {/* Debug Panel Toggle Button */}
-                    {process.env.NEXT_PUBLIC_DEBUG_MODE === "true" && showDebugButton && (
-                        <button
-                            onClick={() => {
-                                // Toggle debug panel - dispatch custom event
-                                window.dispatchEvent(new CustomEvent('toggleDebugPanel'));
-                            }}
-                            className={`w-12 h-12 rounded-full border-2 border-sfinx-purple transition-all flex items-center justify-center ${
-                                isDebugVisible ? 'bg-sfinx-purple text-white' : 'text-sfinx-purple hover:bg-sfinx-purple hover:text-white'
-                            }`}
-                            title="Toggle Debug Panel"
-                        >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                {pathname === '/interview' && (
+                    <button
+                        onClick={toggleMute}
+                        className="p-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                        title={isMuted ? "Unmute" : "Mute"}
+                    >
+                        {isMuted ? (
+                            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clipRule="evenodd" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
                             </svg>
-                        </button>
-                    )}
-                    
-                    {/* Create New Job Button (only for companies) */}
-                    {role === "COMPANY" && (
-                        <button
-                            type="button"
-                            className="w-12 h-12 rounded-full border-2 border-sfinx-purple text-sfinx-purple hover:bg-sfinx-purple hover:text-white transition-all duration-200 flex items-center justify-center relative"
-                            onClick={() => {
-                                router.push('/company-dashboard/jobs/new');
-                            }}
-                            title="Create New Job"
-                        >
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        ) : (
+                            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                             </svg>
-                            <div className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-sfinx-purple flex items-center justify-center">
-                                <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" />
-                                </svg>
-                            </div>
-                        </button>
-                    )}
-                    
-                    {pathname === '/interview' && (
-                        <button
-                            onClick={toggleMute}
-                            className="p-2 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                            title={isMuted ? "Unmute" : "Mute"}
-                        >
-                            {isMuted ? (
-                                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clipRule="evenodd" />
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-                                </svg>
+                        )}
+                    </button>
+                )}
+
+                {session?.user && (
+                    <Menu as="div" className="relative">
+                        <Menu.Button className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden relative cursor-pointer">
+                            {session.user.image ? (
+                                <Image
+                                    key={session.user.image} // Force re-render when image changes
+                                    src={session.user.image}
+                                    alt="Profile"
+                                    fill
+                                    sizes="40px"
+                                    className="object-cover rounded-full"
+                                />
                             ) : (
-                                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                                </svg>
-                            )}
-                        </button>
-                    )}
-                    
-                    {session?.user && (
-                        <Menu as="div" className="relative">
-                            <Menu.Button className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center overflow-hidden relative cursor-pointer">
-                                {session.user.image ? (
-                                    <Image
-                                        key={session.user.image} // Force re-render when image changes
-                                        src={session.user.image}
-                                        alt="Profile"
-                                        fill
-                                        sizes="48px"
-                                        className="object-cover rounded-full"
-                                    />
-                                ) : (
-                                    <span className="text-sm font-medium text-gray-700">
-                                        {(session.user as any).name
+                                <span className="text-xs font-medium text-gray-700">
+                                    {(session.user as any).name
+                                        ?.charAt(0)
+                                        ?.toUpperCase() ||
+                                        (session.user as any).email
                                             ?.charAt(0)
-                                            ?.toUpperCase() ||
-                                            (session.user as any).email
-                                                ?.charAt(0)
-                                                ?.toUpperCase()}
-                                    </span>
-                                )}
-                            </Menu.Button>
-                            <Menu.Items className="absolute right-0 mt-3 origin-top-right rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 focus:outline-none w-64 z-50 overflow-hidden backdrop-blur-xl">
-                                {/* User Info Section */}
-                                <div className="px-4 py-4 border-b border-gray-100">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center overflow-hidden relative">
-                                            {session.user.image ? (
-                                                <Image
-                                                    src={session.user.image}
-                                                    alt="Profile"
-                                                    fill
-                                                    sizes="40px"
-                                                    className="object-cover"
-                                                />
-                                            ) : (
-                                                <span className="text-sm font-semibold text-white">
-                                                    {(session.user as any).name?.charAt(0)?.toUpperCase() || (session.user as any).email?.charAt(0)?.toUpperCase()}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-sm font-semibold text-gray-900 truncate">
-                                                {(session.user as any).name || "User"}
-                                            </p>
-                                            <p className="text-xs text-gray-500 truncate">
-                                                {(session.user as any).email}
-                                            </p>
-                                        </div>
+                                            ?.toUpperCase()}
+                                </span>
+                            )}
+                        </Menu.Button>
+                        <Menu.Items className="absolute right-0 mt-3 origin-top-right rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 focus:outline-none w-64 z-50 overflow-hidden backdrop-blur-xl">
+                            {/* User Info Section */}
+                            <div className="px-4 py-4 border-b border-gray-100">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center overflow-hidden relative">
+                                        {session.user.image ? (
+                                            <Image
+                                                src={session.user.image}
+                                                alt="Profile"
+                                                fill
+                                                sizes="40px"
+                                                className="object-cover"
+                                            />
+                                        ) : (
+                                            <span className="text-sm font-semibold text-white">
+                                                {(session.user as any).name?.charAt(0)?.toUpperCase() || (session.user as any).email?.charAt(0)?.toUpperCase()}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-semibold text-gray-900 truncate">
+                                            {(session.user as any).name || "User"}
+                                        </p>
+                                        <p className="text-xs text-gray-500 truncate">
+                                            {(session.user as any).email}
+                                        </p>
                                     </div>
                                 </div>
-                                
-                                {/* Menu Items */}
-                                <div className="py-2">
-                                    <Menu.Item>
-                                        {({ active }) => (
-                                            <Link
-                                                href={settingsPath}
-                                                className={`${
-                                                    active ? "bg-gray-50" : ""
-                                                } group flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 transition-all duration-150 ease-out`}
-                                            >
-                                                <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                </svg>
-                                                <span>Settings</span>
-                                            </Link>
-                                        )}
-                                    </Menu.Item>
-                                    
-                                    <Menu.Item>
-                                        {({ active }) => (
-                                            <button
-                                                onClick={handleSignOut}
-                                                className={`${
-                                                    active ? "bg-gray-50" : ""
-                                                } group flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 transition-all duration-150 ease-out w-full cursor-pointer`}
-                                            >
-                                                <svg className="w-5 h-5 text-gray-400 group-hover:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                                                </svg>
-                                                <span className="group-hover:text-red-600 transition-colors">Sign out</span>
-                                            </button>
-                                        )}
-                                    </Menu.Item>
-                                </div>
-                            </Menu.Items>
-                        </Menu>
-                    )}
-                </div>
+                            </div>
+
+                            {/* Menu Items */}
+                            <div className="py-2">
+                                <Menu.Item>
+                                    {({ active }) => (
+                                        <Link
+                                            href={settingsPath}
+                                            className={`${
+                                                active ? "bg-gray-50" : ""
+                                            } group flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 transition-all duration-150 ease-out`}
+                                        >
+                                            <svg className="w-5 h-5 text-gray-400 group-hover:text-gray-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            </svg>
+                                            <span>Settings</span>
+                                        </Link>
+                                    )}
+                                </Menu.Item>
+
+                                <Menu.Item>
+                                    {({ active }) => (
+                                        <button
+                                            onClick={handleSignOut}
+                                            className={`${
+                                                active ? "bg-gray-50" : ""
+                                            } group flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 transition-all duration-150 ease-out w-full cursor-pointer`}
+                                        >
+                                            <svg className="w-5 h-5 text-gray-400 group-hover:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                            </svg>
+                                            <span className="group-hover:text-red-600 transition-colors">Sign out</span>
+                                        </button>
+                                    )}
+                                </Menu.Item>
+                            </div>
+                        </Menu.Items>
+                    </Menu>
+                )}
             </div>
         </header>
     );

@@ -2,6 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Interview page header slide-down animation */
+@keyframes slide-down {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-down {
+  animation: slide-down 300ms ease-in-out forwards;
+}
+
 :root {
   /* Sfinx brand purple - base color */
   --sfinx-purple: #7c3aed;
