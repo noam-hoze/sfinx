@@ -60,7 +60,7 @@ const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 function InterviewPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isMuted } = useMute();
+  const { isMuted, toggleMute } = useMute();
   const { isMascotReady } = useInterviewPreload();
   const { isDebugVisible, showDebugButton, setShowDebugButton } = useDebug();
   const dispatch = useDispatch();
