@@ -34,13 +34,14 @@ export default function AnnouncementScreen({
   const mascotEnabled = process.env.NEXT_PUBLIC_MASCOT_ENABLED === "true";
   const [audioFinished, setAudioFinished] = useState(false);
   const [fadingOut, setFadingOut] = useState(false);
+  const [audioReady, setAudioReady] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const hasStartedRef = useRef(false);
 
-  // Use word-by-word animation hook
+  // Use word-by-word animation hook - only start when audio is ready
   const { displayedWords, isTypingComplete: typingFinished } = useWordByWordAnimation({
     text,
-    enabled: true,
+    enabled: audioReady,
     wordsPerSecond: 3,
   });
 
@@ -55,6 +56,7 @@ export default function AnnouncementScreen({
     // Reset state when text changes
     setAudioFinished(false);
     setFadingOut(false);
+    setAudioReady(false);
 
     // Play TTS (preloaded or generate on-demand)
     (async () => {
@@ -92,11 +94,14 @@ export default function AnnouncementScreen({
           audioRef.current = null;
         };
 
+        // Start text animation at the same time as audio playback
+        setAudioReady(true);
         await audio.play();
       } catch (error) {
         log.error(LOG_CATEGORY, "[Announcement] TTS failed:", error);
         onAudioStateChange?.(false, undefined, []);  // Pass empty visemes to stop lip sync
         // Even if audio fails, continue with typing animation
+        setAudioReady(true);
         setAudioFinished(true);
       }
     })();
@@ -140,8 +145,24 @@ export default function AnnouncementScreen({
     >
       {/* Typing text container - centered with emoji inline */}
       <div className="w-full text-center px-8">
-        <p className="text-2xl text-gray-800 leading-relaxed">
-          👋 {displayedWords.join(" ")}
+        <p className="text-2xl text-gray-800 leading-relaxed inline-flex items-center justify-center gap-2 flex-wrap">
+          <motion.span
+            className="inline-block origin-[70%_70%]"
+            animate={{
+              rotate: [0, 14, -8, 14, -4, 10, 0],
+              scale: [1, 1.1, 1.05, 1.1, 1.05, 1.1, 1],
+            }}
+            transition={{
+              duration: 1.8,
+              ease: "easeInOut",
+              times: [0, 0.15, 0.3, 0.45, 0.6, 0.75, 1],
+              repeat: 2,
+              repeatDelay: 0.5,
+            }}
+          >
+            👋
+          </motion.span>
+          <span>{displayedWords.join(" ")}</span>
         </p>
       </div>
     </motion.div>
