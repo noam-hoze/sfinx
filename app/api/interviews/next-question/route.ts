@@ -208,11 +208,13 @@ export async function POST(request: NextRequest) {
         let newFocusTopic: string;
         if (active.length > 0) {
             // MODE 1: Contribution collection - prefer higher count, tie-break by higher strength
+            // TODO: Investigate potential bug - array element access [0] without bounds check. If array is empty or becomes empty after sort, this will fail
             newFocusTopic = active.sort((a: any, b: any) =>
                 b.count - a.count || b.avgStrength - a.avgStrength
             )[0].categoryName;
         } else {
             // MODE 2: Rebalance - pick weakest category (lowest avgStrength)
+            // TODO: Investigate potential bug - array element access [0] without bounds check. If countsForSelection is empty, this will fail
             newFocusTopic = countsForSelection.sort((a: any, b: any) =>
                 a.avgStrength - b.avgStrength
             )[0].categoryName;
@@ -267,6 +269,7 @@ export async function POST(request: NextRequest) {
         console.log("← OpenAI Response [next-question]");
         console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         console.log(`Latency: ${elapsed}ms`);
+        // TODO: Investigate potential bug - JSON.parse called before validation of responseText. Can throw if response is invalid or empty
         console.log(JSON.stringify(JSON.parse(responseText || "{}"), null, 2));
         console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 

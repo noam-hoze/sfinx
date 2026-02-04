@@ -72,7 +72,9 @@ export function openAIFlowController(dispatch: AppDispatch) {
             });
             session?.transport?.sendEvent?.({ type: "response.create" });
             dispatch(setPendingReply({ pending: true, reason: `flow:${stage}` }));
-        } catch {}
+        } catch {
+            // TODO: Investigate potential bug - empty catch block silently suppresses ALL errors, making debugging production issues impossible
+        }
     };
 
     return {

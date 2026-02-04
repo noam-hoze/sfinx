@@ -285,6 +285,7 @@ CRITICAL RULES:
         });
 
         // Process evaluations - batch all DB operations in parallel
+        // TODO: Investigate potential bug - Promise.all without error boundary. If any database operation fails, the promise rejection is not properly handled. Data loss could occur silently.
         const dbOperations = evaluation.evaluations
             .filter((item: any) => item.strength > 0)
             .map(async (item: any) => {

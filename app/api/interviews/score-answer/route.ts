@@ -160,6 +160,7 @@ Return JSON:
         console.log("← OpenAI Response [score-answer]");
         console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         console.log(`Latency: ${elapsed}ms`);
+        // TODO: Investigate potential bug - JSON.parse called before validation of responseText
         console.log(JSON.stringify(JSON.parse(responseText || "{}"), null, 2));
         console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
@@ -257,6 +258,7 @@ Return JSON:
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
         // #region agent log
+        // TODO: Investigate potential bug - fire-and-forget fetch without awaiting. Can cause memory leaks, hanging connections, and unreliable error handling
         fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'score-answer/route.ts:257',message:'Before dontKnow check',data:{isDontKnow:result.isDontKnow,currentFocusTopic,answer,updatedCountsLength:updatedCounts.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,C'})}).catch(()=>{});
         // #endregion
 
@@ -267,6 +269,7 @@ Return JSON:
                 updatedCounts = updatedCounts; // No change needed, keep as-is
             } else {
                 // #region agent log
+                // TODO: Investigate potential bug - fire-and-forget fetch without awaiting. Can cause memory leaks, hanging connections, and unreliable error handling
                 fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'score-answer/route.ts:262',message:'Inside dontKnow increment block',data:{currentFocusTopic,beforeMap:updatedCounts.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
                 // #endregion
 
@@ -279,6 +282,7 @@ Return JSON:
                 });
 
                 // #region agent log
+                // TODO: Investigate potential bug - fire-and-forget fetch without awaiting. Can cause memory leaks, hanging connections, and unreliable error handling
                 fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'score-answer/route.ts:272',message:'After map operation',data:{afterMap:updatedCounts.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
                 // #endregion
 
@@ -294,6 +298,7 @@ Return JSON:
             }
 
             // #region agent log
+            // TODO: Investigate potential bug - fire-and-forget fetch without awaiting. Can cause memory leaks, hanging connections, and unreliable error handling
             fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'score-answer/route.ts:286',message:'Before return with updatedCounts',data:{returnValue:updatedCounts.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
             // #endregion
 

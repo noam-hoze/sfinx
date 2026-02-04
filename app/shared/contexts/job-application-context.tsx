@@ -81,6 +81,7 @@ export function JobApplicationProvider({ children }: { children: ReactNode }) {
     const { data: session, status } = useSession();
 
     // Load applied companies from database when user is authenticated
+    // TODO: Investigate potential bug - race condition possible. Multiple dependencies (session, status) can change rapidly, causing concurrent fetch requests. No AbortController to cancel in-flight requests if component unmounts during fetch.
     useEffect(() => {
         const fetchAppliedCompanies = async () => {
             // Only fetch if user is authenticated

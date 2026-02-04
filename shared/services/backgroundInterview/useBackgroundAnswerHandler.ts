@@ -77,11 +77,12 @@ export function useBackgroundAnswerHandler(
       try {
         // Detect blank answers
         const isBlankAnswer = answer.trim().length === 0;
-        
+
         // Add to chat store
         dispatch(addMessage({ text: answer, speaker: "user" }));
-        
+
         // Save user answer to DB
+        // TODO: Investigate potential bug - saveMessageToDb is async but called without await. This creates a race condition where messages may not be saved before session ends
         saveMessageToDb(answer, "user");
 
         // PHASE 2: Dual-call flow - fast endpoint for scores/question, async full evaluation
@@ -194,6 +195,7 @@ export function useBackgroundAnswerHandler(
               // CALL 2: Score Answer (ASYNC, ~2-3s, non-blocking)
               log.info(LOG_CATEGORY, "[split-eval] Calling score-answer endpoint (async)...");
               // #region agent log
+              // TODO: Investigate potential bug - fire-and-forget fetch without awaiting. Can cause memory leaks, hanging connections, and unreliable error handling
               fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBackgroundAnswerHandler.ts:191',message:'Before score-answer call',data:{answer,currentFocusTopic,categoryStatsSnapshot:categoryStats.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,D'})}).catch(()=>{});
               // #endregion
               fetch(`/api/interviews/score-answer`, {
@@ -213,6 +215,7 @@ export function useBackgroundAnswerHandler(
                 log.info(LOG_CATEGORY, `[split-eval] Scores received in ${scoreData.latencyMs || 0}ms`);
 
                 // #region agent log
+                // TODO: Investigate potential bug - fire-and-forget fetch without awaiting. Can cause memory leaks, hanging connections, and unreliable error handling
                 fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBackgroundAnswerHandler.ts:208',message:'Score-answer response received',data:{isDontKnow:scoreData.isDontKnow,updatedCounts:scoreData.updatedCounts?.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
                 // #endregion
 
@@ -220,10 +223,13 @@ export function useBackgroundAnswerHandler(
                 if (scoreData.updatedCounts) {
                   dispatch(updateCategoryStats({ stats: scoreData.updatedCounts }));
                   // #region agent log
+                  // TODO: Investigate potential bug - fire-and-forget fetch without awaiting. Can cause memory leaks, hanging connections, and unreliable error handling
                   fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBackgroundAnswerHandler.ts:217',message:'Redux dispatch updateCategoryStats called',data:{dispatchedStats:scoreData.updatedCounts.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
                   // #endregion
-                  
+
+
                   // #region agent log
+                  // TODO: Investigate potential bug - fire-and-forget fetch within setTimeout. Assumes dispatch takes exactly 100ms (unreliable timing); also missing error handling
                   setTimeout(() => {
                     const stateAfterDispatch = store.getState().background.categoryStats;
                     fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBackgroundAnswerHandler.ts:224',message:'Redux state after dispatch (100ms later)',data:{reduxState:stateAfterDispatch.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
@@ -243,6 +249,7 @@ export function useBackgroundAnswerHandler(
               }).catch((err) => {
                 log.error(LOG_CATEGORY, "[split-eval] Score-answer failed:", err);
                 // #region agent log
+                // TODO: Investigate potential bug - fire-and-forget fetch without awaiting. Can cause memory leaks, hanging connections, and unreliable error handling
                 fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBackgroundAnswerHandler.ts:235',message:'Score-answer call failed',data:{error:err?.toString()},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
                 // #endregion
               });
@@ -250,6 +257,7 @@ export function useBackgroundAnswerHandler(
               // CALL 3: Full Evaluation (ASYNC, ~8-10s, non-blocking)
               log.info(LOG_CATEGORY, "[split-eval] Calling full evaluation endpoint (async)...");
               // #region agent log
+              // TODO: Investigate potential bug - fire-and-forget fetch without awaiting. Can cause memory leaks, hanging connections, and unreliable error handling
               fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBackgroundAnswerHandler.ts:246',message:'Before full-eval call',data:{categoryStatsSnapshot:categoryStats.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'F'})}).catch(()=>{});
               // #endregion
               fetch(`/api/interviews/evaluate-answer`, {
@@ -268,6 +276,7 @@ export function useBackgroundAnswerHandler(
                 log.info(LOG_CATEGORY, "[split-eval] Full evaluation complete");
 
                 // #region agent log
+                // TODO: Investigate potential bug - fire-and-forget fetch without awaiting. Can cause memory leaks, hanging connections, and unreliable error handling
                 fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBackgroundAnswerHandler.ts:262',message:'Full-eval response received',data:{updatedCounts:fullData.updatedCounts?.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'F'})}).catch(()=>{});
                 // #endregion
 
@@ -284,6 +293,7 @@ export function useBackgroundAnswerHandler(
                   });
 
                   // #region agent log
+                  // TODO: Investigate potential bug - fire-and-forget fetch without awaiting. Can cause memory leaks, hanging connections, and unreliable error handling
                   fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBackgroundAnswerHandler.ts:276',message:'Dispatching merged counts (preserving dontKnowCount)',data:{beforeMerge:fullData.updatedCounts.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount})),afterMerge:mergedCounts.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'F',runId:'post-fix'})}).catch(()=>{});
                   // #endregion
 
