@@ -145,77 +145,88 @@ function JobApplicantsContent() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {completedApplicants.map((applicant) => (
-                      <tr
-                        key={applicant.id}
-                        onClick={() => handleViewProfile(applicant)}
-                        className="hover:bg-gray-50 cursor-pointer transition-colors"
-                      >
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
-                              {applicant.image ? (
-                                <Image
-                                  src={applicant.image}
-                                  alt={applicant.name}
-                                  width={40}
-                                  height={40}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <span className="text-sm font-semibold text-gray-600">
-                                  {applicant.name.charAt(0).toUpperCase()}
-                                </span>
-                              )}
+                    {completedApplicants.map((applicant, index) => {
+                      const rank = index + 1;
+                      const isTopPerformer = rank <= 5;
+
+                      return (
+                        <tr
+                          key={applicant.id}
+                          onClick={() => handleViewProfile(applicant)}
+                          className={`
+                            relative cursor-pointer transition-all duration-300
+                            ${isTopPerformer
+                              ? "bg-gradient-to-r from-purple-50/40 to-blue-50/40 border-l-4 border-purple-500/40 hover:from-purple-50/60 hover:to-blue-50/60 hover:border-purple-500/60 animate-subtle-pulse"
+                              : "hover:bg-gray-50"
+                            }
+                          `}
+                        >
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                {applicant.image ? (
+                                  <Image
+                                    src={applicant.image}
+                                    alt={applicant.name}
+                                    width={40}
+                                    height={40}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <span className="text-sm font-semibold text-gray-600">
+                                    {applicant.name.charAt(0).toUpperCase()}
+                                  </span>
+                                )}
+                              </div>
+                              <div>
+                                <div className="font-medium text-gray-900">{applicant.name}</div>
+                              </div>
                             </div>
-                            <div>
-                              <div className="font-medium text-gray-900">{applicant.name}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          {applicant.matchScore !== null ? (
-                            <div className={`text-xl font-bold tabular-nums ${
-                              applicant.matchScore >= 75
-                                ? "text-emerald-600"
-                                : applicant.matchScore >= 50
-                                ? "text-amber-600"
-                                : "text-red-600"
-                            }`}>
-                              {Math.round(applicant.matchScore)}
-                            </div>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </td>
-                        <td className="px-20 py-4">
-                          {applicant.highlights?.length > 0 ? (
-                            <div className="flex flex-wrap gap-2">
-                              {applicant.highlights.map((highlight, idx) => (
-                                <span
-                                  key={idx}
-                                  className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full"
-                                >
-                                  {highlight}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 text-sm">-</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <svg 
-                            className="w-5 h-5 text-gray-400 inline-block"
-                            fill="none" 
-                            stroke="currentColor" 
-                            viewBox="0 0 24 24"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            {applicant.matchScore !== null ? (
+                              <div className={`text-xl font-bold tabular-nums ${
+                                applicant.matchScore >= 75
+                                  ? "text-emerald-600"
+                                  : applicant.matchScore >= 50
+                                  ? "text-amber-600"
+                                  : "text-red-600"
+                              }`}>
+                                {Math.round(applicant.matchScore)}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400">-</span>
+                            )}
+                          </td>
+                          <td className="px-20 py-4">
+                            {applicant.highlights?.length > 0 ? (
+                              <div className="flex flex-wrap gap-2">
+                                {applicant.highlights.map((highlight, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full"
+                                  >
+                                    {highlight}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 text-sm">-</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <svg
+                              className="w-5 h-5 text-gray-400 inline-block"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

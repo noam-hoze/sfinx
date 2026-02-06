@@ -316,3 +316,19 @@ media-player {
   max-height: 0;
   opacity: 0;
 }
+
+/* Subtle pulse animation for top performers */
+@keyframes subtle-pulse {
+  0%, 100% {
+    border-left-color: rgba(168, 85, 247, 0.3);
+    background-color: rgba(243, 232, 255, 0.2);
+  }
+  50% {
+    border-left-color: rgba(168, 85, 247, 0.5);
+    background-color: rgba(243, 232, 255, 0.35);
+  }
+}
+
+.animate-subtle-pulse {
+  animation: subtle-pulse 3s ease-in-out infinite;
+}
