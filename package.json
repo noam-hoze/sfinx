@@ -1,6 +1,6 @@
 {
   "name": "sfinx",
-  "version": "1.24.0",
+  "version": "1.25.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,13 +9,29 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
+    
     "seed": "tsx server/db-scripts/seed-data.ts",
-    "seed:axonpulse": "tsx server/db-scripts/seed-axonpulse-candidates.ts --env=dev",
+    "seed:companies": "tsx server/db-scripts/seed-company-candidates.ts --env=dev",
+    "seed:companies:prod": "tsx server/db-scripts/seed-company-candidates.ts --env=prod",
+    "seed:axonpulse": "tsx server/db-scripts/seed-company-candidates.ts --env=dev --companies=axonpulse",
+    "seed:uvision": "tsx server/db-scripts/seed-company-candidates.ts --env=dev --companies=uvision",
+    
+    "setup:companies": "tsx server/db-scripts/sync-schema-and-seed.ts --env=dev --skip-studio && pnpm seed:companies",
     "setup:axonpulse": "tsx server/db-scripts/sync-schema-and-seed.ts --env=dev --skip-studio && pnpm seed:axonpulse",
+    "setup:uvision": "tsx server/db-scripts/sync-schema-and-seed.ts --env=dev --skip-studio && pnpm seed:uvision",
+    
     "sync-db:dev": "tsx server/db-scripts/sync-schema-and-seed.ts --env=dev",
     "sync-db:prod": "tsx server/db-scripts/sync-schema-and-seed.ts --env=prod",
+    
     "clean:next": "rm -rf .next .turbo node_modules/.cache",
     "e2e": "playwright test --project=voice-chromium --headed --workers=1",
+
+    "prisma:generate": "prisma generate",
+    "prisma:generate:dev": "export $(grep ^DATABASE_URL .env.local | xargs) && prisma generate",
+    "db:push": "prisma db push",
+    "db:push:dev": "export $(grep ^DATABASE_URL .env.local | xargs) && prisma db push",
+    "db:migrate:dev": "export $(grep ^DATABASE_URL .env.local | xargs) && prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
     "studio": "prisma studio",
     "studio:dev": "export $(grep ^DATABASE_URL .env.local | xargs) && prisma studio"
   },
