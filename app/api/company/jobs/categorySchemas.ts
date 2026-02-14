@@ -41,29 +41,14 @@ export const PREDEFINED_PROBLEM_SOLVING: CodingCategory = {
  * Skips adding Problem Solving if it already exists in custom categories to prevent duplicates.
  */
 export function mergeWithPredefinedCategories(customCategories: CodingCategory[] | null): CodingCategory[] {
-    const CATEGORY_TOTAL_WEIGHT = 25; // Categories are 25% of coding score (AI Assist is 75%)
-
     if (!customCategories || customCategories.length === 0) {
-        return [{ ...PREDEFINED_PROBLEM_SOLVING, weight: CATEGORY_TOTAL_WEIGHT }];
+        // Return empty array if no custom categories
+        return [];
     }
 
-    // Check if Problem Solving already exists in custom categories
-    const hasProblemSolving = customCategories.some(cat => cat.name === "Problem Solving");
-
-    if (hasProblemSolving) {
-        // Problem Solving already exists, just recalculate weights for existing categories
-        const equalWeight = CATEGORY_TOTAL_WEIGHT / customCategories.length;
-        return customCategories.map(cat => ({ ...cat, weight: equalWeight }));
-    }
-
-    // Add Problem Solving to custom categories
-    const totalCategories = customCategories.length + 1;
-    const equalWeight = CATEGORY_TOTAL_WEIGHT / totalCategories;
-
-    return [
-        { ...PREDEFINED_PROBLEM_SOLVING, weight: equalWeight },
-        ...customCategories.map(cat => ({ ...cat, weight: equalWeight }))
-    ];
+    // Return categories as-is from database (no scaling)
+    // Scaling based on aiAssistWeight happens during evaluation in calculateScore(), not here
+    return customCategories;
 }
 
 /**

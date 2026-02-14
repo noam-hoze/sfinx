@@ -2,9 +2,12 @@
 
 import { PrismaClient } from "@prisma/client";
 import { calculateScore, type RawScores, type WorkstyleMetrics } from "../../app/shared/utils/calculateScore";
+import { config } from "dotenv";
+import path from "path";
 
-// Use DEV_DATABASE_URL (orange-tree) as user confirmed
-process.env.DATABASE_URL = process.env.DEV_DATABASE_URL || process.env.DATABASE_URL;
+// Load .env.local for local development (contains DATABASE_URL)
+const rootDir = path.resolve(__dirname, '../..');
+config({ path: path.join(rootDir, '.env.local'), override: true });
 
 const prisma = new PrismaClient();
 

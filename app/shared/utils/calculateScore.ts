@@ -56,25 +56,30 @@ export function calculateScore(
     const experienceScore = totalExperienceWeight > 0 ? experienceWeightedSum / totalExperienceWeight : 0;
 
     // Calculate coding score from category scores with their individual weights
-    let codingWeightedSum = 0;
-    let totalCodingWeight = 0;
-    
-    // Add all category scores with their weights
+    // Step 1: Calculate weighted average of categories (user enters weights thinking of them as 100%)
+    let categoryWeightedSum = 0;
+    let totalCategoryWeight = 0;
+
     rawScores.categoryScores.forEach(category => {
         if (category.weight > 0) {
-            codingWeightedSum += category.score * category.weight;
-            totalCodingWeight += category.weight;
+            categoryWeightedSum += category.score * category.weight;
+            totalCategoryWeight += category.weight;
         }
     });
-    
-    // Always include AI assist weight in denominator (it's part of coding score)
-    // Add contribution only if score exists
-    if (hasAiAssistScore) {
-        codingWeightedSum += normalizedAiAssist! * config.aiAssistWeight;
-    }
-    totalCodingWeight += config.aiAssistWeight;
-    
-    const codingScore = totalCodingWeight > 0 ? codingWeightedSum / totalCodingWeight : 0;
+
+    const categoryAverage = totalCategoryWeight > 0 ? categoryWeightedSum / totalCategoryWeight : 0;
+
+    // Step 2: Scale category contribution by (100 - aiAssistWeight)%
+    // If aiAssistWeight = 25%, categories get 75% of the coding score
+    const categoryContribution = categoryAverage * (100 - config.aiAssistWeight) / 100;
+
+    // Step 3: AI assist contributes its percentage of the coding score
+    const aiAssistContribution = hasAiAssistScore
+        ? normalizedAiAssist! * config.aiAssistWeight / 100
+        : 0;
+
+    // Step 4: Final coding score (0-100)
+    const codingScore = categoryContribution + aiAssistContribution;
 
     // Calculate final score (weighted average of experience and coding)
     const totalCategoryWeight = config.experienceWeight + config.codingWeight;

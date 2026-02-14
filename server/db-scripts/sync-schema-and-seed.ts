@@ -5,6 +5,8 @@ import { PrismaClient } from "@prisma/client";
 import { log } from "app/shared/services";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import fs from "fs";
+import { config } from "dotenv";
+import path from "path";
 
 const LOG_CATEGORY = LOG_CATEGORIES.DB;
 
@@ -16,24 +18,29 @@ async function syncSchemaAndSeed() {
         const envArg = process.argv.find(arg => arg.startsWith('--env='));
         const environment = envArg?.split('=')[1];
         const skipStudio = process.argv.includes('--skip-studio');
+
+        // Load the appropriate .env file based on environment
+        const rootDir = path.resolve(__dirname, '../..');
+        if (environment === 'dev') {
+            config({ path: path.join(rootDir, '.env.local'), override: true });
+            log.info(LOG_CATEGORY, "Loaded .env.local for dev environment");
+        } else {
+            config({ path: path.join(rootDir, '.env'), override: true });
+            log.info(LOG_CATEGORY, "Loaded .env for prod environment");
+        }
         
         if (!environment || !['dev', 'prod'].includes(environment)) {
             throw new Error("Please specify --env=dev or --env=prod");
         }
-        
-        const databaseUrl = environment === 'dev' 
-            ? process.env.DEV_DATABASE_URL 
-            : process.env.PROD_DATABASE_URL;
-        
+
+        const databaseUrl = process.env.DATABASE_URL;
+
         if (!databaseUrl) {
-            throw new Error(`${environment === 'dev' ? 'DEV_DATABASE_URL' : 'PROD_DATABASE_URL'} is not set in environment variables`);
+            throw new Error('DATABASE_URL is not set in environment variables');
         }
-        
+
         log.info(LOG_CATEGORY, `Running on: ${environment.toUpperCase()}`);
         log.info(LOG_CATEGORY, `Database: ${databaseUrl.split('@')[1]?.split('/')[0]}`);
-        
-        // Set DATABASE_URL in process.env for PrismaClient
-        process.env.DATABASE_URL = databaseUrl;
         
         const execOptions = {
             stdio: "inherit" as const,
