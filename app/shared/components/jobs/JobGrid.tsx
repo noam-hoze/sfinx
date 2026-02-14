@@ -94,14 +94,13 @@ export function JobGrid({
                         role={onCardClick ? "button" : "presentation"}
                     >
                         {showLogo && (
-                            <div className="relative w-32 h-32 mx-auto mb-4 bg-white rounded-xl flex items-center justify-center p-3">
+                            <div className="relative w-full h-24 mx-auto mb-4 bg-white rounded-xl flex items-center justify-center p-4">
                                 {company.logo ? (
                                     <Image
                                         src={company.logo}
                                         alt={`${company.name} logo`}
-                                        width={104}
-                                        height={104}
-                                        className="object-contain"
+                                        fill
+                                        className="object-contain p-2"
                                     />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-sm text-gray-400">

@@ -1,8 +1,12 @@
 #!/usr/bin/env tsx
 
 import { PrismaClient } from "@prisma/client";
+import { config } from "dotenv";
+import path from "path";
 
-process.env.DATABASE_URL = process.env.DEV_DATABASE_URL || process.env.DATABASE_URL;
+// Load .env.local for local development (contains DATABASE_URL)
+const rootDir = path.resolve(__dirname, '../..');
+config({ path: path.join(rootDir, '.env.local'), override: true });
 
 const prisma = new PrismaClient();
 
