@@ -305,6 +305,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             companyName:
                 companyName || interviewSession.application.job.company.name,
             roleName: roleName || interviewSession.application.job.title,
+            finalScore: interviewSession.finalScore ?? undefined, // Pass final score if available
         });
 
         // Call OpenAI
