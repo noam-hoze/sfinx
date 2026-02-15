@@ -887,17 +887,15 @@ Generate your question now:`;
                   }
                 } catch (error) {
                   // Fallback on error
-                  summary = `Candidate answered ${questionScores.length} questions with average score ${avgScore}/100`;
+                  summary = `Candidate provided responses to ${questionScores.length} question(s).`;
                   /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval] Summary API error:", error);
                 }
-                
-                const caption = `External tool: ${understanding.toLowerCase()} understanding (${avgScore}/100)`;
-                
+
                 const evaluation = {
                   understanding,
                   accountabilityScore: avgScore,
                   reasoning: summary,
-                  caption,
+                  caption: summary,
                 };
                 
                 try {
@@ -919,7 +917,8 @@ Generate your question now:`;
                 if (!summary || summary.trim() === "") {
                   /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval][validation_error] Summary is empty");
                   // Use fallback summary
-                  evaluation.reasoning = `Candidate answered ${questionScores.length} questions with average score ${avgScore}/100`;
+                  evaluation.reasoning = `Candidate provided responses to ${questionScores.length} question(s).`;
+                  evaluation.caption = evaluation.reasoning;
                 }
                 
                 if (evaluation) {
