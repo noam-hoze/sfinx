@@ -299,7 +299,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             const codingState = store.getState().coding;
             const activePasteEval = codingState.activePasteEvaluation;
             
-            if (activePasteEval && !activePasteEval.accountabilityScore && interviewSessionId) {
+            if (activePasteEval && activePasteEval.accountabilityScore === undefined && interviewSessionId) {
                 // Check if there are partial answers (some questions answered but evaluation incomplete)
                 const hasPartialAnswers = activePasteEval.questionScores && activePasteEval.questionScores.length > 0;
                 
@@ -319,8 +319,8 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                     });
 
                     try {
-                        // Generate caption using OpenAI
-                        let caption = `External tool: ${understanding} understanding (${avgScore}/100)`;
+                        // Generate evaluation using OpenAI
+                        let evaluation = `Candidate provided partial answers before submitting.`;
                         try {
                             const summaryResponse = await fetch("/api/interviews/generate-paste-summary", {
                                 method: "POST",
@@ -334,13 +334,13 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
                             if (summaryResponse.ok) {
                                 const summaryData = await summaryResponse.json();
-                                caption = summaryData.summary || caption;
-                                logger.info("✅ [PASTE_EVAL] Generated caption:", caption);
+                                evaluation = summaryData.summary || evaluation;
+                                logger.info("✅ [PASTE_EVAL] Generated evaluation:", evaluation);
                             } else {
-                                logger.warn("⚠️ [PASTE_EVAL] Failed to generate caption, using fallback");
+                                logger.warn("⚠️ [PASTE_EVAL] Failed to generate evaluation, using fallback");
                             }
-                        } catch (captionError) {
-                            logger.error("❌ [PASTE_EVAL] Caption generation failed:", captionError);
+                        } catch (evalError) {
+                            logger.error("❌ [PASTE_EVAL] Evaluation generation failed:", evalError);
                         }
 
                         const dbPayload = {
@@ -352,8 +352,8 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                             userAnswer: activePasteEval.questionScores.map((qs: any) => qs.answer).join("\n"),
                             understanding,
                             accountabilityScore: avgScore,
-                            reasoning: `Candidate answered ${activePasteEval.questionScores.length} question(s) before submitting. ${activePasteEval.questionScores.map((qs: any, i: number) => `Q${i+1} (score: ${qs.score}): ${qs.reasoning}`).join(" ")}`,
-                            caption,
+                            reasoning: evaluation,
+                            caption: evaluation,
                         };
 
                         const response = await fetch(`/api/interviews/session/${interviewSessionId}/external-tools`, {
@@ -377,6 +377,8 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                     
                     // Save to DB with score 0 (failed accountability)
                     try {
+                        const evaluation = "The candidate did not respond to questions about the pasted code.";
+
                         const dbPayload = {
                             timestamp: activePasteEval.timestamp,
                             pastedContent: activePasteEval.pastedContent,
@@ -386,8 +388,8 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                             userAnswer: "",
                             understanding: "none",
                             accountabilityScore: 0,
-                            reasoning: "User submitted without answering paste accountability questions",
-                            caption: "External Tool Usage - No Response",
+                            reasoning: evaluation,
+                            caption: evaluation,
                         };
                         
                         const response = await fetch(`/api/interviews/session/${interviewSessionId}/external-tools`, {
