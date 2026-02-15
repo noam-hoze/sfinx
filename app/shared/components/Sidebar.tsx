@@ -14,16 +14,23 @@ export default function Sidebar() {
     const { data: session } = useSession();
     const router = useRouter();
     const pathname = usePathname();
-    const [isCollapsed, setIsCollapsed] = useState(() => {
-        if (typeof window === "undefined") return false;
-        const saved = localStorage.getItem("sidebarCollapsed");
-        return saved ? JSON.parse(saved) : false;
-    });
+    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isHydrated, setIsHydrated] = useState(false);
     const [menuButtonRef, setMenuButtonRef] = useState<HTMLElement | null>(null);
 
     useEffect(() => {
-        localStorage.setItem("sidebarCollapsed", JSON.stringify(isCollapsed));
-    }, [isCollapsed]);
+        const saved = localStorage.getItem("sidebarCollapsed");
+        if (saved) {
+            setIsCollapsed(JSON.parse(saved));
+        }
+        setIsHydrated(true);
+    }, []);
+
+    useEffect(() => {
+        if (isHydrated) {
+            localStorage.setItem("sidebarCollapsed", JSON.stringify(isCollapsed));
+        }
+    }, [isCollapsed, isHydrated]);
 
     const role = (session?.user as any)?.role;
     const activeNavPath = getActiveNavItem(pathname, role === "COMPANY" ? "COMPANY" : "CANDIDATE");
