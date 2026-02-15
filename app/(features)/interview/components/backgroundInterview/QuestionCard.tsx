@@ -109,7 +109,7 @@ export default function QuestionCard({
   const audioChunksRef = useRef<Blob[]>([]);
   const controlsSoundRef = useRef<HTMLAudioElement | null>(null);
   const submitClickTimeRef = useRef<Date>(new Date());
-  const VIDEO_EVIDENCE_OFFSET_MS = 1000; // Same as coding stage
+  const questionReadyTimeRef = useRef<Date>(new Date()); // Timestamp when question becomes fully available
 
   // Word-by-word animation for question text
   const [questionAnimationEnabled, setQuestionAnimationEnabled] = useState(false);
@@ -139,6 +139,7 @@ export default function QuestionCard({
       setIsTextExpanded(false); // Reset text input to collapsed state
       setAnswer(""); // Clear any previous answer
       setIsTranscribing(false); // Reset transcription state
+      questionReadyTimeRef.current = new Date(); // Reset question ready timestamp for new question
 
       // If muted, skip TTS, animation, and show controls immediately
       if (isMuted) {
@@ -174,6 +175,9 @@ export default function QuestionCard({
           audio.volume = isMuted ? 0 : 1;
 
           audio.onplay = () => {
+            // Capture timestamp when question audio STARTS playing (not when it finishes)
+            questionReadyTimeRef.current = new Date();
+
             setIsAudioPlaying(true);
             onAudioStateChange?.(true, undefined, visemes);
             log.info(LOG_CATEGORY, "[QuestionCard] Audio playback started");
@@ -223,6 +227,9 @@ export default function QuestionCard({
       }
     }
   }, [isMuted, audioFinished, questionAnimationEnabled, isTypingComplete, completeAnimation, onAudioStateChange, intentText]);
+
+  // Note: questionReadyTimeRef is set when audio starts, not when it finishes
+  // This ensures evidence clips point to when the question is asked, not answered
 
   // Play sound when controls appear (after audio finishes)
   React.useEffect(() => {
@@ -396,15 +403,11 @@ export default function QuestionCard({
       log.warn(LOG_CATEGORY, '[QuestionCard] No interview session ID for evidence link');
       return;
     }
-    
-    const clickTime = submitClickTimeRef.current;
-    const evidenceTimestamp = new Date(clickTime.getTime() - VIDEO_EVIDENCE_OFFSET_MS);
-    
-    log.info(LOG_CATEGORY, '[QuestionCard] Creating evidence link:', {
-      clickTime: clickTime.toISOString(),
-      evidenceTimestamp: evidenceTimestamp.toISOString(),
-      questionNumber,
-    });
+
+    // Use the timestamp when the question audio started playing
+    const evidenceTimestamp = questionReadyTimeRef.current;
+
+    log.info(LOG_CATEGORY, '[QuestionCard] Creating background evidence link for question', questionNumber);
     
     const url = `/api/interviews/session/${interviewSessionId}/background-evidence`;
     
