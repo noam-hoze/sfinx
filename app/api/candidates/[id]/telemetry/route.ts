@@ -259,7 +259,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 const evidenceClips = telemetry?.evidenceClips || [];
                 const sessionIterations = iterationsBySession.get(session.id) || [];
 
-                const aiAssistUsageLinks: number[] = [];
+                const aiAssistUsageLinks: { timestamp: number; caption: string }[] = [];
 
                 // Add external tool usage evidence links and calculate breakdown
                 const sessionExternalTools = externalToolsBySession.get(session.id) || [];
@@ -305,22 +305,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
                     log.info(LOG_CATEGORY, "================================================");
                 }
                 
-                const avgAccountabilityScore = sessionExternalTools.length > 0 
-                    ? Math.round(totalScore / sessionExternalTools.length) 
+                const avgAccountabilityScore = sessionExternalTools.length > 0
+                    ? Math.round(totalScore / sessionExternalTools.length)
                     : null;
-
-                evidenceClips.forEach((clip: any) => {
-                    if (clip.startTime === null || clip.startTime === undefined)
-                        return;
-                    // Only process AI Assist Usage from evidence clips
-                    // Iteration evidence now comes from VideoChapters with evaluation status
-                    if (
-                        clip.category === "AI_ASSIST_USAGE" ||
-                        clip.title.includes("AI Assist")
-                    ) {
-                        aiAssistUsageLinks.push(clip.startTime);
-                    }
-                });
 
                 // Calculate score using scoring configuration
                 let calculatedScore: number | null = null;
@@ -623,12 +610,9 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             });
 
             // Create new clips from the body
-            const workstyleMetricsToUpdate = [
-                {
-                    title: "AI Assist Usage",
-                    data: body.workstyle.aiAssistUsage,
-                },
-            ];
+            // Note: "AI Assist Usage" evidence comes from ExternalToolUsage table, not EvidenceClip
+            // So we don't create EvidenceClip records for it here to avoid duplication
+            const workstyleMetricsToUpdate: Array<{ title: string; data: any }> = [];
 
             for (const metric of workstyleMetricsToUpdate) {
                 if (metric.data && metric.data.evidenceLinks) {

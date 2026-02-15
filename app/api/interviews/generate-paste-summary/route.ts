@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
 
         const systemPrompt = `You are evaluating a candidate's understanding of code they pasted during an interview.
 
-**Pasted Code:**
+**Pasted Code (for context only):**
 ${pastedContent}
 
 **Question & Answer History with Scores:**
@@ -41,11 +41,16 @@ ${qaHistory}
 **Average Score:** ${averageScore}/100
 
 **Your Task:**
-Write 1-2 sentences that SPECIFICALLY explain what the candidate understood about the code, referencing actual concepts or parts they grasped. Even with low scores, identify and describe what they got right or attempted to explain. Focus on what they DID understand, not what they didn't. Be descriptive and evidence-based.
+Write 1-2 sentences that accurately summarize what the candidate demonstrated in their ANSWERS. Evaluate strictly based on what the candidate actually said, not what you can infer from the code itself.
+
+- If the candidate said "I don't know" or gave minimal responses, reflect that accurately (e.g., "The candidate indicated limited understanding of the code.")
+- If the candidate explained concepts, reference what they specifically mentioned
+- Be accurate and evidence-based - only credit understanding that was demonstrated in their answers
 
 Examples:
-- Score 28/100: "The candidate understood the basic component structure and identified the useState hook, but struggled to explain lifecycle methods and data flow."
-- Score 65/100: "The candidate demonstrated solid understanding of prop handling and event binding, with some gaps in explaining optimization techniques."
+- Answer: "I don't know" → "The candidate indicated they were unfamiliar with the code structure."
+- Low score with attempted explanation → "The candidate identified the useState hook but struggled to explain lifecycle methods and data flow."
+- Good score → "The candidate demonstrated solid understanding of prop handling and event binding, with some gaps in optimization techniques."
 
 Return ONLY the summary text (no JSON, no extra formatting).`;
 
