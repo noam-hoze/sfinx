@@ -510,7 +510,27 @@ async function resetDatabase() {
 
             // Create jobs for this company
             for (const jobData of companyData.openRoles) {
-                await prisma.job.create({
+                // Create InterviewContent first if provided
+                let interviewContentId = undefined;
+                if (jobData.interviewContent) {
+                    const interviewContent = await prisma.interviewContent.create({
+                        data: {
+                            backgroundQuestion: jobData.interviewContent.backgroundQuestion,
+                            backgroundQuestionCategory: jobData.interviewContent.backgroundQuestionCategory || null,
+                            codingPrompt: jobData.interviewContent.codingPrompt,
+                            codingTemplate: jobData.interviewContent.codingTemplate,
+                            codingAnswer: jobData.interviewContent.codingAnswer,
+                            expectedOutput: jobData.interviewContent.expectedOutput || null,
+                            codingLanguage: jobData.interviewContent.codingLanguage,
+                            backgroundQuestionTimeSeconds: jobData.interviewContent.backgroundQuestionTimeSeconds,
+                            codingQuestionTimeSeconds: jobData.interviewContent.codingQuestionTimeSeconds,
+                        },
+                    });
+                    interviewContentId = interviewContent.id;
+                }
+
+                // Create Job with all fields
+                const job = await prisma.job.create({
                     data: {
                         id: `${companyData.id}-${jobData.title
                             .toLowerCase()
@@ -519,9 +539,26 @@ async function resetDatabase() {
                         type: mapJobType(jobData.type),
                         location: jobData.location,
                         salary: jobData.salary,
+                        description: jobData.description || null,
+                        requirements: jobData.requirements || null,
+                        codingCategories: jobData.codingCategories || null,
+                        experienceCategories: jobData.experienceCategories || null,
                         companyId: company.id,
+                        interviewContentId: interviewContentId,
                     },
                 });
+
+                // Create ScoringConfiguration if provided
+                if (jobData.scoringConfiguration) {
+                    await prisma.scoringConfiguration.create({
+                        data: {
+                            jobId: job.id,
+                            aiAssistWeight: jobData.scoringConfiguration.aiAssistWeight,
+                            experienceWeight: jobData.scoringConfiguration.experienceWeight,
+                            codingWeight: jobData.scoringConfiguration.codingWeight,
+                        },
+                    });
+                }
             }
 
             log.info(LOG_CATEGORY, `   └─ Created ${companyData.openRoles.length} jobs for ${company.name}`);
