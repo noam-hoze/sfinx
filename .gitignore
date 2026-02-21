@@ -28,6 +28,11 @@ app/api/debug/seed/ok
 .DS_Store
 .idea/
 
+# Claude Code — commit agents, ignore local settings and session data
+.claude/settings.local.json
+.claude/projects/
+.claude/agent-memory/
+
 # Cursor workspace (keep only shared rules/commands)
 .cursor/*
 !.cursor/rules/**
