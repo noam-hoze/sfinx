@@ -9,6 +9,7 @@ export { useBackgroundPreload } from "./useBackgroundPreload";
 export { useAnnouncementGeneration } from "./useAnnouncementGeneration";
 export { useSoundPreload } from "./useSoundPreload";
 export { useBackgroundAnswerHandler } from "./useBackgroundAnswerHandler";
+export { prefetchInterviewScripts } from "./prefetchScripts";
 
 // Answer classification utilities and types
 export {
