@@ -42,6 +42,21 @@ Purple ramp used in spinner: `#8B5CF6` (500), `#A78BFA` (400), `#C4B5FD` (300), 
 
 - `/app/(features)/company-dashboard/content.tsx` has parse errors (TS1003, TS1005, etc.) — pre-existing, unrelated to spinner work.
 
+## company-dashboard Patterns (confirmed)
+
+- **Import path for navigationSlice**: `@/shared/state/slices/navigationSlice` (NOT `app/shared/...`)
+- **Import path for SfinxSpinner**: `app/shared/components/SfinxSpinner` (bare, no `@`)
+- **Import path for DashboardPageLayout**: `{ DashboardPageLayout } from "app/shared/components"` (barrel)
+- **DashboardPageLayout props**: `title`, `subtitle`, optional `action`, `children` — wraps in `min-h-screen p-8 md:p-12`
+- **BentoStats grid**: 4-col/2-row via inline `style`, not Tailwind class. Featured tile uses `gridColumn:"3/5"` + `gridRow:"1/3"`, purple gradient, no `glass-card` class
+- **AnimatedStat**: `useMotionValue` + `useTransform` + `animate` from framer-motion; add `count` to `useEffect` deps array
+- **Table row key**: use `applicationId` (unique per application), not `id` (candidate may appear multiple times)
+- **Top-performer detection**: `index < 5` on already-filtered sorted array — top 5 in the current view, not globally
+- **PendingTable opacity**: set on wrapper via `animate={{ opacity: 0.6 }}` and `className="opacity-60"` together
+- **Job filter**: only render when `data.jobs.length > 1`; clicking active pill resets to null (toggle behavior)
+- **AnimatePresence**: wrap each conditional table section separately with `mode="wait"` and `key` based on filter state
+- **animate-subtle-pulse**: defined in `/app/globals.css`, safe to use via className
+
 ## Workflow Notes
 
 - pnpm is the package manager (`pnpm exec tsc --noEmit` for type checks)
