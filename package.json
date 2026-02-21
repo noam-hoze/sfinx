@@ -43,6 +43,7 @@
     "@prisma/client": "^6.15.0",
     "@react-three/drei": "9.88.13",
     "@react-three/fiber": "8.15.19",
+    "@react-three/postprocessing": "^2.16.2",
     "@reduxjs/toolkit": "^2.9.0",
     "@rive-app/react-canvas": "^4.26.1",
     "@types/node-cache": "^4.2.5",
