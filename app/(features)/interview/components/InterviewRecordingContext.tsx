@@ -16,7 +16,6 @@ export type InterviewRecordingContextValue = {
     setInterviewSessionId: (sessionId: string | null) => void;
     startRecording: () => Promise<boolean>;
     stopRecording: () => Promise<void>;
-    insertRecordingUrl: () => Promise<void>;
     requestRecordingPermission: () => Promise<boolean>;
     setRecordingPermissionGranted: (granted: boolean) => void;
     setMicPermissionGranted: (granted: boolean) => void;
