@@ -222,12 +222,8 @@ export function isGibberishAnswer(answer: string): boolean {
   // Repeated patterns like "asdf asdf asdf" or "blah blah blah"
   if (/^(\w{2,4})\s*\1\s*\1/.test(trimmed.toLowerCase())) return true;
 
-  // Random keyboard mashing (3+ consonants in a row, repeated)
-  // TODO: [Bug] This regex matches any 3+ consecutive consonants, which is extremely common in legitimate English
-  //        and technical words: "string", "script", "strength", "blockchain", "struct", "ctrl", etc. Short technical
-  //        answers like "blockchain" (10 chars, < 15) or "strings" will be falsely flagged as gibberish. Tighten
-  //        the pattern to require 5+ consonants, or check for consonant clusters that are not valid English digraphs.
-  if (/([bcdfghjklmnpqrstvwxyz]{3,})/gi.test(trimmed) && trimmed.length < 15) return true;
+  // Random keyboard mashing (5+ consonants in a row, unlikely in legitimate English)
+  if (/([bcdfghjklmnpqrstvwxyz]{5,})/gi.test(trimmed) && trimmed.length < 15) return true;
 
   return false;
 }
