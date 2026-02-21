@@ -341,12 +341,15 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                             logger.error("❌ [PASTE_EVAL] Evaluation generation failed:", evalError);
                         }
 
+                        if (!activePasteEval.aiQuestionTimestamp) {
+                            logger.warn("⚠️ [PASTE_EVAL] aiQuestionTimestamp missing, using paste detection timestamp as fallback");
+                        }
                         const dbPayload = {
                             timestamp: activePasteEval.timestamp,
                             pastedContent: activePasteEval.pastedContent,
                             characterCount: activePasteEval.pastedContent.length,
                             aiQuestion: activePasteEval.questionScores.map((qs: any) => qs.question).join("\n"),
-                            aiQuestionTimestamp: activePasteEval.aiQuestionTimestamp || Date.now(),
+                            aiQuestionTimestamp: activePasteEval.aiQuestionTimestamp || activePasteEval.timestamp,
                             userAnswer: activePasteEval.questionScores.map((qs: any) => qs.answer).join("\n"),
                             understanding,
                             accountabilityScore: avgScore,
@@ -382,7 +385,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                             pastedContent: activePasteEval.pastedContent,
                             characterCount: activePasteEval.pastedContent.length,
                             aiQuestion: activePasteEval.topics?.map((t: any) => t.question).join("\n") || "No response provided",
-                            aiQuestionTimestamp: activePasteEval.aiQuestionTimestamp || Date.now(),
+                            aiQuestionTimestamp: activePasteEval.aiQuestionTimestamp || activePasteEval.timestamp,
                             userAnswer: "",
                             understanding: "none",
                             accountabilityScore: 0,

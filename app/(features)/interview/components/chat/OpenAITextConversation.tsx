@@ -300,8 +300,9 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
         }));
         
         if (initialQuestion) {
-          // Use paste detection timestamp for evidence link (when green highlight appears)
-          const aiQuestionTimestamp = timestamp;
+          // Use current time (when AI question is actually posted) for evidence clip timing
+          // This is when the question appears on screen, not when the paste was detected
+          const aiQuestionTimestamp = Date.now();
           post(initialQuestion, "ai", { isPasteEval: true, pasteEvaluationId });
 
           // Play tool usage sound effect (same as question completion sound)
