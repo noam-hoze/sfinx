@@ -6,12 +6,12 @@
  * response containing `<script>` tags or `on*` event handlers would execute in the
  * company user's browser.
  *
- * Fix: DOMPurify.sanitize() is called before rendering, with an allowlist that
- * permits only `<span style="...">` — the format OpenAI produces for color emphasis.
+ * Fix: renderStoryWithEmphasis uses the browser's built-in DOMParser to rebuild
+ * the HTML tree from scratch, keeping only `<span style="...">` — the format
+ * OpenAI produces for color emphasis. All other tags and attributes are stripped.
  *
- * These tests verify the sanitization wrapper logic in isolation by mocking DOMPurify,
- * since the project's vitest environment is Node.js (no DOM/jsdom available).
- * The DOMPurify library itself is a well-tested upstream dependency.
+ * These tests verify the sanitization policy in isolation using a simple
+ * stripping implementation (no DOM/jsdom required in the test environment).
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
