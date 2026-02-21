@@ -311,6 +311,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
                 // Calculate score using scoring configuration
                 let calculatedScore: number | null = null;
+                let calculatedExperienceScore: number | null = null;
+                let calculatedCodingScore: number | null = null;
                 const jobId = session.application?.job?.id;
                 const scoringConfig = jobId ? scoringConfigsByJobId.get(jobId) : null;
                 const backgroundSummary = backgroundSummariesBySessionId.get(session.id);
@@ -342,10 +344,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         };
 
                         const sessionExternalTools = externalToolsBySession.get(session.id) || [];
-                        const totalScore = sessionExternalTools.reduce((sum: number, tool: any) => 
+                        const totalScore = sessionExternalTools.reduce((sum: number, tool: any) =>
                             sum + (tool.accountabilityScore || 0), 0);
-                        const avgAccountabilityScore = sessionExternalTools.length > 0 
-                            ? Math.round(totalScore / sessionExternalTools.length) 
+                        const avgAccountabilityScore = sessionExternalTools.length > 0
+                            ? Math.round(totalScore / sessionExternalTools.length)
                             : undefined;
 
                         const workstyleMetrics: WorkstyleMetrics = {
@@ -354,6 +356,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
                         const result = calculateScore(rawScores, workstyleMetrics, scoringConfig as ScoringConfiguration);
                         calculatedScore = result.finalScore;
+                        calculatedExperienceScore = result.experienceScore;
+                        calculatedCodingScore = result.codingScore;
                         log.info(LOG_CATEGORY, `[Telemetry API] Calculated score for session ${session.id}:`, calculatedScore);
                     } catch (error) {
                         log.error(LOG_CATEGORY, `[Telemetry API] Error calculating score for session ${session.id}:`, error);
@@ -362,12 +366,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
                 return {
                     id: session.id,
+                    status: session.status,
                     createdAt: session.createdAt,
                     videoUrl: session.videoUrl,
                     duration: session.duration,
                     finalScore: session.finalScore,
                     matchScore: telemetry?.matchScore ?? null,
                     calculatedScore,
+                    calculatedExperienceScore,
+                    calculatedCodingScore,
                     confidence: telemetry?.confidence ?? null,
                     story: telemetry?.story ?? null,
                     application: session.application ? {
@@ -505,7 +512,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
         log.info(LOG_CATEGORY, "[Telemetry API] Returning sessions count:", sessions.length);
         log.info(LOG_CATEGORY, "[Telemetry API] First session videoUrl:", sessions[0]?.videoUrl);
 
-        await setCached(cacheKey, response);
+        // Skip caching when any session is still being processed, or when a
+        // completed session is missing its videoUrl (video upload may still be
+        // in-flight from the candidate's browser).
+        const hasPendingSessions = interviewSessions.some(
+            (s) =>
+                s.status === "IN_PROGRESS" ||
+                s.status === "PROCESSING" ||
+                (s.status === "COMPLETED" && !s.videoUrl)
+        );
+        if (!hasPendingSessions) {
+            await setCached(cacheKey, response);
+        }
         return NextResponse.json(response);
     } catch (error) {
         log.error(LOG_CATEGORY, "[Telemetry API GET] Error:", error);

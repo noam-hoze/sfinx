@@ -21,6 +21,9 @@ export const useScreenRecording = () => {
     const selectedMimeTypeRef = useRef<string>("");
     const interviewSessionIdRef = useRef<string | null>(null);
     const actualRecordingStartTimeRef = useRef<Date | null>(null);
+    // Resolves once onstop + uploadRecordingToServer have fully completed.
+    // Used by stopRecording() so callers can await the upload.
+    const uploadCompleteRef = useRef<(() => void) | null>(null);
 
     const setInterviewSessionId = useCallback((sessionId: string | null) => {
         setInterviewSessionIdState(sessionId);
@@ -229,19 +232,25 @@ export const useScreenRecording = () => {
                     "recordingUploaded =",
                     recordingUploaded
                 );
-                if (interviewSessionIdRef.current && !recordingUploaded) {
-                    log.info(LOG_CATEGORY, 
-                        "🚀 Auto-uploading recording for session:",
-                        interviewSessionIdRef.current
-                    );
-                    await uploadRecordingToServer(blob);
-                } else {
-                    log.info(LOG_CATEGORY, 
-                        "Cannot auto-upload: sessionId=",
-                        interviewSessionIdRef.current,
-                        "uploaded=",
-                        recordingUploaded
-                    );
+                try {
+                    if (interviewSessionIdRef.current && !recordingUploaded) {
+                        log.info(LOG_CATEGORY,
+                            "🚀 Auto-uploading recording for session:",
+                            interviewSessionIdRef.current
+                        );
+                        await uploadRecordingToServer(blob);
+                    } else {
+                        log.info(LOG_CATEGORY,
+                            "Cannot auto-upload: sessionId=",
+                            interviewSessionIdRef.current,
+                            "uploaded=",
+                            recordingUploaded
+                        );
+                    }
+                } finally {
+                    // Signal stopRecording() that the upload is done (success or fail).
+                    uploadCompleteRef.current?.();
+                    uploadCompleteRef.current = null;
                 }
 
                 mediaRecorderRef.current = null;
@@ -307,11 +316,17 @@ export const useScreenRecording = () => {
     }, [isRecording, recordingPermissionGranted, requestRecordingPermission]);
 
     const stopRecording = useCallback(async () => {
-        if (mediaRecorderRef.current) {
-            if (mediaRecorderRef.current.state === "recording") {
-                mediaRecorderRef.current.requestData();
-                mediaRecorderRef.current.stop();
-            }
+        if (!mediaRecorderRef.current) return;
+
+        if (mediaRecorderRef.current.state === "recording") {
+            // Register the resolver BEFORE calling stop() so onstop always
+            // finds it set, regardless of how quickly the event fires.
+            const uploadDone = new Promise<void>((resolve) => {
+                uploadCompleteRef.current = resolve;
+            });
+
+            mediaRecorderRef.current.requestData();
+            mediaRecorderRef.current.stop();
 
             setIsRecording(false);
 
@@ -321,110 +336,25 @@ export const useScreenRecording = () => {
                     .forEach((track) => track.stop());
             }
 
-            log.info(LOG_CATEGORY, "✅ Screen recording stopped");
-        }
-    }, []);
+            log.info(LOG_CATEGORY, "✅ Screen recording stopped, waiting for upload…");
 
-    const insertRecordingUrl = useCallback(async () => {
-        log.info(LOG_CATEGORY, "🚀 insertRecordingUrl called");
-        log.info(LOG_CATEGORY, "📋 Current state:", {
-            interviewSessionId,
-            recordingUrl,
-            recordingUploaded,
-            recordedChunksLength: recordedChunksRef.current.length,
-        });
+            // Wait for onstop + uploadRecordingToServer to finish so the caller
+            // can be confident that videoUrl is in the DB before proceeding.
+            await uploadDone;
 
-        if (!interviewSessionId) {
-            log.info(LOG_CATEGORY, "No interview session ID available yet");
-            return;
-        }
+            log.info(LOG_CATEGORY, "✅ Recording upload complete");
+        } else {
+            setIsRecording(false);
 
-        if (!recordingUrl) {
-            log.info(LOG_CATEGORY, "No recording available to upload");
-            return;
-        }
-
-        if (recordingUploaded) {
-            log.info(LOG_CATEGORY, "Recording already uploaded");
-            return;
-        }
-
-        if (recordedChunksRef.current.length === 0) {
-            log.warn(LOG_CATEGORY, "No recording blob available");
-            return;
-        }
-
-        const blob = recordedChunksRef.current[0];
-        if (!(blob instanceof Blob)) {
-            log.warn(LOG_CATEGORY, "Invalid recording blob");
-            return;
-        }
-
-        log.info(LOG_CATEGORY, "📁 Blob details:", {
-            size: blob.size,
-            type: blob.type,
-        });
-
-        log.info(LOG_CATEGORY, 
-            "🚀 Event handler: Inserting recording URL for session:",
-            interviewSessionId
-        );
-
-        try {
-            log.info(LOG_CATEGORY, "📤 Starting direct Blob upload...");
-            log.info(LOG_CATEGORY, "📁 Blob size:", blob.size, "bytes");
-
-            const filename = `interview-${interviewSessionId}.mp4`;
-
-            // Direct client-side upload to Vercel Blob (bypasses API route size limits)
-            const blobResult = await upload(filename, blob, {
-                access: "public",
-                handleUploadUrl: "/api/interviews/session/blob-upload-url",
-                allowOverwrite: true,
-            });
-
-            const recordingUrl = blobResult.url;
-            log.info(LOG_CATEGORY, "✅ Recording uploaded to Blob:", recordingUrl);
-
-            const updateUrl = `/api/interviews/session/${interviewSessionId}`;
-
-            log.info(LOG_CATEGORY, 
-                "📤 Sending update request to:",
-                updateUrl,
-                "videoUrl:",
-                recordingUrl
-            );
-            const updateResponse = await fetch(
-                updateUrl,
-                {
-                    method: "PATCH",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        videoUrl: recordingUrl,
-                    }),
-                }
-            );
-
-            log.info(LOG_CATEGORY, "📤 Update response status:", updateResponse.status);
-
-            if (!updateResponse.ok) {
-                const errorText = await updateResponse.text();
-                log.error(LOG_CATEGORY, "❌ Update response text:", errorText);
-                log.error(LOG_CATEGORY, "❌ Update failed:", errorText);
-                throw new Error(
-                    `Failed to update interview session: ${updateResponse.status}`
-                );
+            if (mediaRecorderRef.current.stream) {
+                mediaRecorderRef.current.stream
+                    .getTracks()
+                    .forEach((track) => track.stop());
             }
 
-            await updateResponse.json();
-            log.info(LOG_CATEGORY, "✅ Interview session updated successfully");
-            setRecordingUploaded(true);
-        } catch (error) {
-            log.error(LOG_CATEGORY, "❌ Error in insertRecordingUrl event handler:", error);
+            log.info(LOG_CATEGORY, "✅ Screen recording stopped (was not recording)");
         }
-    }, [interviewSessionId, recordingUploaded, recordingUrl]);
+    }, []);
 
     const getActualRecordingStartTime = useCallback(() => {
         return actualRecordingStartTimeRef.current;
@@ -440,7 +370,6 @@ export const useScreenRecording = () => {
         setInterviewSessionId,
         startRecording,
         stopRecording,
-        insertRecordingUrl,
         requestRecordingPermission,
         setRecordingPermissionGranted,
         setMicPermissionGranted,
