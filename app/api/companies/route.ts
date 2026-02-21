@@ -82,6 +82,7 @@ export async function GET(request: NextRequest) {
             const applications = await (prisma as any).application.findMany({
                 where: {
                     candidateId: userId,
+                    status: { not: "WARMUP" },
                 },
                 include: {
                     job: {
