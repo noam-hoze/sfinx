@@ -29,6 +29,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         log.info(LOG_CATEGORY, "[background-chapters/POST] ========== START ==========");
 
         const url = new URL(request.url);
+        // TODO: [Bug] skip-auth=true lets any unauthenticated caller bypass authentication and perform privileged
+        //        operations by supplying an arbitrary userId. Remove or gate behind a server-side secret.
         const skipAuth = url.searchParams.get("skip-auth") === "true";
 
         const session = await getServerSession(authOptions);

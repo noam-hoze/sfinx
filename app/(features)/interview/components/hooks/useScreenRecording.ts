@@ -43,6 +43,12 @@ export const useScreenRecording = () => {
                 recordingUploaded
             );
 
+            // TODO: [Bug] recordingUploaded is a React state value captured in this useCallback's closure. Because
+            //        it is listed as a dependency (line 107), a new callback is created each time it changes — but
+            //        the onstop handler (line ~232) was registered when the MediaRecorder was created and holds the
+            //        OLD callback. This means onstop can fire with a stale recordingUploaded=false even after the
+            //        upload completed, causing a duplicate upload. Replace the state-based guard with a ref:
+            //        const recordingUploadedRef = useRef(false) and read/write that inside both callbacks.
             if (!interviewSessionIdRef.current || recordingUploaded) {
                 log.info(LOG_CATEGORY, 
                     "Cannot upload: sessionId=",

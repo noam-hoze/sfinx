@@ -24,6 +24,8 @@ function normalizeJobId(jobId: string | string[] | undefined): string {
  */
 export async function GET(request: NextRequest, context: RouteContext) {
     try {
+        // TODO: [Bug] skip-auth=true lets any unauthenticated caller bypass authentication and perform privileged
+        //        operations by supplying an arbitrary userId. Remove or gate behind a server-side secret.
         const skipAuth = request.nextUrl.searchParams.get("skip-auth") === "true";
 
         const params = await context.params;

@@ -26,6 +26,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     try {
         log.info(LOG_CATEGORY, "[Session TERMINATE] === TERMINATE REQUEST RECEIVED ===");
 
+        // TODO: [Bug] skip-auth=true lets any unauthenticated caller bypass authentication and perform privileged
+        //        operations by supplying an arbitrary userId. Remove or gate behind a server-side secret.
         const skipAuth = request.nextUrl.searchParams.get("skip-auth") === "true";
         const shouldSkipAuth = skipAuth;
 

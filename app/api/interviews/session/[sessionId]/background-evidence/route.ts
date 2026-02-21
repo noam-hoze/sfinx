@@ -27,6 +27,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         log.info(LOG_CATEGORY, "[background-evidence/POST] ========== START ==========");
 
         const url = new URL(request.url);
+        // TODO: [Bug] skip-auth=true lets any unauthenticated caller write background-evidence records for any session
+        //        by supplying an arbitrary userId. Remove or gate behind a server-side secret.
         const skipAuth = url.searchParams.get("skip-auth") === "true";
 
         const session = await getServerSession(authOptions);

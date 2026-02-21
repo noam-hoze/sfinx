@@ -65,6 +65,10 @@ function base64ToUint8Array(base64: string): Uint8Array {
   let byteIndex = 0;
   for (let i = 0; i < cleanedBase64.length; i += 4) {
     // Get 4 base64 characters (or less for the last group)
+    // TODO: [Bug] The `|| 0` fallback silently maps invalid or unrecognized base64 characters to 0 instead of
+    //        throwing an error. A corrupted or maliciously crafted base64 string will decode to wrong byte values
+    //        without any signal — producing corrupt PCM/WAV audio data. Replace `|| 0` with an explicit lookup
+    //        check: if lookupTable[char] === undefined, throw new Error(`Invalid base64 character: ${char}`).
     const char1 = lookupTable[cleanedBase64[i]] || 0;
     const char2 = lookupTable[cleanedBase64[i + 1]] || 0;
     const char3 = lookupTable[cleanedBase64[i + 2]] || 0;

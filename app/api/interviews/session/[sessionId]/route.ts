@@ -21,7 +21,9 @@ function normalizeSessionId(sessionId: string | string[] | undefined) {
 export async function GET(request: NextRequest, context: RouteContext) {
     try {
         log.info(LOG_CATEGORY, "[Session GET] === FETCH REQUEST RECEIVED ===");
-        
+
+        // TODO: [Bug] skip-auth=true lets any unauthenticated caller bypass authentication and perform privileged
+        //        operations by supplying an arbitrary userId. Remove or gate behind a server-side secret.
         const skipAuth = request.nextUrl.searchParams.get("skip-auth") === "true";
         const shouldSkipAuth = skipAuth;
         
@@ -88,6 +90,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         log.info(LOG_CATEGORY, "[Session PATCH] === UPDATE REQUEST RECEIVED ===");
         log.info(LOG_CATEGORY, "[Session PATCH] URL:", request.url);
 
+        // TODO: [Bug] skip-auth=true lets any unauthenticated caller bypass authentication and perform privileged
+        //        operations by supplying an arbitrary userId. Remove or gate behind a server-side secret.
         const skipAuth = request.nextUrl.searchParams.get("skip-auth") === "true";
         const shouldSkipAuth = skipAuth;
         

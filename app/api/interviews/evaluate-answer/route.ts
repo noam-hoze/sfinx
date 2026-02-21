@@ -8,6 +8,8 @@ import { CONTRIBUTIONS_TARGET } from "shared/constants/interview";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
+// TODO: [Bug] Same as chat/route.ts — NEXT_PUBLIC_ leaks this key into the client bundle. API routes are server-only;
+//        use OPENAI_API_KEY (no prefix) so Next.js never includes it in the browser-facing JavaScript.
 const openai = new OpenAI({
     apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
 });
@@ -331,6 +333,10 @@ CRITICAL RULES:
                 ]);
             });
 
+        // TODO: [Bug] Fire-and-forget: the response is returned to the client before any DB writes complete. If
+        //        Promise.all rejects (e.g. DB constraint violation), the client already received a "success" response
+        //        with updatedCounts but no data was persisted — creating a permanent split-brain between client state
+        //        and the database. Either await Promise.all before responding, or implement a retry/dead-letter queue.
         // Fire-and-forget DB operations (async, non-blocking)
         Promise.all(dbOperations).then(() => {
             log.info(LOG_CATEGORY, `[evaluate-answer] ✅ Async DB save complete. ${evaluation.evaluations.filter((e: any) => e.strength > 0).length} contributions saved.`);

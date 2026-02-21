@@ -164,6 +164,10 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         if (interview !== undefined) {
             if (interview === null) {
                 if (interviewContentId) {
+                    // TODO: [Bug] TOCTOU race condition: count, updateMany, and delete are three separate DB calls with
+                    //        no transaction. Between the count and the delete, a concurrent request could assign this
+                    //        interviewContent to another job, causing us to delete shared content that is still in use.
+                    //        Wrap the entire count + update + delete block in a prisma.$transaction().
                     const usageCount = await (prisma as any).job.count({
                         where: { interviewContentId },
                     });

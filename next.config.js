@@ -6,9 +6,11 @@ const nextConfig = {
             fullUrl: false,
         },
     },
+    // TODO: [Bug] ignoreDuringBuilds disables ESLint checks in CI; re-enable to catch lint regressions before deployment
     eslint: {
         ignoreDuringBuilds: true,
     },
+    // TODO: [Bug] ignoreBuildErrors suppresses real TypeScript type errors from CI/CD; should be false in production to catch regressions at build time
     typescript: {
         ignoreBuildErrors: true,
     },

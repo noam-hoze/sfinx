@@ -213,6 +213,9 @@ export async function POST(request: NextRequest) {
             )[0].categoryName;
         } else {
             // MODE 2: Rebalance - pick weakest category (lowest avgStrength)
+            // TODO: [Bug] countsForSelection may be empty if all categories were filtered out by excluded topics above;
+            //        accessing [0] on an empty array returns undefined and .categoryName will throw a TypeError,
+            //        crashing this endpoint. Add a guard: if (!countsForSelection.length) return a 400 or a fallback topic.
             newFocusTopic = countsForSelection.sort((a: any, b: any) =>
                 a.avgStrength - b.avgStrength
             )[0].categoryName;

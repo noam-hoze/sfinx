@@ -193,6 +193,10 @@ export function useBackgroundAnswerHandler(
 
               // CALL 2: Score Answer (ASYNC, ~2-3s, non-blocking)
               log.info(LOG_CATEGORY, "[split-eval] Calling score-answer endpoint (async)...");
+              // TODO: [Bug] Debug-only fetch to localhost:7244 left in production code. Every answer submission sends
+              //        the candidate's answer text, session ID, category stats, and focus topic to an external
+              //        localhost endpoint. This is a data leak and dead code in production. Remove all #region agent
+              //        log blocks throughout this file (lines ~196, ~215, ~222, ~226, ~244, ~252, ~270, ~286).
               // #region agent log
               fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useBackgroundAnswerHandler.ts:191',message:'Before score-answer call',data:{answer,currentFocusTopic,categoryStatsSnapshot:categoryStats.map((c:any)=>({name:c.categoryName,dontKnowCount:c.dontKnowCount}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,D'})}).catch(()=>{});
               // #endregion
@@ -209,6 +213,10 @@ export function useBackgroundAnswerHandler(
                   clientSideIncremented: isExactDontKnowAnswer,
                 })
               }).then(async (scoreResponse) => {
+                // TODO: [Bug] scoreResponse.ok is not checked before calling .json(). If the score-answer endpoint
+                //        returns a 500 with a non-JSON body (e.g. an HTML error page from Next.js), .json() will throw
+                //        inside this .then() block and the error will bypass the .catch() below, resulting in an
+                //        unhandled promise rejection. Check scoreResponse.ok first and throw an Error if it's false.
                 const scoreData = await scoreResponse.json();
                 log.info(LOG_CATEGORY, `[split-eval] Scores received in ${scoreData.latencyMs || 0}ms`);
 
@@ -264,6 +272,8 @@ export function useBackgroundAnswerHandler(
                   currentCounts: categoryStats,
                 })
               }).then(async (fullResponse) => {
+                // TODO: [Bug] Same as score-answer above — fullResponse.ok is not checked before calling .json().
+                //        A non-JSON 500 response will throw inside .then() and bypass the .catch() below.
                 const fullData = await fullResponse.json();
                 log.info(LOG_CATEGORY, "[split-eval] Full evaluation complete");
 

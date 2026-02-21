@@ -12,6 +12,9 @@ export async function POST(request: NextRequest) {
         log.info(LOG_CATEGORY, "🔍 Interview session creation API called");
 
         const url = new URL(request.url);
+        // TODO: [Bug] skip-auth=true lets any caller bypass authentication and supply an arbitrary userId in the request
+        //        body; anyone who knows the URL can create interview sessions on behalf of any user. Remove or gate
+        //        behind a server-side secret (e.g. compare against an INTERNAL_API_SECRET env var).
         const skipAuth = url.searchParams.get("skip-auth") === "true";
 
         const session = await getServerSession(authOptions);
@@ -84,6 +87,9 @@ export async function POST(request: NextRequest) {
         try {
             const txResult = await prisma.$transaction(async (tx) => {
                 log.info(LOG_CATEGORY, "🧾 [TX] Creating InterviewSession...");
+                // TODO: [Bug] recordingStartedAt is a client-supplied timestamp; a malicious client can set it to any
+                //        value (past or future) to manipulate video chapter offsets and evidence clip timings. The
+                //        server should use new Date() as the authoritative start time and ignore the client value.
                 const actualRecordingStartTime = recordingStartedAt ? new Date(recordingStartedAt) : new Date();
                 log.info(LOG_CATEGORY, "📹 Using recording start time:", actualRecordingStartTime.toISOString(), recordingStartedAt ? "(from client)" : "(fallback)");
                 const interviewSession = await tx.interviewSession.create({

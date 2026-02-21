@@ -193,11 +193,20 @@ export default function QuestionCard({
           setTtsError(
             error instanceof Error ? error.message : "TTS generation failed"
           );
+          // TODO: [Bug] setIsAudioPlaying(true) in the error path is wrong — no audio is playing when TTS fails.
+          //        This leaves isAudioPlaying=true with no audio running, putting the component in a contradictory
+          //        state (mascot may stay in "speaking" animation, controls may not appear correctly).
+          //        Change this to setIsAudioPlaying(false), or remove it since setAudioFinished(true) below already
+          //        advances to the controls-visible state.
           setIsAudioPlaying(true); // Show question even if audio fails
           setAudioFinished(true); // Skip to finished state if audio fails
         }
       })();
     }
+  // TODO: [Bug] mascotEnabled is used inside this effect (passed to generateAudioAndVisemes on line ~160) but is
+  //        missing from the dependency array. If mascotEnabled changes after mount (e.g. user preference loaded
+  //        async), the effect will silently use the stale initial value for all subsequent questions, generating
+  //        audio with the wrong mascot setting. Add mascotEnabled to the dependency array.
   }, [question, prevQuestion, isMuted]);
 
   // Handle mute toggle during playback - special behavior for QuestionCard
