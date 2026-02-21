@@ -30,6 +30,7 @@ export interface SummaryInput {
     rationales?: CategoryRationales;
     companyName: string;
     roleName: string;
+    finalScore?: number; // Overall final score (0-100) if available
 }
 
 export interface CategoryOutput {
@@ -53,7 +54,7 @@ export interface SummaryOutput {
 }
 
 export function buildBackgroundSummaryPrompt(input: SummaryInput): string {
-    const { messages, experienceCategories, scores, rationales, companyName, roleName } = input;
+    const { messages, experienceCategories, scores, rationales, companyName, roleName, finalScore } = input;
 
     // Format conversation transcript
     const transcript = messages
@@ -80,6 +81,34 @@ export function buildBackgroundSummaryPrompt(input: SummaryInput): string {
     const rationalesSection = rationales
         ? `- AI Evaluation Notes:\n${experienceCategories.map(cat => `  * ${cat.name}: ${rationales[cat.name] || "N/A"}`).join('\n')}`
         : '';
+
+    // Use final score if provided, otherwise calculate average from experience categories
+    const averageScore = finalScore !== undefined && finalScore !== null
+        ? finalScore
+        : (scores && experienceCategories.length > 0
+            ? Math.round(
+                experienceCategories.reduce((sum, cat) => sum + (scores[cat.name] || 0), 0) /
+                experienceCategories.length
+              )
+            : null);
+
+    const scoreContext = averageScore !== null
+        ? `\n- **Average Category Score: ${averageScore}/100** - This is the candidate's overall experience score. You MUST use this exact number when referencing the average score in your recommendation.`
+        : '';
+
+    // Build recommendation guidelines
+    const recommendationGuidelines = `
+RECOMMENDATION GUIDELINES:
+When making your hiring recommendation, use the **Average Category Score** provided above as your primary reference:
+
+- **Strong Hire** (typically 80+ average): Exceptional performance across most/all categories. Clear evidence of mastery and experience.
+- **Hire** (typically 60-79 average): Solid performance with clear strengths. Some areas may need development but overall qualified for the role.
+- **Maybe** (typically 40-59 average): Mixed performance. Shows potential but significant gaps or concerns exist. Could be right fit with more assessment.
+- **No Hire** (typically <40 average): Weak performance across categories. Limited relevant experience or inability to demonstrate competence.
+
+CRITICAL: Your recommendation MUST align with the numerical evidence. When referencing the average score in your recommendation, use the EXACT "Average Category Score" number provided in the context above - do not calculate your own average. If the average is below 40, you should strongly lean toward "No Hire" or "Maybe" at best. A "Hire" or "Strong Hire" recommendation with low scores requires extraordinary justification (e.g., one critical category is very strong, or interview conditions were poor).
+
+If you believe there's a mismatch between scores and your recommendation, explicitly acknowledge this in your rationale and explain why (e.g., "Despite average score of 35 across categories, recommend Maybe because candidate showed strong problem-solving approach even with limited depth of experience").`;
 
     // Build JSON structure for each category
     const categoryJsonStructure = experienceCategories
@@ -110,8 +139,10 @@ CONTEXT:
 - This was the background stage of a technical interview
 - The AI interviewer assessed the following experience categories:
 ${categoryList}
-${scoresSection}
+${scoresSection}${scoreContext}
 ${rationalesSection}
+
+${recommendationGuidelines}
 
 CONVERSATION TRANSCRIPT:
 ${transcript}
@@ -126,7 +157,7 @@ IMPORTANT:
 {
   "executiveSummary": "2-3 paragraph overview of the candidate's overall performance, key strengths, and any concerns. Written for busy executives.",
   "executiveSummaryOneLiner": "Single sentence (15-25 words) capturing the most critical insight from the executive summary.",
-  "recommendation": "Clear recommendation: 'Strong Hire', 'Hire', 'Maybe', or 'No Hire' with 1 sentence rationale",
+  "recommendation": "Clear recommendation: 'Strong Hire', 'Hire', 'Maybe', or 'No Hire' based on the scoring guidelines above. Include 1-2 sentence rationale that explicitly references the Average Category Score provided in the context and explains how it justifies the recommendation.",
   "experienceCategories": {
 ${categoryJsonStructure}
   }
@@ -143,6 +174,8 @@ WRITING GUIDELINES:
 8. Use concrete examples from the conversation
 9. Avoid jargon and buzzwords - be direct
 10. Make the recommendation actionable
+11. Ensure executive summary reflects the numerical reality - don't inflate language if scores are low
+12. If scores are low (<40 average) but you see potential, focus on growth areas and what's missing rather than overstating current capabilities
 
 Return ONLY the JSON object, no other text.`;
 

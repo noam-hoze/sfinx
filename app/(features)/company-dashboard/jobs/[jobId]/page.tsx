@@ -36,9 +36,12 @@ interface JobDetailResponse {
     interviewContent: null | {
         id: string;
         backgroundQuestion: string | null;
+        backgroundQuestionCategory: string | null;
         codingPrompt: string;
         codingTemplate: string | null;
         codingAnswer: string | null;
+        expectedOutput: string | null;
+        codingLanguage: string;
         backgroundQuestionTimeSeconds: number;
         codingQuestionTimeSeconds: number;
     };
@@ -237,6 +240,10 @@ function CompanyJobDetailContent() {
             if (hasInterviewContent) {
                 payload.interviewContent = {
                     backgroundQuestion: interviewState.backgroundQuestion,
+                    backgroundQuestionCategory:
+                        interviewState.backgroundQuestionCategory.length > 0
+                            ? interviewState.backgroundQuestionCategory
+                            : null,
                     codingPrompt: interviewState.codingPrompt,
                     codingTemplate:
                         interviewState.codingTemplate.length > 0
@@ -246,6 +253,11 @@ function CompanyJobDetailContent() {
                         interviewState.codingAnswer.length > 0
                             ? interviewState.codingAnswer
                             : null,
+                    expectedOutput:
+                        interviewState.expectedOutput.length > 0
+                            ? interviewState.expectedOutput
+                            : null,
+                    codingLanguage: interviewState.codingLanguage,
                     backgroundQuestionTimeSeconds:
                         interviewDurations.backgroundSeconds,
                     codingQuestionTimeSeconds: interviewDurations.codingSeconds,
@@ -281,6 +293,10 @@ function CompanyJobDetailContent() {
                     backgroundQuestion:
                         optionalString(
                             updated.interviewContent.backgroundQuestion
+                        ),
+                    backgroundQuestionCategory:
+                        optionalString(
+                            updated.interviewContent.backgroundQuestionCategory
                         ),
                     codingPrompt: updated.interviewContent.codingPrompt,
                     codingTemplate:

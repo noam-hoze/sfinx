@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
+    
     "seed": "tsx server/db-scripts/seed-data.ts",
     "seed:companies": "tsx server/db-scripts/seed-company-candidates.ts --env=dev",
     "seed:companies:prod": "tsx server/db-scripts/seed-company-candidates.ts --env=prod",
