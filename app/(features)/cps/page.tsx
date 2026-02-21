@@ -650,24 +650,6 @@ function TelemetryContent() {
                                 )}
                             </CollapsibleSection>
                             
-                            {/* Coding Section */}
-                            <CollapsibleSection
-                                title="Coding"
-                                score={calculatedCodingScore ?? undefined}
-                                isExpanded={codingExpanded}
-                                onToggle={() => setCodingExpanded(!codingExpanded)}
-                            >
-                                {workstyle && (
-                                    <WorkstyleDashboard
-                                        workstyle={workstyle}
-                                        codingSummary={codingSummary}
-                                        codingCategories={activeSession?.application?.job?.codingCategories as any}
-                                        onVideoJump={onVideoJump}
-                                        sessionId={activeSession?.id}
-                                    />
-                                )}
-                            </CollapsibleSection>
-                            
                             {/* Experience Section */}
                             <CollapsibleSection
                                 title="Experience"
@@ -693,6 +675,24 @@ function TelemetryContent() {
                                             </button>
                                         )}
                                     </div>
+                                )}
+                            </CollapsibleSection>
+                            
+                            {/* Coding Section */}
+                            <CollapsibleSection
+                                title="Coding"
+                                score={calculatedCodingScore ?? undefined}
+                                isExpanded={codingExpanded}
+                                onToggle={() => setCodingExpanded(!codingExpanded)}
+                            >
+                                {workstyle && (
+                                    <WorkstyleDashboard
+                                        workstyle={workstyle}
+                                        codingSummary={codingSummary}
+                                        codingCategories={activeSession?.application?.job?.codingCategories as any}
+                                        onVideoJump={onVideoJump}
+                                        sessionId={activeSession?.id}
+                                    />
                                 )}
                             </CollapsibleSection>
                         </div>

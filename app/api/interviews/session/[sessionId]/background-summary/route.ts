@@ -305,6 +305,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             companyName:
                 companyName || interviewSession.application.job.company.name,
             roleName: roleName || interviewSession.application.job.title,
+            finalScore: interviewSession.finalScore ?? undefined, // Pass final score if available
         });
 
         // Call OpenAI
@@ -409,28 +410,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
             log.info(LOG_CATEGORY, `[background-summary/POST] ${categoryName}: ${contribs.length} contributions, raw avg=${Math.round(rawAverage)}, confidence=${confidence.toFixed(2)}, adjusted=${adjustedScore}`);
             
             const categoryDef = experienceCategoryDefinitions?.find(c => c.name === categoryName);
-            
-            // Calculate video offsets for evidence links with short caption
-            const evidenceLinks = await Promise.all(contribs.map(async c => {
-                let timestamp = 0;
-                if (interviewSession.recordingStartedAt) {
-                    const recordingStart = new Date(interviewSession.recordingStartedAt).getTime();
-                    const answerTime = new Date(c.timestamp).getTime();
-                    timestamp = Math.max(0, Math.floor((answerTime - recordingStart) / 1000));
-                }
-                
-                // Generate short caption from explanation
-                const shortCaption = await generateUnifiedCaption(openai, [{
-                    trait: categoryName,
-                    evaluation: c.explanation
-                }]);
-                
-                return {
-                    timestamp,
-                    caption: shortCaption
-                };
-            }));
 
+            // Build category data without evidenceLinks for now (will be added after clips are created)
             experienceCategories[categoryName] = {
                 score: adjustedScore,
                 rawAverage: Math.round(rawAverage),
@@ -438,7 +419,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 confidence: confidence,
                 text: contribs.map(c => c.explanation).join(" "),
                 description: categoryDef?.description || "",
-                evidenceLinks,
+                evidenceLinks: [], // Will be populated after clips are created
                 contributions: contribs.map(c => ({
                     timestamp: c.timestamp.toISOString(),
                     strength: c.contributionStrength,
@@ -562,11 +543,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
         };
 
         // Helper function to create evidence clips for a category across all background evidence
+        // Returns array of created clips with their startTime and caption
         const createClipsForCategory = async (
             categoryName: string,
             evidenceArray: Array<{ question: string; answerExcerpt: string; reasoning: string }>
-        ) => {
-            const recordingStart = interviewSession.telemetryData.createdAt;
+        ): Promise<Array<{ startTime: number; caption: string }>> => {
+            const createdClips: Array<{ startTime: number; caption: string }> = [];
+            // Use actual recording start time, not when telemetryData was created
+            const recordingStart = interviewSession.recordingStartedAt
+                ? new Date(interviewSession.recordingStartedAt)
+                : interviewSession.telemetryData.createdAt;
+
+            log.info(LOG_CATEGORY, `[background-summary/POST] Creating clips for category: ${categoryName}`);
 
             // Create clips for ALL background records (OpenAI should provide evidence for each)
             for (const [index, record] of backgroundEvidenceRecords.entries()) {
@@ -574,6 +562,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 const startTimeSeconds = Math.floor(
                     (record.timestamp.getTime() - recordingStart.getTime()) / 1000
                 );
+
                 
                 log.info(LOG_CATEGORY, `[background-summary/POST] ${categoryName}[${index}]: Matching record Q="${record.questionText.substring(0, 50)}..." with evidence:`, {
                     matched: categoryEvidence ? `"${categoryEvidence.question.substring(0, 50)}..."` : 'null',
@@ -594,7 +583,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 
                 log.info(LOG_CATEGORY, `[background-summary/POST] ${categoryName}[${index}]: Using description="${description.substring(0, 100)}..."`);
 
-                await prisma.evidenceClip.create({
+                const clip = await prisma.evidenceClip.create({
                     data: {
                         telemetryData: {
                             connect: { id: interviewSession.telemetryData.id }
@@ -610,20 +599,49 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 });
 
                 log.info(LOG_CATEGORY, `[background-summary/POST] ✅ Created ${categoryName} evidence clip at ${startTimeSeconds}s with duration ${clipDuration}s`);
+
+                // Store clip info for evidenceLinks (using clip startTime, not contribution timestamp)
+                createdClips.push({
+                    startTime: startTimeSeconds,
+                    caption: description
+                });
             }
+
+            return createdClips;
         };
 
-        // Create clips for each dynamic experience category
+        // Create clips for each dynamic experience category and store clip info for evidenceLinks
+        const clipsByCategory = new Map<string, Array<{ startTime: number; caption: string }>>();
         if (summaryData.experienceCategories) {
             for (const [categoryName, categoryData] of Object.entries(summaryData.experienceCategories)) {
                 if ((categoryData as any).evidence && Array.isArray((categoryData as any).evidence)) {
-                    await createClipsForCategory(categoryName, (categoryData as any).evidence);
+                    const clips = await createClipsForCategory(categoryName, (categoryData as any).evidence);
+                    clipsByCategory.set(categoryName, clips);
                 }
             }
         }
 
-        log.info(LOG_CATEGORY, "[background-summary/POST] ✅ Evidence clips created successfully");
-        log.info(LOG_CATEGORY, "[background-summary/POST] ✅ Short captions already generated in evidenceLinks");
+        // Update experienceCategories with evidenceLinks from created clips
+        for (const [categoryName, clips] of clipsByCategory.entries()) {
+            if (experienceCategories[categoryName]) {
+                experienceCategories[categoryName].evidenceLinks = clips.map(clip => ({
+                    timestamp: clip.startTime,
+                    caption: clip.caption
+                }));
+            }
+        }
+
+        // Update the BackgroundSummary in the database with the populated evidenceLinks
+        await prisma.backgroundSummary.update({
+            where: {
+                id: backgroundSummary.id
+            },
+            data: {
+                experienceCategories: experienceCategories as any
+            }
+        });
+
+        log.info(LOG_CATEGORY, "[background-summary/POST] ✅ Evidence clips created and evidenceLinks updated successfully");
 
         return NextResponse.json(
             {
