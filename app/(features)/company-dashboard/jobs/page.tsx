@@ -219,20 +219,35 @@ function JobCard({ job, rawJob, index, onEdit, onDelete, onClick, deleteInFlight
                 whileTap={{ scale: 0.98 }}
                 transition={springHover}
             >
-                {/* Edit icon — top right */}
-                <button
-                    type="button"
-                    onClick={onEdit}
-                    className="absolute top-4 right-4 w-8 h-8 rounded-full bg-violet-50 hover:bg-violet-100 flex items-center justify-center text-sfinx-purple transition-colors z-10"
-                    title="Edit job"
-                >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                </button>
+                {/* Action icons — top right */}
+                <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
+                    {/* Delete icon */}
+                    <button
+                        type="button"
+                        onClick={onDelete}
+                        disabled={deleteInFlight}
+                        className="w-8 h-8 rounded-full bg-gray-100 hover:bg-red-50 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors disabled:opacity-60"
+                        title="Delete job"
+                    >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                    {/* Edit icon */}
+                    <button
+                        type="button"
+                        onClick={onEdit}
+                        className="w-8 h-8 rounded-full bg-violet-50 hover:bg-violet-100 flex items-center justify-center text-sfinx-purple transition-colors"
+                        title="Edit job"
+                    >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                    </button>
+                </div>
 
                 {/* Header */}
-                <div className="flex items-start justify-between mb-4 pr-10">
+                <div className="flex items-start mb-4 pr-10">
                     <div className="flex-1">
                         <h3 className="text-lg font-semibold text-gray-900 group-hover:text-sfinx-purple transition-colors mb-1 line-clamp-2">
                             {job.title}
@@ -251,14 +266,6 @@ function JobCard({ job, rawJob, index, onEdit, onDelete, onClick, deleteInFlight
                             )}
                         </div>
                     </div>
-                    <svg
-                        className="w-5 h-5 text-gray-300 group-hover:text-sfinx-purple group-hover:translate-x-1 transition-all flex-shrink-0 ml-2 mt-1"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
                 </div>
 
                 {/* Meta row */}
@@ -319,19 +326,6 @@ function JobCard({ job, rawJob, index, onEdit, onDelete, onClick, deleteInFlight
                     </div>
                 </div>
 
-                {/* Delete button — bottom row */}
-                <button
-                    type="button"
-                    onClick={onDelete}
-                    disabled={deleteInFlight}
-                    className="mt-4 flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 transition-colors disabled:opacity-60"
-                    title="Delete job"
-                >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                    {deleteInFlight ? "Deleting..." : "Delete"}
-                </button>
             </motion.div>
         </motion.div>
     );

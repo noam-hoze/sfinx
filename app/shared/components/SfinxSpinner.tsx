@@ -10,8 +10,19 @@ type SfinxSpinnerProps = {
   messages: string | string[];
 };
 
+const SIZES = {
+  sm: { atom: 24,  nucleus: 4,  nucleusInner: 2,  orbit: 14,  electron: 2  },
+  md: { atom: 300, nucleus: 25, nucleusInner: 15, orbit: 170, electron: 10 },
+  lg: { atom: 450, nucleus: 35, nucleusInner: 21, orbit: 255, electron: 14 },
+};
+
+const ORBITS = [
+  { transform: "rotateY(65deg) rotateX(5deg)",   trailAnim: "sfinx-orbit-trail-1", trailDuration: "2s",   color: "#c084fc", electronDuration: 1.5, electronDelay: -1 },
+  { transform: "rotateY(65deg) rotateX(-54deg)", trailAnim: "sfinx-orbit-trail-2", trailDuration: "2.5s", color: "#818cf8", electronDuration: 2,   electronDelay: 0  },
+  { transform: "rotateY(65deg) rotateX(54deg)",  trailAnim: "sfinx-orbit-trail-3", trailDuration: "2s",   color: "#22d3ee", electronDuration: 1.5, electronDelay: 0  },
+];
+
 // ── Nucleus ───────────────────────────────────────────────────────────────────
-// Softly breathing glowing core — placed at the center of the atom.
 function Nucleus({ outerSize, innerSize }: { outerSize: number; innerSize: number }) {
   return (
     <motion.div
@@ -44,193 +55,106 @@ function Nucleus({ outerSize, innerSize }: { outerSize: number; innerSize: numbe
   );
 }
 
-/**
- * Animated atom-inspired spinner used across Sfinx loading experiences.
- */
+// ── SfinxSpinner ──────────────────────────────────────────────────────────────
 export default function SfinxSpinner({ size = "md", className = "", title, messages }: SfinxSpinnerProps) {
-  const sizes = {
-    sm: { atom: 24, nucleus: 4, nucleusInner: 2, orbit: 14, electron: 2, fontSize: "8px" },
-    md: { atom: 300, nucleus: 25, nucleusInner: 15, orbit: 170, electron: 10, fontSize: "28px" },
-    lg: { atom: 450, nucleus: 35, nucleusInner: 21, orbit: 255, electron: 14, fontSize: "42px" },
-  };
-
-  const s = sizes[size];
-
+  const s = SIZES[size];
   const messageArray = Array.isArray(messages) ? messages : [messages];
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
 
   useEffect(() => {
     if (messageArray.length <= 1) return;
-
     const timer = setInterval(() => {
       setCurrentMessageIndex((prev) => (prev + 1) % messageArray.length);
     }, 3500);
-
     return () => clearInterval(timer);
   }, [messageArray.length]);
 
   return (
-    <div className="text-center -mt-32">
-      <div className={`atom ${className}`}>
-        <div style={{
-          position: "absolute",
-          top: 0, right: 0, bottom: 0, left: 0,
-          margin: "auto",
-          width: s.nucleus,
-          height: s.nucleus,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 10,
-        }}>
+    <div className="text-center" style={{ marginTop: "-8rem" }}>
+      {/* Atom container */}
+      <div
+        className={className}
+        style={{
+          position: "relative",
+          width: s.atom,
+          height: s.atom,
+          display: "inline-block",
+          margin: "10px auto",
+          animation: "sfinxFadeIn 0.5s ease-in 0.2s both",
+        }}
+      >
+        {/* Nucleus — centered absolutely */}
+        <div
+          style={{
+            position: "absolute",
+            top: 0, right: 0, bottom: 0, left: 0,
+            margin: "auto",
+            width: s.nucleus,
+            height: s.nucleus,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10,
+          }}
+        >
           <Nucleus outerSize={s.nucleus} innerSize={s.nucleusInner} />
         </div>
 
-        <div className="orbit orbit-1">
-          <div className="electron"></div>
-        </div>
-
-        <div className="orbit orbit-2">
-          <div className="electron"></div>
-        </div>
-
-        <div className="orbit orbit-3">
-          <div className="electron"></div>
-        </div>
-
-        <style jsx>{`
-          .atom {
-            position: relative;
-            width: ${s.atom}px;
-            height: ${s.atom}px;
-            display: inline-block;
-            margin: 10px auto;
-            animation: fadeIn 0.5s ease-in 0.2s both;
-          }
-
-          @keyframes fadeIn {
-            from { opacity: 0; }
-            to   { opacity: 1; }
-          }
-
-          @keyframes rotateSpin {
-            from { transform: rotate(0deg); }
-            to   { transform: rotate(360deg); }
-          }
-
-          .orbit,
-          .electron {
-            position: absolute;
-            top: 0; right: 0; bottom: 0; left: 0;
-            margin: auto;
-            border-radius: 50%;
-          }
-
-          .orbit::before {
-            content: " ";
-            position: absolute;
-            z-index: -1;
-            top: 0; left: 0; right: 0; bottom: 0;
-            border: 0.5px solid rgba(124, 58, 237, 0.1);
-            border-radius: 50%;
-          }
-
-          .orbit {
-            width: ${s.orbit}px;
-            height: ${s.orbit}px;
-            border: 0;
-            transform-style: preserve-3d;
-          }
-
-          .electron {
-            position: relative;
-            top: ${(s.orbit - s.electron) / 2}px;
-            width: ${s.electron}px;
-            height: ${s.electron}px;
-            border-radius: 50%;
-            transform: translateX(${s.orbit / 2}px);
-            animation: electronAnimation 1.5s infinite linear;
-            opacity: 0;
-          }
-
-          .orbit-1 .electron {
-            background: #c084fc;
-            box-shadow: 0 0 15px #c084fc;
-          }
-
-          .orbit-2 .electron {
-            background: #818cf8;
-            box-shadow: 0 0 15px #818cf8;
-          }
-
-          .orbit-3 .electron {
-            background: #22d3ee;
-            box-shadow: 0 0 15px #22d3ee;
-          }
-
-          .orbit-1 {
-            transform: rotateY(65deg) rotateX(5deg);
-            animation: orbitTrail1 2s infinite ease-in-out;
-          }
-
-          .orbit-1 .electron {
-            animation-delay: -1s;
-          }
-
-          .orbit-2 {
-            transform: rotateY(65deg) rotateX(-54deg);
-            animation: orbitTrail2 2.5s infinite ease-in-out;
-          }
-
-          .orbit-2 .electron {
-            animation-duration: 2s;
-          }
-
-          .orbit-3 {
-            transform: rotateY(65deg) rotateX(54deg);
-            animation: orbitTrail3 2s infinite ease-in-out;
-          }
-
-          @keyframes electronAnimation {
-            0% {
-              transform: rotateZ(0deg) translateX(${s.orbit / 2}px) rotateZ(-0deg) rotateY(-65deg);
-            }
-            100% {
-              transform: rotateZ(360deg) translateX(${s.orbit / 2}px) rotateZ(-360deg) rotateY(-65deg);
-            }
-          }
-
-          @keyframes orbitTrail1 {
-            0%,  100% { box-shadow: 0 0 0 0 rgba(192,132,252,0),    inset 0 0 20px rgba(192,132,252,0.1); }
-            25%        { box-shadow: 0 -20px 30px 10px rgba(192,132,252,0.4), inset 0 0 20px rgba(192,132,252,0.15); }
-            50%        { box-shadow: 20px 0 30px 10px rgba(192,132,252,0.4), inset 0 0 20px rgba(192,132,252,0.15); }
-            75%        { box-shadow: 0 20px 30px 10px rgba(192,132,252,0.4), inset 0 0 20px rgba(192,132,252,0.15); }
-          }
-
-          @keyframes orbitTrail2 {
-            0%,  100% { box-shadow: 0 0 0 0 rgba(129,140,248,0),    inset 0 0 20px rgba(129,140,248,0.1); }
-            25%        { box-shadow: 0 -20px 30px 10px rgba(129,140,248,0.4), inset 0 0 20px rgba(129,140,248,0.15); }
-            50%        { box-shadow: 20px 0 30px 10px rgba(129,140,248,0.4), inset 0 0 20px rgba(129,140,248,0.15); }
-            75%        { box-shadow: 0 20px 30px 10px rgba(129,140,248,0.4), inset 0 0 20px rgba(129,140,248,0.15); }
-          }
-
-          @keyframes orbitTrail3 {
-            0%,  100% { box-shadow: 0 0 0 0 rgba(34,211,238,0),    inset 0 0 20px rgba(34,211,238,0.1); }
-            25%        { box-shadow: 0 -20px 30px 10px rgba(34,211,238,0.4), inset 0 0 20px rgba(34,211,238,0.15); }
-            50%        { box-shadow: 20px 0 30px 10px rgba(34,211,238,0.4), inset 0 0 20px rgba(34,211,238,0.15); }
-            75%        { box-shadow: 0 20px 30px 10px rgba(34,211,238,0.4), inset 0 0 20px rgba(34,211,238,0.15); }
-          }
-        `}</style>
+        {/* Three orbital rings */}
+        {ORBITS.map((orbit, i) => (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              top: 0, right: 0, bottom: 0, left: 0,
+              margin: "auto",
+              width: s.orbit,
+              height: s.orbit,
+              borderRadius: "50%",
+              border: "0.5px solid rgba(124, 58, 237, 0.1)",
+              transformStyle: "preserve-3d",
+              transform: orbit.transform,
+              animation: `${orbit.trailAnim} ${orbit.trailDuration} infinite ease-in-out`,
+            }}
+          >
+            {/* Electron — Framer Motion rotation around ring center */}
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{
+                duration: orbit.electronDuration,
+                repeat: Infinity,
+                ease: "linear",
+                delay: orbit.electronDelay,
+              }}
+              style={{
+                position: "absolute",
+                inset: 0,
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "center",
+              }}
+            >
+              <div
+                style={{
+                  width: s.electron,
+                  height: s.electron,
+                  borderRadius: "50%",
+                  backgroundColor: orbit.color,
+                  boxShadow: `0 0 15px ${orbit.color}`,
+                  marginTop: -(s.electron / 2),
+                  flexShrink: 0,
+                }}
+              />
+            </motion.div>
+          </div>
+        ))}
       </div>
 
       <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 mb-4">
         {title}
       </h2>
       <p className="text-base md:text-lg text-gray-600">
-        <span
-          key={currentMessageIndex}
-          style={{ animation: "fadeIn 0.5s ease-in forwards" }}
-        >
+        <span key={currentMessageIndex} style={{ animation: "sfinxFadeIn 0.5s ease-in forwards" }}>
           {messageArray[currentMessageIndex]}
         </span>
       </p>
