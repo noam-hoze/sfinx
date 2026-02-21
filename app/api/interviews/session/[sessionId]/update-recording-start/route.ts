@@ -22,13 +22,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     try {
         log.info(LOG_CATEGORY, "[Update Recording Start] === REQUEST RECEIVED ===");
 
-        // TODO: [Bug] skip-auth=true lets any unauthenticated caller bypass authentication and perform privileged
-        //        operations by supplying an arbitrary userId. Remove or gate behind a server-side secret.
-        const skipAuth = request.nextUrl.searchParams.get("skip-auth") === "true";
-        const shouldSkipAuth = skipAuth;
-        
-        log.info(LOG_CATEGORY, "[Update Recording Start] Skip auth:", skipAuth);
-
         const session = await getServerSession(authOptions);
         const { sessionId: rawSessionId } = await context.params;
         const sessionId = normalizeSessionId(rawSessionId);
@@ -43,19 +36,19 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
         log.info(LOG_CATEGORY, "[Update Recording Start] Session ID:", sessionId);
 
-        const userId = shouldSkipAuth ? null : (session?.user as any)?.id;
-        
-        if (!shouldSkipAuth && !userId) {
-            log.error(LOG_CATEGORY, "[Update Recording Start] ❌ No user ID found and not in skip-auth/demo mode");
+        const userId = (session?.user as any)?.id;
+
+        if (!userId) {
+            log.error(LOG_CATEGORY, "[Update Recording Start] ❌ No user ID found");
             return NextResponse.json(
                 { error: "Unauthorized" },
                 { status: 401 }
             );
         }
-        
+
         const body = await request.json();
         const { recordingStartedAt } = body;
-        
+
         if (!recordingStartedAt) {
             log.error(LOG_CATEGORY, "[Update Recording Start] ❌ No recordingStartedAt provided");
             return NextResponse.json(
@@ -63,14 +56,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
                 { status: 400 }
             );
         }
-        
+
         log.info(LOG_CATEGORY, "[Update Recording Start] New recording start time:", recordingStartedAt);
-        
+
         // Verify session exists and belongs to user
         const interviewSession = await prisma.interviewSession.findFirst({
             where: {
                 id: sessionId,
-                ...(shouldSkipAuth ? {} : { candidateId: userId }),
+                candidateId: userId,
             },
         });
 

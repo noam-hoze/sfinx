@@ -26,32 +26,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
     try {
         log.info(LOG_CATEGORY, "[background-evidence/POST] ========== START ==========");
 
-        const url = new URL(request.url);
-        // TODO: [Bug] skip-auth=true lets any unauthenticated caller write background-evidence records for any session
-        //        by supplying an arbitrary userId. Remove or gate behind a server-side secret.
-        const skipAuth = url.searchParams.get("skip-auth") === "true";
-
         const session = await getServerSession(authOptions);
         log.info(LOG_CATEGORY, "[background-evidence/POST] Session:", session ? `Found (user: ${(session.user as any)?.email})` : "Not found");
-        log.info(LOG_CATEGORY, "[background-evidence/POST] Skip auth:", skipAuth);
 
         const body = await request.json();
         const { timestamp, questionText, answerText, questionNumber, userId: requestUserId } = body;
 
-        let userId: string;
-
-        if (skipAuth) {
-            // In skip-auth mode, userId is optional. If not provided, we'll infer it from the session.
-            userId = requestUserId || "";
-            log.info(LOG_CATEGORY, "[background-evidence/POST] Skip auth - User ID from request:", userId || "(not provided)");
-        } else {
-            if (!session?.user) {
-                log.warn(LOG_CATEGORY, "[background-evidence/POST] ❌ Unauthorized request");
-                return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-            }
-            userId = (session.user as any).id;
-            log.info(LOG_CATEGORY, "[background-evidence/POST] ✅ User ID from session:", userId);
+        if (!session?.user) {
+            log.warn(LOG_CATEGORY, "[background-evidence/POST] ❌ Unauthorized request");
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+        const userId = (session.user as any).id;
+        log.info(LOG_CATEGORY, "[background-evidence/POST] ✅ User ID from session:", userId);
 
         const { sessionId: rawSessionId } = await context.params;
         const sessionId = normalizeSessionId(rawSessionId);
@@ -77,14 +63,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         // Verify the interview session exists
         log.info(LOG_CATEGORY, "[background-evidence/POST] Looking up interview session...");
         
-        const whereClause: any = { id: sessionId };
-        // Only filter by candidateId if we have a userId
-        if (userId) {
-            whereClause.candidateId = userId;
-        }
-
         const interviewSession = await prisma.interviewSession.findFirst({
-            where: whereClause,
+            where: { id: sessionId, candidateId: userId },
             include: {
                 telemetryData: true,
             },

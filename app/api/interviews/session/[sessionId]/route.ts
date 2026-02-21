@@ -22,13 +22,6 @@ export async function GET(request: NextRequest, context: RouteContext) {
     try {
         log.info(LOG_CATEGORY, "[Session GET] === FETCH REQUEST RECEIVED ===");
 
-        // TODO: [Bug] skip-auth=true lets any unauthenticated caller bypass authentication and perform privileged
-        //        operations by supplying an arbitrary userId. Remove or gate behind a server-side secret.
-        const skipAuth = request.nextUrl.searchParams.get("skip-auth") === "true";
-        const shouldSkipAuth = skipAuth;
-        
-        log.info(LOG_CATEGORY, "[Session GET] Skip auth:", skipAuth);
-
         const session = await getServerSession(authOptions);
         const { sessionId: rawSessionId } = await context.params;
         const sessionId = normalizeSessionId(rawSessionId);
@@ -43,20 +36,20 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
         log.info(LOG_CATEGORY, "[Session GET] Session ID:", sessionId);
 
-        const userId = shouldSkipAuth ? null : (session?.user as any)?.id;
-        
-        if (!shouldSkipAuth && !userId) {
-            log.error(LOG_CATEGORY, "[Session GET] ❌ No user ID found and not in skip-auth/demo mode");
+        const userId = (session?.user as any)?.id;
+
+        if (!userId) {
+            log.error(LOG_CATEGORY, "[Session GET] ❌ No user ID found");
             return NextResponse.json(
                 { error: "Unauthorized" },
                 { status: 401 }
             );
         }
-        
+
         const interviewSession = await prisma.interviewSession.findFirst({
             where: {
                 id: sessionId,
-                ...(shouldSkipAuth ? {} : { candidateId: userId }),
+                candidateId: userId,
             },
         });
 
@@ -90,14 +83,6 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         log.info(LOG_CATEGORY, "[Session PATCH] === UPDATE REQUEST RECEIVED ===");
         log.info(LOG_CATEGORY, "[Session PATCH] URL:", request.url);
 
-        // TODO: [Bug] skip-auth=true lets any unauthenticated caller bypass authentication and perform privileged
-        //        operations by supplying an arbitrary userId. Remove or gate behind a server-side secret.
-        const skipAuth = request.nextUrl.searchParams.get("skip-auth") === "true";
-        const shouldSkipAuth = skipAuth;
-        
-        log.info(LOG_CATEGORY, "[Session PATCH] Skip auth:", skipAuth);
-        log.info(LOG_CATEGORY, "[Session PATCH] Should skip auth:", shouldSkipAuth);
-
         const session = await getServerSession(authOptions);
         log.info(LOG_CATEGORY, "[Session PATCH] Auth session:", session ? "found" : "not found");
         log.info(LOG_CATEGORY, "[Session PATCH] User ID:", (session?.user as any)?.id);
@@ -115,26 +100,25 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
         log.info(LOG_CATEGORY, "[Session PATCH] Session ID:", sessionId);
 
-        // Verify the interview session exists (and belongs to user if not demo mode)
-        const userId = shouldSkipAuth ? null : (session?.user as any)?.id;
-        
+        const userId = (session?.user as any)?.id;
+
         log.info(LOG_CATEGORY, "[Session PATCH] Querying session with where clause:", {
             id: sessionId,
-            candidateId: shouldSkipAuth ? "(skipped)" : userId,
+            candidateId: userId,
         });
-        
-        if (!shouldSkipAuth && !userId) {
-            log.error(LOG_CATEGORY, "[Session PATCH] ❌ No user ID found and not in skip-auth/demo mode");
+
+        if (!userId) {
+            log.error(LOG_CATEGORY, "[Session PATCH] ❌ No user ID found");
             return NextResponse.json(
                 { error: "Unauthorized" },
                 { status: 401 }
             );
         }
-        
+
         const interviewSession = await prisma.interviewSession.findFirst({
             where: {
                 id: sessionId,
-                ...(shouldSkipAuth ? {} : { candidateId: userId }),
+                candidateId: userId,
             },
         });
 

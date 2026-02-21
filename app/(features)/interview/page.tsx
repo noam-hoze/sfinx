@@ -638,7 +638,7 @@ function InterviewPageContent() {
       }
 
       // Update user name
-      await fetch(`/api/users/${userId}/name?skip-auth=true`, {
+      await fetch(`/api/users/${userId}/name`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim() }),
@@ -712,11 +712,10 @@ function InterviewPageContent() {
 
     // Save first question to DB
     if (interviewSessionId) {
-      fetch(`/api/interviews/session/${interviewSessionId}/messages?skip-auth=true`, {
+      fetch(`/api/interviews/session/${interviewSessionId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId, // Required for skip-auth
           messages: [{
             text: firstQuestion,
             speaker: "ai",

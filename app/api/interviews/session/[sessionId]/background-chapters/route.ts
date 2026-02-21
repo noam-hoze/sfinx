@@ -28,38 +28,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
     try {
         log.info(LOG_CATEGORY, "[background-chapters/POST] ========== START ==========");
 
-        const url = new URL(request.url);
-        // TODO: [Bug] skip-auth=true lets any unauthenticated caller bypass authentication and perform privileged
-        //        operations by supplying an arbitrary userId. Remove or gate behind a server-side secret.
-        const skipAuth = url.searchParams.get("skip-auth") === "true";
-
         const session = await getServerSession(authOptions);
         log.info(LOG_CATEGORY, "[background-chapters/POST] Session:", session ? `Found (user: ${(session.user as any)?.email})` : "Not found");
-        log.info(LOG_CATEGORY, "[background-chapters/POST] Skip auth:", skipAuth);
 
         const body = await request.json();
         const { userId: requestUserId } = body;
 
-        let userId: string;
-
-        if (skipAuth) {
-            if (!requestUserId) {
-                log.warn(LOG_CATEGORY, "[background-chapters/POST] ❌ skip-auth mode but no userId provided in request");
-                return NextResponse.json(
-                    { error: "userId required when skip-auth=true" },
-                    { status: 400 }
-                );
-            }
-            userId = requestUserId;
-            log.info(LOG_CATEGORY, "[background-chapters/POST] ✅ Skip auth - User ID from request:", userId);
-        } else {
-            if (!session?.user) {
-                log.warn(LOG_CATEGORY, "[background-chapters/POST] ❌ Unauthorized request");
-                return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-            }
-            userId = (session.user as any).id;
-            log.info(LOG_CATEGORY, "[background-chapters/POST] ✅ User ID from session:", userId);
+        if (!session?.user) {
+            log.warn(LOG_CATEGORY, "[background-chapters/POST] ❌ Unauthorized request");
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+        const userId = (session.user as any).id;
+        log.info(LOG_CATEGORY, "[background-chapters/POST] ✅ User ID from session:", userId);
 
         const { sessionId: rawSessionId } = await context.params;
         const sessionId = normalizeSessionId(rawSessionId);

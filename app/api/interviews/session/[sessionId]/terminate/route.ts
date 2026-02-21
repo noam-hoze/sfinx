@@ -26,11 +26,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
     try {
         log.info(LOG_CATEGORY, "[Session TERMINATE] === TERMINATE REQUEST RECEIVED ===");
 
-        // TODO: [Bug] skip-auth=true lets any unauthenticated caller bypass authentication and perform privileged
-        //        operations by supplying an arbitrary userId. Remove or gate behind a server-side secret.
-        const skipAuth = request.nextUrl.searchParams.get("skip-auth") === "true";
-        const shouldSkipAuth = skipAuth;
-
         const session = await getServerSession(authOptions);
         const { sessionId: rawSessionId } = await context.params;
         const sessionId = normalizeSessionId(rawSessionId);
@@ -45,9 +40,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         log.info(LOG_CATEGORY, "[Session TERMINATE] Session ID:", sessionId);
 
-        const userId = shouldSkipAuth ? null : (session?.user as any)?.id;
+        const userId = (session?.user as any)?.id;
 
-        if (!shouldSkipAuth && !userId) {
+        if (!userId) {
             log.error(LOG_CATEGORY, "[Session TERMINATE] ❌ No user ID found");
             return NextResponse.json(
                 { error: "Unauthorized" },
@@ -59,7 +54,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         const interviewSession = await prisma.interviewSession.findFirst({
             where: {
                 id: sessionId,
-                ...(shouldSkipAuth ? {} : { candidateId: userId }),
+                candidateId: userId,
             },
         });
 

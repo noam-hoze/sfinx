@@ -11,42 +11,21 @@ export async function POST(request: NextRequest) {
     try {
         log.info(LOG_CATEGORY, "🔍 Interview session creation API called");
 
-        const url = new URL(request.url);
-        // TODO: [Bug] skip-auth=true lets any caller bypass authentication and supply an arbitrary userId in the request
-        //        body; anyone who knows the URL can create interview sessions on behalf of any user. Remove or gate
-        //        behind a server-side secret (e.g. compare against an INTERNAL_API_SECRET env var).
-        const skipAuth = url.searchParams.get("skip-auth") === "true";
-
         const session = await getServerSession(authOptions);
         log.info(LOG_CATEGORY, "🔍 Session:", session ? "Found" : "Not found");
-        log.info(LOG_CATEGORY, "🔍 Skip auth:", skipAuth);
 
         const body = await request.json();
-        const { applicationId, companyId, userId: requestUserId, recordingStartedAt } = body;
+        const { applicationId, companyId, userId: requestUserId } = body;
 
-        let userId: string;
-
-        if (skipAuth) {
-            if (!requestUserId) {
-                log.warn(LOG_CATEGORY, "❌ skip-auth mode but no userId provided in request");
-                return NextResponse.json(
-                    { error: "userId required when skip-auth=true" },
-                    { status: 400 }
-                );
-            }
-            userId = requestUserId;
-            log.info(LOG_CATEGORY, "✅ Skip auth - User ID from request:", userId);
-        } else {
-            if (!(session?.user as any)?.id) {
-                log.warn(LOG_CATEGORY, "❌ No user ID in session");
-                return NextResponse.json(
-                    { error: "Unauthorized" },
-                    { status: 401 }
-                );
-            }
-            userId = (session!.user as any).id;
-            log.info(LOG_CATEGORY, "✅ User ID from session:", userId);
+        if (!(session?.user as any)?.id) {
+            log.warn(LOG_CATEGORY, "❌ No user ID in session");
+            return NextResponse.json(
+                { error: "Unauthorized" },
+                { status: 401 }
+            );
         }
+        const userId = (session!.user as any).id;
+        log.info(LOG_CATEGORY, "✅ User ID from session:", userId);
 
         log.info(LOG_CATEGORY, "📋 Request data:", { applicationId, companyId });
 
@@ -87,11 +66,8 @@ export async function POST(request: NextRequest) {
         try {
             const txResult = await prisma.$transaction(async (tx) => {
                 log.info(LOG_CATEGORY, "🧾 [TX] Creating InterviewSession...");
-                // TODO: [Bug] recordingStartedAt is a client-supplied timestamp; a malicious client can set it to any
-                //        value (past or future) to manipulate video chapter offsets and evidence clip timings. The
-                //        server should use new Date() as the authoritative start time and ignore the client value.
-                const actualRecordingStartTime = recordingStartedAt ? new Date(recordingStartedAt) : new Date();
-                log.info(LOG_CATEGORY, "📹 Using recording start time:", actualRecordingStartTime.toISOString(), recordingStartedAt ? "(from client)" : "(fallback)");
+                const actualRecordingStartTime = new Date(); // Always use server time, never trust client-supplied timestamp
+                log.info(LOG_CATEGORY, "📹 Using recording start time:", actualRecordingStartTime.toISOString());
                 const interviewSession = await tx.interviewSession.create({
                     data: {
                         candidateId: userId,

@@ -15,20 +15,12 @@ type RouteContext = {
 
 /**
  * PATCH user name.
- * Supports skip-auth for demo mode.
  */
 export async function PATCH(request: NextRequest, context: RouteContext) {
     try {
-        const url = new URL(request.url);
-        // TODO: [Bug] skip-auth=true lets any unauthenticated caller bypass authentication and perform privileged
-        //        operations by supplying an arbitrary userId. Remove or gate behind a server-side secret.
-        const skipAuth = url.searchParams.get("skip-auth") === "true";
-
-        if (!skipAuth) {
-            const session = await getServerSession(authOptions);
-            if (!session?.user) {
-                return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-            }
+        const session = await getServerSession(authOptions);
+        if (!session?.user) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
         const { id: userId } = await context.params;

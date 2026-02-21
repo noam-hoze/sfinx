@@ -26,31 +26,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     try {
         log.info(LOG_CATEGORY, "[background-evidence/[evidenceId]/PATCH] ========== START ==========");
 
-        const url = new URL(request.url);
-        // TODO: [Bug] skip-auth=true lets any unauthenticated caller bypass authentication and perform privileged
-        //        operations by supplying an arbitrary userId. Remove or gate behind a server-side secret.
-        const skipAuth = url.searchParams.get("skip-auth") === "true";
-
         const session = await getServerSession(authOptions);
         log.info(LOG_CATEGORY, "[background-evidence/[evidenceId]/PATCH] Session:", session ? `Found (user: ${(session.user as any)?.email})` : "Not found");
-        log.info(LOG_CATEGORY, "[background-evidence/[evidenceId]/PATCH] Skip auth:", skipAuth);
 
         const body = await request.json();
         const { duration, userId: requestUserId } = body;
 
-        let userId: string;
-
-        if (skipAuth) {
-            userId = requestUserId || "";
-            log.info(LOG_CATEGORY, "[background-evidence/[evidenceId]/PATCH] Skip auth - User ID from request:", userId || "(not provided)");
-        } else {
-            if (!session?.user) {
-                log.warn(LOG_CATEGORY, "[background-evidence/[evidenceId]/PATCH] ❌ Unauthorized request");
-                return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-            }
-            userId = (session.user as any).id;
-            log.info(LOG_CATEGORY, "[background-evidence/[evidenceId]/PATCH] ✅ User ID from session:", userId);
+        if (!session?.user) {
+            log.warn(LOG_CATEGORY, "[background-evidence/[evidenceId]/PATCH] ❌ Unauthorized request");
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+        const userId = (session.user as any).id;
+        log.info(LOG_CATEGORY, "[background-evidence/[evidenceId]/PATCH] ✅ User ID from session:", userId);
 
         const { sessionId: rawSessionId, evidenceId: rawEvidenceId } = await context.params;
         const sessionId = normalizeId(rawSessionId);

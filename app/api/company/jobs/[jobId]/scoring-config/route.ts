@@ -24,43 +24,13 @@ function normalizeJobId(jobId: string | string[] | undefined): string {
  */
 export async function GET(request: NextRequest, context: RouteContext) {
     try {
-        // TODO: [Bug] skip-auth=true lets any unauthenticated caller bypass authentication and perform privileged
-        //        operations by supplying an arbitrary userId. Remove or gate behind a server-side secret.
-        const skipAuth = request.nextUrl.searchParams.get("skip-auth") === "true";
-
         const params = await context.params;
         const jobId = normalizeJobId(params.jobId);
         if (!jobId) {
             return NextResponse.json({ error: "Job ID is required" }, { status: 400 });
         }
 
-        // For skip-auth mode (viewing/demo), just return the config without ownership verification
-        if (skipAuth) {
-            const job = await prisma.job.findUnique({
-                where: { id: jobId },
-                include: {
-                    scoringConfiguration: true,
-                },
-            });
-
-            if (!job) {
-                return NextResponse.json({ error: "Job not found" }, { status: 404 });
-            }
-
-            // If no configuration exists, create default
-            let config = job.scoringConfiguration;
-            if (!config) {
-                config = await prisma.scoringConfiguration.create({
-                    data: { jobId },
-                });
-                log.info(LOG_CATEGORY, `[scoring-config/GET] Created default configuration for job ${jobId}`);
-            }
-
-            return NextResponse.json({ config });
-        }
-
-    // Regular authenticated mode
-    const session = await getServerSession(authOptions);
+        const session = await getServerSession(authOptions);
     const sessionUser = session?.user as { id?: string; role?: string } | undefined;
     if (!sessionUser?.id) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -399,11 +399,10 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
                   
                   (async () => {
                     try {
-                      const url = `/api/interviews/session/${sessionId}/messages?skip-auth=true`;
+                      const url = `/api/interviews/session/${sessionId}/messages`;
 
                       const body: Record<string, any> = {
                         messages: backgroundMessages,
-                        userId: userId
                       };
 
                       const messagesRes = await fetch(url, {
@@ -430,12 +429,11 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
                       /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] POST /messages data:", messagesData);
 
                       // Messages saved successfully, now trigger summary generation
-                      const summaryUrl = `/api/interviews/session/${sessionId}/background-summary?skip-auth=true`;
+                      const summaryUrl = `/api/interviews/session/${sessionId}/background-summary`;
 
                       const summaryPayload: Record<string, any> = {
                         companyName: ms.companyName,
                         roleName: ms.roleSlug?.replace(/-/g, " "),
-                        userId: userId
                       };
 
                       /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] Calling POST /background-summary with payload:", summaryPayload);
