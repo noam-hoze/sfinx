@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic';
 
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 // Vidstack CSS must be loaded BEFORE Tailwind/globals.css
 import "vidstack/player/styles/base.css";
 import "vidstack/player/styles/default/theme.css";
@@ -12,8 +13,6 @@ import Providers from "./providers";
 import Header from "./shared/components/Header";
 import Footer from "./shared/components/Footer";
 import Sidebar from "./shared/components/Sidebar";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
     title: "Sfinx",
@@ -26,14 +25,14 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <html lang="en">
-            <body className={inter.className} suppressHydrationWarning={true}>
+        <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+            <body className={GeistSans.className} suppressHydrationWarning={true}>
                 <Providers>
                     <InterviewPreloadProvider>
                         <DebugProvider>
                             <MuteProvider>
                                 <JobApplicationProvider>
-                                    <div className="flex min-h-screen">
+                                    <div className="flex min-h-screen" style={{ background: "var(--page-bg)" }}>
                                         <Sidebar />
                                         <div className="flex flex-col flex-1">
                                             <Header />

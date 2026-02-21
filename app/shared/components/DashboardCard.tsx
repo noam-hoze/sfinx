@@ -1,9 +1,11 @@
 /**
- * DashboardCard: Reusable card component with consistent hover effects
- * Provides Apple-like animations and styling for dashboard content
+ * DashboardCard: Reusable card component with spring hover effects and squircle corners.
  */
 
+"use client";
+
 import React from "react";
+import { motion } from "framer-motion";
 
 interface DashboardCardProps {
     onClick?: () => void;
@@ -11,30 +13,37 @@ interface DashboardCardProps {
     className?: string;
 }
 
+const springHover = { type: "spring", stiffness: 400, damping: 25 } as const;
+
 export default function DashboardCard({
     onClick,
     children,
     className = "",
 }: DashboardCardProps) {
-    const baseClasses =
-        "bg-white rounded-2xl border border-gray-200 shadow-sm p-6 hover:shadow-lg hover:border-gray-300 transition-all duration-300 ease-out hover:scale-105";
-
-    const clickableClasses = onClick ? "cursor-pointer" : "";
-
-    const combinedClasses = `${baseClasses} ${clickableClasses} ${className}`.trim();
+    const baseClasses = `glass-card rounded-squircle p-6 ${className}`.trim();
 
     if (onClick) {
         return (
-            <button
+            <motion.button
                 onClick={onClick}
-                className={`${combinedClasses} text-left`}
+                className={`${baseClasses} text-left w-full`}
                 type="button"
+                whileHover={{ scale: 1.02, y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                transition={springHover}
             >
                 {children}
-            </button>
+            </motion.button>
         );
     }
 
-    return <div className={combinedClasses}>{children}</div>;
+    return (
+        <motion.div
+            className={baseClasses}
+            whileHover={{ scale: 1.01, y: -1 }}
+            transition={springHover}
+        >
+            {children}
+        </motion.div>
+    );
 }
-
