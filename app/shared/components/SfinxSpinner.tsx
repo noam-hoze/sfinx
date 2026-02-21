@@ -72,7 +72,17 @@ export default function SfinxSpinner({ size = "md", className = "", title, messa
   return (
     <div className="text-center -mt-32">
       <div className={`atom ${className}`}>
-        <div className="nucleus">
+        <div style={{
+          position: "absolute",
+          top: 0, right: 0, bottom: 0, left: 0,
+          margin: "auto",
+          width: s.nucleus,
+          height: s.nucleus,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 10,
+        }}>
           <Nucleus outerSize={s.nucleus} innerSize={s.nucleusInner} />
         </div>
 
@@ -108,23 +118,12 @@ export default function SfinxSpinner({ size = "md", className = "", title, messa
             to   { transform: rotate(360deg); }
           }
 
-          .nucleus,
           .orbit,
           .electron {
             position: absolute;
             top: 0; right: 0; bottom: 0; left: 0;
             margin: auto;
             border-radius: 50%;
-          }
-
-          .nucleus {
-            width: ${s.nucleus}px;
-            height: ${s.nucleus}px;
-            background: transparent;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
           }
 
           .orbit::before {
