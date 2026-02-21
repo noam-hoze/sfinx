@@ -22,7 +22,6 @@ import { log } from "app/shared/services";
 import { type ScoringConfiguration } from "app/shared/utils/calculateScore";
 import { useDebug } from "app/shared/contexts";
 import { selectBreadcrumbSource } from "@/shared/state/slices/navigationSlice";
-import DOMPurify from "dompurify";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.CPS;
@@ -383,14 +382,34 @@ function TelemetryContent() {
     const longStory: string = candidate?.story || "";
 
     // Story contains inline HTML for color emphasis from OpenAI.
-    // Sanitize before rendering to prevent XSS via prompt injection.
+    // Sanitize using DOMParser (browser built-in, zero deps) before rendering
+    // to prevent XSS via prompt injection. Only <span style="..."> is kept;
+    // all other tags, attributes, and event handlers are stripped.
     const renderStoryWithEmphasis = () => {
         if (!longStory) return null;
 
-        const safeStory = DOMPurify.sanitize(longStory, {
-            ALLOWED_TAGS: ["span"],
-            ALLOWED_ATTR: ["style"],
-        });
+        const doc = new DOMParser().parseFromString(longStory, "text/html");
+
+        function serializeNode(node: Node): string {
+            if (node.nodeType === Node.TEXT_NODE) {
+                return node.textContent ?? "";
+            }
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                const el = node as Element;
+                const children = Array.from(el.childNodes).map(serializeNode).join("");
+                if (el.tagName.toLowerCase() === "span") {
+                    const style = el.getAttribute("style");
+                    return style
+                        ? `<span style="${style.replace(/"/g, "&quot;")}">${children}</span>`
+                        : `<span>${children}</span>`;
+                }
+                // All other elements: render children only (strip the tag itself)
+                return children;
+            }
+            return "";
+        }
+
+        const safeStory = Array.from(doc.body.childNodes).map(serializeNode).join("");
         return <span dangerouslySetInnerHTML={{ __html: safeStory }} />;
     };
 
