@@ -379,6 +379,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
                 return {
                     id: session.id,
+                    status: session.status,
                     createdAt: session.createdAt,
                     videoUrl: session.videoUrl,
                     duration: session.duration,

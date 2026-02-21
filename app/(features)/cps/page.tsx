@@ -19,9 +19,10 @@ import { AuthGuard } from "app/shared/components";
 import SfinxSpinner from "app/shared/components/SfinxSpinner";
 import Breadcrumbs from "app/shared/components/Breadcrumbs";
 import { log } from "app/shared/services";
-import { calculateScore, type ScoringConfiguration, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
+import { type ScoringConfiguration } from "app/shared/utils/calculateScore";
 import { useDebug } from "app/shared/contexts";
 import { selectBreadcrumbSource } from "@/shared/state/slices/navigationSlice";
+import DOMPurify from "dompurify";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.CPS;
@@ -66,9 +67,6 @@ function TelemetryContent() {
     
     // Scoring configuration
     const [scoringConfig, setScoringConfig] = useState<ScoringConfiguration | null>(null);
-    const [calculatedScore, setCalculatedScore] = useState<number | null>(null);
-    const [calculatedExperienceScore, setCalculatedExperienceScore] = useState<number | null>(null);
-    const [calculatedCodingScore, setCalculatedCodingScore] = useState<number | null>(null);
 
     useEffect(() => {
         const fetchTelemetryData = async () => {
@@ -137,6 +135,34 @@ function TelemetryContent() {
 
     const { candidate } = telemetryData || {};
     const activeSession = sessions[activeSessionIndex] || {};
+
+    // Poll telemetry every 5 seconds while the active session is still being
+    // processed server-side. Stops automatically once status becomes COMPLETED.
+    useEffect(() => {
+        if (activeSession?.status !== "PROCESSING") return;
+        if (!candidateId) return;
+
+        const intervalId = setInterval(async () => {
+            try {
+                const query = new URLSearchParams();
+                if (applicationId) query.set("applicationId", applicationId);
+                const response = await fetch(
+                    `/api/candidates/${candidateId}/telemetry?${query.toString()}`
+                );
+                if (!response.ok) return;
+
+                const data = await response.json();
+                if (!data.sessions) return;
+
+                setSessions(data.sessions);
+                setTelemetryData({ candidate: data.candidate });
+            } catch (err) {
+                log.error(LOG_CATEGORY, "Error polling telemetry:", err);
+            }
+        }, 5000);
+
+        return () => clearInterval(intervalId);
+    }, [activeSession?.status, candidateId, applicationId]);
 
     // Fetch background summary for active session
     useEffect(() => {
@@ -230,101 +256,12 @@ function TelemetryContent() {
         fetchScoringConfig();
     }, [activeSession?.application?.job?.id]);
 
-    // Calculate score when we have all necessary data
-    useEffect(() => {
-        const sessionWorkstyle = activeSession?.workstyle;
-        const jobCodingCategories = activeSession?.application?.job?.codingCategories as Array<{name: string; description: string; weight: number}> | undefined;
-        
-        if (!backgroundSummary || !codingSummary || !scoringConfig || !sessionWorkstyle) {
-            setCalculatedScore(null);
-            setCalculatedExperienceScore(null);
-            setCalculatedCodingScore(null);
-            return;
-        }
-
-        try {
-            // Build experience scores from experienceCategories with weights from job
-            const experienceScores: Array<{name: string; score: number; weight: number}> = [];
-            const jobExperienceCategories = activeSession?.application?.job?.experienceCategories as Array<{name: string; description: string; weight: number}> | undefined;
-            
-            if (backgroundSummary.experienceCategories && jobExperienceCategories) {
-                jobExperienceCategories.forEach((categoryDef: any) => {
-                    const score = backgroundSummary.experienceCategories[categoryDef.name]?.score || 0;
-                    experienceScores.push({
-                        name: categoryDef.name,
-                        score,
-                        weight: categoryDef.weight || 1
-                    });
-                });
-            }
-            
-            // Build coding scores from jobSpecificCategories with weights from job
-            const categoryScores: Array<{name: string; score: number; weight: number}> = [];
-            
-            if (codingSummary.jobSpecificCategories && jobCodingCategories) {
-                // Categories share the remaining weight (100 - AI Assist weight)
-                // Scale DB weights proportionally to fit within remaining space
-                const categoryTotalWeight = 100 - scoringConfig.aiAssistWeight;
-                const dbWeightSum = jobCodingCategories.reduce((sum: number, cat: any) => sum + (cat.weight || 1), 0);
-                const scaleFactor = categoryTotalWeight / dbWeightSum;
-                
-                // #region agent log
-                const dbCategories = Object.keys(codingSummary.jobSpecificCategories);
-                const jobCategoryNames = jobCodingCategories.map((c: any) => c.name);
-                console.log('[CPS DEBUG] DB categories:', dbCategories);
-                console.log('[CPS DEBUG] Job categories:', jobCategoryNames);
-                console.log('[CPS DEBUG] Full jobSpecificCategories:', codingSummary.jobSpecificCategories);
-                console.log('[CPS DEBUG] Scale factor:', scaleFactor, 'DB weight sum:', dbWeightSum);
-                // #endregion
-                
-                jobCodingCategories.forEach((categoryDef: any) => {
-                    // Match by base name (before any parentheses)
-                    const baseName = categoryDef.name.split(' (')[0];
-                    const matchingKey = Object.keys(codingSummary.jobSpecificCategories).find(key => 
-                        key.startsWith(baseName) || categoryDef.name.startsWith(key)
-                    ) || categoryDef.name;
-                    
-                    const score = codingSummary.jobSpecificCategories[matchingKey]?.score || 0;
-                    const scaledWeight = categoryDef.weight * scaleFactor;
-                    
-                    // #region agent log
-                    console.log(`[CPS DEBUG] ${categoryDef.name}: dbWeight=${categoryDef.weight}, scaledWeight=${scaledWeight}, score=${score}`);
-                    // #endregion
-                    
-                    categoryScores.push({
-                        name: categoryDef.name,
-                        score,
-                        weight: scaledWeight
-                    });
-                });
-            }
-            
-            const rawScores: RawScores = {
-                experienceScores,
-                categoryScores,
-            };
-
-            const workstyleMetrics: WorkstyleMetrics = {
-                aiAssistAccountabilityScore: sessionWorkstyle.aiAssistUsage?.avgAccountabilityScore,
-            };
-
-            const result = calculateScore(rawScores, workstyleMetrics, scoringConfig);
-            setCalculatedScore(result.finalScore);
-            setCalculatedExperienceScore(result.experienceScore);
-            setCalculatedCodingScore(result.codingScore);
-            
-            // #region agent log
-            console.log('[CPS SCORE CALC] Experience:', result.experienceScore, 'Coding:', result.codingScore, 'Final:', result.finalScore);
-            console.log('[CPS SCORE CALC] Category scores WITH WEIGHTS:', categoryScores.map(c => ({name: c.name, score: c.score, weight: c.weight})));
-            console.log('[CPS SCORE CALC] AI Assist:', workstyleMetrics.aiAssistAccountabilityScore, 'Weight:', scoringConfig.aiAssistWeight);
-            // #endregion
-        } catch (error) {
-            log.error(LOG_CATEGORY, "Error calculating score:", error);
-            setCalculatedScore(null);
-            setCalculatedExperienceScore(null);
-            setCalculatedCodingScore(null);
-        }
-    }, [backgroundSummary, codingSummary, scoringConfig, activeSession?.workstyle, activeSession?.application?.job?.codingCategories, activeSession?.application?.job?.experienceCategories]);
+    // Scores are calculated server-side and returned by the telemetry API.
+    // Reading them directly avoids divergence caused by different category-matching
+    // logic that the previous client-side recalculation used.
+    const calculatedScore = activeSession?.calculatedScore ?? null;
+    const calculatedExperienceScore = activeSession?.calculatedExperienceScore ?? null;
+    const calculatedCodingScore = activeSession?.calculatedCodingScore ?? null;
 
     console.log("[CPS] Active session:", activeSession);
     const formatMonthYear = (dateIso?: string) =>
@@ -445,12 +382,16 @@ function TelemetryContent() {
 
     const longStory: string = candidate?.story || "";
 
-    // Story now contains inline HTML for color emphasis - render directly
+    // Story contains inline HTML for color emphasis from OpenAI.
+    // Sanitize before rendering to prevent XSS via prompt injection.
     const renderStoryWithEmphasis = () => {
         if (!longStory) return null;
 
-        // Story contains HTML with inline styles from OpenAI
-        return <span dangerouslySetInnerHTML={{ __html: longStory }} />;
+        const safeStory = DOMPurify.sanitize(longStory, {
+            ALLOWED_TAGS: ["span"],
+            ALLOWED_ATTR: ["style"],
+        });
+        return <span dangerouslySetInnerHTML={{ __html: safeStory }} />;
     };
 
     const onVideoJump = (timestamp: number) => {
@@ -501,6 +442,20 @@ function TelemetryContent() {
                         Try Again
                     </button>
                 </div>
+            </div>
+        );
+    }
+
+    // Show a spinner while the server is still running the AI processing steps.
+    // The polling effect above will update sessions once status reaches COMPLETED.
+    if (activeSession?.status === "PROCESSING") {
+        return (
+            <div className="h-screen bg-gray-50 overflow-hidden flex items-center justify-center">
+                <SfinxSpinner
+                    size="lg"
+                    title="Results are being calculated…"
+                    messages={["Analyzing code quality", "Evaluating job fit", "Generating candidate profile"]}
+                />
             </div>
         );
     }
