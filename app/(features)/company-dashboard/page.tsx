@@ -1,10 +1,10 @@
 import { AuthGuard } from "app/shared/components";
-import ApplicantsByJob from "./ApplicantsByJob";
+import AllApplicants from "./AllApplicants";
 
 export default function CompanyDashboard() {
     return (
         <AuthGuard requiredRole="COMPANY">
-            <ApplicantsByJob />
+            <AllApplicants />
         </AuthGuard>
     );
 }
