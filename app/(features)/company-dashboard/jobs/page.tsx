@@ -209,10 +209,12 @@ function JobCard({ job, rawJob, index, onEdit, onDelete, onClick, deleteInFlight
             animate={{ opacity: 1, y: 0 }}
             transition={{ ...springEnter, delay: index * 0.06 }}
         >
-            <motion.button
-                type="button"
+            <motion.div
+                role="button"
+                tabIndex={0}
                 onClick={onClick}
-                className="group glass-card rounded-squircle p-6 text-left w-full relative"
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick(); }}
+                className="group glass-card rounded-squircle p-6 text-left w-full relative cursor-pointer"
                 whileHover={{ scale: 1.02, y: -2 }}
                 whileTap={{ scale: 0.98 }}
                 transition={springHover}
@@ -330,7 +332,7 @@ function JobCard({ job, rawJob, index, onEdit, onDelete, onClick, deleteInFlight
                     </svg>
                     {deleteInFlight ? "Deleting..." : "Delete"}
                 </button>
-            </motion.button>
+            </motion.div>
         </motion.div>
     );
 }
