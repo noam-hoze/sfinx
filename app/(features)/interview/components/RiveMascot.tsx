@@ -44,9 +44,6 @@ const MascotContent: React.FC<{ visemes?: Viseme[]; isPlaying?: boolean }> = ({
       playbackExists: !!playback
     };
 
-    // #region agent log
-    fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:'EFFECT',data:logData})}).catch(()=>{});
-    // #endregion
 
     handlePlayback(playback, visemes, isPlaying);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -54,14 +51,8 @@ const MascotContent: React.FC<{ visemes?: Viseme[]; isPlaying?: boolean }> = ({
 
   // Cleanup effect to detect unmount/remount
   useEffect(() => {
-    // #region agent log
-    fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:'MOUNT',instanceId:instanceId.current})}).catch(()=>{});
-    // #endregion
 
     return () => {
-      // #region agent log
-      fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:'UNMOUNT',instanceId:instanceId.current})}).catch(()=>{});
-      // #endregion
 
       // Explicit cleanup on unmount
       playback?.pause();
@@ -81,9 +72,6 @@ function handlePlayback(
   visemes: Viseme[],
   isPlaying: boolean
 ): void {
-  // #region agent log
-  fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:'HANDLE_PLAYBACK',isPlaying,visemesCount:visemes.length})}).catch(()=>{});
-  // #endregion
 
   // Always stop current playback first to prevent overlap between questions
   playback.pause();
@@ -92,9 +80,6 @@ function handlePlayback(
   if (isPlaying && visemes.length > 0) {
     playback.add(visemes);
     playback.play();
-    // #region agent log
-    fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({event:'PLAYBACK_START',visemesCount:visemes.length})}).catch(()=>{});
-    // #endregion
   }
   // When !isPlaying or visemes.length === 0, playback stays stopped (already paused/reset above)
 }

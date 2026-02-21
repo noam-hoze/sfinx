@@ -267,14 +267,6 @@ function TelemetryContent() {
                 const dbWeightSum = jobCodingCategories.reduce((sum: number, cat: any) => sum + (cat.weight || 1), 0);
                 const scaleFactor = categoryTotalWeight / dbWeightSum;
                 
-                // #region agent log
-                const dbCategories = Object.keys(codingSummary.jobSpecificCategories);
-                const jobCategoryNames = jobCodingCategories.map((c: any) => c.name);
-                console.log('[CPS DEBUG] DB categories:', dbCategories);
-                console.log('[CPS DEBUG] Job categories:', jobCategoryNames);
-                console.log('[CPS DEBUG] Full jobSpecificCategories:', codingSummary.jobSpecificCategories);
-                console.log('[CPS DEBUG] Scale factor:', scaleFactor, 'DB weight sum:', dbWeightSum);
-                // #endregion
                 
                 jobCodingCategories.forEach((categoryDef: any) => {
                     // Match by base name (before any parentheses)
@@ -286,9 +278,6 @@ function TelemetryContent() {
                     const score = codingSummary.jobSpecificCategories[matchingKey]?.score || 0;
                     const scaledWeight = categoryDef.weight * scaleFactor;
                     
-                    // #region agent log
-                    console.log(`[CPS DEBUG] ${categoryDef.name}: dbWeight=${categoryDef.weight}, scaledWeight=${scaledWeight}, score=${score}`);
-                    // #endregion
                     
                     categoryScores.push({
                         name: categoryDef.name,
@@ -312,11 +301,6 @@ function TelemetryContent() {
             setCalculatedExperienceScore(result.experienceScore);
             setCalculatedCodingScore(result.codingScore);
             
-            // #region agent log
-            console.log('[CPS SCORE CALC] Experience:', result.experienceScore, 'Coding:', result.codingScore, 'Final:', result.finalScore);
-            console.log('[CPS SCORE CALC] Category scores WITH WEIGHTS:', categoryScores.map(c => ({name: c.name, score: c.score, weight: c.weight})));
-            console.log('[CPS SCORE CALC] AI Assist:', workstyleMetrics.aiAssistAccountabilityScore, 'Weight:', scoringConfig.aiAssistWeight);
-            // #endregion
         } catch (error) {
             log.error(LOG_CATEGORY, "Error calculating score:", error);
             setCalculatedScore(null);
