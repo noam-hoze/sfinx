@@ -1,9 +1,6 @@
-"use client";
-
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { motion } from "framer-motion";
 
 export interface JobGridCompany {
     id: string;
@@ -35,8 +32,6 @@ interface JobGridProps {
     emptyLabel?: string;
 }
 
-const springHover = { type: "spring", stiffness: 400, damping: 25 } as const;
-
 /**
  * Renders a responsive grid of job cards that can show or hide company logos.
  */
@@ -55,9 +50,9 @@ export function JobGrid({
             emptyLabel !== undefined ? emptyLabel : "No jobs found";
         return (
             <div className="text-center py-12">
-                <div className="w-16 h-16 mx-auto mb-4 bg-violet-50 rounded-squircle flex items-center justify-center">
+                <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
                     <svg
-                        className="w-8 h-8 text-sfinx-purple"
+                        className="w-8 h-8 text-gray-400"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -73,7 +68,7 @@ export function JobGrid({
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
                     {emptyHeading}
                 </h3>
-                <p className="text-gray-500">
+                <p className="text-gray-600">
                     Adjust your filters or create a new job to get started.
                 </p>
             </div>
@@ -82,30 +77,24 @@ export function JobGrid({
 
     return (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-            {items.map((job, index) => {
+            {items.map((job) => {
                 const { company } = job;
                 if (!company) {
                     throw new Error("JobGrid requires company data on every job");
                 }
                 const href = getHref ? getHref(job) : null;
-
                 const card = (
-                    <motion.div
-                        className="group glass-card rounded-squircle p-6 flex flex-col h-full"
+                    <div
+                        className={`group bg-white/60 backdrop-blur-sm rounded-2xl border border-gray-200 shadow-sm p-6 hover:bg-white/80 hover:shadow-lg hover:border-gray-300 transition-all duration-300 ease-out hover:scale-105 flex flex-col h-full`}
                         onClick={() => {
-                            if (onCardClick) onCardClick(job);
+                            if (onCardClick) {
+                                onCardClick(job);
+                            }
                         }}
                         role={onCardClick ? "button" : "presentation"}
-                        whileHover={{ scale: 1.02, y: -2 }}
-                        whileTap={{ scale: 0.98 }}
-                        transition={springHover}
-                        initial={{ opacity: 0, y: 16 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        // stagger cards on load
-                        style={{ transitionDelay: `${index * 40}ms` } as React.CSSProperties}
                     >
                         {showLogo && (
-                            <div className="relative w-full h-24 mx-auto mb-4 bg-white/80 rounded-squircle-sm flex items-center justify-center p-4">
+                            <div className="relative w-full h-24 mx-auto mb-4 bg-white rounded-xl flex items-center justify-center p-4">
                                 {company.logo ? (
                                     <Image
                                         src={company.logo}
@@ -122,11 +111,11 @@ export function JobGrid({
                         )}
 
                         <div className="text-center">
-                            <p className="text-sm text-gray-700 font-medium mb-1">{job.title}</p>
+                            <p className="text-sm text-gray-600 mb-1">{job.title}</p>
                         </div>
 
                         <div className="mt-auto pt-3 flex flex-col gap-2 items-center">
-                            <span className="px-2 py-1 bg-violet-50 text-sfinx-purple text-xs rounded-full font-medium">
+                            <span className="px-2 py-1 bg-blue-50 text-blue-600 text-xs rounded-full">
                                 {company.industry}
                             </span>
                             <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
@@ -140,7 +129,7 @@ export function JobGrid({
                                 {renderActions(job)}
                             </div>
                         ) : null}
-                    </motion.div>
+                    </div>
                 );
 
                 if (href) {
@@ -160,3 +149,4 @@ export function JobGrid({
         </div>
     );
 }
+
