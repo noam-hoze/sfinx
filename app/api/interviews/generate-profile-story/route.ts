@@ -6,7 +6,7 @@ import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
-const openai = new OpenAI({ apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY });
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY ?? process.env.NEXT_PUBLIC_OPENAI_API_KEY });
 
 interface CategoryScore {
     name: string;

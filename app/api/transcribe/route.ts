@@ -10,7 +10,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Audio file is required" }, { status: 400 });
     }
 
-    const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+    const apiKey = process.env.OPENAI_API_KEY ?? process.env.NEXT_PUBLIC_OPENAI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
         { error: "OpenAI API key not configured" },

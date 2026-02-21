@@ -16,7 +16,7 @@ import {
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
 const openai = new OpenAI({
-    apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+    apiKey: process.env.OPENAI_API_KEY ?? process.env.NEXT_PUBLIC_OPENAI_API_KEY,
 });
 
 /**
@@ -213,9 +213,12 @@ export async function POST(request: NextRequest) {
             )[0].categoryName;
         } else {
             // MODE 2: Rebalance - pick weakest category (lowest avgStrength)
-            // TODO: [Bug] countsForSelection may be empty if all categories were filtered out by excluded topics above;
-            //        accessing [0] on an empty array returns undefined and .categoryName will throw a TypeError,
-            //        crashing this endpoint. Add a guard: if (!countsForSelection.length) return a 400 or a fallback topic.
+            if (!countsForSelection.length) {
+                return NextResponse.json(
+                    { error: "No eligible categories available for topic selection" },
+                    { status: 400 }
+                );
+            }
             newFocusTopic = countsForSelection.sort((a: any, b: any) =>
                 a.avgStrength - b.avgStrength
             )[0].categoryName;

@@ -9,7 +9,7 @@ const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
 export async function POST(request: NextRequest) {
     try {
-        const openaiApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+        const openaiApiKey = process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY;
         if (!openaiApiKey) {
             log.error(LOG_CATEGORY, "[Generate Coding Summary] OpenAI API key not configured");
             return NextResponse.json(

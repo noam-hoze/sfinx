@@ -2,12 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 
-// TODO: [Bug] NEXT_PUBLIC_ is for browser-accessible vars only — Next.js bakes these into the client JS bundle at
-//        build time, exposing the key to anyone who inspects page assets. API routes are server-only and must use a
-//        non-prefixed variable (e.g. OPENAI_API_KEY). The NEXT_PUBLIC_ prefix here is unnecessary AND leaks the key
-//        to the browser.
 const openai = new OpenAI({
-    apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+    apiKey: process.env.OPENAI_API_KEY ?? process.env.NEXT_PUBLIC_OPENAI_API_KEY,
 });
 
 /**
