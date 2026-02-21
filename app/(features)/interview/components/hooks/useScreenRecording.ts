@@ -12,6 +12,7 @@ export const useScreenRecording = () => {
     const [micPermissionGranted, setMicPermissionGranted] = useState(false);
     const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
     const [recordingUploaded, setRecordingUploaded] = useState(false);
+    const recordingUploadedRef = useRef(false);
     const [interviewSessionId, setInterviewSessionIdState] = useState<
         string | null
     >(null);
@@ -26,6 +27,7 @@ export const useScreenRecording = () => {
         setInterviewSessionIdState(sessionId);
         interviewSessionIdRef.current = sessionId;
         setRecordingUploaded(false);
+        recordingUploadedRef.current = false;
     }, []);
 
     // Allows developers to skip the screen sharing prompt during local debugging.
@@ -40,21 +42,15 @@ export const useScreenRecording = () => {
                 "🔍 uploadRecordingToServer called with sessionId:",
                 interviewSessionIdRef.current,
                 "uploaded:",
-                recordingUploaded
+                recordingUploadedRef.current
             );
 
-            // TODO: [Bug] recordingUploaded is a React state value captured in this useCallback's closure. Because
-            //        it is listed as a dependency (line 107), a new callback is created each time it changes — but
-            //        the onstop handler (line ~232) was registered when the MediaRecorder was created and holds the
-            //        OLD callback. This means onstop can fire with a stale recordingUploaded=false even after the
-            //        upload completed, causing a duplicate upload. Replace the state-based guard with a ref:
-            //        const recordingUploadedRef = useRef(false) and read/write that inside both callbacks.
-            if (!interviewSessionIdRef.current || recordingUploaded) {
+            if (!interviewSessionIdRef.current || recordingUploadedRef.current) {
                 log.info(LOG_CATEGORY, 
                     "Cannot upload: sessionId=",
                     interviewSessionIdRef.current,
                     "uploaded=",
-                    recordingUploaded
+                    recordingUploadedRef.current
                 );
                 return;
             }
@@ -106,11 +102,12 @@ export const useScreenRecording = () => {
                 await updateResponse.json();
                 log.info(LOG_CATEGORY, "✅ Interview session updated successfully");
                 setRecordingUploaded(true);
+                recordingUploadedRef.current = true;
             } catch (error) {
                 log.error(LOG_CATEGORY, "❌ Error in uploadRecordingToServer:", error);
             }
         },
-        [recordingUploaded]
+        []
     );
 
     const requestRecordingPermission = useCallback(async () => {
@@ -233,9 +230,9 @@ export const useScreenRecording = () => {
                     "🔍 onstop: interviewSessionId =",
                     interviewSessionIdRef.current,
                     "recordingUploaded =",
-                    recordingUploaded
+                    recordingUploadedRef.current
                 );
-                if (interviewSessionIdRef.current && !recordingUploaded) {
+                if (interviewSessionIdRef.current && !recordingUploadedRef.current) {
                     log.info(LOG_CATEGORY, 
                         "🚀 Auto-uploading recording for session:",
                         interviewSessionIdRef.current
@@ -246,7 +243,7 @@ export const useScreenRecording = () => {
                         "Cannot auto-upload: sessionId=",
                         interviewSessionIdRef.current,
                         "uploaded=",
-                        recordingUploaded
+                        recordingUploadedRef.current
                     );
                 }
 
@@ -280,7 +277,7 @@ export const useScreenRecording = () => {
             setMicPermissionGranted(false);
             return false;
         }
-    }, [recordingUploaded, uploadRecordingToServer]);
+    }, [uploadRecordingToServer]);
 
     const startRecording = useCallback(async () => {
         if (skipScreenShare) {
@@ -350,7 +347,7 @@ export const useScreenRecording = () => {
             return;
         }
 
-        if (recordingUploaded) {
+        if (recordingUploadedRef.current) {
             log.info(LOG_CATEGORY, "Recording already uploaded");
             return;
         }
@@ -427,10 +424,11 @@ export const useScreenRecording = () => {
             await updateResponse.json();
             log.info(LOG_CATEGORY, "✅ Interview session updated successfully");
             setRecordingUploaded(true);
+            recordingUploadedRef.current = true;
         } catch (error) {
             log.error(LOG_CATEGORY, "❌ Error in insertRecordingUrl event handler:", error);
         }
-    }, [interviewSessionId, recordingUploaded, recordingUrl]);
+    }, [interviewSessionId, recordingUrl]);
 
     const getActualRecordingStartTime = useCallback(() => {
         return actualRecordingStartTimeRef.current;

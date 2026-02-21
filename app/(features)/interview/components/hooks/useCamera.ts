@@ -34,12 +34,6 @@ export const useCamera = () => {
             window.clearTimeout(cameraHideTimeoutRef.current);
         }
 
-        // TODO: [Bug] This timeout's ID is stored in cameraHideTimeoutRef.current, but the cleanup function in the
-        //        useEffect below (lines 84–88) only clears the timeout when the component unmounts — it does NOT
-        //        clear a timeout that was set after the last unmount cleanup registered. If stopCamera() is called
-        //        just before unmount and the component unmounts before the 350ms fires, the callback will attempt to
-        //        access cameraStreamRef and selfVideoRef on an unmounted component. Store the timeout ID and always
-        //        clear it in the cleanup, or use a mounted flag to guard the callback.
         cameraHideTimeoutRef.current = window.setTimeout(() => {
             if (cameraStreamRef.current) {
                 cameraStreamRef.current.getTracks().forEach((t) => t.stop());
@@ -79,12 +73,7 @@ export const useCamera = () => {
                 log.error(LOG_CATEGORY, "📹 Failed to attach stream:", err);
             }
         }
-    // TODO: [Bug] selfVideoRef.current should not be in this useEffect dependency array. Refs are mutable objects —
-    //        changing .current does not trigger a re-render, so React will not re-run this effect when the video
-    //        element mounts. The stream can be attached when isCameraOn=true but selfVideoRef.current is still null,
-    //        and the effect won't re-run when the element later becomes available. Use a callback ref or a separate
-    //        state variable to track when the video element is ready.
-    }, [isCameraOn, selfVideoRef.current]);
+    }, [isCameraOn]);
 
     useEffect(() => {
         log.info(LOG_CATEGORY, "🎬 Auto-start effect running, CAMERA_AUTO_START:", CAMERA_AUTO_START);
