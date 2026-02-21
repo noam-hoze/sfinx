@@ -47,7 +47,6 @@ import OpenAI from "openai";
 import {
   useBackgroundPreload,
   useAnnouncementGeneration,
-  useSoundPreload,
   useBackgroundAnswerHandler,
 } from "@/shared/services/backgroundInterview";
 
@@ -61,7 +60,13 @@ function InterviewPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isMuted, toggleMute } = useMute();
-  const { isMascotReady } = useInterviewPreload();
+  const {
+    warmupData,
+    warmupLoading,
+    clickSoundRef: preloadedClickSoundRef,
+    startSoundRef: preloadedStartSoundRef,
+    openaiClient: preloadedOpenaiClient,
+  } = useInterviewPreload();
   const { isDebugVisible, showDebugButton, setShowDebugButton } = useDebug();
   const dispatch = useDispatch();
   const { data: session, status: sessionStatus } = useSession();
@@ -97,7 +102,8 @@ function InterviewPageContent() {
   const [backgroundTimeSeconds, setBackgroundTimeSeconds] = useState<number | undefined>(undefined);
   const [experienceCategories, setExperienceCategories] = useState<Array<{name: string; description: string; weight: number; example?: string}> | null>(null);
   const [backgroundEvaluations, setBackgroundEvaluations] = useState<Array<{timestamp: string; question: string; answer: string; evaluations: any[]}>>([]);
-  const [openaiClient, setOpenaiClient] = useState<OpenAI | null>(null);
+  // OpenAI client comes from InterviewPreloadContext (preloaded at auth time)
+  const openaiClient = preloadedOpenaiClient;
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
   const [allowQuestionDisplay, setAllowQuestionDisplay] = useState(false);
   const [showCodingIDE, setShowCodingIDE] = useState(false);
@@ -134,7 +140,7 @@ function InterviewPageContent() {
   // Extracted services
   const { preload } = useBackgroundPreload();
   const { generateAnnouncement } = useAnnouncementGeneration();
-  const { clickSoundRef: refClickSound, startSoundRef: refStartSound, soundsReady } = useSoundPreload();
+  // Sound refs come from InterviewPreloadContext (preloaded at auth time)
   const { handleSubmit: submitAnswer } = useBackgroundAnswerHandler(
     (evalData) => {
       setBackgroundEvaluations(prev => [...prev, evalData]);
@@ -144,11 +150,11 @@ function InterviewPageContent() {
     }
   );
 
-  // Sync service sound refs to local refs
+  // Sync preloaded sound refs to local refs
   useEffect(() => {
-    clickSoundRef.current = refClickSound.current;
-    startSoundRef.current = refStartSound.current;
-  }, [refClickSound, refStartSound]);
+    clickSoundRef.current = preloadedClickSoundRef.current;
+    startSoundRef.current = preloadedStartSoundRef.current;
+  }, [preloadedClickSoundRef, preloadedStartSoundRef]);
 
   // Cleanup on unmount - reset all interview state when leaving the flow
   useEffect(() => {
@@ -160,13 +166,7 @@ function InterviewPageContent() {
     };
   }, [dispatch, setShowDebugButton]);
 
-  // Initialize OpenAI client
-  useEffect(() => {
-    const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
-    if (apiKey) {
-      setOpenaiClient(new OpenAI({ apiKey, dangerouslyAllowBrowser: true }));
-    }
-  }, []);
+  // OpenAI client is initialized in InterviewPreloadContext at auth time
 
   // Skip preload if going directly to coding
   useEffect(() => {
@@ -354,32 +354,36 @@ function InterviewPageContent() {
   }, [shouldResetFlag, dispatch, applicationId, setInterviewSessionId]);
 
   // STAGE 1: Preload (skip if going directly to coding)
+  // Wait for warmup to complete (or fail) before starting preload to maximize warmup benefit
   useEffect(() => {
-    if (!openaiClient || skipToCoding || hasPreloadedRef.current || sessionStatus !== "authenticated") return;
+    if (!openaiClient || skipToCoding || hasPreloadedRef.current || sessionStatus !== "authenticated" || warmupLoading) return;
 
     const executePreload = async () => {
       try {
         setIsPreloading(true);
         hasPreloadedRef.current = true;
-        
+
         const urlCompanyId = searchParams.get("companyId");
         const urlJobId = searchParams.get("jobId");
-        
+
         if (!urlCompanyId || !urlJobId) {
           throw new Error("Missing required URL parameters: companyId and jobId");
         }
-        
-        const roleSlugFromUrl = urlJobId.replace(`${urlCompanyId}-`, "");
-        
-        // Pass session userId for authenticated users
-        const sessionUserId = (session?.user as any)?.id;
-        await preload(urlJobId, urlCompanyId, openaiClient, sessionUserId, setBackgroundTimeSeconds, setExperienceCategories);
 
-        // Generate announcement
+        const roleSlugFromUrl = urlJobId.replace(`${urlCompanyId}-`, "");
         const jobTitle = roleSlugFromUrl.split("-").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-        const { text, audioBlob } = await generateAnnouncement(jobTitle);
-        setAnnouncementText(text);
-        setAnnouncementAudioBlob(audioBlob);
+
+        // Pass session userId and warmup data for optimized parallel preload
+        const sessionUserId = (session?.user as any)?.id;
+
+        // Run preload and announcement generation in parallel
+        const [, announcementResult] = await Promise.all([
+          preload(urlJobId, urlCompanyId, openaiClient, sessionUserId, warmupData, setBackgroundTimeSeconds, setExperienceCategories),
+          generateAnnouncement(jobTitle),
+        ]);
+
+        setAnnouncementText(announcementResult.text);
+        setAnnouncementAudioBlob(announcementResult.audioBlob);
 
         log.info(LOG_CATEGORY, "[interview] Preload complete - moving to welcome");
         setIsPreloading(false);
@@ -392,7 +396,7 @@ function InterviewPageContent() {
     };
 
     executePreload();
-  }, [openaiClient, skipToCoding, preload, generateAnnouncement, session, searchParams, sessionStatus]);
+  }, [openaiClient, skipToCoding, preload, generateAnnouncement, session, searchParams, sessionStatus, warmupData, warmupLoading]);
 
   /**
    * Ensures an application exists for the coding phase and returns its ID.
