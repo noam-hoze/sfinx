@@ -190,43 +190,126 @@ interface JobFilterProps {
     jobs: Job[];
     selectedJobId: string | null;
     onSelect: (jobId: string | null) => void;
+    applicants: Applicant[];
 }
 
-function JobFilter({ jobs, selectedJobId, onSelect }: JobFilterProps) {
+function JobFilter({ jobs, selectedJobId, onSelect, applicants }: JobFilterProps) {
+    // Compute per-job applicant counts
+    const countByJobId = useMemo(() => {
+        const map: Record<string, number> = {};
+        for (const a of applicants) {
+            map[a.jobId] = (map[a.jobId] ?? 0) + 1;
+        }
+        return map;
+    }, [applicants]);
+
+    const allCount = applicants.length;
+
     return (
         <motion.div
-            className="glass-card rounded-squircle p-4"
-            initial={{ opacity: 0, y: 12 }}
+            className="flex items-center gap-4 px-1"
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ ...springEnter, delay: 0.18 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25, delay: 0.18 }}
         >
+            {/* Contextual label */}
+            <span className="text-xs text-gray-400 uppercase tracking-wider shrink-0 select-none">
+                Filter by job:
+            </span>
+
+            {/* Pill cluster */}
             <div className="flex flex-wrap gap-2">
                 {/* All Jobs pill */}
-                <button
+                <motion.button
                     onClick={() => onSelect(null)}
-                    className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer ${
-                        selectedJobId === null
-                            ? "bg-sfinx-purple text-white"
-                            : "bg-white/60 text-gray-600 border border-gray-200 hover:bg-gray-50"
-                    }`}
+                    className="relative rounded-full px-4 py-1.5 text-sm font-medium overflow-hidden"
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.97 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                    style={{ isolation: "isolate" }}
                 >
-                    All Jobs
-                </button>
+                    {/* Sliding purple background — only rendered on the active pill */}
+                    {selectedJobId === null && (
+                        <motion.span
+                            layoutId="job-filter-pill"
+                            className="absolute inset-0 rounded-full bg-sfinx-purple"
+                            style={{ zIndex: 0 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                        />
+                    )}
+                    {/* Inactive background — only when not active */}
+                    {selectedJobId !== null && (
+                        <span
+                            className="absolute inset-0 rounded-full bg-white/40 backdrop-blur-sm border border-white/30"
+                            style={{ zIndex: 0 }}
+                        />
+                    )}
+                    <span
+                        className={`relative flex items-center gap-1.5 ${
+                            selectedJobId === null ? "text-white" : "text-gray-600 hover:text-gray-800"
+                        }`}
+                        style={{ zIndex: 1 }}
+                    >
+                        All Jobs
+                        <span
+                            className={`text-xs tabular-nums ${
+                                selectedJobId === null ? "text-white/70" : "text-gray-400"
+                            }`}
+                        >
+                            ({allCount})
+                        </span>
+                    </span>
+                </motion.button>
 
                 {/* Per-job pills */}
-                {jobs.map((job) => (
-                    <button
-                        key={job.id}
-                        onClick={() => onSelect(selectedJobId === job.id ? null : job.id)}
-                        className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors cursor-pointer ${
-                            selectedJobId === job.id
-                                ? "bg-sfinx-purple text-white"
-                                : "bg-white/60 text-gray-600 border border-gray-200 hover:bg-gray-50"
-                        }`}
-                    >
-                        {job.title}
-                    </button>
-                ))}
+                {jobs.map((job) => {
+                    const isActive = selectedJobId === job.id;
+                    const count = countByJobId[job.id] ?? 0;
+
+                    return (
+                        <motion.button
+                            key={job.id}
+                            onClick={() => onSelect(isActive ? null : job.id)}
+                            className="relative rounded-full px-4 py-1.5 text-sm font-medium overflow-hidden"
+                            whileHover={{ scale: 1.04 }}
+                            whileTap={{ scale: 0.97 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                            style={{ isolation: "isolate" }}
+                        >
+                            {/* Sliding purple background */}
+                            {isActive && (
+                                <motion.span
+                                    layoutId="job-filter-pill"
+                                    className="absolute inset-0 rounded-full bg-sfinx-purple"
+                                    style={{ zIndex: 0 }}
+                                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                                />
+                            )}
+                            {/* Inactive glass background */}
+                            {!isActive && (
+                                <span
+                                    className="absolute inset-0 rounded-full bg-white/40 backdrop-blur-sm border border-white/30"
+                                    style={{ zIndex: 0 }}
+                                />
+                            )}
+                            <span
+                                className={`relative flex items-center gap-1.5 ${
+                                    isActive ? "text-white" : "text-gray-600 hover:text-gray-800"
+                                }`}
+                                style={{ zIndex: 1 }}
+                            >
+                                {job.title}
+                                <span
+                                    className={`text-xs tabular-nums ${
+                                        isActive ? "text-white/70" : "text-gray-400"
+                                    }`}
+                                >
+                                    ({count})
+                                </span>
+                            </span>
+                        </motion.button>
+                    );
+                })}
             </div>
         </motion.div>
     );
@@ -574,6 +657,7 @@ export default function AllApplicants() {
                         jobs={data.jobs}
                         selectedJobId={selectedJobId}
                         onSelect={setSelectedJobId}
+                        applicants={data.applicants}
                     />
                 )}
 
