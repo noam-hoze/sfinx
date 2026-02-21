@@ -6,6 +6,7 @@ import { log } from "app/shared/services";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import { config } from "dotenv";
 import path from "path";
+import fs from "fs";
 
 const LOG_CATEGORY = LOG_CATEGORIES.DB;
 
@@ -97,21 +98,37 @@ function getRandomElement<T>(array: T[]): T {
     return array[Math.floor(Math.random() * array.length)];
 }
 
-// Generate random categories for highlights
-function generateCategories(baseScore: number) {
-    const experienceCategories = {
-        neural_networks: { name: "Neural Networks", score: Math.max(0, Math.min(100, baseScore + gaussianRandom(0, 15))) },
-        deep_learning: { name: "Deep Learning", score: Math.max(0, Math.min(100, baseScore + gaussianRandom(0, 15))) },
-        computer_vision: { name: "Computer Vision", score: Math.max(0, Math.min(100, baseScore + gaussianRandom(0, 15))) },
-        nlp: { name: "Natural Language Processing", score: Math.max(0, Math.min(100, baseScore + gaussianRandom(0, 15))) },
-    };
+// Generate random categories for highlights from job categories
+function generateCategories(baseScore: number, jobOpenRoles: any) {
+    const experienceCategories: Record<string, { name: string; score: number }> = {};
+    const codingCategories: Record<string, { name: string; score: number }> = {};
 
-    const codingCategories = {
-        pytorch: { name: "PyTorch", score: Math.max(0, Math.min(100, baseScore + gaussianRandom(0, 15))) },
-        tensorflow: { name: "TensorFlow", score: Math.max(0, Math.min(100, baseScore + gaussianRandom(0, 15))) },
-        python: { name: "Python", score: Math.max(0, Math.min(100, baseScore + gaussianRandom(0, 15))) },
-        model_optimization: { name: "Model Optimization", score: Math.max(0, Math.min(100, baseScore + gaussianRandom(0, 15))) },
-    };
+    // Get categories from job definition
+    if (jobOpenRoles && jobOpenRoles.length > 0) {
+        const role = jobOpenRoles[0];
+
+        // Process experience categories
+        if (role.experienceCategories && Array.isArray(role.experienceCategories)) {
+            role.experienceCategories.forEach((cat: any) => {
+                const key = cat.name.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+                experienceCategories[key] = {
+                    name: cat.name,
+                    score: Math.max(0, Math.min(100, baseScore + gaussianRandom(0, 15)))
+                };
+            });
+        }
+
+        // Process coding categories
+        if (role.codingCategories && Array.isArray(role.codingCategories)) {
+            role.codingCategories.forEach((cat: any) => {
+                const key = cat.name.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+                codingCategories[key] = {
+                    name: cat.name,
+                    score: Math.max(0, Math.min(100, baseScore + gaussianRandom(0, 15)))
+                };
+            });
+        }
+    }
 
     return { experienceCategories, codingCategories };
 }
@@ -149,6 +166,10 @@ async function deleteExistingCandidates(jobId: string, companyName: string) {
 
 async function seedCandidatesForCompany(companyId: string, count: number, hashedPassword: string) {
     log.info(LOG_CATEGORY, `\n=== Seeding ${count} candidates for ${companyId} ===`);
+
+    // Load company data to get job categories
+    const companiesData = JSON.parse(fs.readFileSync(path.join(__dirname, 'data/companies.json'), 'utf-8'));
+    const companyData = companiesData.find((c: any) => c.id === companyId);
 
     // Find company
     const company = await prisma.company.findUnique({
@@ -241,7 +262,7 @@ async function seedCandidatesForCompany(companyId: string, count: number, hashed
                 },
             });
 
-            const { experienceCategories, codingCategories } = generateCategories(candidateData.score);
+            const { experienceCategories, codingCategories } = generateCategories(candidateData.score, companyData?.openRoles);
 
             await prisma.telemetryData.create({
                 data: {
