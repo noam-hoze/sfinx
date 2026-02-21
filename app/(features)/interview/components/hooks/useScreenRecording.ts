@@ -21,6 +21,9 @@ export const useScreenRecording = () => {
     const selectedMimeTypeRef = useRef<string>("");
     const interviewSessionIdRef = useRef<string | null>(null);
     const actualRecordingStartTimeRef = useRef<Date | null>(null);
+    // Resolves once onstop + uploadRecordingToServer have fully completed.
+    // Used by stopRecording() so callers can await the upload.
+    const uploadCompleteRef = useRef<(() => void) | null>(null);
 
     const setInterviewSessionId = useCallback((sessionId: string | null) => {
         setInterviewSessionIdState(sessionId);
@@ -229,19 +232,25 @@ export const useScreenRecording = () => {
                     "recordingUploaded =",
                     recordingUploaded
                 );
-                if (interviewSessionIdRef.current && !recordingUploaded) {
-                    log.info(LOG_CATEGORY, 
-                        "🚀 Auto-uploading recording for session:",
-                        interviewSessionIdRef.current
-                    );
-                    await uploadRecordingToServer(blob);
-                } else {
-                    log.info(LOG_CATEGORY, 
-                        "Cannot auto-upload: sessionId=",
-                        interviewSessionIdRef.current,
-                        "uploaded=",
-                        recordingUploaded
-                    );
+                try {
+                    if (interviewSessionIdRef.current && !recordingUploaded) {
+                        log.info(LOG_CATEGORY,
+                            "🚀 Auto-uploading recording for session:",
+                            interviewSessionIdRef.current
+                        );
+                        await uploadRecordingToServer(blob);
+                    } else {
+                        log.info(LOG_CATEGORY,
+                            "Cannot auto-upload: sessionId=",
+                            interviewSessionIdRef.current,
+                            "uploaded=",
+                            recordingUploaded
+                        );
+                    }
+                } finally {
+                    // Signal stopRecording() that the upload is done (success or fail).
+                    uploadCompleteRef.current?.();
+                    uploadCompleteRef.current = null;
                 }
 
                 mediaRecorderRef.current = null;
@@ -307,11 +316,17 @@ export const useScreenRecording = () => {
     }, [isRecording, recordingPermissionGranted, requestRecordingPermission]);
 
     const stopRecording = useCallback(async () => {
-        if (mediaRecorderRef.current) {
-            if (mediaRecorderRef.current.state === "recording") {
-                mediaRecorderRef.current.requestData();
-                mediaRecorderRef.current.stop();
-            }
+        if (!mediaRecorderRef.current) return;
+
+        if (mediaRecorderRef.current.state === "recording") {
+            // Register the resolver BEFORE calling stop() so onstop always
+            // finds it set, regardless of how quickly the event fires.
+            const uploadDone = new Promise<void>((resolve) => {
+                uploadCompleteRef.current = resolve;
+            });
+
+            mediaRecorderRef.current.requestData();
+            mediaRecorderRef.current.stop();
 
             setIsRecording(false);
 
@@ -321,7 +336,23 @@ export const useScreenRecording = () => {
                     .forEach((track) => track.stop());
             }
 
-            log.info(LOG_CATEGORY, "✅ Screen recording stopped");
+            log.info(LOG_CATEGORY, "✅ Screen recording stopped, waiting for upload…");
+
+            // Wait for onstop + uploadRecordingToServer to finish so the caller
+            // can be confident that videoUrl is in the DB before proceeding.
+            await uploadDone;
+
+            log.info(LOG_CATEGORY, "✅ Recording upload complete");
+        } else {
+            setIsRecording(false);
+
+            if (mediaRecorderRef.current.stream) {
+                mediaRecorderRef.current.stream
+                    .getTracks()
+                    .forEach((track) => track.stop());
+            }
+
+            log.info(LOG_CATEGORY, "✅ Screen recording stopped (was not recording)");
         }
     }, []);
 

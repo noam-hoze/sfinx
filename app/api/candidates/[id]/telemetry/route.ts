@@ -525,10 +525,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
         log.info(LOG_CATEGORY, "[Telemetry API] Returning sessions count:", sessions.length);
         log.info(LOG_CATEGORY, "[Telemetry API] First session videoUrl:", sessions[0]?.videoUrl);
 
-        // Skip caching when any session is still being processed so that
-        // subsequent requests always get fresh data until processing completes.
+        // Skip caching when any session is still being processed, or when a
+        // completed session is missing its videoUrl (video upload may still be
+        // in-flight from the candidate's browser).
         const hasPendingSessions = interviewSessions.some(
-            (s) => s.status === "IN_PROGRESS" || s.status === "PROCESSING"
+            (s) =>
+                s.status === "IN_PROGRESS" ||
+                s.status === "PROCESSING" ||
+                (s.status === "COMPLETED" && !s.videoUrl)
         );
         if (!hasPendingSessions) {
             await setCached(cacheKey, response);

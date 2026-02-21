@@ -136,9 +136,12 @@ function TelemetryContent() {
     const activeSession = sessions[activeSessionIndex] || {};
 
     // Poll telemetry every 5 seconds while the active session is still being
-    // processed server-side. Stops automatically once status becomes COMPLETED.
+    // processed server-side, or while the video URL is not yet available (the
+    // candidate's browser upload may still be in-flight after COMPLETED).
     useEffect(() => {
-        if (activeSession?.status !== "PROCESSING") return;
+        const isProcessing = activeSession?.status === "PROCESSING";
+        const missingVideo = activeSession?.status === "COMPLETED" && !activeSession?.videoUrl;
+        if (!isProcessing && !missingVideo) return;
         if (!candidateId) return;
 
         const intervalId = setInterval(async () => {
@@ -465,9 +468,13 @@ function TelemetryContent() {
         );
     }
 
-    // Show a spinner while the server is still running the AI processing steps.
-    // The polling effect above will update sessions once status reaches COMPLETED.
-    if (activeSession?.status === "PROCESSING") {
+    // Show a spinner while processing or while the video is still uploading
+    // (candidate's browser may still be in-flight even after COMPLETED).
+    // The polling effect above re-fetches until both conditions are resolved.
+    if (
+        activeSession?.status === "PROCESSING" ||
+        (activeSession?.status === "COMPLETED" && !activeSession?.videoUrl)
+    ) {
         return (
             <div className="h-screen bg-gray-50 overflow-hidden flex items-center justify-center">
                 <SfinxSpinner
