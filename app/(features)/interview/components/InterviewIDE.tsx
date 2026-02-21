@@ -191,7 +191,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     const {
         recordingPermissionGranted,
         stopRecording,
-        insertRecordingUrl,
         interviewSessionId,
         mediaRecorderRef,
         getActualRecordingStartTime,
@@ -236,7 +235,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 logger.info("⏰ Timer expired - ending interview...");
                 updateSubmission(state.currentCode);
                 await stopRecording();
-                await insertRecordingUrl();
                 // OpenAI flow: say closing line and end via response.done
                 try {
                     const ref = realTimeConversationRef.current;
@@ -554,8 +552,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         try {
             updateSubmission(state.currentCode);
             await stopRecording();
-            await insertRecordingUrl();
-            
+
             // Trigger all post-interview processing asynchronously on the server.
             // The /process endpoint returns 202 immediately after marking the session
             // PROCESSING, so the candidate is never blocked waiting for AI computations.
@@ -587,7 +584,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         } catch (error) {
             logger.error("❌ Failed to submit solution:", error);
         }
-    }, [candidateName, insertRecordingUrl, interviewScript, interviewSessionId, job, setCodingStarted, state.currentCode, stopRecording, stopTimer, updateSubmission]);
+    }, [candidateName, interviewScript, interviewSessionId, job, setCodingStarted, state.currentCode, stopRecording, stopTimer, updateSubmission]);
 
     /**
      * Starts the interview using the shared recording session created during the start flow.
