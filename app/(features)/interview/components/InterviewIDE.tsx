@@ -558,6 +558,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             
             // Generate coding gaps and summary from session data
             setIsInterviewLoading(true);
+            try {
             if (interviewSessionId && interviewScript) {
                 logger.info("Generating coding gaps for session:", interviewSessionId);
                 try {
@@ -697,7 +698,9 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
                 logger.info(LOG_CATEGORY, "✅ Profile story generated successfully");
             }
-            setIsInterviewLoading(false);
+            } finally {
+                setIsInterviewLoading(false);
+            }
             
             // OpenAI flow: say closing line and rely on response.done to end
             try {
