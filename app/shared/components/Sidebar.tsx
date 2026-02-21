@@ -36,6 +36,7 @@ export default function Sidebar() {
         ? [
             { href: "/company-dashboard", label: "Applicants", icon: "users" },
             { href: "/company-dashboard/jobs", label: "Jobs", icon: "briefcase" },
+            { href: "/company-dashboard/interview-guide", label: "Interview Guide", icon: "link" },
         ]
         : [
             { href: "/job-search", label: "Jobs", icon: "briefcase" },
@@ -92,6 +93,11 @@ export default function Sidebar() {
                             {item.icon === "briefcase" && (
                                 <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                                </svg>
+                            )}
+                            {item.icon === "link" && (
+                                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                                 </svg>
                             )}
                             {!isCollapsed && <span className="text-sm font-medium">{item.label}</span>}

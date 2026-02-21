@@ -30,7 +30,8 @@
     "industry": "AI/Machine Learning",
     "locations": ["Tel Aviv, Israel"],
     "size": "startup",
-    "cultureTags": ["Innovation"],
+    "description": "AxonPulse builds advanced AI solutions for defense and intelligence missions — transforming multi-sensor signals into faster, more reliable decisions for critical operations. We combine deep expertise in signal processing, computer vision, and machine learning with real-world deployment experience in air-gapped and resource-constrained environments. As a partner, not a product company, we co-develop tailored solutions with the academic rigor and operational discipline that mission-critical work demands.",
+    "cultureTags": ["Mission-driven", "Deep Technical Expertise", "Research Excellence", "Defense Domain Awareness", "Operational Rigor"],
     "openRoles": [
       { "title": "Deep Learning Engineer", "type": "full-time", "location": "Remote", "salary": "$120k - $180k" }
     ]

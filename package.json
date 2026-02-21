@@ -17,7 +17,7 @@
     "seed:uvision": "tsx server/db-scripts/seed-company-candidates.ts --env=dev --companies=uvision",
     
     "setup:companies": "tsx server/db-scripts/sync-schema-and-seed.ts --env=dev --skip-studio && pnpm seed:companies",
-    "setup:axonpulse": "tsx server/db-scripts/sync-schema-and-seed.ts --env=dev --skip-studio && pnpm seed:axonpulse",
+    "setup:axonpulse": "tsx server/db-scripts/sync-schema-and-seed.ts --env=dev --skip-studio && pnpm seed:axonpulse && tsx server/db-scripts/populate-axonpulse-guide.ts --env=dev",
     "setup:uvision": "tsx server/db-scripts/sync-schema-and-seed.ts --env=dev --skip-studio && pnpm seed:uvision",
     
     "sync-db:dev": "tsx server/db-scripts/sync-schema-and-seed.ts --env=dev",
