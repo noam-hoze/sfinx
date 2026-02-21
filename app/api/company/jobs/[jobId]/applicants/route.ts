@@ -2,59 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions, getCached, setCached } from "app/shared/services/server";
 import prisma from "lib/prisma";
-
-/**
- * Extracts top 2-3 category highlights from interview session data.
- */
-function extractTopHighlights(session: any): string[] {
-  console.log("[HIGHLIGHTS] Session:", session?.id);
-  console.log("[HIGHLIGHTS] TelemetryData:", session?.telemetryData);
-  
-  const telemetryArray = Array.isArray(session?.telemetryData) 
-    ? session.telemetryData 
-    : session?.telemetryData ? [session.telemetryData] : [];
-  
-  if (telemetryArray.length === 0) {
-    console.log("[HIGHLIGHTS] No telemetry data found");
-    return [];
-  }
-
-  const telemetry = telemetryArray[0];
-  console.log("[HIGHLIGHTS] Telemetry:", telemetry);
-  console.log("[HIGHLIGHTS] BackgroundSummary:", telemetry.backgroundSummary);
-  console.log("[HIGHLIGHTS] CodingSummary:", telemetry.codingSummary);
-  
-  const allCategories: Array<{ name: string; score: number }> = [];
-
-  if (telemetry.backgroundSummary?.experienceCategories) {
-    const expCats = telemetry.backgroundSummary.experienceCategories;
-    console.log("[HIGHLIGHTS] ExperienceCategories:", expCats);
-    Object.entries(expCats).forEach(([key, value]: [string, any]) => {
-      if (value?.score != null) {
-        allCategories.push({ name: value.name || key, score: value.score });
-      }
-    });
-  }
-
-  if (telemetry.codingSummary?.jobSpecificCategories) {
-    const codeCats = telemetry.codingSummary.jobSpecificCategories;
-    console.log("[HIGHLIGHTS] JobSpecificCategories:", codeCats);
-    Object.entries(codeCats).forEach(([key, value]: [string, any]) => {
-      if (value?.score != null) {
-        allCategories.push({ name: value.name || key, score: value.score });
-      }
-    });
-  }
-
-  console.log("[HIGHLIGHTS] AllCategories:", allCategories);
-  const result = allCategories
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3)
-    .map((c) => c.name);
-  console.log("[HIGHLIGHTS] Result:", result);
-  
-  return result;
-}
+import { extractTopHighlights } from "../highlightUtils";
 
 /**
  * GET /api/company/jobs/[jobId]/applicants
