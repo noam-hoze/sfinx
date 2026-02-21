@@ -22,7 +22,7 @@ export default function Sidebar() {
 
     const noSidebarPaths = ["/", "/login", "/signup", "/interview"];
 
-    if (noSidebarPaths.includes(pathname)) {
+    if (noSidebarPaths.includes(pathname) || pathname.startsWith("/interview-guide")) {
         return null;
     }
 
