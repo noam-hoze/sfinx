@@ -347,32 +347,6 @@ media-player {
   opacity: 0;
 }
 
-/* ── SfinxSpinner atom keyframes ─────────────────────────────── */
-@keyframes sfinxFadeIn {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-@keyframes sfinx-orbit-trail-1 {
-  0%,  100% { box-shadow: 0 0 0 0 rgba(192,132,252,0),    inset 0 0 20px rgba(192,132,252,0.1); }
-  25%        { box-shadow: 0 -20px 30px 10px rgba(192,132,252,0.4), inset 0 0 20px rgba(192,132,252,0.15); }
-  50%        { box-shadow: 20px 0 30px 10px rgba(192,132,252,0.4), inset 0 0 20px rgba(192,132,252,0.15); }
-  75%        { box-shadow: 0 20px 30px 10px rgba(192,132,252,0.4), inset 0 0 20px rgba(192,132,252,0.15); }
-}
-
-@keyframes sfinx-orbit-trail-2 {
-  0%,  100% { box-shadow: 0 0 0 0 rgba(129,140,248,0),    inset 0 0 20px rgba(129,140,248,0.1); }
-  25%        { box-shadow: 0 -20px 30px 10px rgba(129,140,248,0.4), inset 0 0 20px rgba(129,140,248,0.15); }
-  50%        { box-shadow: 20px 0 30px 10px rgba(129,140,248,0.4), inset 0 0 20px rgba(129,140,248,0.15); }
-  75%        { box-shadow: 0 20px 30px 10px rgba(129,140,248,0.4), inset 0 0 20px rgba(129,140,248,0.15); }
-}
-
-@keyframes sfinx-orbit-trail-3 {
-  0%,  100% { box-shadow: 0 0 0 0 rgba(34,211,238,0),    inset 0 0 20px rgba(34,211,238,0.1); }
-  25%        { box-shadow: 0 -20px 30px 10px rgba(34,211,238,0.4), inset 0 0 20px rgba(34,211,238,0.15); }
-  50%        { box-shadow: 20px 0 30px 10px rgba(34,211,238,0.4), inset 0 0 20px rgba(34,211,238,0.15); }
-  75%        { box-shadow: 0 20px 30px 10px rgba(34,211,238,0.4), inset 0 0 20px rgba(34,211,238,0.15); }
-}
 
 /* Subtle pulse animation for top performers */
 @keyframes subtle-pulse {
