@@ -93,11 +93,16 @@ export function useBackgroundPreload() {
           const scriptResp = await fetch(`/api/interviews/script?company=${companySlug}&role=${roleSlug}`);
           if (!scriptResp.ok) throw new Error("Failed to load interview script");
           scriptData = await scriptResp.json();
-          // TODO: [Bug] scriptData is stored in localStorage without any schema validation. If the API returns a
-          //        malformed or incomplete object (e.g. missing backgroundQuestion, experienceCategories), the bad
-          //        data gets cached and will be served from cache on all subsequent sessions for this job until the
-          //        cache key is manually cleared. Validate required fields before calling localStorage.setItem.
-          localStorage.setItem(scriptCacheKey, JSON.stringify(scriptData));
+          if (
+            scriptData &&
+            typeof scriptData === "object" &&
+            Array.isArray(scriptData.experienceCategories) &&
+            scriptData.experienceCategories.length > 0
+          ) {
+            localStorage.setItem(scriptCacheKey, JSON.stringify(scriptData));
+          } else {
+            log.warn(LOG_CATEGORY, "[preload] Skipping cache: scriptData failed validation", scriptData);
+          }
         }
 
         // Step 4: Generate first OpenAI question with intent
