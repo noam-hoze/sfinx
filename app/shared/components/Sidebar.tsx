@@ -18,7 +18,7 @@ export default function Sidebar() {
     const { data: session } = useSession();
     const router = useRouter();
     const pathname = usePathname();
-    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isCollapsed, setIsCollapsed] = useState(true);
     const [menuButtonRef, setMenuButtonRef] = useState<HTMLElement | null>(null);
 
     const role = (session?.user as any)?.role;
@@ -48,47 +48,61 @@ export default function Sidebar() {
 
     return (
         <motion.aside
-            className="hidden md:flex glass-sidebar flex-col h-screen sticky top-0 z-40 overflow-hidden"
+            className="hidden md:flex glass-sidebar flex-col h-screen sticky top-0 z-40 overflow-hidden cursor-pointer"
             animate={{ width: isCollapsed ? 80 : 256 }}
             transition={springWidth}
+            onClick={() => setIsCollapsed(c => !c)}
+            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
             {/* Header with Logo and Toggle */}
-            <div className="px-4 py-6 border-b border-white/30 flex items-center justify-between gap-2 flex-shrink-0">
-                <AnimatePresence>
-                    {!isCollapsed && (
+            <div
+                className="border-b border-white/30 flex-shrink-0"
+                onClick={e => e.stopPropagation()}
+            >
+                {isCollapsed ? (
+                    /* Collapsed: "S" that swaps to sidebar-icon on hover */
+                    <div className="px-3 py-5 flex justify-center">
+                        <button
+                            onClick={e => { e.stopPropagation(); setIsCollapsed(c => !c); }}
+                            className="group relative w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/50 transition-colors"
+                        >
+                            {/* S mark — fades out on hover */}
+                            <span className="absolute inset-0 flex items-center justify-center transition-opacity duration-200 group-hover:opacity-0 pointer-events-none select-none">
+                                <span className="text-[22px] font-bold tracking-tight text-sfinx-purple">S</span>
+                            </span>
+                            {/* Sidebar toggle icon — fades in on hover */}
+                            <span className="absolute inset-0 flex items-center justify-center transition-opacity duration-200 opacity-0 group-hover:opacity-100 pointer-events-none text-gray-600">
+                                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="2.5" y="2.5" width="15" height="15" rx="2.5" />
+                                    <path d="M7.5 2.5v15" />
+                                </svg>
+                            </span>
+                        </button>
+                    </div>
+                ) : (
+                    /* Expanded: Sfinx logo + sidebar-icon toggle button */
+                    <div className="px-4 py-6 flex items-center justify-between gap-2">
                         <motion.div
                             initial={{ opacity: 0, x: -8 }}
                             animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -8 }}
                             transition={{ duration: 0.15 }}
                             className="flex-1 overflow-hidden"
                         >
                             <Link href="/" className="flex items-center">
-                                <SfinxLogo
-                                    width={100}
-                                    height={32}
-                                    className="w-[100px] h-auto"
-                                />
+                                <SfinxLogo width={100} height={32} className="w-[100px] h-auto" />
                             </Link>
                         </motion.div>
-                    )}
-                </AnimatePresence>
-                <button
-                    onClick={() => setIsCollapsed(!isCollapsed)}
-                    className="p-2 hover:bg-white/50 rounded-squircle-sm transition-colors text-gray-500 hover:text-gray-900 flex-shrink-0"
-                    title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-                >
-                    <motion.svg
-                        className="w-5 h-5"
-                        animate={{ rotate: isCollapsed ? 180 : 0 }}
-                        transition={springPill}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                    >
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                    </motion.svg>
-                </button>
+                        <button
+                            onClick={e => { e.stopPropagation(); setIsCollapsed(c => !c); }}
+                            className="p-2 hover:bg-white/50 rounded-full transition-colors text-gray-400 hover:text-gray-700 flex-shrink-0"
+                        >
+                            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="2.5" y="2.5" width="15" height="15" rx="2.5" />
+                                <path d="M7.5 2.5v15" />
+                            </svg>
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Navigation Links */}
@@ -96,10 +110,14 @@ export default function Sidebar() {
                 {navItems.map((item) => {
                     const isActive = activeNavPath === item.href;
                     return (
+                        <div key={item.href} onClick={e => e.stopPropagation()}>
                         <Link
-                            key={item.href}
                             href={item.href}
-                            className={`relative flex items-center ${isCollapsed ? "justify-center" : "gap-3"} px-3 py-2.5 rounded-squircle-sm overflow-hidden transition-colors duration-150 ${
+                            className={`relative flex items-center overflow-hidden transition-colors duration-150 ${
+                                isCollapsed
+                                    ? "justify-center w-10 h-10 mx-auto rounded-full"
+                                    : "gap-3 px-3 py-2.5 rounded-squircle-sm w-full"
+                            } ${
                                 isActive
                                     ? "text-white"
                                     : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
@@ -110,7 +128,7 @@ export default function Sidebar() {
                             {isActive && (
                                 <motion.div
                                     layoutId="sidebar-active-pill"
-                                    className="absolute inset-0 bg-sfinx-purple rounded-squircle-sm"
+                                    className={`absolute inset-0 bg-sfinx-purple ${isCollapsed ? "rounded-full" : "rounded-squircle-sm"}`}
                                     transition={springPill}
                                 />
                             )}
@@ -149,16 +167,21 @@ export default function Sidebar() {
                                 )}
                             </AnimatePresence>
                         </Link>
+                        </div>
                     );
                 })}
             </nav>
 
             {/* Create New Job Button (Company Only) */}
             {role === "COMPANY" && (
-                <div className="px-3 py-4 border-t border-white/30 flex-shrink-0">
+                <div className="px-3 py-4 border-t border-white/30 flex-shrink-0" onClick={e => e.stopPropagation()}>
                     <motion.button
                         type="button"
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-squircle-sm bg-sfinx-purple text-white font-medium text-sm overflow-hidden"
+                        className={`flex items-center justify-center bg-sfinx-purple text-white font-medium text-sm overflow-hidden ${
+                            isCollapsed
+                                ? "w-10 h-10 mx-auto rounded-full"
+                                : "w-full gap-2 px-3 py-2.5 rounded-squircle-sm"
+                        }`}
                         onClick={() => router.push("/company-dashboard/jobs/new")}
                         title={isCollapsed ? "Create New Job" : undefined}
                         whileHover={{ scale: 1.02 }}
@@ -187,7 +210,7 @@ export default function Sidebar() {
 
             {/* User Profile Section */}
             {session?.user && (
-                <div className="px-3 py-4 border-t border-white/30 flex-shrink-0">
+                <div className="px-3 py-4 border-t border-white/30 flex-shrink-0" onClick={e => e.stopPropagation()}>
                     <Menu as="div" className="relative">
                         {({ open }) => (
                             <>

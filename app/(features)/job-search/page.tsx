@@ -144,7 +144,7 @@ function JobSearchContent() {
     });
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen">
             <div className="max-w-7xl mx-auto p-6">
                 {/* Header */}
                 <div className="text-center mb-8">

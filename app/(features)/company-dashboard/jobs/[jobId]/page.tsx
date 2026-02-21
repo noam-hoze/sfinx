@@ -396,7 +396,7 @@ function CompanyJobDetailContent() {
     });
 
     return (
-        <div className="min-h-screen bg-gray-50 flex">
+        <div className="min-h-screen flex">
             {/* Sidebar */}
             <div className="w-64 bg-white border-r border-gray-200 sticky top-0 h-screen flex flex-col">
                 <div className="p-6 border-b border-gray-200">
