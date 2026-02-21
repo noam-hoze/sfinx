@@ -168,9 +168,9 @@ model Application {
   appliedAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   candidateId       String
-  jobId             String
+  jobId             String?
   candidate         User               @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  job               Job                @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  job               Job?               @relation(fields: [jobId], references: [id], onDelete: Cascade)
   interviewSessions InterviewSession[]
 
   @@unique([candidateId, jobId])
@@ -452,6 +452,7 @@ enum UnderstandingLevel {
 }
 
 enum ApplicationStatus {
+  WARMUP
   PENDING
   REVIEWED
   INTERVIEWING
