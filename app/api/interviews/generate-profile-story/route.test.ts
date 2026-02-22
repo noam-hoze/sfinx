@@ -2,10 +2,18 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import prisma from 'lib/prisma';
 
 /**
- * Integration test for profile story generation
- * Tests the full flow with mock interview data
+ * Integration test for profile story generation.
+ * Requires:
+ *   - DATABASE_URL pointing at a reachable Postgres instance
+ *   - A Next.js dev/prod server running on http://localhost:3000
+ *
+ * Skipped automatically in unit-test runs (CI, local `vitest run`).
+ * To run manually: DATABASE_URL=<url> RUN_INTEGRATION_TESTS=1 npx vitest run route.test.ts
  */
-describe('Profile Story Generation', () => {
+const isIntegrationEnv =
+    !!process.env.DATABASE_URL && !!process.env.RUN_INTEGRATION_TESTS;
+
+describe.skipIf(!isIntegrationEnv)('Profile Story Generation', () => {
     let testSessionId: string;
     let testJobId: string;
     let testCandidateId: string;
@@ -13,8 +21,8 @@ describe('Profile Story Generation', () => {
     let testTelemetryId: string;
 
     beforeAll(async () => {
-        // Create test data
-        const testCandidate = await prisma.candidate.create({
+        // Create test data (candidates are stored as User records with role CANDIDATE)
+        const testCandidate = await prisma.user.create({
             data: {
                 id: 'test-candidate-story',
                 name: 'Test Candidate',
@@ -27,6 +35,7 @@ describe('Profile Story Generation', () => {
             data: {
                 id: 'test-job-story',
                 title: 'Deep Learning Engineer',
+                type: 'FULL_TIME',
                 description: 'Test job',
                 location: 'Remote',
                 companyId: 'test-company',
@@ -54,6 +63,7 @@ describe('Profile Story Generation', () => {
         const testSession = await prisma.interviewSession.create({
             data: {
                 id: 'test-session-story',
+                candidateId: testCandidateId,
                 applicationId: testApplicationId,
                 status: 'COMPLETED',
                 finalScore: 10,
@@ -68,7 +78,6 @@ describe('Profile Story Generation', () => {
                 matchScore: 10,
                 confidence: 'LOW',
                 story: '',
-                storyEmphasis: null,
                 backgroundSummary: {
                     create: {
                         executiveSummary: 'Limited experience in deep learning and signal processing.',
@@ -122,7 +131,7 @@ describe('Profile Story Generation', () => {
         await prisma.application.delete({ where: { id: testApplicationId } });
         await prisma.scoringConfiguration.deleteMany({ where: { jobId: testJobId } });
         await prisma.job.delete({ where: { id: testJobId } });
-        await prisma.candidate.delete({ where: { id: testCandidateId } });
+        await prisma.user.delete({ where: { id: testCandidateId } });
     });
 
     it('should generate profile story with performance context and emphasis', async () => {
@@ -146,8 +155,7 @@ describe('Profile Story Generation', () => {
         expect(Array.isArray(data.emphasisRanges)).toBe(true);
         expect(data.emphasisRanges.length).toBeGreaterThan(0);
 
-        // Check emphasis has both strengths and weaknesses
-        const hasStrength = data.emphasisRanges.some((r: any) => r.type === 'strength');
+        // Check emphasis has weaknesses (low-performance candidate)
         const hasWeakness = data.emphasisRanges.some((r: any) => r.type === 'weakness');
         expect(hasWeakness).toBe(true); // Low performance should have weaknesses
 
@@ -183,6 +191,7 @@ describe('Profile Story Generation', () => {
         const emptySession = await prisma.interviewSession.create({
             data: {
                 id: 'test-session-empty',
+                candidateId: testCandidateId,
                 applicationId: testApplicationId,
                 status: 'COMPLETED',
             },

@@ -150,20 +150,22 @@ Be strict with 0 scores - use them for noise. But use the full range 1-100 for l
 
         log.info(LOG_CATEGORY, `[evaluate-code-change] Found ${contributions.length} contributions with strength > 0 out of ${allEvaluations.length} evaluations`);
 
-        // Calculate video offset — clamp to 0 when contribution predates recording
         const changeTimestamp = new Date(timestamp);
         const recordingStart = session.recordingStartedAt;
-        let videoOffset = 0;
 
-        if (recordingStart) {
-            videoOffset = Math.floor((changeTimestamp.getTime() - recordingStart.getTime()) / 1000);
+        if (!recordingStart) {
+            log.error(LOG_CATEGORY, "[evaluate-code-change] recordingStartedAt is null — skipping evidence creation");
         }
+
+        const videoOffset = recordingStart
+            ? Math.floor((changeTimestamp.getTime() - recordingStart.getTime()) / 1000)
+            : null;
 
         // Create evidence clips and contribution records for each contribution with strength > 0
         for (const contribution of contributions) {
             log.info(LOG_CATEGORY, `[evaluate-code-change] Creating evidence for ${contribution.category} (strength: ${contribution.strength})`);
 
-            // 1. Create CategoryContribution record
+            // 1. Create CategoryContribution record (always — not tied to video)
             await prisma.categoryContribution.create({
                 data: {
                     interviewSessionId: sessionId,
@@ -176,25 +178,24 @@ Be strict with 0 scores - use them for noise. But use the full range 1-100 for l
                 },
             });
 
-            // 2. Create EvidenceClip for video playback
-            await prisma.evidenceClip.create({
-                data: {
-                    telemetryData: {
-                        connect: { id: session.telemetryData.id }
+            // 2-3. EvidenceClip + VideoChapter require a valid recording offset
+            if (videoOffset !== null) {
+                await prisma.evidenceClip.create({
+                    data: {
+                        telemetryData: {
+                            connect: { id: session.telemetryData.id }
+                        },
+                        category: "JOB_SPECIFIC_CATEGORY",
+                        categoryName: contribution.category,
+                        title: contribution.category,
+                        description: contribution.reasoning,
+                        startTime: videoOffset,
+                        duration: 15,
+                        contributionStrength: contribution.strength,
+                        thumbnailUrl: null,
                     },
-                    category: "JOB_SPECIFIC_CATEGORY",
-                    categoryName: contribution.category,
-                    title: contribution.category,
-                    description: contribution.reasoning,
-                    startTime: videoOffset,
-                    duration: 15,
-                    contributionStrength: contribution.strength,
-                    thumbnailUrl: null,
-                },
-            });
+                });
 
-            // 3. Create VideoChapter + VideoCaption (only if recording exists)
-            if (recordingStart) {
                 await createVideoChapter({
                     telemetryDataId: session.telemetryData.id,
                     title: `${contribution.category} (+${contribution.strength})`,
@@ -202,9 +203,9 @@ Be strict with 0 scores - use them for noise. But use the full range 1-100 for l
                     description: contribution.reasoning,
                     caption: contribution.caption,
                 });
-            }
 
-            log.info(LOG_CATEGORY, `[evaluate-code-change] ✅ Created evidence for ${contribution.category} at ${videoOffset}s`);
+                log.info(LOG_CATEGORY, `[evaluate-code-change] ✅ Created evidence for ${contribution.category} at ${videoOffset}s`);
+            }
         }
 
         return NextResponse.json({

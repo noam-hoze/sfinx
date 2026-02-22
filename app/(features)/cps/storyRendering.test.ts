@@ -91,13 +91,19 @@ describe("renderStoryWithEmphasis sanitization policy", () => {
         // Simulate what DOMPurify would do: strip disallowed tags
         const strippingImpl: SanitizeFn = (html, opts) => {
             let output = html;
-            // Strip any tag not in ALLOWED_TAGS
-            const tagPattern = /<\/?(\w+)(\s[^>]*)?>/g;
-            output = output.replace(tagPattern, (match, tag) => {
+            // Step 1: Remove entire elements (opening tag + content + closing tag) for
+            // disallowed tags. This matches DOMPurify's behaviour for dangerous elements
+            // like <script> and <style> which are removed including their text content.
+            output = output.replace(/<(\w+)(?:\s[^>]*)?>[\s\S]*?<\/\1>/g, (match, tag) => {
                 if (opts.ALLOWED_TAGS.includes(tag.toLowerCase())) return match;
                 return "";
             });
-            // Strip any attribute not in ALLOWED_ATTR
+            // Step 2: Strip any remaining lone open/close tags not in ALLOWED_TAGS.
+            output = output.replace(/<\/?(\w+)(\s[^>]*)?>/g, (match, tag) => {
+                if (opts.ALLOWED_TAGS.includes(tag.toLowerCase())) return match;
+                return "";
+            });
+            // Step 3: Strip any attribute not in ALLOWED_ATTR from surviving tags.
             output = output.replace(/\s(\w+)=["'][^"']*["']/g, (match, attr) => {
                 if (opts.ALLOWED_ATTR.includes(attr.toLowerCase())) return match;
                 return "";

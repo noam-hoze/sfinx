@@ -284,40 +284,44 @@ CRITICAL RULES:
             };
         });
 
+        // Calculate video offset once (shared across all contributions)
+        let videoOffset: number | null = null;
+        if (session.recordingStartedAt) {
+            const recordingStart = new Date(session.recordingStartedAt).getTime();
+            const answerTime = new Date(timestamp).getTime();
+            videoOffset = Math.floor((answerTime - recordingStart) / 1000);
+        } else {
+            log.error(LOG_CATEGORY, "[evaluate-answer] recordingStartedAt is null — skipping VideoChapter creation");
+        }
+
         // Process evaluations - batch all DB operations in parallel
         const dbOperations = evaluation.evaluations
             .filter((item: any) => item.strength > 0)
             .map(async (item: any) => {
-                // Calculate video offset once
-                let videoOffset = 0;
-                if (session.recordingStartedAt) {
-                    const recordingStart = new Date(session.recordingStartedAt).getTime();
-                    const answerTime = new Date(timestamp).getTime();
-                    videoOffset = Math.max(0, Math.floor((answerTime - recordingStart) / 1000));
-                }
+                // CategoryContribution always created (not tied to video)
+                await prisma.categoryContribution.create({
+                    data: {
+                        interviewSessionId: sessionId,
+                        categoryName: item.category,
+                        timestamp: new Date(timestamp),
+                        codeChange: "",
+                        explanation: item.reasoning,
+                        contributionStrength: item.strength,
+                        caption: item.caption || item.category,
+                    },
+                });
 
-                // Run CategoryContribution and VideoChapter creates in parallel
+                // VideoChapter requires a valid recording offset
                 // Note: EvidenceClips are created by background-summary (single source of truth)
-                await Promise.all([
-                    prisma.categoryContribution.create({
-                        data: {
-                            interviewSessionId: sessionId,
-                            categoryName: item.category,
-                            timestamp: new Date(timestamp),
-                            codeChange: "",
-                            explanation: item.reasoning,
-                            contributionStrength: item.strength,
-                            caption: item.caption || item.category,
-                        },
-                    }),
-                    createVideoChapter({
+                if (videoOffset !== null) {
+                    await createVideoChapter({
                         telemetryDataId: session.telemetryData.id,
                         title: item.category,
                         startTime: videoOffset,
                         description: item.reasoning,
                         caption: item.caption,
-                    }),
-                ]);
+                    });
+                }
             });
 
         await Promise.all(dbOperations);

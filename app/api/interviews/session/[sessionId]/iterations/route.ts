@@ -29,9 +29,9 @@ export async function POST(
             caption,
         } = await request.json();
 
-        if (!sessionId || !codeSnapshot || !actualOutput || !expectedOutput) {
+        if (!sessionId || !codeSnapshot || !actualOutput || !expectedOutput || !timestamp) {
             return NextResponse.json(
-                { error: "Missing required fields" },
+                { error: "Missing required fields: sessionId, codeSnapshot, actualOutput, expectedOutput, timestamp" },
                 { status: 400 }
             );
         }
@@ -91,7 +91,7 @@ export async function POST(
 
         // Create evidence clips for Problem Solving category
         if (session?.recordingStartedAt && session?.telemetryData?.id) {
-            const iterationTimestamp = timestamp ? new Date(timestamp) : new Date();
+            const iterationTimestamp = new Date(timestamp);
             const videoOffset = Math.floor((iterationTimestamp.getTime() - session.recordingStartedAt.getTime()) / 1000);
             
             log.info(LOG_CATEGORY, "📹 [Iterations API] Creating evidence for iteration", {

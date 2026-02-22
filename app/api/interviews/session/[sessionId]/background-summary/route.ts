@@ -531,10 +531,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
             evidenceArray: Array<{ question: string; answerExcerpt: string; reasoning: string }>
         ): Promise<Array<{ startTime: number; caption: string }>> => {
             const createdClips: Array<{ startTime: number; caption: string }> = [];
-            // Use actual recording start time, not when telemetryData was created
-            const recordingStart = interviewSession.recordingStartedAt
-                ? new Date(interviewSession.recordingStartedAt)
-                : interviewSession.telemetryData.createdAt;
+            if (!interviewSession.recordingStartedAt) {
+                log.error(LOG_CATEGORY, `[background-summary/POST] recordingStartedAt is null — skipping clip creation for ${categoryName}`);
+                return createdClips;
+            }
+            const recordingStart = new Date(interviewSession.recordingStartedAt);
 
             log.info(LOG_CATEGORY, `[background-summary/POST] Creating clips for category: ${categoryName}`);
 

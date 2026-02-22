@@ -8,6 +8,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname),
+      // Match Next.js `lib/*` bare imports used in route handlers and tests
+      lib: path.resolve(__dirname, "lib"),
     },
   },
 });
