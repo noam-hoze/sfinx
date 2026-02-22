@@ -15,6 +15,7 @@ import { calculateScore } from "app/shared/utils/calculateScore";
 import { useSelector } from "react-redux";
 import { RootState } from "@/shared/state/store";
 import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
+import { useInterview } from "app/shared/contexts/interview-context";
 
 interface CodingEvaluationDebugPanelProps {
     evaluationData: {
@@ -83,6 +84,10 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
         aiAssistWeight: number;
     } | null>(null);
 
+    // Track interview submission state to stop polling
+    const { state: interviewState } = useInterview();
+    const hasSubmitted = interviewState.hasSubmitted;
+
     useEffect(() => {
         if (!nextEvaluationTime) {
             setCountdown(null);
@@ -108,7 +113,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
     // Fetch background contributions for experience score calculation
     useEffect(() => {
         if (!sessionId) return;
-        
+
         const fetchBackgroundData = async () => {
             try {
                 const res = await fetch(`/api/interviews/session/${sessionId}/contributions`);
@@ -120,11 +125,14 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                 log.error(LOG_CATEGORY, "[CodingDebug] Failed to fetch background contributions:", err);
             }
         };
-        
+
+        // Don't fetch if interview is already submitted
+        if (hasSubmitted) return;
+
         fetchBackgroundData();
         const interval = setInterval(fetchBackgroundData, 5000);
         return () => clearInterval(interval);
-    }, [sessionId]);
+    }, [sessionId, hasSubmitted]);
 
     // Fetch scoring configuration
     useEffect(() => {

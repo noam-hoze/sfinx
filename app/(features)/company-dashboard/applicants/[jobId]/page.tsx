@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
+import { motion } from "framer-motion";
 import { useDispatch, useSelector } from "react-redux";
 import { selectBreadcrumbSource } from "@/shared/state/slices/navigationSlice";
 import { AuthGuard, DashboardCard } from "app/shared/components";
@@ -76,7 +77,7 @@ function JobApplicantsContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--page-bg)" }}>
         <SfinxSpinner size="lg" title="Loading Applicants" messages="Fetching candidates..." />
       </div>
     );
@@ -84,9 +85,9 @@ function JobApplicantsContent() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-gray-50 p-12">
+      <div className="min-h-screen p-12" style={{ background: "var(--page-bg)" }}>
         <div className="max-w-7xl mx-auto">
-          <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
+          <div className="glass-card rounded-squircle p-6 text-center border border-red-200">
             <p className="text-red-700">{error || "Failed to load applicants"}</p>
           </div>
         </div>
@@ -105,7 +106,7 @@ function JobApplicantsContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ background: "var(--page-bg)" }}>
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Breadcrumbs */}
         <div className="mb-6">
@@ -125,7 +126,7 @@ function JobApplicantsContent() {
         {/* Applicants Table */}
         <div className="space-y-6">
           {completedApplicants.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="glass-card rounded-squircle overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full table-fixed">
                   <thead className="bg-gray-50 border-b border-gray-200">
@@ -150,16 +151,20 @@ function JobApplicantsContent() {
                       const isTopPerformer = rank <= 5;
 
                       return (
-                        <tr
+                        <motion.tr
                           key={applicant.id}
                           onClick={() => handleViewProfile(applicant)}
-                          className={`
-                            relative cursor-pointer transition-all duration-300
-                            ${isTopPerformer
-                              ? "bg-gradient-to-r from-purple-50/40 to-blue-50/40 border-l-4 border-purple-500/40 hover:from-purple-50/60 hover:to-blue-50/60 hover:border-purple-500/60 animate-subtle-pulse"
-                              : "hover:bg-gray-50"
-                            }
-                          `}
+                          className={`relative cursor-pointer ${
+                            isTopPerformer
+                              ? "bg-gradient-to-r from-purple-50/40 to-blue-50/40 border-l-4 border-purple-500/40 animate-subtle-pulse"
+                              : ""
+                          }`}
+                          whileHover={{
+                            backgroundColor: isTopPerformer
+                              ? "rgba(139,92,246,0.06)"
+                              : "rgba(139,92,246,0.03)",
+                          }}
+                          transition={{ type: "spring", stiffness: 400, damping: 30 }}
                         >
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
@@ -224,7 +229,7 @@ function JobApplicantsContent() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
                           </td>
-                        </tr>
+                        </motion.tr>
                       );
                     })}
                   </tbody>
@@ -234,7 +239,7 @@ function JobApplicantsContent() {
           )}
 
           {pendingApplicants.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden opacity-60">
+            <div className="glass-card rounded-squircle overflow-hidden opacity-60">
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
@@ -288,7 +293,7 @@ function JobApplicantsContent() {
 
           {/* Empty State */}
           {data.applicants.length === 0 && (
-            <div className="bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20 p-16 text-center">
+            <div className="glass-card rounded-squircle p-16 text-center">
               <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
                 <svg
                   className="w-8 h-8 text-gray-400"

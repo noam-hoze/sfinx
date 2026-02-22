@@ -50,6 +50,27 @@ const VIDEO_EVIDENCE_OFFSET_MS = 1000; // Show video 1 second before iteration f
  */
 const getInitialCode = () => DEFAULT_CODE;
 
+/** Debug-only overlay showing elapsed MM:SS since recording started. */
+function RecordingElapsedTimer({ getStart }: { getStart: () => Date | null }) {
+    const [elapsed, setElapsed] = useState("00:00");
+    useEffect(() => {
+        const id = setInterval(() => {
+            const start = getStart();
+            if (!start) { setElapsed("--:--"); return; }
+            const sec = Math.floor((Date.now() - start.getTime()) / 1000);
+            const m = String(Math.floor(sec / 60)).padStart(2, "0");
+            const s = String(sec % 60).padStart(2, "0");
+            setElapsed(`${m}:${s}`);
+        }, 500);
+        return () => clearInterval(id);
+    }, [getStart]);
+    return (
+        <span className="font-mono text-xs bg-red-600 text-white px-2 py-0.5 rounded">
+            REC {elapsed}
+        </span>
+    );
+}
+
 interface InterviewerContentProps {
     isDebugVisible: boolean;
     showDebugButton: boolean;
@@ -191,7 +212,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     const {
         recordingPermissionGranted,
         stopRecording,
-        insertRecordingUrl,
         interviewSessionId,
         mediaRecorderRef,
         getActualRecordingStartTime,
@@ -236,7 +256,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 logger.info("⏰ Timer expired - ending interview...");
                 updateSubmission(state.currentCode);
                 await stopRecording();
-                await insertRecordingUrl();
                 // OpenAI flow: say closing line and end via response.done
                 try {
                     const ref = realTimeConversationRef.current;
@@ -295,119 +314,13 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
     const handleInterviewConcluded = useCallback(
         async (delayMs?: number) => {
-            // Check for unanswered paste evaluation before concluding
-            const codingState = store.getState().coding;
-            const activePasteEval = codingState.activePasteEvaluation;
-            
-            if (activePasteEval && !activePasteEval.accountabilityScore && interviewSessionId) {
-                // Check if there are partial answers (some questions answered but evaluation incomplete)
-                const hasPartialAnswers = activePasteEval.questionScores && activePasteEval.questionScores.length > 0;
-                
-                if (hasPartialAnswers) {
-                    // Calculate score from partial answers using topic percentages
-                    const topics = activePasteEval.topics || [];
-                    const avgScore = topics.length > 0
-                        ? Math.round(topics.reduce((sum, t) => sum + t.percentage, 0) / topics.length)
-                        : 0;
-                    
-                    const understanding = avgScore >= 80 ? "full" : avgScore >= 50 ? "partial" : "none";
-                    
-                    logger.info("📋 [PASTE_EVAL] Saving partially answered paste evaluation", {
-                        avgScore,
-                        answeredQuestions: activePasteEval.questionScores.length,
-                        topics: topics.map(t => ({ name: t.name, pct: t.percentage }))
-                    });
-
-                    try {
-                        // Generate caption using OpenAI
-                        let caption = `External tool: ${understanding} understanding (${avgScore}/100)`;
-                        try {
-                            const summaryResponse = await fetch("/api/interviews/generate-paste-summary", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                    pastedContent: activePasteEval.pastedContent,
-                                    questionAnswers: activePasteEval.questionScores,
-                                    averageScore: avgScore,
-                                }),
-                            });
-
-                            if (summaryResponse.ok) {
-                                const summaryData = await summaryResponse.json();
-                                caption = summaryData.summary || caption;
-                                logger.info("✅ [PASTE_EVAL] Generated caption:", caption);
-                            } else {
-                                logger.warn("⚠️ [PASTE_EVAL] Failed to generate caption, using fallback");
-                            }
-                        } catch (captionError) {
-                            logger.error("❌ [PASTE_EVAL] Caption generation failed:", captionError);
-                        }
-
-                        const dbPayload = {
-                            timestamp: activePasteEval.timestamp,
-                            pastedContent: activePasteEval.pastedContent,
-                            characterCount: activePasteEval.pastedContent.length,
-                            aiQuestion: activePasteEval.questionScores.map((qs: any) => qs.question).join("\n"),
-                            aiQuestionTimestamp: activePasteEval.aiQuestionTimestamp || Date.now(),
-                            userAnswer: activePasteEval.questionScores.map((qs: any) => qs.answer).join("\n"),
-                            understanding,
-                            accountabilityScore: avgScore,
-                            reasoning: `Candidate answered ${activePasteEval.questionScores.length} question(s) before submitting. ${activePasteEval.questionScores.map((qs: any, i: number) => `Q${i+1} (score: ${qs.score}): ${qs.reasoning}`).join(" ")}`,
-                            caption,
-                        };
-
-                        const response = await fetch(`/api/interviews/session/${interviewSessionId}/external-tools`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(dbPayload),
-                        });
-                        
-                        if (!response.ok) {
-                            const errorData = await response.json();
-                            throw new Error(`API returned ${response.status}: ${errorData.error || 'Unknown error'}`);
-                        }
-                        
-                        logger.info("✅ [PASTE_EVAL] Saved partial paste evaluation");
-                    } catch (error) {
-                        logger.error("❌ [PASTE_EVAL] Failed to save partial paste:", error);
-                    }
-                } else {
-                    // Truly unanswered - no questions answered at all
-                    logger.info("📋 [PASTE_EVAL] Saving unanswered paste evaluation with score 0");
-                    
-                    // Save to DB with score 0 (failed accountability)
-                    try {
-                        const dbPayload = {
-                            timestamp: activePasteEval.timestamp,
-                            pastedContent: activePasteEval.pastedContent,
-                            characterCount: activePasteEval.pastedContent.length,
-                            aiQuestion: activePasteEval.topics?.map((t: any) => t.question).join("\n") || "No response provided",
-                            aiQuestionTimestamp: activePasteEval.aiQuestionTimestamp || Date.now(),
-                            userAnswer: "",
-                            understanding: "none",
-                            accountabilityScore: 0,
-                            reasoning: "User submitted without answering paste accountability questions",
-                            caption: "External Tool Usage - No Response",
-                        };
-                        
-                        const response = await fetch(`/api/interviews/session/${interviewSessionId}/external-tools`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(dbPayload),
-                        });
-                        
-                        if (!response.ok) {
-                            const errorData = await response.json();
-                            throw new Error(`API returned ${response.status}: ${errorData.error || 'Unknown error'}`);
-                        }
-                        
-                        logger.info("✅ [PASTE_EVAL] Saved unanswered paste with score 0");
-                    } catch (error) {
-                        logger.error("❌ [PASTE_EVAL] Failed to save unanswered paste:", error);
-                    }
-                }
+            // Delegate unsaved paste evaluation to the single-owner in OpenAITextConversation
+            try {
+                await realTimeConversationRef.current?.flushPendingPasteEval();
+            } catch (err) {
+                logger.error(LOG_CATEGORY, "[InterviewIDE] flushPendingPasteEval failed:", err);
             }
-            
+
             if (typeof delayMs === "number" && delayMs > 0) {
                 setRedirectDelayMs(delayMs);
             } else {
@@ -415,7 +328,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             }
             setInterviewConcluded(true);
         },
-        [interviewSessionId]
+        []
     );
 
     /**
@@ -554,150 +467,24 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         try {
             updateSubmission(state.currentCode);
             await stopRecording();
-            await insertRecordingUrl();
-            
-            // Generate coding gaps and summary from session data
-            setIsInterviewLoading(true);
+
+            // Trigger all post-interview processing asynchronously on the server.
+            // The /process endpoint returns 202 immediately after marking the session
+            // PROCESSING, so the candidate is never blocked waiting for AI computations.
             if (interviewSessionId && interviewScript) {
-                logger.info("Generating coding gaps for session:", interviewSessionId);
-                try {
-                    const gapsResponse = await fetch("/api/interviews/generate-coding-gaps", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            sessionId: interviewSessionId,
-                            finalCode: state.currentCode,
-                            codingTask: interviewScript.codingPrompt,
-                            expectedSolution: interviewScript.codingAnswer,
-                        }),
-                    });
-                    
-                    if (gapsResponse.ok) {
-                        const gapsData = await gapsResponse.json();
-                        logger.info("✅ Coding gaps generated:", gapsData.gapsCount);
-                    } else {
-                        logger.error("Failed to generate coding gaps:", gapsResponse.status);
-                    }
-                } catch (gapsError) {
-                    logger.error("Error generating coding gaps:", gapsError);
-                }
-
-                // Generate coding summary
-                logger.info("Generating coding summary for session:", interviewSessionId);
-                try {
-                    const summaryResponse = await fetch("/api/interviews/generate-coding-summary", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            sessionId: interviewSessionId,
-                            finalCode: state.currentCode,
-                            codingTask: interviewScript.codingPrompt,
-                            expectedSolution: interviewScript.codingAnswer,
-                        }),
-                    });
-                    
-                    if (summaryResponse.ok) {
-                        const summaryData = await summaryResponse.json();
-                        logger.info("✅ Coding summary generated");
-                    } else {
-                        logger.error("Failed to generate coding summary:", summaryResponse.status);
-                    }
-                } catch (summaryError) {
-                    logger.error("Error generating coding summary:", summaryError);
-                }
-
-                // Generate code quality analysis
-                logger.info("Generating code quality analysis for session:", interviewSessionId);
-                try {
-                    const url = `/api/interviews/session/${interviewSessionId}/code-quality-analysis`;
-                    
-                    const analysisResponse = await fetch(url, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                    });
-                    
-                    if (analysisResponse.ok) {
-                        const analysisData = await analysisResponse.json();
-                        logger.info("✅ Code quality analysis generated");
-                    } else {
-                        logger.error("Failed to generate code quality analysis:", analysisResponse.status);
-                    }
-                } catch (analysisError) {
-                    logger.error("Error generating code quality analysis:", analysisError);
-                }
-
-                // Generate job-specific coding evaluation
-                logger.info("Generating job-specific coding evaluation for session:", interviewSessionId);
-                try {
-                    const jobCategories = job?.codingCategories as Array<{name: string; description: string; weight: number}> | undefined;
-                    const jobEvalResponse = await fetch("/api/interviews/evaluate-job-specific-coding", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            finalCode: state.currentCode,
-                            codingTask: interviewScript.codingPrompt,
-                            categories: jobCategories || [],
-                            referenceCode: interviewScript.codingAnswer,
-                            expectedOutput: interviewScript.expectedOutput,
-                            sessionId: interviewSessionId,
-                        }),
-                    });
-                    
-                    if (jobEvalResponse.ok) {
-                        const jobEvalData = await jobEvalResponse.json();
-                        logger.info("✅ Job-specific coding evaluation complete:", jobEvalData);
-                        
-                        // Enrich evaluation data with descriptions from job categories
-                        const enrichedCategories: Record<string, any> = {};
-                        if (jobCategories) {
-                            Object.entries(jobEvalData.categories || {}).forEach(([name, data]: [string, any]) => {
-                                const categoryDef = jobCategories.find((c: any) => c.name === name);
-                                enrichedCategories[name] = {
-                                    ...data,
-                                    description: categoryDef?.description || "",
-                                };
-                            });
-                        }
-                        // Update coding summary with job-specific categories
-                        const summaryUpdateUrl = `/api/interviews/session/${interviewSessionId}/coding-summary-update`;
-                        
-                        const updateResponse = await fetch(summaryUpdateUrl, {
-                            method: "PATCH",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                jobSpecificCategories: enrichedCategories,
-                            }),
-                        });
-                        
-                        if (updateResponse.ok) {
-                            logger.info("✅ Coding summary updated with job-specific categories");
-                        } else {
-                            logger.error("Failed to update coding summary:", updateResponse.status);
-                        }
-                    } else {
-                        logger.error("Failed to generate job-specific evaluation:", jobEvalResponse.status);
-                    }
-                } catch (jobEvalError) {
-                    logger.error("Error generating job-specific evaluation:", jobEvalError);
-                }
-
-                // Generate profile story - MUST succeed per constitution (no fallbacks)
-                logger.info(LOG_CATEGORY, "Generating candidate profile story for session:", interviewSessionId);
-                const storyResponse = await fetch("/api/interviews/generate-profile-story", {
+                const jobCategories = (job?.codingCategories as Array<{name: string; description: string; weight: number}> | undefined) ?? [];
+                fetch(`/api/interviews/session/${interviewSessionId}/process`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ sessionId: interviewSessionId }),
-                });
-
-                if (!storyResponse.ok) {
-                    const errorData = await storyResponse.json().catch(() => ({}));
-                    logger.error(LOG_CATEGORY, "❌ CRITICAL: Profile story generation failed:", storyResponse.status, errorData);
-                    throw new Error(`Profile story generation failed with status ${storyResponse.status}: ${JSON.stringify(errorData)}`);
-                }
-
-                logger.info(LOG_CATEGORY, "✅ Profile story generated successfully");
+                    body: JSON.stringify({
+                        finalCode: state.currentCode,
+                        codingTask: interviewScript.codingPrompt,
+                        expectedSolution: interviewScript.codingAnswer,
+                        expectedOutput: interviewScript.expectedOutput,
+                        jobCategories,
+                    }),
+                }).catch((err) => logger.error(LOG_CATEGORY, "Failed to trigger processing:", err));
             }
-            setIsInterviewLoading(false);
             
             // OpenAI flow: say closing line and rely on response.done to end
             try {
@@ -712,7 +499,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         } catch (error) {
             logger.error("❌ Failed to submit solution:", error);
         }
-    }, [candidateName, insertRecordingUrl, interviewScript, interviewSessionId, setCodingStarted, state.currentCode, stopRecording, stopTimer, updateSubmission]);
+    }, [candidateName, interviewScript, interviewSessionId, job, setCodingStarted, state.currentCode, stopRecording, stopTimer, updateSubmission]);
 
     /**
      * Starts the interview using the shared recording session created during the start flow.
@@ -1330,7 +1117,10 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
                     {/* Right: Controls and Avatar */}
                     <div className="flex items-center gap-4">
-                        {/* Debug Toggle Button */}
+                        {/* Debug Elapsed Timer & Toggle Button */}
+                        {isDebugModeEnabled && showDebugButton && (
+                            <RecordingElapsedTimer getStart={getActualRecordingStartTime} />
+                        )}
                         {isDebugModeEnabled && showDebugButton && (
                             <button
                                 onClick={() => {

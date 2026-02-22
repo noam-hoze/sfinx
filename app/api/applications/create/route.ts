@@ -66,13 +66,13 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Reuse strictly by exact jobId
+        // Reuse strictly by exact jobId (skip WARMUP shell records)
         const existingByJobId = await prisma.application.findFirst({
-            where: { candidateId: userId, jobId: job.id },
+            where: { candidateId: userId, jobId: job.id, status: { not: "WARMUP" } },
         });
 
         if (existingByJobId) {
-            log.info(LOG_CATEGORY, 
+            log.info(LOG_CATEGORY,
                 "✅ Reusing existing application by jobId:",
                 existingByJobId.id
             );
@@ -81,6 +81,11 @@ export async function POST(request: NextRequest) {
                 application: existingByJobId,
             });
         }
+
+        // Clean up any WARMUP shell applications for this user (they're being bypassed)
+        await prisma.application.deleteMany({
+            where: { candidateId: userId, status: "WARMUP" },
+        }).catch(() => {}); // Best-effort cleanup
 
         // Create the application
         log.info(LOG_CATEGORY, "🚀 Creating application...");

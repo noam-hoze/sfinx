@@ -19,9 +19,22 @@
 }
 
 :root {
-  /* Sfinx brand purple - base color */
-  --sfinx-purple: #7c3aed;
-  --sfinx-purple-rgb: 124, 58, 237;
+  /* Sfinx brand purple - soothing violet-500 */
+  --sfinx-purple: #8B5CF6;
+  --sfinx-purple-rgb: 139, 92, 246;
+  --sfinx-purple-light: #EDE9FE;
+  --sfinx-purple-dark: #6D28D9;
+  /* Page & card surfaces */
+  --page-bg: #F7F5FF;
+  --card-bg: rgba(255, 255, 255, 0.88);
+  --sidebar-bg: rgba(255, 255, 255, 0.72);
+  --sidebar-border: rgba(139, 92, 246, 0.12);
+  --border-subtle: rgba(139, 92, 246, 0.10);
+  --glass-shadow: 0 8px 32px rgba(139, 92, 246, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+body {
+  background: var(--page-bg);
 }
 
 /* Force pointer cursor on all buttons, except disabled - ULTRA AGGRESSIVE */
@@ -67,6 +80,23 @@ button[disabled] {
   opacity: 0.5 !important;
 }
 
+/* ── Glassmorphism utilities ─────────────────────────────────── */
+.glass-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-sidebar {
+  background: var(--sidebar-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-right: 1px solid var(--sidebar-border);
+}
+
+/* ── Debug: Highlight vidstack player ────────────────────────── */
 /* Debug: Highlight vidstack player */
 media-player {
   outline: 2px solid lime !important;
@@ -316,6 +346,7 @@ media-player {
   max-height: 0;
   opacity: 0;
 }
+
 
 /* Subtle pulse animation for top performers */
 @keyframes subtle-pulse {

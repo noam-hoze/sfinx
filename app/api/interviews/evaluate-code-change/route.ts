@@ -150,7 +150,7 @@ Be strict with 0 scores - use them for noise. But use the full range 1-100 for l
 
         log.info(LOG_CATEGORY, `[evaluate-code-change] Found ${contributions.length} contributions with strength > 0 out of ${allEvaluations.length} evaluations`);
 
-        // Calculate video offset
+        // Calculate video offset — clamp to 0 when contribution predates recording
         const changeTimestamp = new Date(timestamp);
         const recordingStart = session.recordingStartedAt;
         let videoOffset = 0;

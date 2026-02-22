@@ -12,8 +12,8 @@ const nextConfig = {
     typescript: {
         ignoreBuildErrors: false,
     },
+    typedRoutes: true,
     experimental: {
-        typedRoutes: true,
         serverActions: {
             allowedOrigins: ["localhost:3000"],
         },

@@ -131,7 +131,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             },
         });
 
-        log.info(LOG_CATEGORY, "[background-evidence/POST] ✅ Background evidence created successfully. ID:", backgroundEvidence.id);
+        log.info(LOG_CATEGORY, "[background-evidence/POST] ✅ BackgroundEvidence created:", backgroundEvidence.id);
 
         return NextResponse.json(
             {

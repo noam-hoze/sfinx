@@ -5,6 +5,7 @@ import type { Route } from "next";
 import { AuthGuard, SfinxSpinner } from "app/shared/components";
 import { log } from "app/shared/services";
 import { JobGrid, JobGridJob } from "app/shared/components/jobs/JobGrid";
+import { prefetchInterviewScripts } from "@/shared/services/backgroundInterview";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.JOB_SEARCH;
@@ -88,6 +89,10 @@ function JobSearchContent() {
                     }
                     setAppliedJobIds(data.appliedJobIds);
                     setError(null);
+
+                    // Prefetch interview scripts for all visible jobs
+                    const allJobs = data.companies.flatMap((c: Company) => c.jobs);
+                    prefetchInterviewScripts(allJobs);
                 } else {
                     log.error(LOG_CATEGORY, "❌ Response not ok:", response.status, response.statusText);
                     const errorText = await response.text();
@@ -144,7 +149,7 @@ function JobSearchContent() {
     });
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen">
             <div className="max-w-7xl mx-auto p-6">
                 {/* Header */}
                 <div className="text-center mb-8">

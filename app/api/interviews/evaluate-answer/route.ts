@@ -296,7 +296,8 @@ CRITICAL RULES:
                     videoOffset = Math.max(0, Math.floor((answerTime - recordingStart) / 1000));
                 }
 
-                // Run all 3 creates in parallel for this item
+                // Run CategoryContribution and VideoChapter creates in parallel
+                // Note: EvidenceClips are created by background-summary (single source of truth)
                 await Promise.all([
                     prisma.categoryContribution.create({
                         data: {
@@ -307,18 +308,6 @@ CRITICAL RULES:
                             explanation: item.reasoning,
                             contributionStrength: item.strength,
                             caption: item.caption || item.category,
-                        },
-                    }),
-                    prisma.evidenceClip.create({
-                        data: {
-                            telemetryData: { connect: { id: session.telemetryData.id } },
-                            title: `${item.category}`,
-                            description: item.caption,
-                            duration: 30,
-                            startTime: videoOffset,
-                            category: "EXPERIENCE_CATEGORY",
-                            categoryName: item.category,
-                            contributionStrength: item.strength,
                         },
                     }),
                     createVideoChapter({

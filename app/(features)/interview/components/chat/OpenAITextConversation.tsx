@@ -29,7 +29,6 @@ import {
   updatePasteTopics,
   updatePasteQuestionScores,
   setPasteEvaluationSummary,
-  updatePasteVideoMetadata,
   clearPasteEvaluation,
 } from "@/shared/state/slices/codingSlice";
 import { store } from "@/shared/state/store";
@@ -120,6 +119,13 @@ const OpenAITextConversation = forwardRef<any, Props>(
     const scriptRef = useRef<any | null>(null);
     const codingPromptSentRef = useRef(false);
     const codingExpectedMessageRef = useRef<string | null>(null);
+
+    /** Wall-clock time when AI follow-up question was posted to chat. */
+    const aiQuestionTimestampRef = useRef<number | null>(null);
+    /** True after paste evaluation has been persisted to ExternalToolUsage. */
+    const savedToDbRef = useRef(false);
+    /** Mutex: true while a DB save is in-flight (prevents concurrent POSTs). */
+    const savingRef = useRef(false);
 
     const post = useCallback(
       (text: string, speaker: "user" | "ai", metadata?: { isPasteEval?: boolean; pasteEvaluationId?: string }) => {
@@ -221,11 +227,121 @@ const OpenAITextConversation = forwardRef<any, Props>(
       [dispatch, onGreetingDelivered, setInputLocked, openaiClient, post]
     );
 
+    /**
+     * Persists any unsaved paste evaluation to ExternalToolUsage.
+     * Called on interview conclusion or before a second paste overwrites the first.
+     */
+    const flushPendingPasteEval = useCallback(async () => {
+      if (savedToDbRef.current || savingRef.current) return;
+
+      const codingState = store.getState().coding;
+      const activePasteEval = codingState.activePasteEvaluation;
+      const sessionId = store.getState().interview.sessionId;
+
+      if (!activePasteEval || !sessionId) return;
+      if (activePasteEval.accountabilityScore !== undefined) return;
+
+      savingRef.current = true;
+      try {
+        const hasPartialAnswers = activePasteEval.questionScores && activePasteEval.questionScores.length > 0;
+        const ts = aiQuestionTimestampRef.current;
+        if (!ts) {
+          log.error(LOG_CATEGORY, "[paste_eval][flush] aiQuestionTimestampRef is null — skipping DB save");
+          return;
+        }
+
+        if (hasPartialAnswers) {
+          const topics = activePasteEval.topics || [];
+          const avgScore = topics.length > 0
+            ? Math.round(topics.reduce((sum, t) => sum + t.percentage, 0) / topics.length)
+            : 0;
+          const understanding = avgScore >= 80 ? "full" : avgScore >= 50 ? "partial" : "none";
+
+          let evaluation = "Candidate provided partial answers before submitting.";
+          try {
+            const resp = await fetch("/api/interviews/generate-paste-summary", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                pastedContent: activePasteEval.pastedContent,
+                questionAnswers: activePasteEval.questionScores,
+                averageScore: avgScore,
+              }),
+            });
+            if (resp.ok) {
+              const data = await resp.json();
+              evaluation = data.summary || evaluation;
+            }
+          } catch (e) {
+            log.error(LOG_CATEGORY, "[paste_eval][flush] Summary API error:", e);
+          }
+
+          const dbPayload = {
+            timestamp: activePasteEval.timestamp,
+            pastedContent: activePasteEval.pastedContent,
+            characterCount: activePasteEval.pastedContent.length,
+            aiQuestion: (activePasteEval.questionScores ?? []).map((qs: any) => qs.question).join("\n"),
+            aiQuestionTimestamp: ts,
+            userAnswer: (activePasteEval.questionScores ?? []).map((qs: any) => qs.answer).join("\n"),
+            understanding,
+            accountabilityScore: avgScore,
+            reasoning: evaluation,
+            caption: evaluation,
+          };
+
+          const resp = await fetch(`/api/interviews/session/${sessionId}/external-tools`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(dbPayload),
+          });
+          if (resp.ok) savedToDbRef.current = true;
+          else log.error(LOG_CATEGORY, "[paste_eval][flush] API error:", resp.status);
+        } else {
+          const evaluation = "The candidate did not respond to questions about the pasted code.";
+          const dbPayload = {
+            timestamp: activePasteEval.timestamp,
+            pastedContent: activePasteEval.pastedContent,
+            characterCount: activePasteEval.pastedContent.length,
+            aiQuestion: activePasteEval.topics?.map((t: any) => t.question).join("\n") || "No response provided",
+            aiQuestionTimestamp: ts,
+            userAnswer: "",
+            understanding: "none",
+            accountabilityScore: 0,
+            reasoning: evaluation,
+            caption: evaluation,
+          };
+
+          const resp = await fetch(`/api/interviews/session/${sessionId}/external-tools`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(dbPayload),
+          });
+          if (resp.ok) savedToDbRef.current = true;
+          else log.error(LOG_CATEGORY, "[paste_eval][flush] API error:", resp.status);
+        }
+      } catch (error) {
+        log.error(LOG_CATEGORY, "[paste_eval][flush] Failed:", error);
+      } finally {
+        savingRef.current = false;
+      }
+    }, []);
+
     /** Handle paste detection during coding stage - Start evaluation flow */
     const handlePasteDetected = useCallback(
       async (pastedCode: string, timestamp: number) => {
         const ms = store.getState().interview;
         if (ms.stage !== "coding") return;
+
+        // Fix 4: flush any previous unsaved paste evaluation before starting a new one
+        if (!savedToDbRef.current && store.getState().coding.activePasteEvaluation) {
+          await flushPendingPasteEval();
+          dispatch(clearPasteEvaluation());
+        }
+
+        // Reset local refs for this new paste cycle
+        aiQuestionTimestampRef.current = null;
+        savedToDbRef.current = false;
+        savingRef.current = false;
         
         const pasteEvaluationId = `paste-${Date.now()}-${Math.random().toString(36).substring(7)}`;
         
@@ -300,36 +416,30 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
         }));
         
         if (initialQuestion) {
-          // Use paste detection timestamp for evidence link (when green highlight appears)
-          const aiQuestionTimestamp = timestamp;
+          // Capture wall-clock time when AI follow-up is posted (evidence clip anchor)
+          aiQuestionTimestampRef.current = Date.now();
           post(initialQuestion, "ai", { isPasteEval: true, pasteEvaluationId });
 
-          // Play tool usage sound effect (same as question completion sound)
           if (toolUsageSoundRef.current) {
             try {
               toolUsageSoundRef.current.volume = isMuted ? 0 : 1;
-              toolUsageSoundRef.current.currentTime = 0; // Reset to start
+              toolUsageSoundRef.current.currentTime = 0;
               toolUsageSoundRef.current.play().catch(err => log.error(LOG_CATEGORY, "Tool usage sound error:", err));
             } catch (error) {
               log.error(LOG_CATEGORY, "[paste_eval] Failed to play tool usage sound:", error);
             }
           }
 
-          // Trigger editor highlight now that AI question is posted
           onHighlightPastedCode?.(pastedCode);
 
-          // Update debug panel with question
           dispatch(setPasteQuestion(initialQuestion));
-          dispatch(updatePasteVideoMetadata({
-            aiQuestionTimestamp,
-          }));
 
           try {
             /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval][question_asked]", { pasteEvaluationId, question: initialQuestion });
           } catch {}
         }
       },
-      [dispatch, openaiClient, post, interviewSessionId, onHighlightPastedCode, isMuted]
+      [dispatch, openaiClient, post, interviewSessionId, onHighlightPastedCode, isMuted, flushPendingPasteEval]
     );
 
     /** Injects the coding prompt once the guard advances into the coding session. */
@@ -885,17 +995,15 @@ Generate your question now:`;
                   }
                 } catch (error) {
                   // Fallback on error
-                  summary = `Candidate answered ${questionScores.length} questions with average score ${avgScore}/100`;
+                  summary = `Candidate provided responses to ${questionScores.length} question(s).`;
                   /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval] Summary API error:", error);
                 }
-                
-                const caption = `External tool: ${understanding.toLowerCase()} understanding (${avgScore}/100)`;
-                
+
                 const evaluation = {
                   understanding,
                   accountabilityScore: avgScore,
                   reasoning: summary,
-                  caption,
+                  caption: summary,
                 };
                 
                 try {
@@ -917,7 +1025,8 @@ Generate your question now:`;
                 if (!summary || summary.trim() === "") {
                   /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval][validation_error] Summary is empty");
                   // Use fallback summary
-                  evaluation.reasoning = `Candidate answered ${questionScores.length} questions with average score ${avgScore}/100`;
+                  evaluation.reasoning = `Candidate provided responses to ${questionScores.length} question(s).`;
+                  evaluation.caption = evaluation.reasoning;
                 }
                 
                 if (evaluation) {
@@ -946,15 +1055,22 @@ Generate your question now:`;
                     finalScore: evaluation.accountabilityScore,
                   }));
                   
-                  // Save to DB
+                  // Save to DB — use local ref for aiQuestionTimestamp (single-owner)
                   const sessionId = ms.sessionId;
-                  if (sessionId && activePasteEval.aiQuestionTimestamp) {
+                  const tsForDb = aiQuestionTimestampRef.current;
+                  if (!tsForDb) {
+                    log.error(LOG_CATEGORY, "[paste_eval] aiQuestionTimestampRef is null — skipping DB save");
+                    setInputLocked?.(false);
+                    return;
+                  }
+                  if (sessionId && !savedToDbRef.current && !savingRef.current) {
+                    savingRef.current = true;
                     const dbPayload = {
                       timestamp: activePasteEval.timestamp,
                       pastedContent: activePasteEval.pastedContent,
                       characterCount: activePasteEval.pastedContent.length,
                       aiQuestion: aiQuestions || "",
-                      aiQuestionTimestamp: activePasteEval.aiQuestionTimestamp,
+                      aiQuestionTimestamp: tsForDb,
                       userAnswer: userAnswers || "",
                       understanding: evaluation.understanding,
                       accountabilityScore: evaluation.accountabilityScore,
@@ -973,25 +1089,18 @@ Generate your question now:`;
                     });
                     
                     if (dbResponse.ok) {
-                      try {
-                        /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval][saved_to_db]");
-                      } catch {}
+                      savedToDbRef.current = true;
+                      log.info(LOG_CATEGORY, "[paste_eval][saved_to_db]");
                     } else {
                       try {
                         const errorData = await dbResponse.json();
-                        /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval][db_error]", {
+                        log.error(LOG_CATEGORY, "[paste_eval][db_error]", {
                           status: dbResponse.status,
                           error: errorData
                         });
                       } catch {}
                     }
-                  } else {
-                    try {
-                      /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval][missing_data]", {
-                        hasSessionId: !!sessionId,
-                        hasAiTimestamp: !!activePasteEval.aiQuestionTimestamp
-                      });
-                    } catch {}
+                    savingRef.current = false;
                   }
                 }
                 
@@ -1118,6 +1227,7 @@ The candidate is working on this task. Respond to their question while following
       sendUserMessage,
       sayClosingLine,
       handlePasteDetected,
+      flushPendingPasteEval,
     }));
 
     return null;

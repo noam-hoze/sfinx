@@ -399,7 +399,7 @@ Shows:
 ### Overlapping Q&A
 **Problem**: Candidate pastes again before completing previous evaluation.
 
-**Solution**: Complete current evaluation, then start new one. State machine prevents overlap.
+**Solution**: `handlePasteDetected` calls `flushPendingPasteEval()` to persist the previous evaluation to the DB before resetting refs and starting the new one. All DB persistence is owned by `OpenAITextConversation.tsx` — `InterviewIDE` delegates via `useImperativeHandle`.
 
 ### Empty/Invalid Pasted Code
 **Problem**: Paste contains only whitespace or comments.
@@ -411,11 +411,11 @@ Shows:
 
 **Solution**: State tracking ensures answer is matched to correct question. Out-of-order messages handled gracefully.
 
-### Race Conditions Fixed (commit 5f702d9)
-1. **Double-send prevention**: Debounce message submission
-2. **State sync**: Ensure Redux state updated before next action
-3. **Pending reply tracking**: `SET_PENDING_REPLY` action prevents concurrent sends
-4. **API call ordering**: Queue evaluation calls to prevent race conditions
+### Save Guards (single owner: `OpenAITextConversation.tsx`)
+1. **Double-save prevention**: `savedToDbRef` checked before every POST — once saved, no duplicate writes
+2. **Concurrent POST prevention**: `savingRef` mutex prevents overlapping requests
+3. **Early termination**: `flushPendingPasteEval()` exposed via `useImperativeHandle` so `InterviewIDE.handleInterviewConcluded` can flush without owning any save logic
+4. **Pending reply tracking**: `SET_PENDING_REPLY` action prevents concurrent sends
 
 ## Configuration
 

@@ -44,6 +44,7 @@ Sfinx is an AI-powered autonomous technical screening interview system. It condu
 - Use descriptive commit messages
 - Keep commits focused and atomic
 - Reference issue numbers in commits when applicable
+- **Never commit or push without explicit user approval.** Always show a summary of changes and wait for the user to say "commit" or "push" before running those commands.
 
 ### Dependencies
 - Install with: `pnpm install --frozen-lockfile`

@@ -20,7 +20,6 @@ export type CodingState = {
         pasteEvaluationId: string;
         pastedContent: string;
         timestamp: number;
-        aiQuestionTimestamp?: number;
         pasteAccountabilityScore: number;
         answerCount: number;
         readyToEvaluate: boolean;
@@ -168,17 +167,6 @@ const codingSlice = createSlice({
             state.activePasteEvaluation.evaluationCaption = action.payload.caption;
             state.activePasteEvaluation.accountabilityScore = action.payload.finalScore;
         },
-        updatePasteVideoMetadata: (
-            state,
-            action: PayloadAction<{
-                aiQuestionTimestamp?: number;
-            }>
-        ) => {
-            if (!state.activePasteEvaluation) return;
-            if (action.payload.aiQuestionTimestamp !== undefined) {
-                state.activePasteEvaluation.aiQuestionTimestamp = action.payload.aiQuestionTimestamp;
-            }
-        },
         clearPasteEvaluation: (state) => {
             state.activePasteEvaluation = undefined;
         },
@@ -201,7 +189,6 @@ export const {
     updatePasteTopics,
     updatePasteQuestionScores,
     setPasteEvaluationSummary,
-    updatePasteVideoMetadata,
     clearPasteEvaluation,
 } = codingSlice.actions;
 

@@ -19,7 +19,7 @@ import { AuthGuard } from "app/shared/components";
 import SfinxSpinner from "app/shared/components/SfinxSpinner";
 import Breadcrumbs from "app/shared/components/Breadcrumbs";
 import { log } from "app/shared/services";
-import { calculateScore, type ScoringConfiguration, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
+import { type ScoringConfiguration } from "app/shared/utils/calculateScore";
 import { useDebug } from "app/shared/contexts";
 import { selectBreadcrumbSource } from "@/shared/state/slices/navigationSlice";
 
@@ -66,9 +66,6 @@ function TelemetryContent() {
     
     // Scoring configuration
     const [scoringConfig, setScoringConfig] = useState<ScoringConfiguration | null>(null);
-    const [calculatedScore, setCalculatedScore] = useState<number | null>(null);
-    const [calculatedExperienceScore, setCalculatedExperienceScore] = useState<number | null>(null);
-    const [calculatedCodingScore, setCalculatedCodingScore] = useState<number | null>(null);
 
     useEffect(() => {
         const fetchTelemetryData = async () => {
@@ -137,6 +134,37 @@ function TelemetryContent() {
 
     const { candidate } = telemetryData || {};
     const activeSession = sessions[activeSessionIndex] || {};
+
+    // Poll telemetry every 5 seconds while the active session is still being
+    // processed server-side, or while the video URL is not yet available (the
+    // candidate's browser upload may still be in-flight after COMPLETED).
+    useEffect(() => {
+        const isProcessing = activeSession?.status === "PROCESSING";
+        const missingVideo = activeSession?.status === "COMPLETED" && !activeSession?.videoUrl;
+        if (!isProcessing && !missingVideo) return;
+        if (!candidateId) return;
+
+        const intervalId = setInterval(async () => {
+            try {
+                const query = new URLSearchParams();
+                if (applicationId) query.set("applicationId", applicationId);
+                const response = await fetch(
+                    `/api/candidates/${candidateId}/telemetry?${query.toString()}`
+                );
+                if (!response.ok) return;
+
+                const data = await response.json();
+                if (!data.sessions) return;
+
+                setSessions(data.sessions);
+                setTelemetryData({ candidate: data.candidate });
+            } catch (err) {
+                log.error(LOG_CATEGORY, "Error polling telemetry:", err);
+            }
+        }, 5000);
+
+        return () => clearInterval(intervalId);
+    }, [activeSession?.status, candidateId, applicationId]);
 
     // Fetch background summary for active session
     useEffect(() => {
@@ -229,85 +257,12 @@ function TelemetryContent() {
         fetchScoringConfig();
     }, [activeSession?.application?.job?.id]);
 
-    // Calculate score when we have all necessary data
-    useEffect(() => {
-        const sessionWorkstyle = activeSession?.workstyle;
-        const jobCodingCategories = activeSession?.application?.job?.codingCategories as Array<{name: string; description: string; weight: number}> | undefined;
-        
-        if (!backgroundSummary || !codingSummary || !scoringConfig || !sessionWorkstyle) {
-            setCalculatedScore(null);
-            setCalculatedExperienceScore(null);
-            setCalculatedCodingScore(null);
-            return;
-        }
-
-        try {
-            // Build experience scores from experienceCategories with weights from job
-            const experienceScores: Array<{name: string; score: number; weight: number}> = [];
-            const jobExperienceCategories = activeSession?.application?.job?.experienceCategories as Array<{name: string; description: string; weight: number}> | undefined;
-            
-            if (backgroundSummary.experienceCategories && jobExperienceCategories) {
-                jobExperienceCategories.forEach((categoryDef: any) => {
-                    const score = backgroundSummary.experienceCategories[categoryDef.name]?.score || 0;
-                    experienceScores.push({
-                        name: categoryDef.name,
-                        score,
-                        weight: categoryDef.weight || 1
-                    });
-                });
-            }
-            
-            // Build coding scores from jobSpecificCategories with weights from job
-            const categoryScores: Array<{name: string; score: number; weight: number}> = [];
-            
-            if (codingSummary.jobSpecificCategories && jobCodingCategories) {
-                // Categories share the remaining weight (100 - AI Assist weight)
-                // Scale DB weights proportionally to fit within remaining space
-                const categoryTotalWeight = 100 - scoringConfig.aiAssistWeight;
-                const dbWeightSum = jobCodingCategories.reduce((sum: number, cat: any) => sum + (cat.weight || 1), 0);
-                const scaleFactor = categoryTotalWeight / dbWeightSum;
-                
-                
-                jobCodingCategories.forEach((categoryDef: any) => {
-                    // Match by base name (before any parentheses)
-                    const baseName = categoryDef.name.split(' (')[0];
-                    const matchingKey = Object.keys(codingSummary.jobSpecificCategories).find(key => 
-                        key.startsWith(baseName) || categoryDef.name.startsWith(key)
-                    ) || categoryDef.name;
-                    
-                    const score = codingSummary.jobSpecificCategories[matchingKey]?.score || 0;
-                    const scaledWeight = categoryDef.weight * scaleFactor;
-                    
-                    
-                    categoryScores.push({
-                        name: categoryDef.name,
-                        score,
-                        weight: scaledWeight
-                    });
-                });
-            }
-            
-            const rawScores: RawScores = {
-                experienceScores,
-                categoryScores,
-            };
-
-            const workstyleMetrics: WorkstyleMetrics = {
-                aiAssistAccountabilityScore: sessionWorkstyle.aiAssistUsage?.avgAccountabilityScore,
-            };
-
-            const result = calculateScore(rawScores, workstyleMetrics, scoringConfig);
-            setCalculatedScore(result.finalScore);
-            setCalculatedExperienceScore(result.experienceScore);
-            setCalculatedCodingScore(result.codingScore);
-            
-        } catch (error) {
-            log.error(LOG_CATEGORY, "Error calculating score:", error);
-            setCalculatedScore(null);
-            setCalculatedExperienceScore(null);
-            setCalculatedCodingScore(null);
-        }
-    }, [backgroundSummary, codingSummary, scoringConfig, activeSession?.workstyle, activeSession?.application?.job?.codingCategories, activeSession?.application?.job?.experienceCategories]);
+    // Scores are calculated server-side and returned by the telemetry API.
+    // Reading them directly avoids divergence caused by different category-matching
+    // logic that the previous client-side recalculation used.
+    const calculatedScore = activeSession?.calculatedScore ?? null;
+    const calculatedExperienceScore = activeSession?.calculatedExperienceScore ?? null;
+    const calculatedCodingScore = activeSession?.calculatedCodingScore ?? null;
 
     console.log("[CPS] Active session:", activeSession);
     const formatMonthYear = (dateIso?: string) =>
@@ -428,12 +383,36 @@ function TelemetryContent() {
 
     const longStory: string = candidate?.story || "";
 
-    // Story now contains inline HTML for color emphasis - render directly
+    // Story contains inline HTML for color emphasis from OpenAI.
+    // Sanitize using DOMParser (browser built-in, zero deps) before rendering
+    // to prevent XSS via prompt injection. Only <span style="..."> is kept;
+    // all other tags, attributes, and event handlers are stripped.
     const renderStoryWithEmphasis = () => {
         if (!longStory) return null;
 
-        // Story contains HTML with inline styles from OpenAI
-        return <span dangerouslySetInnerHTML={{ __html: longStory }} />;
+        const doc = new DOMParser().parseFromString(longStory, "text/html");
+
+        function serializeNode(node: Node): string {
+            if (node.nodeType === Node.TEXT_NODE) {
+                return node.textContent ?? "";
+            }
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                const el = node as Element;
+                const children = Array.from(el.childNodes).map(serializeNode).join("");
+                if (el.tagName.toLowerCase() === "span") {
+                    const style = el.getAttribute("style");
+                    return style
+                        ? `<span style="${style.replace(/"/g, "&quot;")}">${children}</span>`
+                        : `<span>${children}</span>`;
+                }
+                // All other elements: render children only (strip the tag itself)
+                return children;
+            }
+            return "";
+        }
+
+        const safeStory = Array.from(doc.body.childNodes).map(serializeNode).join("");
+        return <span dangerouslySetInnerHTML={{ __html: safeStory }} />;
     };
 
     const onVideoJump = (timestamp: number) => {
@@ -484,6 +463,24 @@ function TelemetryContent() {
                         Try Again
                     </button>
                 </div>
+            </div>
+        );
+    }
+
+    // Show a spinner while processing or while the video is still uploading
+    // (candidate's browser may still be in-flight even after COMPLETED).
+    // The polling effect above re-fetches until both conditions are resolved.
+    if (
+        activeSession?.status === "PROCESSING" ||
+        (activeSession?.status === "COMPLETED" && !activeSession?.videoUrl)
+    ) {
+        return (
+            <div className="h-screen bg-gray-50 overflow-hidden flex items-center justify-center">
+                <SfinxSpinner
+                    size="lg"
+                    title="Results are being calculated…"
+                    messages={["Analyzing code quality", "Evaluating job fit", "Generating candidate profile"]}
+                />
             </div>
         );
     }
@@ -633,24 +630,6 @@ function TelemetryContent() {
                                 )}
                             </CollapsibleSection>
                             
-                            {/* Coding Section */}
-                            <CollapsibleSection
-                                title="Coding"
-                                score={calculatedCodingScore ?? undefined}
-                                isExpanded={codingExpanded}
-                                onToggle={() => setCodingExpanded(!codingExpanded)}
-                            >
-                                {workstyle && (
-                                    <WorkstyleDashboard
-                                        workstyle={workstyle}
-                                        codingSummary={codingSummary}
-                                        codingCategories={activeSession?.application?.job?.codingCategories as any}
-                                        onVideoJump={onVideoJump}
-                                        sessionId={activeSession?.id}
-                                    />
-                                )}
-                            </CollapsibleSection>
-                            
                             {/* Experience Section */}
                             <CollapsibleSection
                                 title="Experience"
@@ -676,6 +655,24 @@ function TelemetryContent() {
                                             </button>
                                         )}
                                     </div>
+                                )}
+                            </CollapsibleSection>
+                            
+                            {/* Coding Section */}
+                            <CollapsibleSection
+                                title="Coding"
+                                score={calculatedCodingScore ?? undefined}
+                                isExpanded={codingExpanded}
+                                onToggle={() => setCodingExpanded(!codingExpanded)}
+                            >
+                                {workstyle && (
+                                    <WorkstyleDashboard
+                                        workstyle={workstyle}
+                                        codingSummary={codingSummary}
+                                        codingCategories={activeSession?.application?.job?.codingCategories as any}
+                                        onVideoJump={onVideoJump}
+                                        sessionId={activeSession?.id}
+                                    />
                                 )}
                             </CollapsibleSection>
                         </div>

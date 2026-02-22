@@ -36,9 +36,12 @@ interface JobDetailResponse {
     interviewContent: null | {
         id: string;
         backgroundQuestion: string | null;
+        backgroundQuestionCategory: string | null;
         codingPrompt: string;
         codingTemplate: string | null;
         codingAnswer: string | null;
+        expectedOutput: string | null;
+        codingLanguage: string;
         backgroundQuestionTimeSeconds: number;
         codingQuestionTimeSeconds: number;
     };
@@ -237,6 +240,10 @@ function CompanyJobDetailContent() {
             if (hasInterviewContent) {
                 payload.interviewContent = {
                     backgroundQuestion: interviewState.backgroundQuestion,
+                    backgroundQuestionCategory:
+                        interviewState.backgroundQuestionCategory.length > 0
+                            ? interviewState.backgroundQuestionCategory
+                            : null,
                     codingPrompt: interviewState.codingPrompt,
                     codingTemplate:
                         interviewState.codingTemplate.length > 0
@@ -246,6 +253,11 @@ function CompanyJobDetailContent() {
                         interviewState.codingAnswer.length > 0
                             ? interviewState.codingAnswer
                             : null,
+                    expectedOutput:
+                        interviewState.expectedOutput.length > 0
+                            ? interviewState.expectedOutput
+                            : null,
+                    codingLanguage: interviewState.codingLanguage,
                     backgroundQuestionTimeSeconds:
                         interviewDurations.backgroundSeconds,
                     codingQuestionTimeSeconds: interviewDurations.codingSeconds,
@@ -281,6 +293,10 @@ function CompanyJobDetailContent() {
                     backgroundQuestion:
                         optionalString(
                             updated.interviewContent.backgroundQuestion
+                        ),
+                    backgroundQuestionCategory:
+                        optionalString(
+                            updated.interviewContent.backgroundQuestionCategory
                         ),
                     codingPrompt: updated.interviewContent.codingPrompt,
                     codingTemplate:
@@ -396,7 +412,7 @@ function CompanyJobDetailContent() {
     });
 
     return (
-        <div className="min-h-screen bg-gray-50 flex">
+        <div className="min-h-screen flex">
             {/* Sidebar */}
             <div className="w-64 bg-white border-r border-gray-200 sticky top-0 h-screen flex flex-col">
                 <div className="p-6 border-b border-gray-200">
