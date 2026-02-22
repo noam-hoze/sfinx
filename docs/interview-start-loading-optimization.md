@@ -38,7 +38,7 @@ Work is now distributed across three earlier moments in the journey:
 
 | Track | What it does |
 |-------|-------------|
-| **Track A (DB)** | Activates the warmup shell via `PATCH /api/interviews/warmup/activate` — writes the real `jobId` and flips status from `WARMUP` → `PENDING`. Falls back to creating fresh records if warmup is unavailable. |
+| **Track A (DB)** | Activates the warmup shell via `PATCH /api/interviews/warmup/activate` — writes the real `jobId` and flips status from `WARMUP` → `PENDING`. If a non-WARMUP application already exists for that job, deletes the shell and creates a **new session** on the existing application (with fresh TelemetryData, WorkstyleMetrics, GapAnalysis). Falls back to creating fresh records if warmup is unavailable. |
 | **Track B (Content)** | Loads interview script from `localStorage` cache (or fetches from API), then generates the first question + evaluation intent via OpenAI. |
 | **Track C (Audio)** | Generates the welcome announcement text and fetches TTS audio, with `localStorage` caching via `cacheBlob`/`getCachedBlob`. |
 
@@ -56,7 +56,7 @@ Tracks A and B run in parallel; Track C (`useAnnouncementGeneration`) runs along
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/api/interviews/warmup` | `POST` | Creates shell Application + InterviewSession + TelemetryData + WorkstyleMetrics + GapAnalysis for the authenticated user. Deletes any existing WARMUP shell first (one per user). |
-| `/api/interviews/warmup/activate` | `PATCH` | Activates a shell by writing the real `jobId`, flipping status to `PENDING`. If a non-WARMUP application already exists for that job, deletes the shell and returns the existing application instead. |
+| `/api/interviews/warmup/activate` | `PATCH` | Activates a shell by writing the real `jobId`, flipping status to `PENDING`. If a non-WARMUP application already exists for that job, deletes the shell and creates a **new session** on the existing application (supporting multiple interview attempts with separate videos and evidence). |
 
 ## Fallback Behavior
 

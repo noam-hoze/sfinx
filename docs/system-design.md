@@ -586,7 +586,7 @@ interface CodingState {
     pastedContent: string;
     timestamp: number;
     videoChapterId?: string;
-    aiQuestionTimestamp?: number;
+    // aiQuestionTimestamp removed — now a local useRef in OpenAITextConversation.tsx
     confidence: number;
     answerCount: number;
     readyToEvaluate: boolean;

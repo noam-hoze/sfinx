@@ -50,6 +50,27 @@ const VIDEO_EVIDENCE_OFFSET_MS = 1000; // Show video 1 second before iteration f
  */
 const getInitialCode = () => DEFAULT_CODE;
 
+/** Debug-only overlay showing elapsed MM:SS since recording started. */
+function RecordingElapsedTimer({ getStart }: { getStart: () => Date | null }) {
+    const [elapsed, setElapsed] = useState("00:00");
+    useEffect(() => {
+        const id = setInterval(() => {
+            const start = getStart();
+            if (!start) { setElapsed("--:--"); return; }
+            const sec = Math.floor((Date.now() - start.getTime()) / 1000);
+            const m = String(Math.floor(sec / 60)).padStart(2, "0");
+            const s = String(sec % 60).padStart(2, "0");
+            setElapsed(`${m}:${s}`);
+        }, 500);
+        return () => clearInterval(id);
+    }, [getStart]);
+    return (
+        <span className="font-mono text-xs bg-red-600 text-white px-2 py-0.5 rounded">
+            REC {elapsed}
+        </span>
+    );
+}
+
 interface InterviewerContentProps {
     isDebugVisible: boolean;
     showDebugButton: boolean;
@@ -293,121 +314,13 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
     const handleInterviewConcluded = useCallback(
         async (delayMs?: number) => {
-            // Check for unanswered paste evaluation before concluding
-            const codingState = store.getState().coding;
-            const activePasteEval = codingState.activePasteEvaluation;
-            
-            if (activePasteEval && activePasteEval.accountabilityScore === undefined && interviewSessionId) {
-                // Check if there are partial answers (some questions answered but evaluation incomplete)
-                const hasPartialAnswers = activePasteEval.questionScores && activePasteEval.questionScores.length > 0;
-                
-                if (hasPartialAnswers) {
-                    // Calculate score from partial answers using topic percentages
-                    const topics = activePasteEval.topics || [];
-                    const avgScore = topics.length > 0
-                        ? Math.round(topics.reduce((sum, t) => sum + t.percentage, 0) / topics.length)
-                        : 0;
-                    
-                    const understanding = avgScore >= 80 ? "full" : avgScore >= 50 ? "partial" : "none";
-                    
-                    logger.info("📋 [PASTE_EVAL] Saving partially answered paste evaluation", {
-                        avgScore,
-                        answeredQuestions: activePasteEval.questionScores.length,
-                        topics: topics.map(t => ({ name: t.name, pct: t.percentage }))
-                    });
-
-                    try {
-                        // Generate evaluation using OpenAI
-                        let evaluation = `Candidate provided partial answers before submitting.`;
-                        try {
-                            const summaryResponse = await fetch("/api/interviews/generate-paste-summary", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                    pastedContent: activePasteEval.pastedContent,
-                                    questionAnswers: activePasteEval.questionScores,
-                                    averageScore: avgScore,
-                                }),
-                            });
-
-                            if (summaryResponse.ok) {
-                                const summaryData = await summaryResponse.json();
-                                evaluation = summaryData.summary || evaluation;
-                                logger.info("✅ [PASTE_EVAL] Generated evaluation:", evaluation);
-                            } else {
-                                logger.warn("⚠️ [PASTE_EVAL] Failed to generate evaluation, using fallback");
-                            }
-                        } catch (evalError) {
-                            logger.error("❌ [PASTE_EVAL] Evaluation generation failed:", evalError);
-                        }
-
-                        const dbPayload = {
-                            timestamp: activePasteEval.timestamp,
-                            pastedContent: activePasteEval.pastedContent,
-                            characterCount: activePasteEval.pastedContent.length,
-                            aiQuestion: activePasteEval.questionScores.map((qs: any) => qs.question).join("\n"),
-                            aiQuestionTimestamp: activePasteEval.aiQuestionTimestamp || Date.now(),
-                            userAnswer: activePasteEval.questionScores.map((qs: any) => qs.answer).join("\n"),
-                            understanding,
-                            accountabilityScore: avgScore,
-                            reasoning: evaluation,
-                            caption: evaluation,
-                        };
-
-                        const response = await fetch(`/api/interviews/session/${interviewSessionId}/external-tools`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(dbPayload),
-                        });
-                        
-                        if (!response.ok) {
-                            const errorData = await response.json();
-                            throw new Error(`API returned ${response.status}: ${errorData.error || 'Unknown error'}`);
-                        }
-                        
-                        logger.info("✅ [PASTE_EVAL] Saved partial paste evaluation");
-                    } catch (error) {
-                        logger.error("❌ [PASTE_EVAL] Failed to save partial paste:", error);
-                    }
-                } else {
-                    // Truly unanswered - no questions answered at all
-                    logger.info("📋 [PASTE_EVAL] Saving unanswered paste evaluation with score 0");
-                    
-                    // Save to DB with score 0 (failed accountability)
-                    try {
-                        const evaluation = "The candidate did not respond to questions about the pasted code.";
-
-                        const dbPayload = {
-                            timestamp: activePasteEval.timestamp,
-                            pastedContent: activePasteEval.pastedContent,
-                            characterCount: activePasteEval.pastedContent.length,
-                            aiQuestion: activePasteEval.topics?.map((t: any) => t.question).join("\n") || "No response provided",
-                            aiQuestionTimestamp: activePasteEval.aiQuestionTimestamp || Date.now(),
-                            userAnswer: "",
-                            understanding: "none",
-                            accountabilityScore: 0,
-                            reasoning: evaluation,
-                            caption: evaluation,
-                        };
-                        
-                        const response = await fetch(`/api/interviews/session/${interviewSessionId}/external-tools`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify(dbPayload),
-                        });
-                        
-                        if (!response.ok) {
-                            const errorData = await response.json();
-                            throw new Error(`API returned ${response.status}: ${errorData.error || 'Unknown error'}`);
-                        }
-                        
-                        logger.info("✅ [PASTE_EVAL] Saved unanswered paste with score 0");
-                    } catch (error) {
-                        logger.error("❌ [PASTE_EVAL] Failed to save unanswered paste:", error);
-                    }
-                }
+            // Delegate unsaved paste evaluation to the single-owner in OpenAITextConversation
+            try {
+                await realTimeConversationRef.current?.flushPendingPasteEval();
+            } catch (err) {
+                logger.error(LOG_CATEGORY, "[InterviewIDE] flushPendingPasteEval failed:", err);
             }
-            
+
             if (typeof delayMs === "number" && delayMs > 0) {
                 setRedirectDelayMs(delayMs);
             } else {
@@ -415,7 +328,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             }
             setInterviewConcluded(true);
         },
-        [interviewSessionId]
+        []
     );
 
     /**
@@ -1204,7 +1117,10 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
                     {/* Right: Controls and Avatar */}
                     <div className="flex items-center gap-4">
-                        {/* Debug Toggle Button */}
+                        {/* Debug Elapsed Timer & Toggle Button */}
+                        {isDebugModeEnabled && showDebugButton && (
+                            <RecordingElapsedTimer getStart={getActualRecordingStartTime} />
+                        )}
                         {isDebugModeEnabled && showDebugButton && (
                             <button
                                 onClick={() => {

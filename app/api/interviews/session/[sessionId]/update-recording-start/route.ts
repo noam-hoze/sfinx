@@ -64,27 +64,66 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         
         log.info(LOG_CATEGORY, "[Update Recording Start] New recording start time:", recordingStartedAt);
         
-        // Verify session exists and belongs to user
         const interviewSession = await prisma.interviewSession.findFirst({
             where: {
                 id: sessionId,
                 ...(shouldSkipAuth ? {} : { candidateId: userId }),
             },
+            include: { telemetryData: { include: { gapAnalysis: true } } },
         });
 
         if (!interviewSession) {
-            log.error(LOG_CATEGORY, "[Update Recording Start] ❌ Interview session not found");
+            log.error(LOG_CATEGORY, "[Update Recording Start] Interview session not found");
             return NextResponse.json(
                 { error: "Interview session not found" },
                 { status: 404 }
             );
         }
-        
-        // Update the recording start time
+
+        const telemetryId = interviewSession.telemetryData?.id;
+        const gapAnalysisId = interviewSession.telemetryData?.gapAnalysis?.id;
+
+        // Wipe all evidence/contribution data from any previous run so the
+        // interview starts with a clean slate. Warmup shell records
+        // (TelemetryData, WorkstyleMetrics, GapAnalysis) are preserved.
+        await prisma.$transaction([
+            prisma.categoryContribution.deleteMany({ where: { interviewSessionId: sessionId } }),
+            prisma.externalToolUsage.deleteMany({ where: { interviewSessionId: sessionId } }),
+            prisma.iteration.deleteMany({ where: { interviewSessionId: sessionId } }),
+            prisma.conversationMessage.deleteMany({ where: { interviewSessionId: sessionId } }),
+            ...(telemetryId ? [
+                prisma.evidenceClip.deleteMany({ where: { telemetryDataId: telemetryId } }),
+                prisma.backgroundEvidence.deleteMany({ where: { telemetryDataId: telemetryId } }),
+                prisma.videoChapter.deleteMany({ where: { telemetryDataId: telemetryId } }),
+                prisma.backgroundSummary.deleteMany({ where: { telemetryDataId: telemetryId } }),
+                prisma.codingSummary.deleteMany({ where: { telemetryDataId: telemetryId } }),
+            ] : []),
+            ...(gapAnalysisId ? [
+                prisma.gap.deleteMany({ where: { gapAnalysisId } }),
+            ] : []),
+            ...(telemetryId ? [
+                prisma.workstyleMetrics.updateMany({
+                    where: { telemetryDataId: telemetryId },
+                    data: { refactorCleanups: null, aiAssistUsage: null, externalToolUsage: null },
+                }),
+                prisma.telemetryData.update({
+                    where: { id: telemetryId },
+                    data: {
+                        matchScore: 0, confidence: "Unknown", story: "",
+                        storyEmphasis: null, hasFairnessFlag: false,
+                        persistenceFlow: null, learningToAction: null, confidenceCurve: null,
+                    },
+                }),
+            ] : []),
+        ]);
+
+        log.info(LOG_CATEGORY, "[Update Recording Start] Cleaned stale data for session:", sessionId);
+
         const updatedSession = await prisma.interviewSession.update({
             where: { id: sessionId },
             data: {
                 recordingStartedAt: new Date(recordingStartedAt),
+                videoUrl: null,
             },
         });
 
