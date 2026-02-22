@@ -74,19 +74,42 @@ export async function PATCH(request: NextRequest) {
         });
 
         if (existingApp) {
-            log.info(LOG_CATEGORY, "[warmup/activate] Existing application found, deleting warmup shell");
-            // Delete the warmup shell since we already have a real application
+            log.info(LOG_CATEGORY, "[warmup/activate] Existing application found, creating new session");
+
             await prisma.application.delete({
                 where: { id: applicationId },
-            }).catch(() => {
-                // Ignore if already deleted
+            }).catch(() => {});
+
+            const newSession = await prisma.$transaction(async (tx) => {
+                const session = await tx.interviewSession.create({
+                    data: {
+                        candidateId: userId,
+                        applicationId: existingApp.id,
+                        status: "IN_PROGRESS",
+                    },
+                });
+                const telemetry = await tx.telemetryData.create({
+                    data: {
+                        interviewSessionId: session.id,
+                        matchScore: 0, confidence: "Unknown", story: "",
+                        hasFairnessFlag: false,
+                    } as any,
+                });
+                await tx.workstyleMetrics.create({
+                    data: { telemetryDataId: telemetry.id, externalToolUsage: 0 } as any,
+                });
+                await tx.gapAnalysis.create({
+                    data: { telemetryDataId: telemetry.id },
+                });
+                return session;
             });
 
-            const sessionId = existingApp.interviewSessions[0]?.id || null;
+            log.info(LOG_CATEGORY, "[warmup/activate] New session created:", newSession.id);
+
             return NextResponse.json({
                 application: existingApp,
-                sessionId,
-                reused: true,
+                sessionId: newSession.id,
+                reused: false,
             });
         }
 

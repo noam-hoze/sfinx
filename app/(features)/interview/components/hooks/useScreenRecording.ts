@@ -288,6 +288,7 @@ export const useScreenRecording = () => {
     const startRecording = useCallback(async () => {
         if (skipScreenShare) {
             log.info(LOG_CATEGORY, "startRecording: bypassing media capture (dev mode)");
+            actualRecordingStartTimeRef.current = new Date();
             setRecordingPermissionGranted(true);
             setMicPermissionGranted(true);
             return true;

@@ -442,11 +442,24 @@ function InterviewPageContent() {
 
     // Check Redux state - preload may have already created it
     if (reduxSessionId) {
-      // Start recording before syncing
       const recordingStarted = await startRecording();
       if (!recordingStarted) return null;
-      
-      // Sync Redux → local state
+
+      // Warmup sessions are created before recording starts — patch
+      // recordingStartedAt now so evidence clip offsets are correct.
+      const actualStart = getActualRecordingStartTime();
+      if (actualStart) {
+        try {
+          await fetch(`/api/interviews/session/${reduxSessionId}/update-recording-start`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ recordingStartedAt: actualStart.toISOString() }),
+          });
+        } catch (err) {
+          log.error(LOG_CATEGORY, "[interview] Failed to patch recordingStartedAt:", err);
+        }
+      }
+
       setInterviewSessionId(reduxSessionId);
       return reduxSessionId;
     }
