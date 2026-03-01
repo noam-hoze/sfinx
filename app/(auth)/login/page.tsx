@@ -11,7 +11,8 @@ export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [isLoading, setIsLoading] = useState(false);
-    const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+    // TODO: re-enable Google OAuth in a later stage
+    // const [isGoogleLoading, setIsGoogleLoading] = useState(false);
     const [error, setError] = useState("");
     const router = useRouter();
 
@@ -40,20 +41,17 @@ export default function LoginPage() {
         }
     };
 
-    /**
-     * Initiates the federated Google OAuth flow via NextAuth.
-     */
-    const handleGoogleLogin = async () => {
-        setError("");
-        setIsGoogleLoading(true);
-        try {
-            // 🚀 Let NextAuth handle the redirect entirely
-            await signIn("google", { callbackUrl: "/" });
-        } catch {
-            setError("Google sign-in failed. Please try again.");
-            setIsGoogleLoading(false);
-        }
-    };
+    // TODO: re-enable Google OAuth in a later stage
+    // const handleGoogleLogin = async () => {
+    //     setError("");
+    //     setIsGoogleLoading(true);
+    //     try {
+    //         await signIn("google", { callbackUrl: "/" });
+    //     } catch {
+    //         setError("Google sign-in failed. Please try again.");
+    //         setIsGoogleLoading(false);
+    //     }
+    // };
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4">
@@ -125,21 +123,17 @@ export default function LoginPage() {
                         </button>
                     </form>
 
-                    {/* Divider */}
-                    <div className="mt-8 mb-6">
+                    {/* TODO: re-enable Google OAuth in a later stage */}
+                    {/* <div className="mt-8 mb-6">
                         <div className="relative">
                             <div className="absolute inset-0 flex items-center">
                                 <div className="w-full border-t border-gray-200"></div>
                             </div>
                             <div className="relative flex justify-center text-sm">
-                                <span className="px-4 bg-white text-gray-500">
-                                    or
-                                </span>
+                                <span className="px-4 bg-white text-gray-500">or</span>
                             </div>
                         </div>
                     </div>
-
-                    {/* Alternative Actions */}
                     <div className="space-y-3">
                         <button
                             type="button"
@@ -147,19 +141,9 @@ export default function LoginPage() {
                             disabled={isGoogleLoading}
                             className="w-full bg-white hover:bg-gray-50 text-gray-900 font-medium py-3 px-4 rounded-xl border border-gray-200 transition-all duration-300 shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {isGoogleLoading
-                                ? "Continuing with Google..."
-                                : "Continue with Google"}
+                            {isGoogleLoading ? "Continuing with Google..." : "Continue with Google"}
                         </button>
-                        <div className="text-center">
-                            <button
-                                type="button"
-                                className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
-                            >
-                                Forgot your password?
-                            </button>
-                        </div>
-                    </div>
+                    </div> */}
                 </div>
 
                 {/* Sign Up Link */}
