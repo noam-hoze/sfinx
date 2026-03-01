@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
-import OpenAI from "openai";
 import RiveMascot from "app/(features)/interview/components/RiveMascot";
 import { loadAndCacheSoundEffect } from "@/shared/utils/audioCache";
 import { log } from "app/shared/services/logger";
@@ -22,7 +21,6 @@ interface PreloadState {
   clickSoundRef: React.RefObject<HTMLAudioElement | null>;
   startSoundRef: React.RefObject<HTMLAudioElement | null>;
   soundsReady: boolean;
-  openaiClient: OpenAI | null;
 }
 
 const InterviewPreloadContext = createContext<PreloadState>({
@@ -32,7 +30,6 @@ const InterviewPreloadContext = createContext<PreloadState>({
   clickSoundRef: { current: null },
   startSoundRef: { current: null },
   soundsReady: false,
-  openaiClient: null,
 });
 
 export function InterviewPreloadProvider({ children }: { children: React.ReactNode }) {
@@ -41,19 +38,10 @@ export function InterviewPreloadProvider({ children }: { children: React.ReactNo
   const [warmupData, setWarmupData] = useState<WarmupData | null>(null);
   const [warmupLoading, setWarmupLoading] = useState(false);
   const [soundsReady, setSoundsReady] = useState(false);
-  const [openaiClient, setOpenaiClient] = useState<OpenAI | null>(null);
   const clickSoundRef = useRef<HTMLAudioElement | null>(null);
   const startSoundRef = useRef<HTMLAudioElement | null>(null);
   const hasWarmupStarted = useRef(false);
   const hasSoundsStarted = useRef(false);
-
-  // Initialize OpenAI client once
-  useEffect(() => {
-    const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
-    if (apiKey && !openaiClient) {
-      setOpenaiClient(new OpenAI({ apiKey, dangerouslyAllowBrowser: true }));
-    }
-  }, [openaiClient]);
 
   // Pre-load mascot on authentication
   useEffect(() => {
@@ -121,7 +109,6 @@ export function InterviewPreloadProvider({ children }: { children: React.ReactNo
         clickSoundRef,
         startSoundRef,
         soundsReady,
-        openaiClient,
       }}
     >
       {children}

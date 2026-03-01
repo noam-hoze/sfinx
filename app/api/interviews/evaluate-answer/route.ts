@@ -9,7 +9,7 @@ import { CONTRIBUTIONS_TARGET } from "shared/constants/interview";
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
 const openai = new OpenAI({
-    apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+    apiKey: process.env.OPENAI_API_KEY,
 });
 
 /**

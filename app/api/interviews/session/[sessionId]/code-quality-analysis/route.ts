@@ -77,7 +77,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
 export async function POST(request: NextRequest, context: RouteContext) {
     try {
-        const openaiApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+        const openaiApiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY;
         if (!openaiApiKey) {
             log.error(LOG_CATEGORY, "[Code Quality Analysis] OpenAI API key not configured");
             return NextResponse.json(

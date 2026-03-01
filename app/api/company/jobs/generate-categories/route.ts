@@ -19,7 +19,7 @@ const LOG_CATEGORY = LOG_CATEGORIES.OPENAI;
 function resolveOpenAiKey(): string {
     const serverKey = process.env.OPENAI_API_KEY;
     if (serverKey) return serverKey;
-    const publicKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+    const publicKey = process.env.OPENAI_API_KEY;
     if (publicKey) return publicKey;
     throw new Error("OpenAI API key not configured");
 }

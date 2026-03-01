@@ -15,11 +15,13 @@ export const LOG_CATEGORIES = {
   DB: "db",
   INTERVIEWS: "interviews",
   INTERVIEW_UI: "interview-ui",
+  MASCOT: "mascot",
   JOB_APPLICATION: "job-application",
   JOB_SEARCH: "job-search",
   OPENAI: "openai",
   SETTINGS: "settings",
   TELEMETRY: "telemetry",
+  TTS: "tts",
   UPLOAD: "upload",
   USERS: "users",
 } as const;
