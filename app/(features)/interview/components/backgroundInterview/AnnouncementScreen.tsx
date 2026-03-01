@@ -29,7 +29,18 @@ export default function AnnouncementScreen({
 }: AnnouncementScreenProps) {
   /**
    * Plays a spoken announcement while revealing the text word by word before advancing the flow.
+   * When NEXT_PUBLIC_SKIP_ANNOUNCEMENT is set, skips TTS/animation and calls onComplete immediately.
    */
+  const skipAnnouncement = process.env.NEXT_PUBLIC_SKIP_ANNOUNCEMENT === "true";
+  const onCompleteStable = useRef(onComplete);
+  onCompleteStable.current = onComplete;
+
+  useEffect(() => {
+    if (skipAnnouncement) {
+      onCompleteStable.current();
+    }
+  }, [skipAnnouncement]);
+
   const { isMuted } = useMute();
   const mascotEnabled = process.env.NEXT_PUBLIC_MASCOT_ENABLED === "true";
   const [audioFinished, setAudioFinished] = useState(false);

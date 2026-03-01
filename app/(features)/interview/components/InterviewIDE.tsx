@@ -183,6 +183,14 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
     // Real-time code evaluation state
     const CODE_EVALUATION_THROTTLE_MS = evaluationThrottleMs;
+    const [evalCompletedCount, setEvalCompletedCount] = useState(0);
+
+    // #region agent log — track when isCodingStarted flips
+    useEffect(() => {
+        fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'08ebcb'},body:JSON.stringify({sessionId:'08ebcb',location:'InterviewIDE.tsx:isCodingStarted-effect',message:'isCodingStarted changed',data:{isCodingStarted,timestamp:Date.now()},timestamp:Date.now(),hypothesisId:'H-TIMING'})}).catch(()=>{});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isCodingStarted]);
+    // #endregion
     const [previousCode, setPreviousCode] = useState("");
     const [codeChangeQueue, setCodeChangeQueue] = useState<Array<{
         timestamp: Date;
@@ -273,6 +281,9 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
      */
     const handleStartCoding = useCallback(async () => {
         log.info(LOG_CATEGORY, "🎯 handleStartCoding called");
+        // #region agent log
+        fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'08ebcb'},body:JSON.stringify({sessionId:'08ebcb',location:'InterviewIDE.tsx:handleStartCoding',message:'handleStartCoding called - isCodingStarted will become true',data:{timestamp:Date.now()},timestamp:Date.now(),hypothesisId:'H-TIMING'})}).catch(()=>{});
+        // #endregion
         setIsCodingStarted(true);
         setCodingStarted(true);
         startTimer();
@@ -804,6 +815,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             if (response.ok) {
                 const data = await response.json();
                 logger.info(`[CODE-EVAL] ✅ Evaluated: ${data.contributionsCount || 0} contributions`);
+                setEvalCompletedCount(n => n + 1);
                 
                 // Update debug panel with real-time contribution data
                 setEvaluationDebugData((prev: any) => ({
@@ -845,6 +857,10 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 categoriesCount: job?.codingCategories?.length
             });
             
+            // #region agent log
+            fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'08ebcb'},body:JSON.stringify({sessionId:'08ebcb',location:'InterviewIDE.tsx:handleCodeChange',message:'handleCodeChange fired',data:{isCodingStarted,hasJob:!!job,hasCodingCategories:!!job?.codingCategories,codeLength:code.length},timestamp:Date.now(),hypothesisId:'H-A,H-B'})}).catch(()=>{});
+            // #endregion
+
             // Only track for real-time evaluation if coding has started
             if (!isCodingStarted || !job?.codingCategories) {
                 logger.info("[CODE-CHANGE] Skipping evaluation - not ready");
@@ -881,6 +897,10 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 setCodeChangeQueue(currentQueue => {
                     logger.info("[CODE-CHANGE] Queue length:", currentQueue.length);
                     
+                    // #region agent log
+                    fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'08ebcb'},body:JSON.stringify({sessionId:'08ebcb',location:'InterviewIDE.tsx:throttleEntry',message:'throttle entered queue check',data:{queueLen:currentQueue.length},timestamp:Date.now(),hypothesisId:'H-SYNTAX'})}).catch(()=>{});
+                    // #endregion
+
                     if (currentQueue.length === 0) {
                         setNextEvaluationTime(null);
                         return currentQueue;
@@ -898,6 +918,10 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                                 const errors = markers.filter((m: any) => m.severity === monaco.MarkerSeverity.Error);
                                 logger.info("[CODE-CHANGE] Syntax errors found:", errors.length);
                                 
+                                // #region agent log
+                                fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'08ebcb'},body:JSON.stringify({sessionId:'08ebcb',location:'InterviewIDE.tsx:syntaxCheck',message:'syntax check result',data:{markerCount:markers.length,errorCount:errors.length,errors:errors.slice(0,3).map((e:any)=>({line:e.startLineNumber,msg:e.message}))},timestamp:Date.now(),hypothesisId:'H-SYNTAX'})}).catch(()=>{});
+                                // #endregion
+
                                 if (errors.length > 0) {
                                     logger.info("[CODE-CHANGE] ❌ Skipping evaluation - code has syntax errors:", errors.map((e: any) => ({ line: e.startLineNumber, message: e.message })));
                                     Promise.resolve().then(() => setNextEvaluationTime(null));
@@ -921,6 +945,10 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                     logger.info("[CODE-CHANGE] Last change code length:", lastChange.code.length);
                     logger.info("[CODE-CHANGE] Previous code length:", firstChange.previousCode.length);
                     
+                    // #region agent log
+                    fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'08ebcb'},body:JSON.stringify({sessionId:'08ebcb',location:'InterviewIDE.tsx:throttleCallback',message:'throttle processing queue',data:{queueSize:currentQueue.length,prevCodeLen:firstChange.previousCode.length,lastCodeLen:lastChange.code.length,prevCodePreview:firstChange.previousCode.slice(0,80),lastCodePreview:lastChange.code.slice(0,80),isSubstantial:isSubstantialChange(firstChange.previousCode,lastChange.code)},timestamp:Date.now(),hypothesisId:'H-C'})}).catch(()=>{});
+                    // #endregion
+
                     // Only evaluate if substantial change
                     if (isSubstantialChange(firstChange.previousCode, lastChange.code)) {
                         // Trigger evaluation (non-blocking)
@@ -1108,6 +1136,9 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
     return (
         <div className="h-screen flex flex-col bg-soft-white text-deep-slate dark:bg-gray-900 dark:text-white relative">
+            {/* #region agent sentinel */}
+            <div data-testid="eval-completed" data-count={evalCompletedCount} style={{display:'none'}} />
+            {/* #endregion */}
             <header className="border-b border-gray-200/30 dark:border-gray-700/30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl px-6 py-4">
                 <div className="flex items-center justify-between max-w-8xl mx-auto">
                     {/* Left: Sfinx Logo (clickable to exit) */}
@@ -1322,6 +1353,9 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                             automaticMode={automaticMode}
                             isCodingStarted={isCodingStarted}
                             onAutoStartCoding={() => {
+                                // #region agent log
+                                fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'08ebcb'},body:JSON.stringify({sessionId:'08ebcb',location:'InterviewIDE.tsx:onAutoStartCoding',message:'onAutoStartCoding fired',data:{isCodingStarted},timestamp:Date.now(),hypothesisId:'H-TIMING'})}).catch(()=>{});
+                                // #endregion
                                 if (!isCodingStarted) {
                                     void handleStartCoding();
                                 }

@@ -1103,7 +1103,7 @@ function InterviewPageContent() {
         </header>
 
         {/* Completion Screen Content */}
-        <div className="flex-1 flex items-center justify-center p-4">
+        <div data-testid="background-complete" data-session-id={interviewSessionId ?? ""} className="flex-1 flex items-center justify-center p-4">
           <CompletionScreen
             onStartCoding={handleStartCoding}
             interviewSessionId={interviewSessionId}
