@@ -372,6 +372,7 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
                             </span>
                         </div>
                         <button
+                            data-testid="force-complete-background"
                             onClick={handleForceTimeExpiry}
                             className="px-4 py-1.5 text-sm font-medium text-red-600 hover:text-white hover:bg-red-600 bg-red-50 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-600 dark:hover:text-white rounded-full transition-all border border-red-200 dark:border-red-800"
                         >
