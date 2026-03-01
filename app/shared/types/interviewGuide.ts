@@ -11,6 +11,8 @@ export interface InterviewStageConfig {
     duration: string;
     format: string;
     who: string;
+    /** Optional relative URL to start this interview stage, e.g. /interview?companyId=x&jobId=y */
+    interviewUrl?: string;
     description: string;
     whatToExpect: string[];
     howToPrepare: string[];

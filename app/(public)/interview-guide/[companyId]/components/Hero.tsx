@@ -18,7 +18,7 @@ function NavBar({ companyName, companyLogo, website }: Pick<HeroProps, "companyN
         <nav className="relative z-10 flex items-center justify-between px-6 py-5 max-w-7xl mx-auto">
             <div className="flex items-center gap-3">
                 {companyLogo ? (
-                    <img src={companyLogo} alt={`${companyName} logo`} className="h-8 w-auto object-contain" />
+                    <img src={companyLogo} alt={`${companyName} logo`} className="h-10 w-auto object-contain" />
                 ) : (
                     <span className="text-xl font-bold text-gray-900">{companyName}</span>
                 )}

@@ -19,7 +19,7 @@ function TabBar({ stages, activeIndex, onSelect }: { stages: InterviewStageConfi
         <div className="flex flex-wrap gap-2 justify-center mb-10">
             {stages.map((s, i) => (
                 <button key={s.title} onClick={() => onSelect(i)}
-                    className={`px-5 py-2.5 rounded-full text-sm font-semibold transition-all duration-200 border ${activeIndex === i ? "bg-deep-slate text-white border-deep-slate shadow-sm" : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50"}`}>
+                    className={`px-5 py-2.5 rounded-full text-base font-semibold transition-all duration-200 border ${activeIndex === i ? "bg-deep-slate text-white border-deep-slate shadow-sm" : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50"}`}>
                     {s.title}
                 </button>
             ))}
@@ -29,18 +29,25 @@ function TabBar({ stages, activeIndex, onSelect }: { stages: InterviewStageConfi
 
 function StageMeta({ stage }: { stage: InterviewStageConfig }) {
     const rows = [
-        { icon: "clock", label: "Duration", value: stage.duration },
-        { icon: "video", label: "Format", value: stage.format },
-        { icon: "user", label: "With", value: stage.who },
+        { label: "Duration", value: stage.duration },
+        { label: "Format", value: stage.format },
+        { label: "With", value: stage.who },
     ];
     return (
         <div className="space-y-3 mt-6">
             {rows.map(({ label, value }) => (
-                <div key={label} className="flex items-center gap-3 text-sm">
+                <div key={label} className="flex items-center gap-3 text-base">
                     <div className="w-8 h-8 rounded-lg bg-white border border-gray-200 flex items-center justify-center shadow-sm flex-shrink-0">
                         <span className="text-xs text-gray-400 font-bold">{label[0]}</span>
                     </div>
-                    <span className="text-gray-600"><strong className="text-gray-800">{label}:</strong> {value}</span>
+                    <span className="text-gray-600">
+                        <strong className="text-gray-800">{label}:</strong> {value}
+                        {label === "With" && value === "Sfinx AI interviewer" && (
+                            <a href="/interview?companyId=axonpulse&jobId=axonpulse-deep-learning-engineer" className="ml-2 text-electric-blue font-semibold hover:underline whitespace-nowrap">
+                                → Click here to start
+                            </a>
+                        )}
+                    </span>
                 </div>
             ))}
         </div>
@@ -52,7 +59,7 @@ function BulletList({ items, accent }: { items: string[]; accent: "blue" | "ambe
     return (
         <ul className="space-y-3">
             {items.map((item) => (
-                <li key={item} className="flex items-start gap-3 text-sm text-gray-600">
+                <li key={item} className="flex items-start gap-3 text-base text-gray-600">
                     <span className={`mt-1 w-4 h-4 rounded-full ${iconClass} flex items-center justify-center flex-shrink-0`}>
                         <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
@@ -72,7 +79,7 @@ function StagePanel({ stage, index }: { stage: InterviewStageConfig; index: numb
                 <div>
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-4 ${BADGE_STYLES[index % BADGE_STYLES.length]}`}>Stage {index + 1}</span>
                     <h3 className="text-2xl font-bold text-gray-900 mb-2">{stage.title}</h3>
-                    <p className="text-gray-500 leading-relaxed">{stage.description}</p>
+                    <p className="text-gray-600 leading-relaxed">{stage.description}</p>
                     <StageMeta stage={stage} />
                 </div>
                 <div className="space-y-8">
@@ -101,7 +108,7 @@ export default function WhatToExpect({ stages }: WhatToExpectProps) {
             <div className="max-w-7xl mx-auto">
                 <div className="text-center mb-12">
                     <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">What to expect</h2>
-                    <p className="text-lg text-gray-500 max-w-xl mx-auto">Select a stage to learn exactly what happens and how to prepare.</p>
+                    <p className="text-lg text-gray-600 max-w-xl mx-auto">Select a stage to learn exactly what happens and how to prepare.</p>
                 </div>
                 <TabBar stages={stages} activeIndex={activeIndex} onSelect={setActiveIndex} />
                 <StagePanel stage={stages[activeIndex]} index={activeIndex} />

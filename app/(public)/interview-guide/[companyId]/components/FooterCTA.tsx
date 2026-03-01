@@ -43,7 +43,7 @@ export default function FooterCTA({ companyName, website, careersUrl }: FooterCT
                 </div>
 
                 {/* Divider */}
-                <div className="mt-16 pt-10 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-500">
+                <div className="mt-16 pt-10 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4 text-base text-gray-500">
                     <p>
                         Powered by{" "}
                         <span className="text-gray-400 font-semibold">Sfinx</span>

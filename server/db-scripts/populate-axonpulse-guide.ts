@@ -43,6 +43,7 @@ const config: InterviewGuideConfig = {
             duration: "~30 minutes",
             format: "Voice conversation (no video)",
             who: "Sfinx AI interviewer",
+            interviewUrl: "/interview?companyId=axonpulse&jobId=axonpulse-deep-learning-engineer",
             description: "The first step is an automated screening interview conducted by our AI. You'll discuss your technical background in signal processing, computer vision, or deep learning, and work through a short algorithmic challenge. No camera required — just your voice and focus.",
             whatToExpect: [
                 "Questions about your background in DL, CV, or signal processing",

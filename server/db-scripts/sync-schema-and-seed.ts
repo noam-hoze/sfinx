@@ -56,7 +56,7 @@ async function syncSchemaAndSeed() {
 
         // 2. Push the new schema to the database (apply DDL)
         log.info(LOG_CATEGORY, "🚀 Pushing new schema to database...");
-        execSync("pnpm prisma db push --schema server/prisma/schema.prisma --accept-data-loss", execOptions);
+        execSync("pnpm prisma db push --schema server/prisma/schema.prisma --force-reset --accept-data-loss", execOptions);
 
         // 3. Reset and seed data against the new schema
         log.info(LOG_CATEGORY, 
