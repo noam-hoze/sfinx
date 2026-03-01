@@ -100,8 +100,9 @@ Second line onward: Your spoken/text response to the candidate
     setFinalEvaluation(null);
 
     try {
+      // TODO: test page — needs server-side proxy
       const openaiClient = new OpenAI({
-        apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY // TODO: test page — needs server-side proxy,
+        apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
         dangerouslyAllowBrowser: true,
       });
 
@@ -164,8 +165,9 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
     setIsLoading(true);
 
     try {
+      // TODO: test page — needs server-side proxy
       const openaiClient = new OpenAI({
-        apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY // TODO: test page — needs server-side proxy,
+        apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
         dangerouslyAllowBrowser: true,
       });
 
