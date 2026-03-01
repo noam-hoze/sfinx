@@ -93,3 +93,24 @@
 - Batch related requests together rather than making separate prompts for connected work.
 
 **Version**: 1.7.0
+
+## Cursor Cloud specific instructions
+
+### Services overview
+Sfinx is a single Next.js application (App Router). There is no Docker, no separate backend. All API routes, server actions, and frontend are served by `pnpm dev` on port 3000.
+
+### Running the app
+- `pnpm dev` — starts the Next.js dev server (port 3000). Requires `DATABASE_URL`, `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, `NEXT_PUBLIC_OPENAI_API_KEY`, `NEXT_PUBLIC_OPENAI_EVALUATION_MODEL` as environment variables (injected as secrets).
+- The app redirects unauthenticated users to `/login`. You can create a test candidate account via `/signup`.
+
+### Key commands
+- Lint: `pnpm lint` (pre-existing warnings/errors exist in the codebase)
+- Tests: `pnpm test` (vitest). Two tests (`storyRendering` sanitization, `audioConversion` invalid base64) have pre-existing failures. The `generate-profile-story` suite requires DB connectivity.
+- Prisma client: `npx prisma generate` (uses `server/prisma/schema.prisma`; schema location configured in `package.json#prisma`)
+- DB push: `pnpm db:push:dev` (reads `DATABASE_URL` from `.env.local`)
+
+### Gotchas
+- Node.js 20 is required (`.nvmrc`). The VM may default to Node 22; use `nvm use 20`.
+- After `pnpm install`, you must run `npx prisma generate` to generate the Prisma client before the app can start.
+- `pnpm-workspace.yaml` uses `ignoredBuiltDependencies` for Prisma packages; build-script warnings from pnpm are expected and safe to ignore.
+- The local `.tgz` dependency `mascotbot-sdk-react-0.1.9.tgz` is bundled in the repo root.
