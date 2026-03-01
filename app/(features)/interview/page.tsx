@@ -65,7 +65,6 @@ function InterviewPageContent() {
     warmupLoading,
     clickSoundRef: preloadedClickSoundRef,
     startSoundRef: preloadedStartSoundRef,
-    openaiClient: preloadedOpenaiClient,
   } = useInterviewPreload();
   const { isDebugVisible, showDebugButton, setShowDebugButton } = useDebug();
   const dispatch = useDispatch();
@@ -102,8 +101,6 @@ function InterviewPageContent() {
   const [backgroundTimeSeconds, setBackgroundTimeSeconds] = useState<number | undefined>(undefined);
   const [experienceCategories, setExperienceCategories] = useState<Array<{name: string; description: string; weight: number; example?: string}> | null>(null);
   const [backgroundEvaluations, setBackgroundEvaluations] = useState<Array<{timestamp: string; question: string; answer: string; evaluations: any[]}>>([]);
-  // OpenAI client comes from InterviewPreloadContext (preloaded at auth time)
-  const openaiClient = preloadedOpenaiClient;
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
   const [allowQuestionDisplay, setAllowQuestionDisplay] = useState(false);
   const [showCodingIDE, setShowCodingIDE] = useState(false);
@@ -165,8 +162,6 @@ function InterviewPageContent() {
       setShowDebugButton(false);
     };
   }, [dispatch, setShowDebugButton]);
-
-  // OpenAI client is initialized in InterviewPreloadContext at auth time
 
   // Skip preload if going directly to coding
   useEffect(() => {
@@ -356,7 +351,7 @@ function InterviewPageContent() {
   // STAGE 1: Preload (skip if going directly to coding)
   // Wait for warmup to complete (or fail) before starting preload to maximize warmup benefit
   useEffect(() => {
-    if (!openaiClient || skipToCoding || hasPreloadedRef.current || sessionStatus !== "authenticated" || warmupLoading) return;
+    if (skipToCoding || hasPreloadedRef.current || sessionStatus !== "authenticated" || warmupLoading) return;
 
     const executePreload = async () => {
       try {
@@ -378,7 +373,7 @@ function InterviewPageContent() {
 
         // Run preload and announcement generation in parallel
         const [, announcementResult] = await Promise.all([
-          preload(urlJobId, urlCompanyId, openaiClient, sessionUserId, warmupData, setBackgroundTimeSeconds, setExperienceCategories),
+          preload(urlJobId, urlCompanyId, sessionUserId, warmupData, setBackgroundTimeSeconds, setExperienceCategories),
           generateAnnouncement(jobTitle),
         ]);
 
@@ -396,7 +391,7 @@ function InterviewPageContent() {
     };
 
     executePreload();
-  }, [openaiClient, skipToCoding, preload, generateAnnouncement, session, searchParams, sessionStatus, warmupData, warmupLoading]);
+  }, [skipToCoding, preload, generateAnnouncement, session, searchParams, sessionStatus, warmupData, warmupLoading]);
 
   /**
    * Ensures an application exists for the coding phase and returns its ID.
@@ -747,12 +742,11 @@ function InterviewPageContent() {
 
   // Answer submission handler
   const handleSubmitAnswer = async (answer: string) => {
-    if (!openaiClient) return;
     setSubmitting(true);
 
     try {
       setIsFirstQuestion(false);
-      const result = await submitAnswer(answer, openaiClient, name);
+      const result = await submitAnswer(answer, name);
 
       if (result.shouldComplete) {
         setCompleted(true);

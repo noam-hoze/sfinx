@@ -27,7 +27,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Text required" }, { status: 400 });
     }
 
-    const apiKey = process.env.NEXT_PUBLIC_MASCOTBOT_API_KEY;
+    const apiKey = process.env.MASCOTBOT_API_KEY;
     if (!apiKey) {
       console.error("[Mascot API] API key missing");
       return NextResponse.json({ error: "API key missing" }, { status: 500 });

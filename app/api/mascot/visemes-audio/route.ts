@@ -17,7 +17,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Text required" }, { status: 400 });
     }
 
-    const mascotApiKey = process.env.NEXT_PUBLIC_MASCOTBOT_API_KEY;
+    const mascotApiKey = process.env.MASCOTBOT_API_KEY;
     const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
     const voiceId = process.env.ELEVEN_LABS_CANDIDATE_VOICE_ID;
 

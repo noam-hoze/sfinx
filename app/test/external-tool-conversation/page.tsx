@@ -101,7 +101,7 @@ Second line onward: Your spoken/text response to the candidate
 
     try {
       const openaiClient = new OpenAI({
-        apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+        apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY // TODO: test page — needs server-side proxy,
         dangerouslyAllowBrowser: true,
       });
 
@@ -165,7 +165,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
 
     try {
       const openaiClient = new OpenAI({
-        apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+        apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY // TODO: test page — needs server-side proxy,
         dangerouslyAllowBrowser: true,
       });
 

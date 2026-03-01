@@ -6,7 +6,6 @@
 
 import { useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import OpenAI from "openai";
 import { store, RootState } from "@/shared/state/store";
 import { addMessage, setEvaluatingAnswer, setCurrentFocusTopic, setCurrentQuestionTarget, updateCategoryStats, forceTimeExpiry, incrementQuestionSequence, incrementClarificationRetry } from "@/shared/state/slices/backgroundSlice";
 import {
@@ -47,13 +46,10 @@ export function useBackgroundAnswerHandler(
   const saveMessageToDb = useCallback(async (text: string, speaker: "user" | "ai" | "system") => {
     if (!sessionId) return;
     try {
-      // Use skip-auth=true since we might be in demo mode or auth might be tricky in background
-      // The API endpoint handles validation
-      await fetch(`/api/interviews/session/${sessionId}/messages?skip-auth=true`, {
+      await fetch(`/api/interviews/session/${sessionId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId, // Required for skip-auth
           messages: [{
             text,
             speaker,
@@ -65,12 +61,12 @@ export function useBackgroundAnswerHandler(
     } catch (err) {
       log.error(LOG_CATEGORY, "Failed to save message:", err);
     }
-  }, [sessionId, userId]);
+  }, [sessionId]);
 
   const handleSubmit = useCallback(
-    async (answer: string, openaiClient: OpenAI | null, candidateName: string): Promise<AnswerHandlerResult> => {
-      if (!openaiClient || !companyName) {
-        log.info(LOG_CATEGORY, "Submit blocked - missing openaiClient or companyName");
+    async (answer: string, candidateName: string): Promise<AnswerHandlerResult> => {
+      if (!companyName) {
+        log.info(LOG_CATEGORY, "Submit blocked - missing companyName");
         return { shouldComplete: false };
       }
 
@@ -458,7 +454,7 @@ export function useBackgroundAnswerHandler(
             const closingInstruction = `Say exactly: "Thank you so much ${firstName}, the next steps will be shared with you shortly."`;
 
             try {
-              const finalResponse = await generateAssistantReply(openaiClient, persona, closingInstruction);
+              const finalResponse = await generateAssistantReply(persona, closingInstruction);
               const responseText = finalResponse || "";
               
               dispatch(addMessage({ text: responseText, speaker: "ai" }));

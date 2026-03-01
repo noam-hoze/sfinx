@@ -310,7 +310,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
         // Call OpenAI
         log.info(LOG_CATEGORY, "[background-summary/POST] Checking OpenAI API key...");
-        const openaiApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+        const openaiApiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY;
         if (!openaiApiKey) {
             log.error(LOG_CATEGORY, "[background-summary/POST] ❌ OpenAI API key not configured");
             return NextResponse.json(

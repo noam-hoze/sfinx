@@ -28,7 +28,7 @@ vi.mock('app/shared/services/logger.config', () => ({
 global.fetch = vi.fn();
 
 // Mock environment
-process.env.NEXT_PUBLIC_MASCOTBOT_API_KEY = 'test-api-key';
+process.env.MASCOTBOT_API_KEY = 'test-api-key';
 
 describe('mascot service', () => {
   beforeEach(() => {

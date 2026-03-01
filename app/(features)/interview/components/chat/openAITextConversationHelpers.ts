@@ -7,7 +7,6 @@ const LOG_CATEGORY = LOG_CATEGORIES.OPENAI;
 
 /** Requests a lightweight chat completion for background follow-ups via backend API. */
 export async function askViaChatCompletion(
-  _client: any, // Deprecated - kept for backward compatibility
   system: string,
   history: Array<{ role: "user" | "assistant"; content: string }>
 ): Promise<string> {
@@ -31,7 +30,6 @@ export async function askViaChatCompletion(
 
 /** Produces an assistant reply for scripted persona prompts via backend API. */
 export async function generateAssistantReply(
-  _client: any, // Deprecated - kept for backward compatibility
   persona: string,
   instruction: string
 ): Promise<string | null> {

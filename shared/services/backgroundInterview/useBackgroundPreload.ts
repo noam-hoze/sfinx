@@ -12,7 +12,6 @@
 
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
-import OpenAI from "openai";
 import { log } from "app/shared/services/logger";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import {
@@ -43,7 +42,6 @@ export function useBackgroundPreload() {
     async (
       jobId: string,
       companyId: string,
-      openaiClient: OpenAI,
       sessionUserId?: string | null,
       warmupData?: WarmupData | null,
       onBackgroundTimeSet?: (seconds: number) => void,
@@ -162,7 +160,6 @@ Focus on HOW you are listening, not WHAT is being asked.
 Return JSON with format: {"question": "...", "evaluationIntent": "..."}`;
 
           const firstQuestionRaw = await generateAssistantReply(
-            openaiClient,
             "You are a technical interviewer. Return valid JSON only.",
             instruction
           );

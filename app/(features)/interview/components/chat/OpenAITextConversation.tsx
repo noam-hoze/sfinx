@@ -14,7 +14,6 @@ import React, {
   useRef,
 } from "react";
 import { useSearchParams } from "next/navigation";
-import OpenAI from "openai";
 import { useDispatch } from "react-redux";
 import { useMute } from "app/shared/contexts/mute-context";
 import { loadAndCacheSoundEffect } from "@/shared/utils/audioCache";
@@ -86,11 +85,6 @@ const OpenAITextConversation = forwardRef<any, Props>(
     const dispatch = useDispatch();
     const { isMuted } = useMute();
     const toolUsageSoundRef = useRef<HTMLAudioElement | null>(null);
-    const openAIApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
-    if (!openAIApiKey) {
-      throw new Error("NEXT_PUBLIC_OPENAI_API_KEY is required");
-    }
-
     const MAX_PASTE_QUESTIONS = process.env.NEXT_PUBLIC_MAX_PASTE_QUESTIONS;
     if (!MAX_PASTE_QUESTIONS) {
       throw new Error("NEXT_PUBLIC_MAX_PASTE_QUESTIONS is required");
@@ -107,14 +101,6 @@ const OpenAITextConversation = forwardRef<any, Props>(
       });
     }, []);
 
-    const openaiClient = useMemo(
-      () =>
-        new OpenAI({
-          apiKey: openAIApiKey,
-          dangerouslyAllowBrowser: true,
-        }),
-      [openAIApiKey]
-    );
     const readyRef = useRef(false);
     const scriptRef = useRef<any | null>(null);
     const codingPromptSentRef = useRef(false);
@@ -178,7 +164,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
           dispatch(setPendingReply({ pending: true }));
         }
         try {
-        const answer = await generateAssistantReply(openaiClient, persona, instruction);
+        const answer = await generateAssistantReply(persona, instruction);
         if (!answer) {
           if (pendingReason && !managePending) {
             dispatch(setPendingReply({ pending: false }));
@@ -224,7 +210,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
           throw error;
         }
       },
-      [dispatch, onGreetingDelivered, setInputLocked, openaiClient, post]
+      [dispatch, onGreetingDelivered, setInputLocked, post]
     );
 
     /**
@@ -401,7 +387,6 @@ The coding task they're working on: ${codingPrompt}
 Ask ONE short, relevant question (1-2 sentences) to understand if they comprehend what they pasted. Don't evaluate yet, just ask.`;
           
           initialQuestion = await askViaChatCompletion(
-            openaiClient,
             initialPrompt,
             []
           ) || "";
@@ -439,7 +424,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
           } catch {}
         }
       },
-      [dispatch, openaiClient, post, interviewSessionId, onHighlightPastedCode, isMuted, flushPendingPasteEval]
+      [dispatch, post, interviewSessionId, onHighlightPastedCode, isMuted, flushPendingPasteEval]
     );
 
     /** Injects the coding prompt once the guard advances into the coding session. */
@@ -674,7 +659,7 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
             throw new Error("Interview machine missing companyName");
           }
           const persona = buildOpenAIBackgroundPrompt(String(im.companyName), scriptRef.current?.experienceCategories);
-          const follow = await askViaChatCompletion(openaiClient, persona, [
+          const follow = await askViaChatCompletion(persona, [
             {
               role: "assistant",
               content: "Ask one short follow-up about their project.",
@@ -911,7 +896,6 @@ Generate your question now:`;
               
               // Generate AI follow-up question
               const aiQuestion = await askViaChatCompletion(
-                openaiClient,
                 pasteEvalPrompt,
                 historyMessages
               );
@@ -1155,7 +1139,6 @@ The candidate is working on this task. Respond to their question while following
           
           // Generate AI response using chat completions
           const reply = await askViaChatCompletion(
-            openaiClient,
             systemPrompt,
             historyMessages
           );
@@ -1175,7 +1158,7 @@ The candidate is working on this task. Respond to their question while following
           return;
         }
       },
-      [clearPendingState, deliverAssistantPrompt, dispatch, setInputLocked, openaiClient, post, questionsLimit]
+      [clearPendingState, deliverAssistantPrompt, dispatch, setInputLocked, post, questionsLimit]
     );
 
     const startConversation = useCallback(async () => {

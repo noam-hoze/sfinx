@@ -7,7 +7,7 @@ import { log } from 'app/shared/services/logger';
 import { LOG_CATEGORIES } from 'app/shared/services/logger.config';
 import type { Viseme } from '../types/mascot';
 
-const LOG_CATEGORY = LOG_CATEGORIES.MASCOT || 'MASCOT';
+const LOG_CATEGORY = LOG_CATEGORIES.MASCOT;
 
 /**
  * Fetches visemes and PCM audio from Mascotbot API for given text.
