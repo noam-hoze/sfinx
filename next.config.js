@@ -15,7 +15,7 @@ const nextConfig = {
     typedRoutes: true,
     experimental: {
         serverActions: {
-            allowedOrigins: ["localhost:3000"],
+            allowedOrigins: ["localhost:3000", "app.sfinx.info"],
         },
     },
     images: {
