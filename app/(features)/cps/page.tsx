@@ -31,7 +31,7 @@ function TelemetryContent() {
     const router = useRouter();
     const candidateId = searchParams.get("candidateId");
     const applicationId = searchParams.get("applicationId");
-    const { isDebugVisible, setShowDebugButton } = useDebug();
+    const { isDebugVisible, toggleDebug, showDebugButton, setShowDebugButton } = useDebug();
     const activeCaption = useSelector((state: RootState) => state.cps.activeCaption);
     const breadcrumbSource = useSelector(selectBreadcrumbSource);
     const dispatch = useDispatch();
@@ -744,6 +744,21 @@ function TelemetryContent() {
                         calculatedScore={calculatedScore}
                     />
                 </div>
+            )}
+
+            {/* Debug toggle - fixed top-right, always on top */}
+            {process.env.NEXT_PUBLIC_DEBUG_MODE === "true" && (
+                <button
+                    onClick={toggleDebug}
+                    className={`fixed top-4 right-4 z-[60] w-10 h-10 rounded-full border-2 border-sfinx-purple transition-all flex items-center justify-center ${
+                        isDebugVisible ? "bg-sfinx-purple text-white" : "text-sfinx-purple hover:bg-sfinx-purple hover:text-white"
+                    }`}
+                    title="Toggle Debug Panel"
+                >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                    </svg>
+                </button>
             )}
             
             {/* TODO: Add link to improvement graph in future */}
