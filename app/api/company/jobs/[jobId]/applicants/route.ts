@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions, getCached, setCached } from "app/shared/services/server";
 import prisma from "lib/prisma";
-import { extractTopHighlights } from "../highlightUtils";
+import { extractTopHighlights } from "../../highlightUtils";
 
 /**
  * GET /api/company/jobs/[jobId]/applicants
