@@ -10,7 +10,7 @@ Profile: **strong-candidate** | Job: `uvision-test-rt-embedded-software-develope
 | Role | Email | ID |
 |---|---|---|
 | Candidate | noam.hoze@gmail.com | `candidate-noam-hoze` (display: Noam Hoze) |
-| Company | manager@uvision.com | `uvision-test` |
+| Company | manager@uvision-test.com | `uvision-test` |
 
 ### Background Stage
 One answer submitted via text input, then force-complete:
