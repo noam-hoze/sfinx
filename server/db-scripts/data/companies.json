@@ -4,11 +4,26 @@
     "name": "Meta",
     "logo": "/logos/meta-logo.png",
     "industry": "Social Media",
-    "locations": ["Menlo Park, CA", "Seattle, WA", "New York, NY", "Remote"],
+    "locations": [
+      "Menlo Park, CA",
+      "Seattle, WA",
+      "New York, NY",
+      "Remote"
+    ],
     "size": "large",
-    "cultureTags": ["Innovation", "Global Impact", "Fast-paced", "Tech-forward"],
+    "cultureTags": [
+      "Innovation",
+      "Global Impact",
+      "Fast-paced",
+      "Tech-forward"
+    ],
     "openRoles": [
-      { "title": "Frontend Engineer", "type": "full-time", "location": "Menlo Park, CA", "salary": "$160k - $230k" }
+      {
+        "title": "Frontend Engineer",
+        "type": "full-time",
+        "location": "Menlo Park, CA",
+        "salary": "$160k - $230k"
+      }
     ]
   },
   {
@@ -16,11 +31,24 @@
     "name": "QM",
     "logo": "/logos/qm-logo.png",
     "industry": "Quantum Computing",
-    "locations": ["Tel Aviv, Israel", "Remote"],
+    "locations": [
+      "Tel Aviv, Israel",
+      "Remote"
+    ],
     "size": "startup",
-    "cultureTags": ["Innovation", "Research-driven", "Cutting-edge Technology", "Open Source"],
+    "cultureTags": [
+      "Innovation",
+      "Research-driven",
+      "Cutting-edge Technology",
+      "Open Source"
+    ],
     "openRoles": [
-      { "title": "Senior Python Engineer", "type": "full-time", "location": "Tel Aviv, Israel", "salary": "$140k - $200k" }
+      {
+        "title": "Senior Python Engineer",
+        "type": "full-time",
+        "location": "Tel Aviv, Israel",
+        "salary": "$140k - $200k"
+      }
     ]
   },
   {
@@ -28,132 +56,19 @@
     "name": "AxonPulse",
     "logo": "/logos/axonpulse-logo.png",
     "industry": "AI/Machine Learning",
-    "locations": ["Tel Aviv, Israel"],
+    "locations": [
+      "Tel Aviv, Israel"
+    ],
     "size": "startup",
-    "cultureTags": ["Innovation"],
-    "openRoles": [
-      { "title": "Deep Learning Engineer", "type": "full-time", "location": "Remote", "salary": "$120k - $180k" }
-    ]
-  },
-  {
-    "id": "uvision-test",
-    "name": "Uvision-Test",
-    "logo": "/logos/uvision-logo.png",
-    "industry": "Aerospace & Defense",
-    "locations": ["Yavne, Israel", "Remote"],
-    "size": "medium",
-    "cultureTags": ["Innovation", "Mission-driven", "Cutting-edge Technology", "Defense Industry"],
+    "cultureTags": [
+      "Innovation"
+    ],
     "openRoles": [
       {
-        "title": "RT Embedded Software Developer",
+        "title": "Deep Learning Engineer",
         "type": "full-time",
         "location": "Remote",
-        "salary": "$120k - $180k",
-        "description": "General Description:\n\nYou are an experienced RT software developer, who Embraces independent learning, is able to develop Software (RT) through the various stages of the software development process, enjoys a multidisciplinary environment as well as constant learning.\n\nYou enjoy working as part of a team, Proposing ideas, Using new technology  and giving advice where needed. You have the skills to create and suggest solutions, including out of the box thinking.\n\nSolutions are based on ST microprocessors as well as Nvidia (Jetson) HW infrastructure\n\nRole Description:\n\na.       Development of RT Embedded software\n\nb.      Carrying out integration of software and hardware (system wide).\n\nc.      Implementing additional tools and functionality of existing systems.\n\nd.      Working with teams that include system engineers, software developers, mechanical engineers, and integration personnel.\n\ne.      Participate in Field tests and Performance analysis\n\nf.       Software development:\n\nVersions creations, Development Pipeline control, as well as software architecture and design activities.\nUnderstanding and implementation of algorithms.\nICD creation and updates.\nSoftware reviews.\nRole Requirements:\n\nBSc in Computer Science/Programming\n3+ years of experience in software development in C/C++\nProficient in embedded C++ programming, including memory management, low-level optimization, and multi-threading\nExperience in RT Development without an operating system (bare metal)\nStrong understanding of embedded systems, microcontrollers, and Hardware-Software Interaction.\nAbility to self-manage projects and lead technical discussions.\nExcellent documentation skills and fluency in technical English (verbal & written).\nAbility and willingness to travel.\nNice to have:\n\nMIL Standard and other regulation experience\nExperience with IAR development environment\nExperience with Visual Sensors (e.g., cameras, image sensors) and Thermal Sensors (e.g., infrared sensors, temperature sensors). \nFamiliarity with embedded communication protocols (e.g., SPI, I2C, UART, CAN)\nDriver Development Experience\nDefense systems experience",
-        "requirements": "BSc in Computer Science/Programming\n3+ years of experience in software development in C/C++\nProficient in embedded C++ programming\nExperience in RT Development without an operating system\nStrong understanding of embedded systems and microcontrollers\nAbility to self-manage projects and lead technical discussions\nExcellent documentation skills and fluency in technical English\nAbility and willingness to travel",
-        "codingCategories": [
-          {
-            "name": "Embedded C/C++ Proficiency",
-            "weight": 25,
-            "description": "Strong C/C++ fundamentals for embedded: low-level correctness, safe patterns under constraints, and maintainable firmware code."
-          },
-          {
-            "name": "Concurrency, Interrupts & Timing Determinism",
-            "weight": 20,
-            "description": "Correct handling of ISRs, shared-state synchronization, atomic/lock-free basics, timing guarantees, and avoiding race conditions in bare-metal/RT contexts."
-          },
-          {
-            "name": "Memory Management & Low-Level Optimization",
-            "weight": 15,
-            "description": "Stack/heap strategy, fragmentation avoidance, alignment and buffer design, fixed pools, profiling-driven optimizations, and resource-aware coding."
-          },
-          {
-            "name": "Driver / Peripheral-Level Implementation",
-            "weight": 15,
-            "description": "Register-level interaction patterns, peripheral init, robust state machines, timeouts/retries, and defensive handling of edge cases in drivers."
-          },
-          {
-            "name": "Communication Protocols (SPI/I2C/UART/CAN)",
-            "weight": 10,
-            "description": "Implementing and debugging embedded protocols: framing, buffering, timing, retries, and integration with DMA/interrupt models."
-          },
-          {
-            "name": "Algorithm Understanding & Implementation",
-            "weight": 10,
-            "description": "Translating algorithm requirements into efficient embedded code (numeric correctness, complexity awareness, constraints, validation)."
-          },
-          {
-            "name": "System Integration & Testability",
-            "weight": 5,
-            "description": "Writing code that integrates cleanly via ICD adherence and providing pragmatic embedded test hooks (host unit tests, fakes/mocks, HIL mindset)."
-          }
-        ],
-        "experienceCategories": [
-          {
-            "name": "RT / Bare-Metal Development",
-            "weight": 20,
-            "example": "Implemented a bare-metal control loop on STM32 using timer interrupts + DMA, meeting strict latency/jitter targets and handling ISR-safe communication between modules.",
-            "description": "Experience building deterministic real-time software without an operating system, including interrupts, timers, scheduling patterns, and latency/jitter considerations."
-          },
-          {
-            "name": "Embedded Systems Development (C/C++)",
-            "weight": 18,
-            "example": "Built firmware modules in C++ for an MCU with tight RAM/flash constraints, using static allocation, careful stack sizing, and defensive error handling for long-running stability.",
-            "description": "Hands-on embedded development in C/C++ on constrained targets, focusing on correctness, resource limits, and production-grade firmware practices."
-          },
-          {
-            "name": "Hardware–Software Integration (System-Wide)",
-            "weight": 15,
-            "example": "Led end-to-end integration of a new sensor board: brought up peripherals, validated electrical assumptions with the HW team, and closed issues found during system-wide integration tests.",
-            "description": "Integrating firmware with hardware across MCU/SoC, peripherals, boards, and system components, coordinating with system/integration teams to validate end-to-end behavior."
-          },
-          {
-            "name": "Debugging, Bring-up & Root-Cause Analysis",
-            "weight": 15,
-            "example": "Debugged intermittent hard faults by analyzing fault registers + stack traces, reproducing with instrumentation, and fixing a race condition between ISR and main loop buffer access.",
-            "description": "Diagnosing tough on-target issues using JTAG/SWD, logs, traces, and lab tools (logic analyzer/oscilloscope), applying a structured root-cause workflow for timing/race/hard-fault bugs."
-          },
-          {
-            "name": "Performance Analysis & Field Testing",
-            "weight": 10,
-            "example": "Ran field tests, captured performance telemetry, identified a timing bottleneck, and reduced end-to-end latency by optimizing buffering and interrupt priority configuration.",
-            "description": "Measuring and improving performance on real hardware (latency, throughput, CPU, memory), participating in field tests, and translating findings into fixes and optimizations."
-          },
-          {
-            "name": "Architecture & Design (RT/Embedded)",
-            "weight": 10,
-            "example": "Designed a layered firmware architecture (HAL → drivers → services → app logic) with clear ICDs and state machines to isolate hardware changes from application behavior.",
-            "description": "Designing embedded/RT architectures: module boundaries, state machines, data flow, fault handling, configurability, and trade-offs that support maintainability and robustness."
-          },
-          {
-            "name": "Development Process Ownership",
-            "weight": 7,
-            "example": "Owned release branching and versioning, enforced review gates, and stabilized a build pipeline by standardizing toolchain configs and adding automated sanity checks.",
-            "description": "Ownership of versions/releases, build & integration workflows, pipeline discipline, code reviews, and maintaining engineering hygiene in embedded projects."
-          },
-          {
-            "name": "Technical Leadership & Cross-Functional Collaboration",
-            "weight": 5,
-            "example": "Facilitated cross-team design reviews to align on interfaces, risks, and milestones, and mentored peers on debugging methodology and RT design trade-offs.",
-            "description": "Ability to self-manage, lead technical discussions, propose solutions, and collaborate with system/mechanical/integration teams in multidisciplinary environments."
-          }
-        ],
-        "interviewContent": {
-          "backgroundQuestion": "Can you describe a project where you developed real-time software for an embedded system? What challenges did you face and how did you overcome them?",
-          "backgroundQuestionCategory": "RT / Bare-Metal Development",
-          "codingPrompt": "Implement a simple real-time task scheduler for a bare metal system using C++. The scheduler should manage multiple tasks with different priorities.",
-          "codingTemplate": "\"\"\"\nEMBEDDED-STYLE CODING CHALLENGE (Plain Python, no imports)\n\nGoal:\nImplement a fixed-capacity RingBuffer that models a typical ISR -> main-loop queue in bare-metal RT systems.\n\nPolicy:\nDROP-NEWEST when full (i.e., if buffer is full, push() fails and the new item is dropped).\n\nRules:\n- Plain Python only. No imports.\n- Do NOT change constants, inputs, simulation logic, or printing.\n- Only implement the TODOs in RingBuffer (push/pop).\n- Correct if the printed output matches Expected Output exactly.\n\nWhat this examines:\n- Correct ring buffer behavior (wrap-around, head/tail/size invariants)\n- Deterministic overflow handling\n- Practical RT pattern: producer (ISR) + consumer (main loop budget)\n\"\"\"\n\nCAPACITY = 8\nPOP_BUDGET_PER_MAIN_TICK = 3\n\n# ISR \"packet arrival\" timestamps (ms)\nISR_TIMES_MS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 18, 20, 21, 22, 23, 24, 25]\n\n# Main loop ticks (ms) - each tick pops up to POP_BUDGET_PER_MAIN_TICK packets\nMAIN_TIMES_MS = [0, 5, 10, 15, 20, 25, 30]\n\n\nclass RingBuffer:\n    \"\"\"\n    Fixed-capacity ring buffer with DROP-NEWEST policy:\n    - push(item) -> True if enqueued, False if dropped due to full buffer\n    - pop() -> oldest item, or None if empty\n\n    Invariants:\n    - 0 <= size <= capacity\n    - head: next write index\n    - tail: next read index\n    - indices wrap with modulo capacity\n    \"\"\"\n\n    def __init__(self, capacity):\n        self.capacity = capacity\n        self.buf = [None] * capacity\n        self.head = 0\n        self.tail = 0\n        self.size = 0\n        self.dropped = 0\n        self.max_size = 0\n\n    def push(self, item):\n        # TODO:\n        # 1) If full: increment self.dropped and return False  (DROP-NEWEST)\n        # 2) Else: write item at self.head\n        # 3) Advance self.head with wrap-around\n        # 4) Increment self.size\n        # 5) Update self.max_size\n        raise NotImplementedError\n\n    def pop(self):\n        # TODO:\n        # 1) If empty: return None\n        # 2) Else: read item at self.tail\n        # 3) Advance self.tail with wrap-around\n        # 4) Decrement self.size\n        # 5) Return the item\n        raise NotImplementedError\n\n\ndef fnv1a32(text):\n    # Simple deterministic checksum (no imports)\n    h = 2166136261\n    for b in text.encode(\"utf-8\"):\n        h ^= b\n        h = (h * 16777619) & 0xFFFFFFFF\n    return h\n\n\ndef p95_nearest_rank(values_sorted):\n    # Nearest-rank percentile (no imports), assumes values_sorted non-empty\n    n = len(values_sorted)\n    k = (95 * n + 99) // 100  # ceil(0.95*n) using integer math\n    idx = k - 1\n    if idx < 0:\n        idx = 0\n    if idx >= n:\n        idx = n - 1\n    return values_sorted[idx]\n\n\ndef run_simulation():\n    rb = RingBuffer(CAPACITY)\n\n    seq = 0\n    isr_idx = 0\n    dropped_seqs = []\n    processed_seqs = []\n    latencies = []\n\n    # event times (unique, sorted) without imports\n    times = sorted(set(ISR_TIMES_MS + MAIN_TIMES_MS))\n\n    for t in times:\n        # ISR pushes at time t\n        while isr_idx < len(ISR_TIMES_MS) and ISR_TIMES_MS[isr_idx] == t:\n            ok = rb.push((seq, t))  # (packet_id, produced_time_ms)\n            if not ok:\n                dropped_seqs.append(seq)\n            seq += 1\n            isr_idx += 1\n\n        # main-loop consumes at time t\n        if t in MAIN_TIMES_MS:\n            budget = POP_BUDGET_PER_MAIN_TICK\n            while budget > 0:\n                item = rb.pop()\n                if item is None:\n                    break\n                pkt_id, produced_t = item\n                processed_seqs.append(pkt_id)\n                latencies.append(t - produced_t)\n                budget -= 1\n\n    # Remaining items in logical order (oldest -> newest)\n    remaining = []\n    idx = rb.tail\n    count = rb.size\n    while count > 0:\n        remaining.append(rb.buf[idx])\n        idx = (idx + 1) % rb.capacity\n        count -= 1\n\n    remaining_seqs = [pkt_id for (pkt_id, _) in remaining]\n\n    # Stats (no imports)\n    min_lat = min(latencies) if latencies else 0\n    max_lat = max(latencies) if latencies else 0\n    mean_lat = (sum(latencies) / float(len(latencies))) if latencies else 0.0\n    lat_sorted = sorted(latencies)\n    p95 = p95_nearest_rank(lat_sorted) if lat_sorted else 0\n\n    payload = \"\"\"\n    for i in range(len(processed_seqs)):\n        payload += str(processed_seqs[i]) + \":\" + str(latencies[i]) + \";\"\n    checksum = fnv1a32(payload)\n\n    # ===== Printing (do not change) =====\n    print(\"Processed:\", len(processed_seqs))\n    print(\"Dropped:\", rb.dropped)\n    print(\"Dropped seqs:\", dropped_seqs)\n    print(\"Max buffer size:\", rb.max_size)\n    print(\"Remaining in buffer:\", rb.size)\n    print(\"Remaining seqs:\", remaining_seqs)\n    print(\"Latency ms: min=%d max=%d mean=%.3f p95=%d\" % (min_lat, max_lat, mean_lat, p95))\n    print(\"Checksum:\", checksum)\n\n\nif __name__ == \"__main__\":\n    run_simulation()\n",
-          "codingAnswer": "\"\"\"\nEMBEDDED-STYLE CODING CHALLENGE (Plain Python, no imports)\n\nGoal:\nImplement a fixed-capacity RingBuffer that models a typical ISR -> main-loop queue in bare-metal RT systems.\n\nPolicy:\nDROP-NEWEST when full (i.e., if buffer is full, push() fails and the new item is dropped).\n\nRules:\n- Plain Python only. No imports.\n- Do NOT change constants, inputs, simulation logic, or printing.\n- Only implement the TODOs in RingBuffer (push/pop).\n- Correct if the printed output matches Expected Output exactly.\n\nWhat this examines:\n- Correct ring buffer behavior (wrap-around, head/tail/size invariants)\n- Deterministic overflow handling\n- Practical RT pattern: producer (ISR) + consumer (main loop budget)\n\"\"\"\n\nCAPACITY = 8\nPOP_BUDGET_PER_MAIN_TICK = 3\n\n# ISR \"packet arrival\" timestamps (ms)\nISR_TIMES_MS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 18, 20, 21, 22, 23, 24, 25]\n\n# Main loop ticks (ms) - each tick pops up to POP_BUDGET_PER_MAIN_TICK packets\nMAIN_TIMES_MS = [0, 5, 10, 15, 20, 25, 30]\n\n\nclass RingBuffer:\n    \"\"\"\n    Fixed-capacity ring buffer with DROP-NEWEST policy:\n    - push(item) -> True if enqueued, False if dropped due to full buffer\n    - pop() -> oldest item, or None if empty\n\n    Invariants:\n    - 0 <= size <= capacity\n    - head: next write index\n    - tail: next read index\n    - indices wrap with modulo capacity\n    \"\"\"\n\n    def __init__(self, capacity):\n        self.capacity = capacity\n        self.buf = [None] * capacity\n        self.head = 0\n        self.tail = 0\n        self.size = 0\n        self.dropped = 0\n        self.max_size = 0\n\n    def push(self, item):\n        if self.size == self.capacity:\n            self.dropped += 1\n            return False\n        self.buf[self.head] = item\n        self.head = (self.head + 1) % self.capacity\n        self.size += 1\n        if self.size > self.max_size:\n            self.max_size = self.size\n        return True\n\n    def pop(self):\n        if self.size == 0:\n            return None\n        item = self.buf[self.tail]\n        self.tail = (self.tail + 1) % self.capacity\n        self.size -= 1\n        return item\n\n\ndef fnv1a32(text):\n    # Simple deterministic checksum (no imports)\n    h = 2166136261\n    for b in text.encode(\"utf-8\"):\n        h ^= b\n        h = (h * 16777619) & 0xFFFFFFFF\n    return h\n\n\ndef p95_nearest_rank(values_sorted):\n    # Nearest-rank percentile (no imports), assumes values_sorted non-empty\n    n = len(values_sorted)\n    k = (95 * n + 99) // 100  # ceil(0.95*n) using integer math\n    idx = k - 1\n    if idx < 0:\n        idx = 0\n    if idx >= n:\n        idx = n - 1\n    return values_sorted[idx]\n\n\ndef run_simulation():\n    rb = RingBuffer(CAPACITY)\n\n    seq = 0\n    isr_idx = 0\n    dropped_seqs = []\n    processed_seqs = []\n    latencies = []\n\n    # event times (unique, sorted) without imports\n    times = sorted(set(ISR_TIMES_MS + MAIN_TIMES_MS))\n\n    for t in times:\n        # ISR pushes at time t\n        while isr_idx < len(ISR_TIMES_MS) and ISR_TIMES_MS[isr_idx] == t:\n            ok = rb.push((seq, t))  # (packet_id, produced_time_ms)\n            if not ok:\n                dropped_seqs.append(seq)\n            seq += 1\n            isr_idx += 1\n\n        # main-loop consumes at time t\n        if t in MAIN_TIMES_MS:\n            budget = POP_BUDGET_PER_MAIN_TICK\n            while budget > 0:\n                item = rb.pop()\n                if item is None:\n                    break\n                pkt_id, produced_t = item\n                processed_seqs.append(pkt_id)\n                latencies.append(t - produced_t)\n                budget -= 1\n\n    # Remaining items in logical order (oldest -> newest)\n    remaining = []\n    idx = rb.tail\n    count = rb.size\n    while count > 0:\n        remaining.append(rb.buf[idx])\n        idx = (idx + 1) % rb.capacity\n        count -= 1\n\n    remaining_seqs = [pkt_id for (pkt_id, _) in remaining]\n\n    # Stats (no imports)\n    min_lat = min(latencies) if latencies else 0\n    max_lat = max(latencies) if latencies else 0\n    mean_lat = (sum(latencies) / float(len(latencies))) if latencies else 0.0\n    lat_sorted = sorted(latencies)\n    p95 = p95_nearest_rank(lat_sorted) if lat_sorted else 0\n\n    payload = \"\"\n    for i in range(len(processed_seqs)):\n        payload += str(processed_seqs[i]) + \":\" + str(latencies[i]) + \";\"\n    checksum = fnv1a32(payload)\n\n    # ===== Printing (do not change) =====\n    print(\"Processed:\", len(processed_seqs))\n    print(\"Dropped:\", rb.dropped)\n    print(\"Dropped seqs:\", dropped_seqs)\n    print(\"Max buffer size:\", rb.max_size)\n    print(\"Remaining in buffer:\", rb.size)\n    print(\"Remaining seqs:\", remaining_seqs)\n    print(\"Latency ms: min=%d max=%d mean=%.3f p95=%d\" % (min_lat, max_lat, mean_lat, p95))\n    print(\"Checksum:\", checksum)\n\n\nif __name__ == \"__main__\":\n    run_simulation()\n",
-          "expectedOutput": "Processed: 19\nDropped: 1\nDropped seqs: [21]\nMax buffer size: 8\nRemaining in buffer: 2\nRemaining seqs: [19, 20]\nLatency ms: min=0 max=11 mean=6.632 p95=11\nChecksum: 516586297",
-          "codingLanguage": "python",
-          "backgroundQuestionTimeSeconds": 1800,
-          "codingQuestionTimeSeconds": 1800
-        },
-        "scoringConfiguration": {
-          "aiAssistWeight": 75,
-          "experienceWeight": 50,
-          "codingWeight": 50
-        }
+        "salary": "$120k - $180k"
       }
     ]
   },
@@ -162,9 +77,17 @@
     "name": "Uvision",
     "logo": "/logos/uvision-logo.png",
     "industry": "Aerospace & Defense",
-    "locations": ["Yavne, Israel", "Remote"],
+    "locations": [
+      "Yavne, Israel",
+      "Remote"
+    ],
     "size": "medium",
-    "cultureTags": ["Innovation", "Mission-driven", "Cutting-edge Technology", "Defense Industry"],
+    "cultureTags": [
+      "Innovation",
+      "Mission-driven",
+      "Cutting-edge Technology",
+      "Defense Industry"
+    ],
     "openRoles": [
       {
         "title": "RT Embedded Software Developer",
