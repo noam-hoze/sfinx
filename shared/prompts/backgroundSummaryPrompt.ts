@@ -182,6 +182,6 @@ Return ONLY the JSON object, no other text.`;
     return system;
 }
 
-export const SUMMARY_MODEL = "gpt-4o";
+export const SUMMARY_MODEL = "gpt-4o-mini";
 export const SUMMARY_TEMPERATURE = 0.3;
 

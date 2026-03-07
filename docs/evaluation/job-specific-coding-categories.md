@@ -516,7 +516,7 @@ OpenAI evaluates each category:
     
     Provide score (0-100) and 2-3 sentence explanation for each.
   `,
-  model: "gpt-4o",
+  model: "gpt-4o-mini",
   response_format: { type: "json_object" }
 }
 ```

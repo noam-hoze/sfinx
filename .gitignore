@@ -46,3 +46,4 @@ server/keys/service-account.json
 service-account.json
 
 test-results
+.env.test

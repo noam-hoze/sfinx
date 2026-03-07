@@ -65,7 +65,7 @@ Keep topic names concise (< 50 characters) and descriptions brief (< 100 charact
 Maximum 3-4 topics to ensure comprehensive evaluation without overwhelming the candidate.`;
 
         const completion = await openaiClient.chat.completions.create({
-            model: "gpt-4o",
+            model: "gpt-4o-mini",
             messages: [
                 { role: "system", content: systemPrompt },
                 {

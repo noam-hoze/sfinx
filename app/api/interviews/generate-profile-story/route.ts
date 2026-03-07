@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
         );
 
         const formattingResponse = await openai.chat.completions.create({
-            model: "gpt-4o",
+            model: "gpt-4o-mini",
             messages: [{ role: "user", content: formattingPrompt }],
             temperature: 0.7,
             response_format: { type: "json_object" }

@@ -184,7 +184,7 @@ Provide a detailed code quality analysis with specific line numbers and code seg
         log.info(LOG_CATEGORY, "[Code Quality Analysis] Calling OpenAI...");
 
         const completion = await openaiClient.chat.completions.create({
-            model: "gpt-4o",
+            model: "gpt-4o-mini",
             messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userPrompt },

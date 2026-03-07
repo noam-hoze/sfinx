@@ -55,7 +55,7 @@ Examples:
 Return ONLY the summary text (no JSON, no extra formatting).`;
 
         const completion = await openaiClient.chat.completions.create({
-            model: "gpt-4o",
+            model: "gpt-4o-mini",
             messages: [
                 { role: "system", content: systemPrompt },
                 {

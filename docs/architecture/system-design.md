@@ -7,7 +7,6 @@
 **Changelog v1.1.0:**
 - Refactored Redux state: `interviewMachineSlice` → `interviewSlice`
 - Split interview chat into `backgroundSlice` and `codingSlice`
-- Renamed actions: `aiFinal` → `interviewerMessage`, `userFinal` → `candidateMessage`
 - Removed fallback defaults (Meta) from Redux initialState (constitution compliance)
 - Fixed background timer: moved `startTimer()` dispatch to component level
 - Removed `isPageLoading` from Redux (now local state in page.tsx)
@@ -103,7 +102,7 @@ Sfinx is an autonomous AI-powered technical interview platform that conducts, ev
 │                                                                    │
 │  ┌──────────────────┐  ┌──────────────┐  ┌──────────────────┐    │
 │  │   OpenAI API     │  │   Monaco     │  │   Screen         │    │
-│  │   (GPT-4o)       │  │   Editor     │  │   Recording API  │    │
+│  │   (gpt-4o-mini)  │  │   Editor     │  │   Recording API  │    │
 │  └──────────────────┘  └──────────────┘  └──────────────────┘    │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -126,15 +125,14 @@ Sfinx is an autonomous AI-powered technical interview platform that conducts, ev
 - NextAuth 4.24 (authentication)
 
 **AI/ML:**
-- OpenAI GPT-4o (text completions)
+- OpenAI gpt-4o-mini (text completions; evaluation model configurable via `OPENAI_EVALUATION_MODEL`)
 - OpenAI Realtime API (voice conversations)
-- OpenAI text-embedding-3-small (retrieval, future)
+- OpenAI whisper-1 (audio transcription)
+- OpenAI text-embedding-3-small (**planned, not yet implemented**)
 
 **Infrastructure:**
 - Vercel (hosting)
 - Vercel Blob Storage (video recordings)
-- Docker (containerization, optional)
-- GCP Cloud Run (deployment target, optional)
 
 ---
 
@@ -192,7 +190,7 @@ Sfinx is an autonomous AI-powered technical interview platform that conducts, ev
 
 **Candidate APIs (`/api/candidates/`):**
 - `[id]/telemetry` - Fetch full evaluation telemetry
-- `[id]/profile` - Candidate profile management
+- `[id]/basic` - Candidate basic profile data
 
 ### 4. Service Layer
 
@@ -234,27 +232,24 @@ Sfinx is an autonomous AI-powered technical interview platform that conducts, ev
 
 **Location:** `shared/state/slices/interviewSlice.ts`
 
-**States:**
+**Stages:**
 ```typescript
-type InterviewState =
-  | "idle"                          // Initial page load
-  | "greeting_said_by_ai"          // AI greeted candidate
-  | "background_asked_by_ai"       // Background Q&A in progress
-  | "background_answered_by_user"  // User submitted answer
-  | "in_coding_session"            // Coding stage active
-  | "followup_question"            // Follow-up question asked
-  | "ended";                       // Interview completed
+type InterviewStage =
+  | "greeting"    // AI greeting in progress
+  | "background"  // Background Q&A in progress
+  | "coding"      // Coding stage active
+  | "submission"  // Code submitted, wrapping up
+  | "wrapup";     // Interview completed
 ```
 
-**Transitions:**
-- `start()` + `interviewerMessage()` → greeting_said_by_ai
-- `interviewerMessage()` → background_asked_by_ai (starts timer)
-- `candidateMessage()` → background_answered_by_user
-- `interviewerMessage()` → Check gate, transition to coding or ask more
-- `forceCoding()` → in_coding_session
-- `end()` → ended
+**Stage Transitions (via `setStage()`):**
+- `null` → `"greeting"` on interview start
+- `"greeting"` → `"background"` when background Q&A begins
+- `"background"` → `"coding"` when gate passes or timebox expires
+- `"coding"` → `"submission"` on code submit
+- `end()` → sets stage to `"wrapup"`
 
-**Gate Logic:**
+**Gate Logic (in `useBackgroundAnswerHandler`):**
 - Checks category coverage (all categories have contributions)
 - Checks overall weighted average score (≥ 75%)
 - Checks minimum contributions per category
@@ -389,9 +384,9 @@ Candidate pastes code (clipboard event)
 onPasteDetected callback fired
   ↓
 Call /api/interviews/identify-paste-topics
-  ├─ Extract up to 4 key concepts from pasted code
+  ├─ Extract key concepts from pasted code (max set by NEXT_PUBLIC_MAX_PASTE_TOPICS)
   ├─ Generate initial probing question
-  └─ Return topics array with coverageScore: 0
+  └─ Return topics array with name/description; percentage initialized to 0 client-side
   ↓
 AI asks first question via OpenAI conversation
   ↓
@@ -434,8 +429,8 @@ AI transitions back to coding task
 - Relations: `company`, `interviewContent`, `applications`, `scoringConfiguration`
 
 **InterviewSession** (Interview Instances)
-- `id`, `candidateId`, `applicationId`, `videoUrl`, `recordingStartedAt`
-- `status` (IN_PROGRESS | COMPLETED)
+- `id`, `candidateId`, `applicationId`, `videoUrl`, `recordingStartedAt`, `finalScore`
+- `status` (String, untyped — default `"IN_PROGRESS"`, convention: `"IN_PROGRESS"` | `"COMPLETED"` | `"PROCESSING"` | `"ABANDONED"`)
 - Relations: `telemetryData`, `messages`, `iterations`, `externalToolUsages`, `categoryContributions`
 
 **TelemetryData** (Evaluation Results)
@@ -471,6 +466,31 @@ AI transitions back to coding task
 **EvidenceClip** (Video Evidence)
 - `id`, `telemetryDataId`, `title`, `thumbnailUrl`, `duration`, `description`
 - `startTime`, `category` (enum), `categoryName`, `contributionStrength`
+
+**InterviewContent** (Shared Interview Script)
+- `id`, `companyId`, `openingMessage`, `codingTask`, `referenceCode`
+- Relations: `jobs`, `company`
+
+**VideoChapter** (Video Timeline Segments)
+- `id`, `telemetryDataId`, `title`, `startTime`, `endTime`, `category`
+- Relations: `captions`
+
+**VideoCaption** (Chapter Captions)
+- `id`, `videoChapterId`, `text`, `startTime`, `endTime`
+
+**ConversationMessage** (Persisted Chat Messages)
+- `id`, `interviewSessionId`, `speaker`, `text`, `timestamp`
+
+**Iteration** (Code Submission Snapshots)
+- `id`, `interviewSessionId`, `code`, `output`, `matchPercentage`, `timestamp`
+- Used for problem-solving evaluation; `matchPercentage` tracks output correctness
+
+**BackgroundEvidence** (Background Stage Evidence Clips)
+- `id`, `telemetryDataId`, `categoryName`, `contributionStrength`, `caption`, `videoOffset`
+
+**GapAnalysis** / **Gap** (Coding Skill Gap Analysis)
+- `GapAnalysis`: `id`, `telemetryDataId`, `summary`
+- `Gap`: `id`, `gapAnalysisId`, `skillArea`, `description`, `severity`
 
 ### Schema Highlights
 
@@ -527,28 +547,28 @@ enum EvidenceCategory {
 **Store Location:** `shared/state/store.ts`
 
 **Slices:**
-1. **interviewSlice** - Interview state machine
-2. **backgroundSlice** - Background stage messages and timer
+1. **interviewSlice** - Interview stage and session metadata
+2. **backgroundSlice** - Background stage messages, timer, category tracking
 3. **codingSlice** - Coding stage messages and paste evaluation
 4. **cpsSlice** - Candidate Profile Summary state
+5. **navigationSlice** - App navigation state
 
 ### Interview State
 
 ```typescript
 interface InterviewState {
-  state: InterviewMachineState;
   isRecording: boolean;
   stage: InterviewStage | null;
   candidateName?: string;
-  expectedBackgroundQuestion?: string;
   companyName?: string;
   companySlug?: string;
   roleSlug?: string;
   sessionId?: string;
   userId?: string;
   applicationId?: string;
-  script?: InterviewScript;
+  script?: any;
   preloadedFirstQuestion?: string;
+  preloadedFirstIntent?: string;
   shouldReset?: boolean;
 }
 ```
@@ -565,6 +585,13 @@ interface BackgroundState {
   transitioned: boolean;
   transitionedAt?: number;
   reason?: "timebox";
+  // Category tracking for dynamic prioritization
+  evaluatingAnswer: boolean;
+  currentFocusTopic: string | null;
+  currentQuestionTarget: { question: string; category: string } | null;
+  categoryStats: CategoryStats[];
+  currentQuestionSequence: number;
+  clarificationRetryCount: number;
 }
 ```
 
@@ -576,26 +603,32 @@ interface BackgroundState {
 interface CodingState {
   messages: ChatMessage[];
   pendingReply: boolean;
-  pendingReplyContext?: {
-    reason?: string;
-    since: number;
-  };
   timeboxSeconds?: number;
   activePasteEvaluation?: {
     pasteEvaluationId: string;
     pastedContent: string;
     timestamp: number;
-    videoChapterId?: string;
-    // aiQuestionTimestamp removed — now a local useRef in OpenAITextConversation.tsx
-    confidence: number;
+    pasteAccountabilityScore: number;
     answerCount: number;
     readyToEvaluate: boolean;
     currentQuestion?: string;
     evaluationReasoning?: string;
     evaluationCaption?: string;
     accountabilityScore?: number;
-    questionScores?: Array<...>;
-    topics?: Array<...>;
+    questionScores?: Array<{
+      question: string;
+      answer: string;
+      score: number;
+      reasoning: string;
+      understandingLevel: string;
+      topicsAddressed?: string[];
+    }>;
+    topics?: Array<{
+      name: string;
+      description: string;
+      percentage: number;
+      lastUpdatedBy?: number;
+    }>;
   };
 }
 ```
@@ -604,17 +637,15 @@ interface CodingState {
 
 **Interview Machine Actions:**
 - `start()` - Initialize interview with candidate name
-- `interviewerMessage()` - AI sent message (replaces aiFinal)
-- `candidateMessage()` - Candidate submitted answer (replaces userFinal)
-- `startFollowup()` - AI asks follow-up question
-- `setExpectedBackgroundQuestion()` - Store next question
 - `setCompanyContext()` - Set company/role metadata
 - `setSessionId()` - Link to interview session
 - `setRecording()` - Update recording state
 - `setStage()` - Transition interview stage
-- `forceCoding()` - Skip to coding (dev mode)
-- `end()` - Interview ended
-- `resetInterview()` - Global reset action (listened by all slices)
+- `setPreloadedData()` - Set userId, applicationId, script, preloadedFirstQuestion, preloadedFirstIntent atomically
+- `end()` - Set stage to "wrapup"
+- `reset()` - Reset all fields to initial state
+- `triggerReset()` - Set shouldReset flag (triggers coordinated reset)
+- `resetInterview()` - Global reset action (listened by all slices via extraReducers)
 
 **Background Actions:**
 - `addMessage()` - Add message to background chat
@@ -624,6 +655,15 @@ interface CodingState {
 - `forceTimeExpiry()` - Force timer expiration
 - `markTransition()` - Mark transition to coding
 - `setReason()` - Set transition reason
+- `resetAll()` - Full background state reset
+- `setEvaluatingAnswer()` - Lock/unlock during answer evaluation
+- `setCurrentFocusTopic()` - Set active category topic
+- `setCurrentQuestionTarget()` - Set target question for current turn
+- `initializeCategoryStats()` - Seed category stats from job config
+- `updateCategoryStats()` - Update contribution count/score per category
+- `incrementDontKnowCount()` - Track IDK responses per category
+- `incrementQuestionSequence()` - Advance question counter
+- `incrementClarificationRetry()` / `resetClarificationRetry()` - Manage clarification retries
 
 **Coding Actions:**
 - `addMessage()` - Add message to coding chat
@@ -631,8 +671,11 @@ interface CodingState {
 - `setPendingReply()` - Lock/unlock input during AI processing
 - `setTimebox()` - Set coding timer duration (seconds)
 - `startPasteEvaluation()` - Initialize paste accountability Q&A
-- `updatePasteEvaluation()` - Update paste evaluation state
 - `clearPasteEvaluation()` - Clear active paste evaluation
+- `updatePasteTopics()` - Update topic coverage scores
+- `updatePasteQuestionScores()` - Record per-question scores
+- `setPasteEvaluationSummary()` - Store final accountability summary
+- `incrementPasteAnswer()` / `setPasteQuestion()` / `setPasteScore()` / `setPasteReadyToEvaluate()` - Granular paste state updates
 
 ---
 
@@ -674,7 +717,7 @@ Return JSON with evaluations array.
 ```
 
 **Step 2: Gate Check**
-- **Location:** `shared/services/backgroundInterview/categoryGateCheck.ts`
+- **Location:** `shared/services/backgroundInterview/useBackgroundAnswerHandler.ts`
 - **Checks:**
   - All categories have at least 1 contribution
   - Overall weighted average ≥ 75%
@@ -806,10 +849,17 @@ experienceScore = sum(
 
 **Coding Score:**
 ```typescript
-codingScore = (
-  sum(codingCategory[i].score × codingCategory[i].weight) +
-  (aiAssistAccountability × aiAssistWeight)
-) / (sum(codingCategory[i].weight) + aiAssistWeight)
+// categories weighted average, scaled by (100 - aiAssistWeight)%
+const categoryAverage = sum(category[i].score * category[i].weight) / sum(category[i].weight);
+const categoryContribution = categoryAverage * (100 - aiAssistWeight) / 100;
+
+// AI assist contributes its percentage of the final coding score
+const aiAssistContribution = hasAiAssistScore
+  ? normalizedAiAssist * aiAssistWeight / 100
+  : 0;
+
+const codingScore = categoryContribution + aiAssistContribution;
+// e.g. aiAssistWeight=25: categories → 75% of score, AI assist → 25%
 ```
 
 ### Per-Category Score Calculation
@@ -912,30 +962,67 @@ aiAssistWeight = 25%  // Part of coding score
 ### Key Endpoints
 
 **Interview Session Management:**
-- `POST /api/interviews/session/create` - Initialize new session
+- `POST /api/interviews/session` - Initialize new session
 - `GET /api/interviews/session/[sessionId]` - Fetch session details
 - `PATCH /api/interviews/session/[sessionId]` - Update session
 - `POST /api/interviews/session/[sessionId]/messages` - Save message
 - `GET /api/interviews/session/[sessionId]/contributions` - Fetch contribution stats
+- `POST /api/interviews/session/[sessionId]/process` - Trigger post-interview processing
+- `POST /api/interviews/session/[sessionId]/terminate` - Terminate session
+- `PATCH /api/interviews/session/[sessionId]/update-recording-start` - Save recording start timestamp
+- `GET /api/interviews/session/[sessionId]/background-evidence` - Fetch background evidence clips
+- `GET /api/interviews/session/[sessionId]/background-chapters` - Fetch background video chapters
+- `GET /api/interviews/session/[sessionId]/code-quality-analysis` - Fetch code quality results
+- `GET /api/interviews/session/[sessionId]/external-tools` - Fetch external tool usage records
+- `GET /api/interviews/session/[sessionId]/iterations` - Fetch code iteration records
+- `POST /api/interviews/session/[sessionId]/paste-chapter` - Create paste video chapter
+- `GET /api/interviews/session/[sessionId]/scoring-config` - Fetch scoring config for session
+- `POST /api/interviews/session/blob-upload-url` - Get signed Vercel Blob upload URL
+- `POST /api/interviews/session/screen-recording` - Store screen recording URL
+- `POST /api/interviews/session/telemetry` - Initialize telemetry record
 
 **Real-Time Evaluation:**
-- `POST /api/interviews/evaluate-answer` - Background answer evaluation
+- `POST /api/interviews/evaluate-answer` - Background answer evaluation (full)
+- `POST /api/interviews/evaluate-answer-fast` - Background answer evaluation (fast parallel path)
 - `POST /api/interviews/evaluate-code-change` - Coding diff evaluation
 - `POST /api/interviews/evaluate-paste-accountability` - Paste Q&A scoring
+- `POST /api/interviews/evaluate-job-specific-coding` - Final code submission evaluation
+- `POST /api/interviews/evaluate-output` - Code output correctness evaluation
+- `POST /api/interviews/identify-paste-topics` - Extract key concepts from pasted code
+- `POST /api/interviews/next-question` - Generate next interview question
+- `POST /api/interviews/score-answer` - Score a candidate answer
+- `POST /api/interviews/chat` - General chat completions
+- `POST /api/interviews/integration` - Interview integration webhook
 
 **Summary Generation:**
 - `POST /api/interviews/session/[sessionId]/background-summary` - Generate experience summary
 - `PATCH /api/interviews/session/[sessionId]/coding-summary-update` - Generate coding summary
 - `POST /api/interviews/generate-paste-summary` - Generate paste accountability summary
+- `POST /api/interviews/generate-coding-gaps` - Generate skill gap analysis for coding
+- `POST /api/interviews/generate-coding-summary` - Generate coding summary text
+- `POST /api/interviews/generate-profile-story` - Generate candidate profile story (280 chars)
+
+**Video:**
+- `GET /api/interviews/video-chapter/[chapterId]/caption` - Fetch chapter caption
+- `POST /api/interviews/warmup/activate` - Warm up interview session
 
 **Company Dashboard:**
 - `GET /api/company/jobs/with-applicants` - Job list with stats
 - `GET /api/company/jobs/[jobId]/applicants` - Applicant list
 - `GET /api/company/jobs/[jobId]/scoring-config` - Fetch scoring config
 - `PATCH /api/company/jobs/[jobId]/scoring-config` - Update weights
+- `POST /api/company/jobs/generate-categories` - AI-generate job categories from description
 
-**Candidate Telemetry:**
+**Candidate:**
 - `GET /api/candidates/[id]/telemetry` - Fetch full evaluation data
+- `GET /api/candidates/[id]/basic` - Candidate basic profile
+
+**Utilities:**
+- `POST /api/tts` - Text-to-speech synthesis
+- `POST /api/transcribe` - Audio transcription (whisper-1)
+- `POST /api/mascot/visemes-audio` - Mascot lip-sync visemes
+- `DELETE /api/cache/clear` - Clear server-side cache
+- `GET /api/debug/*` - Debug utilities (dev only)
 
 ### Error Handling
 
@@ -1032,28 +1119,35 @@ if (!session) {
 app/
 ├── (auth)/                  # Auth pages (login, signup)
 ├── (features)/              # Feature pages
-│   ├── interview/           # Interview flow
+│   ├── interview/           # Interview flow (background + coding stages)
 │   ├── cps/                 # Candidate profile summary
 │   ├── company-dashboard/   # Company UI
+│   ├── job-search/          # Job listing / search
+│   ├── settings/            # User/account settings
 │   └── ...
-├── api/                     # API routes
+├── api/                     # API routes (see Key Endpoints section)
 │   ├── interviews/          # Interview APIs
 │   ├── company/             # Company APIs
 │   └── ...
-├── shared/                  # Shared components/services
-│   ├── components/          # UI components
-│   ├── services/            # Business logic services
+├── shared/                  # Next.js-specific shared code (NOT same as root /shared/)
+│   ├── components/          # UI components (AtomScene, Header, Sidebar, etc.)
+│   ├── contexts/            # React contexts (DebugContext, InterviewPreloadContext, etc.)
+│   ├── services/            # Server-side services (Prisma, NextAuth, logger, cache)
 │   ├── hooks/               # Custom React hooks
-│   └── utils/               # Pure utility functions
-└── data/                    # Mock data (dev only)
+│   ├── config/              # App config (breadcrumbs, navigation)
+│   └── utils/               # Pure utility functions (calculateScore, http)
+└── test/                    # Dev-only test pages
 
-shared/
+shared/                      # Root-level shared (client + server-safe, framework-agnostic)
 ├── state/                   # Redux store
-│   ├── store.ts             # Root store
-│   └── slices/              # Redux slices
-├── services/                # Backend-compatible services
+│   ├── store.ts             # Root store (configureStore)
+│   └── slices/              # Redux slices (background, coding, cps, interview, navigation)
+├── services/                # Client-side services (backgroundInterview, tts, mascot)
+│   └── backgroundInterview/ # Background interview orchestration
 ├── prompts/                 # OpenAI prompt templates
-└── types/                   # Shared TypeScript types
+├── constants/               # Shared constants
+├── types/                   # Shared TypeScript types
+└── utils/                   # Client-safe utility functions
 
 server/
 ├── prisma/                  # Database
@@ -1062,12 +1156,14 @@ server/
 └── db-scripts/              # Seed data scripts
 
 docs/
-├── system-design.md         # THIS FILE
-├── scoring-system.md
-├── job-specific-coding-categories.md
-├── external-tool-evaluation.md
-└── ...
+├── architecture/            # System-wide design docs (this file, scoring, etc.)
+├── evaluation/              # Scoring pipeline and answer judgment subsystems
+├── features/                # Shipped user-facing feature docs
+├── reference/               # Demos, migrations, handoffs
+└── specs/                   # Planned/future integrations
 ```
+
+> **Note on two `shared/` directories:** `app/shared/` is Next.js App Router-coupled (contains Prisma singleton, NextAuth, React contexts — server-only code cannot be imported by client components). Root `shared/` is framework-agnostic client+server code (Redux state, browser-safe services). They must remain separate to respect Next.js server/client boundaries.
 
 ### Development Commands
 
@@ -1100,8 +1196,8 @@ DATABASE_URL="postgresql://..."
 NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="..."
 
-# OpenAI
-NEXT_PUBLIC_OPENAI_API_KEY="sk-..."
+# OpenAI (server-side only — never expose to browser)
+OPENAI_API_KEY="sk-..."
 
 # Vercel Blob (video storage)
 BLOB_READ_WRITE_TOKEN="..."
@@ -1115,13 +1211,7 @@ NEXT_PUBLIC_CODE_EVALUATION_THROTTLE_MS="8000"
 
 **Unit Tests:**
 - Vitest for business logic
-- Located in `shared/tests/`
-- Coverage target: ≥ 60%
-
-**E2E Tests:**
-- Playwright for interview flows
-- Located in `e2e/`
-- Includes background and coding stages
+- Run with `pnpm test`
 
 **Manual Testing:**
 - Debug panels for real-time inspection

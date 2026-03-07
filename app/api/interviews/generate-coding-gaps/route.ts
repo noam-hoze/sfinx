@@ -136,7 +136,7 @@ Identify gaps in the candidate's skills based on this data.`;
         log.info(LOG_CATEGORY, "[Generate Coding Gaps] Calling OpenAI...");
 
         const completion = await openaiClient.chat.completions.create({
-            model: "gpt-4o",
+            model: "gpt-4o-mini",
             messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userPrompt },

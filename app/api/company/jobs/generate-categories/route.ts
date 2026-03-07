@@ -17,10 +17,8 @@ const LOG_CATEGORY = LOG_CATEGORIES.OPENAI;
  * Resolves the OpenAI API key from server environment variables.
  */
 function resolveOpenAiKey(): string {
-    const serverKey = process.env.OPENAI_API_KEY;
-    if (serverKey) return serverKey;
-    const publicKey = process.env.OPENAI_API_KEY;
-    if (publicKey) return publicKey;
+    const key = process.env.OPENAI_API_KEY;
+    if (key) return key;
     throw new Error("OpenAI API key not configured");
 }
 
@@ -70,7 +68,7 @@ async function requestCategoryGeneration(input: {
 
     const openaiClient = new OpenAI({ apiKey: resolveOpenAiKey() });
     const completion = await openaiClient.chat.completions.create({
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
