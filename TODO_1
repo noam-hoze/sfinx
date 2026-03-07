@@ -1,1 +1,0 @@
-1. In openAIConversation.tsx, we are using hardcoded for company slug and role slug. We should use the company slug and role slug from the store.

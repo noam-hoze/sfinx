@@ -269,7 +269,7 @@ nextQuestionText = `${fastData.acknowledgment} ${fastData.nextQuestion}`;
 
 ### Environment Variables
 
-- `NEXT_PUBLIC_OPENAI_API_KEY`: OpenAI API key
+- `OPENAI_API_KEY`: OpenAI API key (server-side only)
 - `NEXT_PUBLIC_OPENAI_EVALUATION_MODEL`: Model for evaluation (default: `gpt-4o-mini`)
 
 ### Redux State (`backgroundSlice`)

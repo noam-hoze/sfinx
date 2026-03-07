@@ -129,7 +129,7 @@ Be strict with 0 scores - use them for noise. But use the full range 1-100 for l
         log.info(LOG_CATEGORY, "[evaluate-code-change] Calling OpenAI for evaluation");
 
         const completion = await openai.chat.completions.create({
-            model: "gpt-4o",
+            model: "gpt-4o-mini",
             messages: [
                 {
                     role: "system",

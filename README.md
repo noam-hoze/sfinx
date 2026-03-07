@@ -44,9 +44,8 @@ Sfinx is an AI system that conducts, scores, and ranks technical candidates auto
   * Frontend pages, interactive UI, and candidate interface
   * API routes for interview orchestration, scoring, and retrieval
   * Server Actions for secure model-calling and data operations
-* Backend logic implemented within Next.js using Node/TypeScript and Python microservices where needed.
-* Data stored in Neon/PostgreSQL with a custom JSON vector index for retrieval.
-* All components containerized with Docker and deployable on GCP Cloud Run.
+* Backend logic implemented within Next.js using Node/TypeScript.
+* Data stored in Neon/PostgreSQL.
 
 ---
 
@@ -56,12 +55,6 @@ Sfinx is an AI system that conducts, scores, and ranks technical candidates auto
 
   * OpenAI Realtime API for low-latency conversation
   * Chat Completions for structured reasoning and interviewer follow-ups
-
-* **Hybrid Retrieval System**
-
-  * Embedding search (text-embedding-3-small)
-  * BM25-style lexical scoring
-  * Dynamic injection of manager preferences and prior interactions
 
 * **Persona + Prompt Assembly**
 
@@ -78,9 +71,9 @@ Sfinx is an AI system that conducts, scores, and ranks technical candidates auto
 ## **Tech Stack**
 
 * Framework: **Next.js**, React, TypeScript
-* Backend: Node.js, Python (auxiliary services)
-* AI/ML: OpenAI Realtime API, Chat Completions, custom vector index
-* Infra: Docker, Neon/Postgres, GCP Cloud Run
+* Backend: Node.js
+* AI/ML: OpenAI Realtime API, Chat Completions (gpt-4o-mini)
+* Infra: Vercel, Neon/Postgres, Vercel Blob Storage
 
 ---
 
