@@ -14,7 +14,9 @@ const SCRIPT_CACHE_VERSION = "v8"; // Must match useBackgroundPreload.ts
  * Uses the same localStorage cache key format as useBackgroundPreload.
  * Fire-and-forget — failures are silently ignored.
  */
-export function prefetchInterviewScripts(jobs: { id: string }[]) {
+export function prefetchInterviewScripts(
+  jobs: { id: string; companyId?: string }[]
+) {
   let prefetchCount = 0;
 
   for (const job of jobs) {
@@ -27,16 +29,15 @@ export function prefetchInterviewScripts(jobs: { id: string }[]) {
       continue;
     }
 
-    const parts = job.id.split("-");
-    const company = parts[0];
-    const role = parts.slice(1).join("-");
-
-    if (!company || !role) continue;
-
     prefetchCount++;
 
     // Fire-and-forget, non-blocking
-    fetch(`/api/interviews/script?company=${company}&role=${role}`)
+    const params = new URLSearchParams({ jobId: job.id });
+    if (job.companyId) {
+      params.set("companyId", job.companyId);
+    }
+
+    fetch(`/api/interviews/script?${params.toString()}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data) {

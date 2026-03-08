@@ -12,6 +12,7 @@ const LOG_CATEGORY = LOG_CATEGORIES.COMPANY;
 
 export async function GET(_request: NextRequest) {
     try {
+        const origin = new URL(_request.url).origin;
         const session = await getServerSession(authOptions);
         const sessionUser = session?.user as { id?: string; role?: string } | undefined;
         if (!sessionUser?.id) {
@@ -37,7 +38,7 @@ export async function GET(_request: NextRequest) {
                 industry: company.industry,
                 size: company.size,
             },
-            jobs: jobs.map((job: any) => mapJobResponse(job, company)),
+            jobs: jobs.map((job: any) => mapJobResponse(job, company, origin)),
         });
     } catch (error) {
         log.error(LOG_CATEGORY, "❌ Failed to list company jobs:", error);
@@ -49,6 +50,7 @@ export async function GET(_request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
+        const origin = new URL(request.url).origin;
         const session = await getServerSession(authOptions);
         const sessionUser = session?.user as { id?: string; role?: string } | undefined;
         if (!sessionUser?.id) {
@@ -209,7 +211,7 @@ export async function POST(request: NextRequest) {
 
         invalidatePattern(`jobs:company:${company.name}`);
         invalidatePattern("companies:list:");
-        return NextResponse.json(mapJobResponse(job, job.company));
+        return NextResponse.json(mapJobResponse(job, job.company, origin));
     } catch (error) {
         log.error(LOG_CATEGORY, "❌ Failed to create company job:", error);
         const message = error instanceof Error ? error.message : "Unknown error";

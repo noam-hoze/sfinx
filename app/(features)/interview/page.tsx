@@ -29,6 +29,7 @@ import CompletionScreen from "./components/backgroundInterview/CompletionScreen"
 import AnnouncementScreen from "./components/backgroundInterview/AnnouncementScreen";
 import PreInterviewScreen from "./components/backgroundInterview/PreInterviewScreen";
 import SfinxSpinner from "app/shared/components/SfinxSpinner";
+import AuthGuard from "app/shared/components/AuthGuard";
 import Breadcrumbs from "app/shared/components/Breadcrumbs";
 import InterviewStageScreen from "app/shared/components/InterviewStageScreen";
 import { InterviewIDE } from "./components";
@@ -56,6 +57,43 @@ import {
  */
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
+function mapInterviewEntryError(error: unknown): { title: string; description: string } {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (message.includes("Missing required URL parameters")) {
+    return {
+      title: "This interview link is incomplete",
+      description: "The link is missing job information. Please ask the company to send a new interview link.",
+    };
+  }
+
+  if (message.includes("Job does not belong to this company")) {
+    return {
+      title: "This interview link is invalid",
+      description: "The job and company in this link do not match. Please ask the company to resend the link.",
+    };
+  }
+
+  if (message.includes("Interview content missing")) {
+    return {
+      title: "This interview is not ready yet",
+      description: "The company has not finished configuring interview content for this job.",
+    };
+  }
+
+  if (message.includes("Job not found")) {
+    return {
+      title: "This interview link is no longer available",
+      description: "The job could not be found. Please ask the company to confirm the interview link.",
+    };
+  }
+
+  return {
+    title: "Failed to initialize interview",
+    description: "Please refresh and try again. If the issue continues, ask the company to resend the interview link.",
+  };
+}
+
 function InterviewPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -74,13 +112,15 @@ function InterviewPageContent() {
   const [isPreloading, setIsPreloading] = useState(true);
   const [showPreInterviewScreen, setShowPreInterviewScreen] = useState(false);
   const [preInterviewNotice, setPreInterviewNotice] = useState<{ title: string; description: string } | null>(null);
+  const [entryError, setEntryError] = useState<{ title: string; description: string } | null>(null);
   
   // Redux state
   const stage = useSelector((state: RootState) => state.interview.stage);
   const { isCameraOn, selfVideoRef } = useCamera();
   const companyName = useSelector((state: RootState) => state.interview.companyName);
-  const companySlug = useSelector((state: RootState) => state.interview.companySlug);
-  const roleSlug = useSelector((state: RootState) => state.interview.roleSlug);
+  const companyId = useSelector((state: RootState) => state.interview.companyId);
+  const currentJobId = useSelector((state: RootState) => state.interview.jobId);
+  const currentJobTitle = useSelector((state: RootState) => state.interview.jobTitle);
   const preloadedFirstQuestion = useSelector((state: RootState) => state.interview.preloadedFirstQuestion);
   const preloadedFirstIntent = useSelector((state: RootState) => state.interview.preloadedFirstIntent);
   const userId = useSelector((state: RootState) => state.interview.userId);
@@ -121,10 +161,9 @@ function InterviewPageContent() {
   const { startRecording, interviewSessionId, setInterviewSessionId, getActualRecordingStartTime } = recordingControls;
 
   // Build breadcrumb trail
-  const jobTitle = roleSlug?.split("-").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") || "";
   const breadcrumbTrail = getBreadcrumbTrail("/interview", "CANDIDATE", {
     companyName: companyName ?? "",
-    jobTitle: jobTitle
+    jobTitle: currentJobTitle ?? ""
   });
 
   // Refs
@@ -171,6 +210,12 @@ function InterviewPageContent() {
       log.info(LOG_CATEGORY, "[interview] Skip-to-coding mode: bypassing preload");
       
       const setupUserId = async () => {
+        const urlCompanyId = searchParams.get("companyId");
+        const urlJobId = searchParams.get("jobId");
+        if (urlCompanyId && urlJobId) {
+          dispatch(setCompanyContext({ companyId: urlCompanyId, jobId: urlJobId }));
+        }
+
         // Try to use session userId first
         const sessionUserId = (session?.user as any)?.id;
         if (sessionUserId) {
@@ -185,7 +230,7 @@ function InterviewPageContent() {
       
       setupUserId();
     }
-  }, [skipToCoding, isPreloading, session, dispatch, companySlug, roleSlug]);
+  }, [skipToCoding, isPreloading, session, dispatch, companyId, currentJobId, searchParams]);
 
   useEffect(() => {
     if (applicationId) {
@@ -345,6 +390,7 @@ function InterviewPageContent() {
       setCodingApplicationId(applicationId || null);
       setBackgroundQuestionNumber(1);
       setInterviewSessionId(null);
+      setEntryError(null);
       hasAutoStartedRef.current = false;
       hasPreloadedRef.current = false;
     }
@@ -367,20 +413,24 @@ function InterviewPageContent() {
           throw new Error("Missing required URL parameters: companyId and jobId");
         }
 
-        const roleSlugFromUrl = urlJobId.replace(`${urlCompanyId}-`, "");
-        const jobTitle = roleSlugFromUrl.split("-").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-
         // Pass session userId and warmup data for optimized parallel preload
         const sessionUserId = (session?.user as any)?.id;
 
-        // Run preload and announcement generation in parallel
-        const [, announcementResult] = await Promise.all([
-          preload(urlJobId, urlCompanyId, sessionUserId, warmupData, setBackgroundTimeSeconds, setExperienceCategories),
-          generateAnnouncement(jobTitle),
-        ]);
+        const preloadResult = await preload(
+          urlJobId,
+          urlCompanyId,
+          sessionUserId,
+          warmupData,
+          setBackgroundTimeSeconds,
+          setExperienceCategories
+        );
+        const announcementResult = await generateAnnouncement(
+          preloadResult.scriptData?.jobTitle || "this role"
+        );
 
         setAnnouncementText(announcementResult.text);
         setAnnouncementAudioBlob(announcementResult.audioBlob);
+        setEntryError(null);
 
         log.info(LOG_CATEGORY, "[interview] Preload complete - moving to welcome");
         setIsPreloading(false);
@@ -388,7 +438,7 @@ function InterviewPageContent() {
       } catch (error) {
         log.error(LOG_CATEGORY, "[interview] Preload failed:", error);
         setIsPreloading(false);
-        alert("Failed to initialize interview. Please refresh and try again.");
+        setEntryError(mapInterviewEntryError(error));
       }
     };
 
@@ -406,14 +456,12 @@ function InterviewPageContent() {
     }
 
     try {
-      if (!companySlug || !roleSlug) {
-        throw new Error("Company and role not initialized from URL");
+      if (!companyId || !currentJobId) {
+        throw new Error("Interview context is missing companyId or jobId");
       }
-      const jobId = `${companySlug}-${roleSlug}`;
-      const companyId = companySlug;
       const application = await createApplication({
         companyId,
-        jobId,
+        jobId: currentJobId,
         userId: userId || undefined,
       });
       const createdId = application?.application?.id || null;
@@ -426,7 +474,7 @@ function InterviewPageContent() {
       log.error(LOG_CATEGORY, "[interview] Failed to create application:", error);
       return null;
     }
-  }, [codingApplicationId, applicationId, companySlug, roleSlug, userId, dispatch]);
+  }, [codingApplicationId, applicationId, companyId, currentJobId, userId, dispatch]);
 
   /**
    * Starts recording immediately after the start flow and creates the coding session.
@@ -469,12 +517,12 @@ function InterviewPageContent() {
       const resolvedApplicationId = await resolveApplicationId();
       if (!resolvedApplicationId) return null;
 
-      if (!companySlug) {
-        throw new Error("companySlug is required to create interview session");
+      if (!companyId) {
+        throw new Error("companyId is required to create interview session");
       }
       const session = await createInterviewSession({
         applicationId: resolvedApplicationId,
-        companyId: companySlug,
+        companyId,
         userId: userId || undefined,
         recordingStartedAt: getActualRecordingStartTime() || undefined,
       });
@@ -493,7 +541,7 @@ function InterviewPageContent() {
     reduxSessionId,
     startRecording,
     resolveApplicationId,
-    companySlug,
+    companyId,
     userId,
     getActualRecordingStartTime,
     setInterviewSessionId,
@@ -585,7 +633,7 @@ function InterviewPageContent() {
   useEffect(() => {
     log.info(LOG_CATEGORY, "[interview] Auto-skip check:", { skipToCoding, userId, showCodingIDE, isStarting, isPreloading, skipScreenShare });
     
-    if (!skipToCoding || !userId || showCodingIDE || isStarting || isPreloading || !companySlug || !roleSlug || skipToCodingStartAttemptedRef.current) return;
+    if (!skipToCoding || !userId || showCodingIDE || isStarting || isPreloading || !companyId || !currentJobId || skipToCodingStartAttemptedRef.current) return;
 
     const initializeCodingSession = async () => {
       try {
@@ -600,12 +648,9 @@ function InterviewPageContent() {
           log.info(LOG_CATEGORY, "[interview] Skipping screen recording (NEXT_PUBLIC_SKIP_SCREEN_SHARE=true)");
           const resolvedApplicationId = await resolveApplicationId();
           if (resolvedApplicationId) {
-            if (!companySlug) {
-              throw new Error("Company slug not initialized from URL");
-            }
             const session = await createInterviewSession({
               applicationId: resolvedApplicationId,
-              companyId: companySlug,
+              companyId,
               userId: userId || undefined,
             });
             activeSessionId = session.interviewSession.id;
@@ -627,16 +672,11 @@ function InterviewPageContent() {
           }
         }
 
-        if (!companySlug || !roleSlug) {
-          throw new Error("Company and role not initialized from URL");
-        }
-        if (!companyName) {
-          throw new Error("companyName is required to start coding session");
-        }
         dispatch(setCompanyContext({
-          companyName,
-          companySlug,
-          roleSlug,
+          companyName: companyName ?? "Interview",
+          companyId,
+          jobId: currentJobId,
+          jobTitle: currentJobTitle,
         }));
         dispatch(setStage({ stage: "coding" }));
         setShowCodingIDE(true);
@@ -654,7 +694,7 @@ function InterviewPageContent() {
     };
 
     initializeCodingSession();
-  }, [skipToCoding, userId, showCodingIDE, isStarting, isPreloading, skipScreenShare, ensureRecordingSession, resolveApplicationId, setInterviewSessionId, dispatch, companyName, companySlug, roleSlug]);
+  }, [skipToCoding, userId, showCodingIDE, isStarting, isPreloading, skipScreenShare, ensureRecordingSession, resolveApplicationId, setInterviewSessionId, dispatch, companyName, companyId, currentJobId, currentJobTitle]);
 
   // STAGE 2: Start interview handler
   const handleStartInterview = async () => {
@@ -838,11 +878,8 @@ function InterviewPageContent() {
 
   // Start coding handler
   const handleStartCoding = () => {
-    if (!companySlug || !roleSlug) {
-      throw new Error("Company and role not initialized from URL");
-    }
-    if (!companyName) {
-      throw new Error("companyName is required to start coding");
+    if (!companyId || !currentJobId) {
+      throw new Error("Interview context is missing companyId or jobId");
     }
     dispatch(setStage({ stage: "coding" }));
     setShowCodingIDE(true);
@@ -852,11 +889,43 @@ function InterviewPageContent() {
   
   // Unified camera visibility control - single source of truth
   const showCamera = !showAnnouncement && currentQuestion !== "";
+  const isDebugModeEnabled = process.env.NEXT_PUBLIC_DEBUG_MODE === "true";
+
+  const handleSignOut = async () => {
+    await signOut({ callbackUrl: "/login" });
+  };
+
+  const role = (session?.user as any)?.role;
+  const settingsPath = role === "COMPANY" ? "/company-dashboard/settings" : "/settings";
 
   if (isPreloading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex items-center justify-center p-4">
         <SfinxSpinner size="lg" title="Loading interview" messages="Setting things up" />
+      </div>
+    );
+  }
+
+  if (entryError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex items-center justify-center p-6">
+        <div className="max-w-lg w-full rounded-3xl border border-red-100 bg-white/90 shadow-xl p-8 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-red-600">
+            <svg className="h-7 w-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-semibold text-gray-900">{entryError.title}</h1>
+          <p className="mt-3 text-sm leading-6 text-gray-600">{entryError.description}</p>
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <Link
+              href="/job-search"
+              className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+            >
+              Back to jobs
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
@@ -1137,15 +1206,6 @@ function InterviewPageContent() {
     );
   }
 
-  const isDebugModeEnabled = process.env.NEXT_PUBLIC_DEBUG_MODE === "true";
-
-  const handleSignOut = async () => {
-    await signOut({ callbackUrl: "/login" });
-  };
-
-  const role = (session?.user as any)?.role;
-  const settingsPath = role === "COMPANY" ? "/company-dashboard/settings" : "/settings";
-
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white flex flex-col relative">
       {/* Interview Header */}
@@ -1387,8 +1447,10 @@ function InterviewPageContent() {
 
 export default function InterviewPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <InterviewPageContent />
-    </Suspense>
+    <AuthGuard requiredRole="CANDIDATE">
+      <Suspense fallback={<div>Loading...</div>}>
+        <InterviewPageContent />
+      </Suspense>
+    </AuthGuard>
   );
 }

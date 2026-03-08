@@ -27,6 +27,7 @@ const springCounter = { duration: 1.2, ease: [0.16, 1, 0.3, 1] } as const;
 interface CompanyJobListItem extends JobGridJob {
     salary: string | null;
     requirements: string | null;
+    interviewUrl: string | null;
     interviewContent: null | {
         id: string;
         backgroundQuestion: string | null;
@@ -195,13 +196,44 @@ interface JobCardProps {
     deleteInFlight: boolean;
 }
 
+function formatJobType(type: string | undefined): string {
+    if (!type) {
+        return "";
+    }
+
+    return type
+        .toLowerCase()
+        .split("_")
+        .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+        .join(" ");
+}
+
 function JobCard({ job, rawJob, index, onEdit, onDelete, onClick, deleteInFlight }: JobCardProps) {
     const hasInterview = rawJob?.interviewContent !== null && rawJob?.interviewContent !== undefined;
-    const hasDescription = Boolean(job.description && job.description.length > 0);
     const hasSalary = Boolean(rawJob?.salary && rawJob.salary.length > 0);
     const hasRequirements = Boolean(rawJob?.requirements && rawJob.requirements.length > 0);
-    const completeness = [hasDescription, hasSalary, hasRequirements, hasInterview].filter(Boolean).length;
-    const completePct = Math.round((completeness / 4) * 100);
+    const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
+    const profileFields = 3;
+    const completeness = [hasSalary, hasRequirements, hasInterview].filter(Boolean).length;
+    const completePct = Math.round((completeness / profileFields) * 100);
+    const interviewUrl = rawJob?.interviewUrl ?? null;
+
+    const handleCopyLink = async (event: React.MouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        if (!interviewUrl) {
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(interviewUrl);
+            setCopyStatus("copied");
+            window.setTimeout(() => setCopyStatus("idle"), 1800);
+        } catch (error) {
+            log.error(LOG_CATEGORY, "Failed to copy interview link:", error);
+            setCopyStatus("error");
+            window.setTimeout(() => setCopyStatus("idle"), 1800);
+        }
+    };
 
     return (
         <motion.div
@@ -214,13 +246,21 @@ function JobCard({ job, rawJob, index, onEdit, onDelete, onClick, deleteInFlight
                 tabIndex={0}
                 onClick={onClick}
                 onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick(); }}
-                className="group glass-card rounded-squircle p-6 text-left w-full relative cursor-pointer"
+                className="group glass-card rounded-squircle p-7 text-left w-full relative cursor-pointer"
                 whileHover={{ scale: 1.02, y: -2 }}
                 whileTap={{ scale: 0.98 }}
                 transition={springHover}
             >
-                {/* Action icons — top right */}
-                <div className="absolute top-4 right-4 flex items-center gap-1.5 z-10">
+                {/* Header */}
+                <div className="mb-5 flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1 pr-2">
+                        <h3 className="text-[1.65rem] font-semibold leading-tight tracking-[-0.02em] text-gray-900 group-hover:text-sfinx-purple transition-colors line-clamp-2">
+                            {job.title}
+                        </h3>
+                    </div>
+
+                    {/* Action icons */}
+                    <div className="flex shrink-0 items-center gap-1.5 pt-1">
                     {/* Delete icon */}
                     <button
                         type="button"
@@ -245,31 +285,10 @@ function JobCard({ job, rawJob, index, onEdit, onDelete, onClick, deleteInFlight
                         </svg>
                     </button>
                 </div>
-
-                {/* Header */}
-                <div className="flex items-start mb-4 pr-10">
-                    <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-sfinx-purple transition-colors mb-1 line-clamp-2">
-                            {job.title}
-                        </h3>
-                        <div className="flex items-center gap-2 flex-wrap">
-                            {/* Active badge */}
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />
-                                Active
-                            </span>
-                            {/* Interview badge */}
-                            {hasInterview && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-sfinx-purple border border-violet-200">
-                                    Interview ready
-                                </span>
-                            )}
-                        </div>
-                    </div>
                 </div>
 
                 {/* Meta row */}
-                <div className="flex flex-wrap gap-x-4 gap-y-1 mb-4 text-sm text-gray-500">
+                <div className="flex flex-wrap gap-x-4 gap-y-2 mb-5 text-sm text-gray-500">
                     {job.location && (
                         <span className="flex items-center gap-1.5">
                             <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -280,11 +299,11 @@ function JobCard({ job, rawJob, index, onEdit, onDelete, onClick, deleteInFlight
                         </span>
                     )}
                     {job.type && (
-                        <span className="flex items-center gap-1.5 capitalize">
+                        <span className="flex items-center gap-1.5">
                             <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            {job.type}
+                            {formatJobType(job.type)}
                         </span>
                     )}
                     {hasSalary && (
@@ -297,12 +316,39 @@ function JobCard({ job, rawJob, index, onEdit, onDelete, onClick, deleteInFlight
                     )}
                 </div>
 
-                {/* Description snippet */}
-                {hasDescription && (
-                    <p className="text-xs text-gray-400 line-clamp-2 mb-4">
-                        {job.description}
+                {/* Interview link block */}
+                <div className="mb-5 rounded-2xl border border-white/70 bg-white/70 p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+                        Interview Link
                     </p>
-                )}
+                    <button
+                        type="button"
+                        onClick={handleCopyLink}
+                        disabled={!interviewUrl}
+                        className="mt-3 flex w-full items-center justify-between gap-3 rounded-xl bg-[#f6f3ff] px-3 py-2.5 text-left transition-all hover:bg-[#f0eaff] disabled:cursor-not-allowed disabled:bg-gray-100"
+                    >
+                        <span className={`min-w-0 truncate font-mono text-[11px] leading-5 ${
+                            interviewUrl ? "text-[#6f5c9a]" : "text-gray-400"
+                        }`}>
+                            {interviewUrl ?? "Interview link unavailable"}
+                        </span>
+                        <span
+                            className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+                                copyStatus === "copied"
+                                    ? "bg-emerald-100 text-emerald-700"
+                                    : copyStatus === "error"
+                                      ? "bg-rose-100 text-rose-700"
+                                      : "bg-white/80 text-[#7c68ab]"
+                            }`}
+                        >
+                            {copyStatus === "copied"
+                                ? "Copied"
+                                : copyStatus === "error"
+                                  ? "Retry"
+                                  : "Tap to copy"}
+                        </span>
+                    </button>
+                </div>
 
                 {/* Completeness bar */}
                 <div className="pt-3 border-t border-white/60 space-y-1.5">
@@ -312,7 +358,7 @@ function JobCard({ job, rawJob, index, onEdit, onDelete, onClick, deleteInFlight
                             completePct === 100 ? "text-emerald-600" :
                             completePct >= 50   ? "text-amber-600"   :
                             "text-gray-400"
-                        }`}>{completeness}/4</span>
+                        }`}>{completeness}/{profileFields}</span>
                     </div>
                     <div className="w-full bg-gray-100 rounded-full h-1.5">
                         <div

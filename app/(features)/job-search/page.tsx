@@ -91,7 +91,12 @@ function JobSearchContent() {
                     setError(null);
 
                     // Prefetch interview scripts for all visible jobs
-                    const allJobs = data.companies.flatMap((c: Company) => c.jobs);
+                    const allJobs = data.companies.flatMap((c: Company) =>
+                        c.jobs.map((job) => ({
+                            id: job.id,
+                            companyId: c.id,
+                        }))
+                    );
                     prefetchInterviewScripts(allJobs);
                 } else {
                     log.error(LOG_CATEGORY, "❌ Response not ok:", response.status, response.statusText);

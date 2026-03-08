@@ -26,7 +26,9 @@ interface JobDetailResponse {
     salary: string | null;
     description: string | null;
     requirements: string | null;
+    interviewUrl: string | null;
     codingCategories?: CodingCategory[];
+    experienceCategories?: ExperienceCategory[];
     company: {
         id: string;
         name: string;
@@ -114,6 +116,7 @@ function CompanyJobDetailContent() {
     const [activeSection, setActiveSection] = useState<string>("details");
     const [expandedSections, setExpandedSections] = useState<string[]>(["details"]);
     const [interviewTab, setInterviewTab] = useState<'experience' | 'coding'>('experience');
+    const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
 
     useEffect(() => {
         const fetchDetail = async () => {
@@ -375,6 +378,22 @@ function CompanyJobDetailContent() {
         }
     };
 
+    const handleCopyInterviewLink = async () => {
+        if (!job?.interviewUrl) {
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(job.interviewUrl);
+            setCopyStatus("copied");
+            window.setTimeout(() => setCopyStatus("idle"), 2000);
+        } catch (err) {
+            log.error(LOG_CATEGORY, "❌ Failed to copy interview link:", err);
+            setCopyStatus("error");
+            window.setTimeout(() => setCopyStatus("idle"), 2000);
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -546,6 +565,52 @@ function CompanyJobDetailContent() {
                             {job.title}
                         </h1>
                     </div>
+
+                    <section className="mb-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="min-w-0 flex-1">
+                                <h2 className="text-lg font-semibold text-gray-900">
+                                    Interview Link
+                                </h2>
+                                <p className="mt-1 text-sm text-gray-600">
+                                    Send this link to candidates so they land directly in this job&apos;s interview flow.
+                                </p>
+                                {job.interviewUrl ? (
+                                    <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 font-mono text-xs text-gray-700 break-all">
+                                        {job.interviewUrl}
+                                    </div>
+                                ) : (
+                                    <div className="mt-4 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500">
+                                        Add interview content to enable a shareable interview link for this job.
+                                    </div>
+                                )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={handleCopyInterviewLink}
+                                    disabled={!job.interviewUrl}
+                                    className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+                                >
+                                    {copyStatus === "copied"
+                                        ? "Copied"
+                                        : copyStatus === "error"
+                                          ? "Copy failed"
+                                          : "Copy link"}
+                                </button>
+                                {job.interviewUrl ? (
+                                    <a
+                                        href={job.interviewUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                                    >
+                                        Open link
+                                    </a>
+                                ) : null}
+                            </div>
+                        </div>
+                    </section>
 
                     {error ? (
                         <div className="mb-6 rounded-xl bg-red-50 border border-red-200 p-4 text-red-700">
@@ -995,4 +1060,3 @@ export default function CompanyJobDetailPage() {
         </AuthGuard>
     );
 }
-

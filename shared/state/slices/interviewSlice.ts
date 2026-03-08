@@ -17,8 +17,11 @@ export type InterviewState = {
     isRecording: boolean;
     stage: InterviewStage | null;
     candidateName?: string;
-    // Company/role context for dynamic prompts and script selection
+    // Company/job context for dynamic prompts, script selection, and redirects
     companyName?: string;
+    companyId?: string;
+    jobId?: string;
+    jobTitle?: string;
     companySlug?: string;
     roleSlug?: string;
     // Interview session ID for persisting conversation data
@@ -50,11 +53,17 @@ const interviewSlice = createSlice({
             state,
             action: PayloadAction<{
                 companyName?: string;
+                companyId?: string;
+                jobId?: string;
+                jobTitle?: string;
                 companySlug?: string;
                 roleSlug?: string;
             }>
         ) => {
             state.companyName = action.payload.companyName;
+            state.companyId = action.payload.companyId;
+            state.jobId = action.payload.jobId;
+            state.jobTitle = action.payload.jobTitle;
             state.companySlug = action.payload.companySlug;
             state.roleSlug = action.payload.roleSlug;
         },
@@ -75,6 +84,9 @@ const interviewSlice = createSlice({
             state.stage = null;
             state.candidateName = undefined;
             state.companyName = undefined;
+            state.companyId = undefined;
+            state.jobId = undefined;
+            state.jobTitle = undefined;
             state.companySlug = undefined;
             state.roleSlug = undefined;
             state.shouldReset = false;
