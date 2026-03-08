@@ -508,7 +508,7 @@ function TelemetryContent() {
           ];
 
     return (
-        <div className="bg-gray-50 h-screen overflow-hidden flex flex-col">
+        <div data-testid="cps-page" className="bg-gray-50 h-screen overflow-hidden flex flex-col">
             {/* Fixed Header */}
             <div className="bg-gray-50">
                 <div className="max-w-7xl mx-auto px-4 pt-4 pb-2">
@@ -544,7 +544,7 @@ function TelemetryContent() {
                                 
                                 {/* Overall Score - just the number */}
                                 {calculatedScore !== null && (
-                                    <div className="text-right flex-shrink-0">
+                                    <div data-testid="cps-overall-score" className="text-right flex-shrink-0">
                                         <span className="text-4xl font-bold text-gray-900 tabular-nums">
                                             {calculatedScore}
                                         </span>
@@ -560,7 +560,7 @@ function TelemetryContent() {
                                     <h2 className="text-lg font-medium text-gray-900 mb-2">
                                         Candidate Profile Story
                                     </h2>
-                                    <p className="text-sm text-gray-700 leading-relaxed">
+                                    <p data-testid="cps-candidate-story" className="text-sm text-gray-700 leading-relaxed">
                                         {renderStoryWithEmphasis()}
                                     </p>
                                 </div>
@@ -641,7 +641,7 @@ function TelemetryContent() {
                                 {summaryLoading ? (
                                     <p className="text-sm text-gray-600">Loading...</p>
                                 ) : (
-                                    <div className="space-y-3">
+                                    <div data-testid="cps-experience-section" className="space-y-3">
                                         <ExperienceMetrics
                                             backgroundSummary={backgroundSummary}
                                             experienceCategories={activeSession?.application?.job?.experienceCategories as any}
@@ -679,7 +679,7 @@ function TelemetryContent() {
                         </div>
                         
                         {/* Right Panel - Video */}
-                        <div className="w-full h-full">
+                        <div data-testid="cps-evidence-reel" className="w-full h-full">
                             {videoUrl ? (
                                 <EvidenceReel
                                     jumpToTime={currentVideoTime}

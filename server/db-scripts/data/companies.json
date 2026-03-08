@@ -4,11 +4,26 @@
     "name": "Meta",
     "logo": "/logos/meta-logo.png",
     "industry": "Social Media",
-    "locations": ["Menlo Park, CA", "Seattle, WA", "New York, NY", "Remote"],
+    "locations": [
+      "Menlo Park, CA",
+      "Seattle, WA",
+      "New York, NY",
+      "Remote"
+    ],
     "size": "large",
-    "cultureTags": ["Innovation", "Global Impact", "Fast-paced", "Tech-forward"],
+    "cultureTags": [
+      "Innovation",
+      "Global Impact",
+      "Fast-paced",
+      "Tech-forward"
+    ],
     "openRoles": [
-      { "title": "Frontend Engineer", "type": "full-time", "location": "Menlo Park, CA", "salary": "$160k - $230k" }
+      {
+        "title": "Frontend Engineer",
+        "type": "full-time",
+        "location": "Menlo Park, CA",
+        "salary": "$160k - $230k"
+      }
     ]
   },
   {
@@ -16,11 +31,24 @@
     "name": "QM",
     "logo": "/logos/qm-logo.png",
     "industry": "Quantum Computing",
-    "locations": ["Tel Aviv, Israel", "Remote"],
+    "locations": [
+      "Tel Aviv, Israel",
+      "Remote"
+    ],
     "size": "startup",
-    "cultureTags": ["Innovation", "Research-driven", "Cutting-edge Technology", "Open Source"],
+    "cultureTags": [
+      "Innovation",
+      "Research-driven",
+      "Cutting-edge Technology",
+      "Open Source"
+    ],
     "openRoles": [
-      { "title": "Senior Python Engineer", "type": "full-time", "location": "Tel Aviv, Israel", "salary": "$140k - $200k" }
+      {
+        "title": "Senior Python Engineer",
+        "type": "full-time",
+        "location": "Tel Aviv, Israel",
+        "salary": "$140k - $200k"
+      }
     ]
   },
   {
@@ -28,11 +56,20 @@
     "name": "AxonPulse",
     "logo": "/logos/axonpulse-logo.png",
     "industry": "AI/Machine Learning",
-    "locations": ["Tel Aviv, Israel"],
+    "locations": [
+      "Tel Aviv, Israel"
+    ],
     "size": "startup",
-    "cultureTags": ["Innovation"],
+    "cultureTags": [
+      "Innovation"
+    ],
     "openRoles": [
-      { "title": "Deep Learning Engineer", "type": "full-time", "location": "Remote", "salary": "$120k - $180k" }
+      {
+        "title": "Deep Learning Engineer",
+        "type": "full-time",
+        "location": "Remote",
+        "salary": "$120k - $180k"
+      }
     ]
   },
   {
@@ -40,12 +77,20 @@
     "name": "Uvision",
     "logo": "/logos/uvision-logo.png",
     "industry": "Aerospace & Defense",
-    "locations": ["Yavne, Israel", "Remote"],
+    "locations": [
+      "Yavne, Israel",
+      "Remote"
+    ],
     "size": "medium",
-    "cultureTags": ["Innovation", "Mission-driven", "Cutting-edge Technology", "Defense Industry"],
+    "cultureTags": [
+      "Innovation",
+      "Mission-driven",
+      "Cutting-edge Technology",
+      "Defense Industry"
+    ],
     "openRoles": [
       {
-        "title": "RT Embedded Software Developer",
+        "title": "R.T. Embedded Software Developer",
         "type": "full-time",
         "location": "Remote",
         "salary": "$120k - $180k",

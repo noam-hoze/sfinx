@@ -60,7 +60,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // so no company-auth check is needed here (same skip-auth pattern used elsewhere).
     const interviewSession = await prisma.interviewSession.findUnique({
         where: { id: sessionId },
-        select: { id: true, status: true },
+        select: { id: true, status: true, candidateId: true },
     });
 
     if (!interviewSession) {
@@ -69,7 +69,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
             { status: 404 }
         );
     }
-
     if (interviewSession.status === "PROCESSING" || interviewSession.status === "COMPLETED") {
         // Idempotent: don't re-process an already in-flight or finished session.
         return NextResponse.json({ status: interviewSession.status }, { status: 202 });
@@ -101,7 +100,28 @@ export async function POST(request: NextRequest, context: RouteContext) {
         log.info(LOG_CATEGORY, `[Process] Starting background processing for session ${sessionId}`);
 
         // ------------------------------------------------------------------ //
-        // Step 1 — Coding gaps
+        // Step 1 — Background summary (server owns this; client only saves messages)
+        // ------------------------------------------------------------------ //
+        try {
+            const res = await fetch(
+                `${baseUrl}/api/interviews/session/${sessionId}/background-summary?skip-auth=true`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ userId: interviewSession.candidateId }),
+                }
+            );
+            if (res.ok) {
+                log.info(LOG_CATEGORY, `[Process] ✅ Background summary generated for ${sessionId}`);
+            } else {
+                log.error(LOG_CATEGORY, `[Process] ❌ Background summary failed: ${res.status} ${await res.text().catch(() => "")}`);
+            }
+        } catch (err) {
+            log.error(LOG_CATEGORY, `[Process] ❌ Background summary error:`, err);
+        }
+
+        // ------------------------------------------------------------------ //
+        // Step 2 — Coding gaps
         // ------------------------------------------------------------------ //
         try {
             const res = await fetch(`${baseUrl}/api/interviews/generate-coding-gaps`, {
@@ -119,7 +139,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         }
 
         // ------------------------------------------------------------------ //
-        // Step 2 — Coding summary
+        // Step 3 — Coding summary
         // ------------------------------------------------------------------ //
         try {
             const res = await fetch(`${baseUrl}/api/interviews/generate-coding-summary`, {
@@ -137,7 +157,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         }
 
         // ------------------------------------------------------------------ //
-        // Step 3 — Code quality analysis
+        // Step 4 — Code quality analysis
         // ------------------------------------------------------------------ //
         try {
             const res = await fetch(
@@ -154,7 +174,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         }
 
         // ------------------------------------------------------------------ //
-        // Step 4 — Job-specific coding evaluation + coding-summary update
+        // Step 5 — Job-specific coding evaluation + coding-summary update
         // ------------------------------------------------------------------ //
         try {
             const evalRes = await fetch(`${baseUrl}/api/interviews/evaluate-job-specific-coding`, {
@@ -169,7 +189,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
                     sessionId,
                 }),
             });
-
             if (evalRes.ok) {
                 const evalData = await evalRes.json();
                 log.info(LOG_CATEGORY, `[Process] ✅ Job-specific eval done for ${sessionId}`);
@@ -206,7 +225,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         }
 
         // ------------------------------------------------------------------ //
-        // Step 5 — Profile story
+        // Step 6 — Profile story
         // ------------------------------------------------------------------ //
         try {
             const res = await fetch(`${baseUrl}/api/interviews/generate-profile-story`, {

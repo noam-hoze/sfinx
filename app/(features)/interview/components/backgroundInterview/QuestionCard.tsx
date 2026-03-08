@@ -536,7 +536,7 @@ export default function QuestionCard({
               >
                 {/* Question Section */}
                 <div className="p-8 pb-6 w-full min-h-[120px]">
-                  <p className="text-2xl text-gray-800 leading-relaxed font-light text-left w-full">
+                  <p data-testid="question-text" className="text-2xl text-gray-800 leading-relaxed font-light text-left w-full">
                     {questionAnimationEnabled ? displayedWords.join(" ") : question || "Loading question..."}
                   </p>
                   {ttsError && (
@@ -645,6 +645,7 @@ export default function QuestionCard({
                   className="overflow-hidden"
                 >
                   <textarea
+                    data-testid="answer-input"
                     value={answer}
                     onChange={(e) => setAnswer(e.target.value)}
                     onKeyDown={handleKeyDown}
@@ -701,6 +702,7 @@ export default function QuestionCard({
 
               {/* Keyboard Toggle Button */}
               <button
+                data-testid="toggle-text-input"
                 onClick={toggleTextInput}
                 disabled={loading}
                 className="p-3 bg-white border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -717,6 +719,7 @@ export default function QuestionCard({
 
               {/* Submit Button (Right Arrow) - always visible */}
               <button
+                data-testid="submit-answer-btn"
                 onClick={handleSubmit}
                 disabled={loading || isRecording || isTranscribing}
                 className="ml-auto p-3 bg-white border-2 border-gray-300 text-gray-600 rounded-lg hover:border-sfinx-purple hover:text-sfinx-purple disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
