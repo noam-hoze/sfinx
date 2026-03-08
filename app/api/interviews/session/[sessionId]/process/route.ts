@@ -8,18 +8,87 @@
  *  1. Validate request and session ownership.
  *  2. Mark session status → "PROCESSING".
  *  3. Return HTTP 202 immediately so the candidate's browser is unblocked.
- *  4. Execute all five processing steps after the response is flushed (using
+ *  4. Execute all six processing steps after the response is flushed (using
  *     Next.js `after()`). Each step is individually try/caught so one failure
  *     does not abort the rest.
- *  5. Mark session status → "COMPLETED" when all steps finish.
+ *  5. Persist finalScore to InterviewSession before marking COMPLETED.
+ *  6. Mark session status → "COMPLETED" when all steps finish.
  */
 
 import { NextRequest, NextResponse, after } from "next/server";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+import {
+    calculateScore,
+    type RawScores,
+    type WorkstyleMetrics,
+    type ScoringConfiguration,
+} from "app/shared/utils/calculateScore";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
+
+/** Fetches session data required for final score calculation. */
+async function fetchSessionForScoring(sessionId: string) {
+    return prisma.interviewSession.findUnique({
+        where: { id: sessionId },
+        include: {
+            application: {
+                include: {
+                    job: { include: { scoringConfiguration: true } },
+                },
+            },
+            telemetryData: {
+                include: { backgroundSummary: true, codingSummary: true },
+            },
+        },
+    });
+}
+
+/** Builds RawScores from session background and coding summaries. */
+function buildRawScores(
+    session: NonNullable<Awaited<ReturnType<typeof fetchSessionForScoring>>>
+): RawScores {
+    const job = session.application?.job;
+    const bgCats = (session.telemetryData?.backgroundSummary?.experienceCategories as any) ?? {};
+    const codingCats = (session.telemetryData?.codingSummary?.jobSpecificCategories as any) ?? {};
+    const experienceScores = ((job?.experienceCategories as any) ?? []).map((c: any) => ({
+        name: c.name, score: bgCats[c.name]?.score ?? 0, weight: c.weight ?? 1,
+    }));
+    const categoryScores = ((job?.codingCategories as any) ?? []).map((c: any) => ({
+        name: c.name, score: codingCats[c.name]?.score ?? 0, weight: c.weight ?? 1,
+    }));
+    return { experienceScores, categoryScores };
+}
+
+/**
+ * Calculates and persists finalScore for a completed session.
+ * Uses the same logic as the telemetry API so the applicants table score
+ * matches what the CPS page displays. Defaults to 0 if data is unavailable.
+ */
+async function persistFinalScore(sessionId: string): Promise<void> {
+    const session = await fetchSessionForScoring(sessionId);
+    const scoringConfig = session?.application?.job?.scoringConfiguration;
+    const hasSummaries = !!(
+        session?.telemetryData?.backgroundSummary && session.telemetryData.codingSummary
+    );
+
+    let finalScore = 0;
+    if (scoringConfig && hasSummaries) {
+        const tools = await prisma.externalToolUsage.findMany({
+            where: { interviewSessionId: sessionId },
+            select: { accountabilityScore: true },
+        });
+        const avgScore = tools.length > 0
+            ? tools.reduce((sum, t) => sum + t.accountabilityScore, 0) / tools.length
+            : undefined;
+        const workstyleMetrics: WorkstyleMetrics = { aiAssistAccountabilityScore: avgScore };
+        const result = calculateScore(buildRawScores(session!), workstyleMetrics, scoringConfig as ScoringConfiguration);
+        finalScore = result.finalScore;
+    }
+
+    await prisma.interviewSession.update({ where: { id: sessionId }, data: { finalScore } });
+}
 
 type RouteContext = {
     params: Promise<{ sessionId?: string | string[] }>;
@@ -221,6 +290,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
             }
         } catch (err) {
             log.error(LOG_CATEGORY, `[Process] ❌ Profile story error:`, err);
+        }
+
+        // ------------------------------------------------------------------ //
+        // Step 6 — Persist final score
+        // Uses the same calculation logic as the telemetry API so the
+        // applicants table score matches what the CPS page displays.
+        // Runs after all AI steps so summaries are guaranteed to be written.
+        // ------------------------------------------------------------------ //
+        try {
+            await persistFinalScore(sessionId);
+            log.info(LOG_CATEGORY, `[Process] ✅ Final score persisted for ${sessionId}`);
+        } catch (err) {
+            log.error(LOG_CATEGORY, `[Process] ❌ Final score persistence error:`, err);
         }
 
         // ------------------------------------------------------------------ //
