@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import Editor, { DiffEditor } from "@monaco-editor/react";
-import { Play, RotateCcw } from "lucide-react";
+import { Lock, Play, RotateCcw } from "lucide-react";
 import CodePreview from "./CodePreview";
 import { log } from "../../../../shared/services";
 
@@ -75,6 +75,10 @@ interface EditorPanelProps {
     }) => void;
     isCameraOn?: boolean;
     selfVideoRef?: React.RefObject<HTMLVideoElement>;
+    freezeState?: {
+        isFrozen: boolean;
+        answeredFollowups: number;
+    };
 }
 
 const EditorPanel: React.FC<EditorPanelProps> = ({
@@ -100,6 +104,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     onExecutionResult,
     isCameraOn = false,
     selfVideoRef,
+    freezeState,
 }) => {
     if (propCurrentCode === undefined) {
         throw new Error("EditorPanel requires currentCode");
@@ -381,11 +386,17 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
     );
 
     const runCode = () => {
+        if (freezeState?.isFrozen) {
+            return;
+        }
         // Trigger the preview tab creation and switching
         if (onRunCode) {
             onRunCode();
         }
     };
+
+    const isEditorFrozen = Boolean(freezeState?.isFrozen);
+    const effectiveReadOnly = readOnly || isEditorFrozen;
 
     if (showDiff) {
         return (
@@ -462,12 +473,18 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                     {availableTabs.map((tab) => (
                         <button
                             key={tab}
-                            onClick={() => onTabSwitch?.(tab)}
+                            onClick={() => {
+                                if (isEditorFrozen) {
+                                    return;
+                                }
+                                onTabSwitch?.(tab);
+                            }}
+                            disabled={isEditorFrozen}
                             className={`px-3 py-1 text-sm font-medium rounded ${
                                 activeTab === tab
                                     ? "bg-gray-100 text-deep-slate dark:bg-gray-700 dark:text-white"
                                     : "text-gray-600 hover:text-deep-slate hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700"
-                            }`}
+                            } ${isEditorFrozen ? "opacity-60 cursor-not-allowed" : ""}`}
                         >
                             {tab === "editor" ? (fileName || "code") : "Preview"}
                         </button>
@@ -476,8 +493,13 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                 <div className="flex items-center space-x-2">
                     <button
                         onClick={runCode}
-                        className="p-2 text-sm bg-sfinx-purple text-white rounded hover:opacity-90 transition-all duration-200 hover:shadow-sm transform hover:scale-[1.02] flex items-center"
-                        title="Run Code"
+                        disabled={isEditorFrozen}
+                        className={`p-2 text-sm rounded transition-all duration-200 flex items-center ${
+                            isEditorFrozen
+                                ? "bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400"
+                                : "bg-sfinx-purple text-white hover:opacity-90 hover:shadow-sm transform hover:scale-[1.02]"
+                        }`}
+                        title={isEditorFrozen ? "Answer the follow-up questions in chat to continue coding" : "Run Code"}
                     >
                         <Play className="w-4 h-4" />
                     </button>
@@ -504,7 +526,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                             wordWrap: "on",
                             tabSize: 2,
                             insertSpaces: true,
-                            readOnly: readOnly,
+                            readOnly: effectiveReadOnly,
                         }}
                     />
                 ) : (
@@ -515,6 +537,27 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                         language={language}
                         onExecutionResult={onExecutionResult}
                     />
+                )}
+
+                {isEditorFrozen && (
+                    <div className="absolute inset-0 z-20 flex items-center justify-center bg-sfinx-purple/10 backdrop-blur-[2px] pointer-events-none">
+                        <div className="max-w-md mx-6 rounded-squircle-sm border border-sfinx-purple/20 bg-white/95 dark:bg-gray-900/95 shadow-lg px-5 py-4 text-center">
+                            <div className="w-10 h-10 mx-auto mb-3 rounded-full bg-sfinx-purple/15 text-sfinx-purple flex items-center justify-center">
+                                <Lock className="w-5 h-5" />
+                            </div>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                Quick reflection break
+                            </p>
+                            <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                                Please answer the follow-up prompts in chat before continuing.
+                                {typeof freezeState?.answeredFollowups === "number" && freezeState.answeredFollowups > 0 && (
+                                    <span className="block mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                        Progress: {freezeState.answeredFollowups} response{freezeState.answeredFollowups === 1 ? "" : "s"} submitted.
+                                    </span>
+                                )}
+                            </p>
+                        </div>
+                    </div>
                 )}
 
                 {/* Camera Feed in Bottom Right */}
