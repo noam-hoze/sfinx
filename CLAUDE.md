@@ -93,6 +93,8 @@ Sfinx is an AI-powered autonomous technical screening interview system. It condu
 - Use descriptive commit messages
 - Keep commits focused and atomic
 - Reference issue numbers in commits when applicable
+- After every commit, update the project version according to semantic versioning (semver).
+- After every commit, update `CHANGELOG.md` to record the shipped change.
 - **Never commit or push without explicit user approval.** Always show a summary of changes and wait for the user to say "commit" or "push" before running those commands.
 
 ### Dependencies
