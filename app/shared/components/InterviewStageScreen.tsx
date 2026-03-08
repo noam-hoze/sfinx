@@ -9,6 +9,7 @@ type InterviewStageScreenProps = {
   ctaText: string;
   ctaDisabled?: boolean;
   bgGradient?: string;
+  loading?: boolean;
 };
 
 export default function InterviewStageScreen({
@@ -17,11 +18,15 @@ export default function InterviewStageScreen({
   ctaText,
   ctaDisabled = false,
   bgGradient = "from-purple-50 to-white",
+  loading,
 }: InterviewStageScreenProps) {
-  const [isLoading, setIsLoading] = useState(false);
+  const [internalIsLoading, setInternalIsLoading] = useState(false);
+  const isLoading = loading !== undefined ? loading : internalIsLoading;
 
   const handleSubmit = () => {
-    setIsLoading(true);
+    if (loading === undefined) {
+      setInternalIsLoading(true);
+    }
     onSubmit();
   };
 
@@ -29,9 +34,9 @@ export default function InterviewStageScreen({
     <div className={`min-h-screen bg-gradient-to-b ${bgGradient} flex items-center justify-center p-4`}>
       <motion.div 
         className="max-w-2xl w-full"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: isLoading ? 0 : 1 }}
-        transition={{ duration: 0.5 }}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
       >
         {children}
 

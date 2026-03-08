@@ -13,6 +13,7 @@ type PreInterviewScreenProps = {
   onStartInterview: () => void;
   backgroundTimeMinutes: number;
   notice?: PreInterviewNotice | null;
+  loading?: boolean;
 };
 
 /**
@@ -23,12 +24,14 @@ export default function PreInterviewScreen({
   onStartInterview,
   backgroundTimeMinutes,
   notice,
+  loading,
 }: PreInterviewScreenProps) {
   return (
     <InterviewStageScreen
       onSubmit={onStartInterview}
       ctaText="Start Interview"
       bgGradient="from-purple-50 to-white"
+      loading={loading}
     >
       {/* Welcome Message */}
       <div className="flex flex-col items-center mb-4">

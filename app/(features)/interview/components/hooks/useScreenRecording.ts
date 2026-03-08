@@ -265,17 +265,17 @@ export const useScreenRecording = () => {
 
             return true;
         } catch (error) {
-            log.error(LOG_CATEGORY, "❌ Error requesting recording permission:", error);
+            if (error instanceof Error && error.name === "NotAllowedError") {
+                log.info(LOG_CATEGORY, "ℹ️ User cancelled screen recording or microphone permission request");
+            } else {
+                log.error(LOG_CATEGORY, "❌ Error requesting recording permission:", error);
 
-            if (error instanceof Error) {
-                if (error.name === "NotAllowedError") {
-                    log.error(LOG_CATEGORY, 
-                        "❌ Permission denied for screen recording or microphone"
-                    );
-                } else if (error.name === "NotFoundError") {
-                    log.error(LOG_CATEGORY, "❌ No screen or microphone found");
-                } else if (error.name === "NotReadableError") {
-                    log.error(LOG_CATEGORY, "❌ Screen or microphone is already in use");
+                if (error instanceof Error) {
+                    if (error.name === "NotFoundError") {
+                        log.error(LOG_CATEGORY, "❌ No screen or microphone found");
+                    } else if (error.name === "NotReadableError") {
+                        log.error(LOG_CATEGORY, "❌ Screen or microphone is already in use");
+                    }
                 }
             }
 
