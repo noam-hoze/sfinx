@@ -32,7 +32,6 @@ Paste detection: **disabled** — see ARCH-002 in `docs/open-issues.md`.
 |---|---|---|
 | `NEXT_PUBLIC_AUTOMATIC_MODE` | true | Submit button appears on IDE load |
 | `NEXT_PUBLIC_USE_SPLIT_EVALUATION` | true | 3-call background eval architecture |
-| `NEXT_PUBLIC_CONTRIBUTIONS_TARGET` | 5 | confidence = min(1.0, count / 5) |
 | `NEXT_PUBLIC_CODE_EVALUATION_THROTTLE_MS` | 3000 | Min ms between coding evaluations |
 | `NEXT_PUBLIC_OPENAI_EVALUATION_MODEL` | gpt-4o-mini | Model for all evaluations |
 | `NEXT_PUBLIC_SKIP_SCREEN_SHARE` | true | Skips screen share prompt |

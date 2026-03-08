@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "lib/prisma";
 import { log } from "app/shared/services";
-import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
+import { requireBackgroundContributionsTarget } from "@/shared/constants/interview";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
@@ -22,7 +22,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
             include: {
                 application: {
                     include: {
-                        job: true,
+                        job: {
+                            include: {
+                                scoringConfiguration: true,
+                            },
+                        },
                     },
                 },
             },
@@ -32,7 +36,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
             return NextResponse.json({ error: "Session not found" }, { status: 404 });
         }
 
-        const jobCategories = (session.application.job.experienceCategories as any[]) || [];
+        const job = session.application?.job;
+        if (!job) {
+            return NextResponse.json({ error: "Job not found for session" }, { status: 404 });
+        }
+
+        const target = requireBackgroundContributionsTarget(
+            job.scoringConfiguration,
+            `interview session ${sessionId}`
+        );
+        const jobCategories = (job.experienceCategories as any[]) || [];
 
         const contributions = await prisma.categoryContribution.findMany({
             where: { interviewSessionId: sessionId },
@@ -53,7 +66,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
             const rawAverage = contribs.length > 0
                 ? contribs.reduce((sum, c) => sum + c.contributionStrength, 0) / contribs.length
                 : 0;
-            const confidence = Math.min(1.0, contribs.length / CONTRIBUTIONS_TARGET);
+            const confidence = Math.min(1.0, contribs.length / target);
             const adjustedScore = Math.round(rawAverage * confidence);
             
             return {
@@ -81,4 +94,3 @@ export async function GET(request: NextRequest, context: RouteContext) {
         );
     }
 }
-

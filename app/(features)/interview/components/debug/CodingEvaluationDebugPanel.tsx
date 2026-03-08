@@ -6,7 +6,6 @@ import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
 
 import React, { useState, useEffect, useMemo } from "react";
-import { MAX_PASTE_EVAL_ANSWERS } from "../chat/OpenAITextConversation";
 import { SfinxSpinner } from "app/shared/components";
 import RealTimeContributionsView from "app/shared/components/debug/RealTimeContributionsView";
 import { transformCodingDataToRealtime } from "./transformers/codingDataTransformer";
@@ -14,7 +13,6 @@ import ScoreProgressDisplay from "app/shared/components/debug/ScoreProgressDispl
 import { calculateScore } from "app/shared/utils/calculateScore";
 import { useSelector } from "react-redux";
 import { RootState } from "@/shared/state/store";
-import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
 import { useInterview } from "app/shared/contexts/interview-context";
 
 interface CodingEvaluationDebugPanelProps {
@@ -82,6 +80,8 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
         experienceWeight: number;
         codingWeight: number;
         aiAssistWeight: number;
+        backgroundContributionsTarget: number;
+        codingContributionsTarget: number;
     } | null>(null);
 
     // Track interview submission state to stop polling
@@ -147,6 +147,8 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                         experienceWeight: data.config.experienceWeight,
                         codingWeight: data.config.codingWeight,
                         aiAssistWeight: data.config.aiAssistWeight,
+                        backgroundContributionsTarget: data.config.backgroundContributionsTarget,
+                        codingContributionsTarget: data.config.codingContributionsTarget,
                     });
                 }
             } catch (err) {
@@ -194,7 +196,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
             const rawAvg = strengths.length > 0 
                 ? strengths.reduce((sum, s) => sum + s, 0) / strengths.length 
                 : 0;
-            const confidence = Math.min(1.0, strengths.length / CONTRIBUTIONS_TARGET);
+            const confidence = Math.min(1.0, strengths.length / scoringConfig.codingContributionsTarget);
             const score = Math.round(rawAvg * confidence);
             
             return {
@@ -340,10 +342,11 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                     <RealTimeContributionsView
                         {...transformCodingDataToRealtime(
                             evaluationData?.realtimeContributions || [],
-                            nextEvaluationTime,
+                            nextEvaluationTime ?? null,
                             evaluationThrottleMs,
                             jobCategories || undefined
                         )}
+                        contributionsTarget={scoringConfig?.codingContributionsTarget}
                     />
                 )}
 

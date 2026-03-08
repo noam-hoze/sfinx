@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "app/shared/services/auth";
 import { log } from "app/shared/services";
 import OpenAI from "openai";
+import { Prisma } from "@prisma/client";
 import {
     buildBackgroundSummaryPrompt,
     SUMMARY_MODEL,
@@ -10,7 +11,7 @@ import {
     type SummaryOutput,
 } from "@/shared/prompts/backgroundSummaryPrompt";
 import prisma from "lib/prisma";
-import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
+import { requireBackgroundContributionsTarget } from "@/shared/constants/interview";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
@@ -213,6 +214,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
                         job: {
                             include: {
                                 company: true,
+                                scoringConfiguration: true,
                             },
                         },
                     },
@@ -228,6 +230,20 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 { status: 404 }
             );
         }
+
+        const job = interviewSession.application?.job;
+        if (!job) {
+            return NextResponse.json(
+                { error: "Job not found for interview session" },
+                { status: 404 }
+            );
+        }
+
+        const telemetryData = interviewSession.telemetryData!;
+        const target = requireBackgroundContributionsTarget(
+            job.scoringConfiguration,
+            `interview session ${sessionId}`
+        );
 
         log.info(LOG_CATEGORY, "[background-summary/POST] ✅ Interview session found:", interviewSession.id);
         log.info(LOG_CATEGORY, "[background-summary/POST] Has telemetryData:", !!interviewSession.telemetryData);
@@ -256,7 +272,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         log.info(LOG_CATEGORY, "[background-summary/POST] Request body:", { scores, rationales, companyName, roleName });
 
         // Get experience categories from job
-        const experienceCategoryDefinitions = (interviewSession.application.job.experienceCategories as any) || [];
+        const experienceCategoryDefinitions = (job.experienceCategories as any) || [];
         
         if (!experienceCategoryDefinitions || experienceCategoryDefinitions.length === 0) {
             log.error(LOG_CATEGORY, "[background-summary/POST] ❌ No experience categories defined for job");
@@ -301,9 +317,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
             experienceCategories: experienceCategoryDefinitions,
             scores,
             rationales,
-            companyName:
-                companyName || interviewSession.application.job.company.name,
-            roleName: roleName || interviewSession.application.job.title,
+            companyName: companyName || job.company.name,
+            roleName: roleName || job.title,
             finalScore: interviewSession.finalScore ?? undefined, // Pass final score if available
         });
 
@@ -416,7 +431,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             const rawAverage =
                 contribs.reduce((sum, c) => sum + c.contributionStrength, 0) / contribs.length;
 
-            const confidence = Math.min(1.0, contribs.length / CONTRIBUTIONS_TARGET);
+            const confidence = Math.min(1.0, contribs.length / target);
             const adjustedScore = Math.round(rawAverage * confidence);
 
             log.info(LOG_CATEGORY, `[background-summary/POST] ${categoryName}: ${contribs.length} contributions, raw avg=${Math.round(rawAverage)}, confidence=${confidence.toFixed(2)}, adjusted=${adjustedScore}`);
@@ -450,8 +465,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 speaker: m.speaker,
                 text: m.text,
                 timestamp: m.timestamp.getTime(),
-            })),
-            evidenceJson: summaryData,
+            })) as Prisma.InputJsonValue,
+            evidenceJson: summaryData as unknown as Prisma.InputJsonValue,
         };
 
 
@@ -461,7 +476,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             },
             update: summaryDbData,
             create: {
-                telemetryDataId: interviewSession.telemetryData.id,
+                telemetryDataId: telemetryData.id,
                 ...summaryDbData,
             },
         });
@@ -564,7 +579,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             // Use actual recording start time, not when telemetryData was created
             const recordingStart = interviewSession.recordingStartedAt
                 ? new Date(interviewSession.recordingStartedAt)
-                : interviewSession.telemetryData.createdAt;
+                : telemetryData.createdAt;
 
             log.info(LOG_CATEGORY, `[background-summary/POST] Creating clips for category: ${categoryName}`);
 
@@ -598,7 +613,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 const clip = await prisma.evidenceClip.create({
                     data: {
                         telemetryData: {
-                            connect: { id: interviewSession.telemetryData.id }
+                            connect: { id: telemetryData.id }
                         },
                         category: 'EXPERIENCE_CATEGORY',
                         categoryName: categoryName,

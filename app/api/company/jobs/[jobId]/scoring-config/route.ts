@@ -5,6 +5,10 @@ import prisma from "lib/prisma";
 import { log } from "app/shared/services";
 import { loadCompanyForUser } from "../../companyContext";
 import { ensureCompanyRole } from "../../companyAuth";
+import {
+    buildScoringConfigValues,
+    validateScoringConfigInput,
+} from "../../scoringConfigHelpers";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.COMPANY;
@@ -20,7 +24,7 @@ function normalizeJobId(jobId: string | string[] | undefined): string {
 
 /**
  * GET /api/company/jobs/[jobId]/scoring-config
- * Fetch scoring configuration for a job (create default if doesn't exist)
+ * Fetch scoring configuration for a job.
  */
 export async function GET(request: NextRequest, context: RouteContext) {
     try {
@@ -45,16 +49,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 return NextResponse.json({ error: "Job not found" }, { status: 404 });
             }
 
-            // If no configuration exists, create default
-            let config = job.scoringConfiguration;
-            if (!config) {
-                config = await prisma.scoringConfiguration.create({
-                    data: { jobId },
-                });
-                log.info(LOG_CATEGORY, `[scoring-config/GET] Created default configuration for job ${jobId}`);
+            if (!job.scoringConfiguration) {
+                log.error(LOG_CATEGORY, `[scoring-config/GET] Missing scoring configuration for job ${jobId}`);
+                return NextResponse.json(
+                    { error: "Job scoring configuration is missing" },
+                    { status: 500 }
+                );
             }
 
-            return NextResponse.json({ config });
+            return NextResponse.json({ config: job.scoringConfiguration });
         }
 
     // Regular authenticated mode
@@ -83,16 +86,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // If no configuration exists, create default
-    let config = job.scoringConfiguration;
-        if (!config) {
-            config = await prisma.scoringConfiguration.create({
-                data: { jobId },
-            });
-            log.info(LOG_CATEGORY, `[scoring-config/GET] Created default configuration for job ${jobId}`);
+        if (!job.scoringConfiguration) {
+            log.error(LOG_CATEGORY, `[scoring-config/GET] Missing scoring configuration for job ${jobId}`);
+            return NextResponse.json(
+                { error: "Job scoring configuration is missing" },
+                { status: 500 }
+            );
         }
 
-        return NextResponse.json({ config });
+        return NextResponse.json({ config: job.scoringConfiguration });
     } catch (error: any) {
         log.error(LOG_CATEGORY, "[scoring-config/GET] Error:", error);
         const message =
@@ -141,57 +143,18 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        // Validate weights are positive numbers
-        const weightFields = [
-            'aiAssistWeight',
-            'experienceWeight',
-            'codingWeight',
-        ];
-
-        for (const field of weightFields) {
-            if (body[field] !== undefined) {
-                const value = Number(body[field]);
-                if (isNaN(value) || value < 0) {
-                    return NextResponse.json(
-                        { error: `${field} must be a positive number` },
-                        { status: 400 }
-                    );
-                }
-            }
-        }
-
-        // Validate category weights sum to 100 (with tolerance for floating point)
-        if (body.experienceWeight !== undefined && body.codingWeight !== undefined) {
-            const sum = Number(body.experienceWeight) + Number(body.codingWeight);
-            if (Math.abs(sum - 100) > 0.01) {
-                return NextResponse.json(
-                    { error: "Experience weight and coding weight must sum to 100" },
-                    { status: 400 }
-                );
-            }
-        }
-
-        // Validate thresholds are sensible
-        if (
-            body.iterationSpeedThresholdModerate !== undefined &&
-            body.iterationSpeedThresholdHigh !== undefined
-        ) {
-            const moderate = Number(body.iterationSpeedThresholdModerate);
-            const high = Number(body.iterationSpeedThresholdHigh);
-            if (moderate >= high) {
-                return NextResponse.json(
-                    { error: "Iteration speed moderate threshold must be less than high threshold" },
-                    { status: 400 }
-                );
-            }
+        const validationError = validateScoringConfigInput(body);
+        if (validationError) {
+            return NextResponse.json({ error: validationError }, { status: 400 });
         }
 
         // Build update data
+        const weightFields = ["aiAssistWeight", "experienceWeight", "codingWeight"];
         const updates: any = {};
         const updateableFields = [
             ...weightFields,
-            'iterationSpeedThresholdModerate',
-            'iterationSpeedThresholdHigh',
+            "backgroundContributionsTarget",
+            "codingContributionsTarget",
         ];
 
         for (const field of updateableFields) {
@@ -205,6 +168,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             where: { jobId },
             create: {
                 jobId,
+                ...buildScoringConfigValues(),
                 ...updates,
             },
             update: updates,

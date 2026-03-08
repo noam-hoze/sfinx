@@ -4,7 +4,7 @@ import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import prisma from "lib/prisma";
 import OpenAI from "openai";
 import { createVideoChapter } from "../shared/createVideoChapter";
-import { CONTRIBUTIONS_TARGET } from "shared/constants/interview";
+import { requireBackgroundContributionsTarget } from "shared/constants/interview";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
                         job: {
                             include: {
                                 company: true,
+                                scoringConfiguration: true,
                             },
                         },
                     },
@@ -57,6 +58,12 @@ export async function POST(request: NextRequest) {
                 { status: 404 }
             );
         }
+
+        const telemetryData = session.telemetryData;
+        const target = requireBackgroundContributionsTarget(
+            session.application?.job?.scoringConfiguration,
+            `interview session ${sessionId}`
+        );
 
         // Get experience categories from job if not provided
         let categoriesToEvaluate = experienceCategories;
@@ -172,11 +179,11 @@ CRITICAL RULES:
 
         const messages = [
             {
-                role: "system",
+                role: "system" as const,
                 content: `You are a technical interviewer at ${companyName} evaluating candidates for the ${jobTitle} position.`,
             },
             {
-                role: "user",
+                role: "user" as const,
                 content: evaluationPrompt,
             },
         ];
@@ -233,14 +240,14 @@ CRITICAL RULES:
             const newCount = oldCount + 1;
             
             // Check if THIS category has reached full confidence
-            const categoryHasFullConfidence = oldCount >= CONTRIBUTIONS_TARGET;
+            const categoryHasFullConfidence = oldCount >= target;
             
             // MODE 1: Averaging with confidence multiplier (before this category reaches full confidence)
             if (!categoryHasFullConfidence) {
                 // Back-calculate raw average from adjusted (adjusted = raw * confidence)
                 let oldRawAvg = 0;
                 if (oldCount > 0 && oldAdjustedAvg > 0) {
-                    const oldConfidence = Math.min(1.0, oldCount / CONTRIBUTIONS_TARGET);
+                    const oldConfidence = Math.min(1.0, oldCount / target);
                     oldRawAvg = oldConfidence > 0 ? oldAdjustedAvg / oldConfidence : oldAdjustedAvg;
                 }
                 
@@ -248,7 +255,7 @@ CRITICAL RULES:
                 const newRawAvg = (oldRawAvg * oldCount + newEval.strength) / newCount;
                 
                 // Apply confidence multiplier based on sample size
-                const confidence = Math.min(1.0, newCount / CONTRIBUTIONS_TARGET);
+                const confidence = Math.min(1.0, newCount / target);
                 const adjustedAvg = Math.round(newRawAvg * confidence);
                 
                 return {
@@ -311,7 +318,7 @@ CRITICAL RULES:
                         },
                     }),
                     createVideoChapter({
-                        telemetryDataId: session.telemetryData.id,
+                        telemetryDataId: telemetryData.id,
                         title: item.category,
                         startTime: videoOffset,
                         description: item.reasoning,
@@ -344,4 +351,3 @@ CRITICAL RULES:
         );
     }
 }
-

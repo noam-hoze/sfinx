@@ -33,7 +33,7 @@ This document describes the dual-call evaluation architecture and strict relevan
 
 ### Impact on Algorithm
 
-The lenient evaluation corrupted the dynamic category prioritization algorithm. Irrelevant answers received partial scores (e.g., 40-50), created contributions, and incremented category counts toward the `CONTRIBUTIONS_TARGET` threshold (see [Contributions Target & Transition Logic](./contributions-target-and-transition-logic.md)), causing premature topic pivots.
+The lenient evaluation corrupted the dynamic category prioritization algorithm. Irrelevant answers received partial scores (e.g., 40-50), created contributions, and incremented category counts toward the active job's `backgroundContributionsTarget` threshold (see [Contributions Target & Transition Logic](./contributions-target-and-transition-logic.md)), causing premature topic pivots.
 
 ---
 
@@ -397,7 +397,7 @@ User clicks submit
 
 1. Answer questions relevant to target category
 2. Verify category count increments only on relevant answers
-3. Verify algorithm pivots at `CONTRIBUTIONS_TARGET` **relevant** contributions
+3. Verify algorithm pivots at the job's configured background contribution target using **relevant** contributions
 4. Verify irrelevant answers don't increment counts
 
 ---

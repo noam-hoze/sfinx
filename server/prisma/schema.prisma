@@ -133,6 +133,10 @@ model ScoringConfiguration {
   /// Category weights (should sum to 100)
   experienceWeight                 Float    @default(50)
   codingWeight                     Float    @default(50)
+  /// Minimum accepted background contributions per experience category before confidence reaches 100%.
+  backgroundContributionsTarget    Int      @default(5)
+  /// Minimum accepted coding contributions per coding category before confidence reaches 100%.
+  codingContributionsTarget        Int      @default(5)
   createdAt                        DateTime @default(now())
   updatedAt                        DateTime @updatedAt
   job                              Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)

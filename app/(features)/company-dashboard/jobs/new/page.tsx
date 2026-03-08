@@ -14,6 +14,11 @@ import InterviewContentSection, {
     emptyInterviewContentState,
 } from "../components/InterviewContentSection";
 import AutoFillModal from "../components/AutoFillModal";
+import ContributionTargetsFields from "../components/ContributionTargetsFields";
+import {
+    CREATION_BACKGROUND_CONTRIBUTIONS_TARGET,
+    CREATION_CODING_CONTRIBUTIONS_TARGET,
+} from "shared/constants/interview";
 
 const LOG_CATEGORY = LOG_CATEGORIES.COMPANY_DASHBOARD;
 
@@ -43,6 +48,8 @@ interface ScoringConfigState {
     aiAssistWeight: number;
     experienceWeight: number;
     codingWeight: number;
+    backgroundContributionsTarget: number;
+    codingContributionsTarget: number;
 }
 
 interface CategoryGenerationResponse {
@@ -78,6 +85,8 @@ const defaultScoringConfig: ScoringConfigState = {
     aiAssistWeight: 25,
     experienceWeight: 50,
     codingWeight: 50,
+    backgroundContributionsTarget: CREATION_BACKGROUND_CONTRIBUTIONS_TARGET,
+    codingContributionsTarget: CREATION_CODING_CONTRIBUTIONS_TARGET,
 };
 
 /**
@@ -599,6 +608,19 @@ function CreateJobContent() {
                                     <p className="text-xs text-gray-500 mb-6">
                                         Define evaluation criteria and weights for background interview performance
                                     </p>
+
+                                    <ContributionTargetsFields
+                                        backgroundContributionsTarget={scoringConfig.backgroundContributionsTarget}
+                                        codingContributionsTarget={scoringConfig.codingContributionsTarget}
+                                        onBackgroundChange={(value) => setScoringConfig({
+                                            ...scoringConfig,
+                                            backgroundContributionsTarget: value,
+                                        })}
+                                        onCodingChange={(value) => setScoringConfig({
+                                            ...scoringConfig,
+                                            codingContributionsTarget: value,
+                                        })}
+                                    />
 
                                     <div className="space-y-3">
                                         {experienceCategories.map((category, index) => (

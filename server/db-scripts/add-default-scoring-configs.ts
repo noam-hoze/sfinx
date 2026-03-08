@@ -3,6 +3,10 @@
 import { PrismaClient } from "@prisma/client";
 import { config } from "dotenv";
 import path from "path";
+import {
+    CREATION_BACKGROUND_CONTRIBUTIONS_TARGET,
+    CREATION_CODING_CONTRIBUTIONS_TARGET,
+} from "../../shared/constants/interview";
 
 // Load .env.local for local development (contains DATABASE_URL)
 const rootDir = path.resolve(__dirname, '../..');
@@ -33,6 +37,8 @@ async function addDefaultScoringConfigs() {
                     aiAssistWeight: 25,
                     experienceWeight: 50,
                     codingWeight: 50,
+                    backgroundContributionsTarget: CREATION_BACKGROUND_CONTRIBUTIONS_TARGET,
+                    codingContributionsTarget: CREATION_CODING_CONTRIBUTIONS_TARGET,
                 },
             });
             console.log(`✅ Added scoring config for job: ${job.title}`);

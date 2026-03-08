@@ -12,6 +12,8 @@ The Dynamic Category Prioritization System is a sophisticated question selection
 
 This document describes the complete architecture, implementation, and design principles behind the system.
 
+> **Implementation note (March 8, 2026):** Historical references in this document to `CONTRIBUTIONS_TARGET` now map to the per-job `backgroundContributionsTarget` on `ScoringConfiguration`. Current runtime reads are live from job config, which means mid-interview edits can affect active interviews until targets are snapshotted onto the session. See [Contributions Target & Transition Logic](../evaluation/contributions-target-and-transition-logic.md).
+
 ---
 
 ## Table of Contents

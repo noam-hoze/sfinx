@@ -6,7 +6,6 @@
 "use client";
 
 import React from "react";
-import { CONTRIBUTIONS_TARGET } from "shared/constants/interview";
 
 export interface SummaryStats {
     totalEvaluations: number;
@@ -47,13 +46,15 @@ export interface RealTimeContributionsViewProps {
     categoryBreakdown: CategoryBreakdownItem[];
     evaluations: EvaluationItem[];
     emptyStateMessage?: string;
+    contributionsTarget?: number;
 }
 
 export default function RealTimeContributionsView({
     summaryStats,
     categoryBreakdown,
     evaluations,
-    emptyStateMessage = "No evaluations yet"
+    emptyStateMessage = "No evaluations yet",
+    contributionsTarget,
 }: RealTimeContributionsViewProps) {
     
     const hasData = evaluations.length > 0 || categoryBreakdown.length > 0;
@@ -117,7 +118,9 @@ export default function RealTimeContributionsView({
                                 />
                             </div>
                             <div className="text-xs text-slate-600 dark:text-slate-400 mb-2">
-                                {category.contributionCount} / {CONTRIBUTIONS_TARGET} contributions
+                                {contributionsTarget
+                                    ? `${category.contributionCount} / ${contributionsTarget} contributions`
+                                    : `${category.contributionCount} contributions`}
                                 {category.isExcluded && (
                                     <span className="ml-2 text-slate-500 dark:text-slate-500">🚫 Excluded (don&apos;t know)</span>
                                 )}

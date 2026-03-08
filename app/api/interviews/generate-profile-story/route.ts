@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import prisma from "lib/prisma";
 import OpenAI from "openai";
 import { log } from "app/shared/services";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+import { calculateScore, type ScoringConfiguration } from "app/shared/utils/calculateScore";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
@@ -56,6 +58,15 @@ export async function POST(request: NextRequest) {
         if (!session?.telemetryData) {
             log.error(LOG_CATEGORY, "[Generate Profile Story] Session or telemetry not found for sessionId:", sessionId);
             return NextResponse.json({ error: "Session or telemetry not found" }, { status: 404 });
+        }
+
+        const job = session.application?.job;
+        if (!job) {
+            return NextResponse.json({ error: "Job not found for session" }, { status: 404 });
+        }
+        const scoringConfiguration = job.scoringConfiguration;
+        if (!scoringConfiguration) {
+            throw new Error(`Missing scoring configuration for interview session ${sessionId}`);
         }
 
         const { backgroundSummary, codingSummary } = session.telemetryData;
@@ -131,7 +142,7 @@ export async function POST(request: NextRequest) {
             backgroundSummary,
             codingSummary,
             externalToolUsages,
-            session.application.job
+            { scoringConfiguration }
         );
 
         log.info(LOG_CATEGORY, "[Generate Profile Story] Performance context:", {
@@ -170,7 +181,7 @@ export async function POST(request: NextRequest) {
 
         const formattingPrompt = buildFormattingPrompt(
             session.candidate.name || "The candidate",
-            session.application.job.title,
+            job.title,
             extractedData
         );
 
@@ -198,7 +209,7 @@ export async function POST(request: NextRequest) {
             where: { id: session.telemetryData.id },
             data: {
                 story,
-                storyEmphasis: null // Story now contains inline HTML for emphasis
+                storyEmphasis: Prisma.JsonNull // Story now contains inline HTML for emphasis
             },
         });
 
@@ -219,8 +230,6 @@ export async function POST(request: NextRequest) {
         });
     } catch (error) {
         log.error(LOG_CATEGORY, "[Generate Profile Story] Error:", error);
-        console.error("[Generate Profile Story] Full error details:", error);
-        
         // Return detailed error in development
         const errorMessage = error instanceof Error ? error.message : String(error);
         return NextResponse.json(
@@ -298,7 +307,7 @@ function calculatePerformanceContext(
     backgroundSummary: any,
     codingSummary: any,
     externalToolUsages: Array<{ accountabilityScore: number; understanding: string }>,
-    job: { scoringConfiguration: any }
+    job: { scoringConfiguration: ScoringConfiguration }
 ): {
     finalScore: number;
     experienceScore: number;
@@ -311,9 +320,6 @@ function calculatePerformanceContext(
         description: string;
     };
 } {
-    // Import calculateScore utility
-    const { calculateScore } = require('app/shared/utils/calculateScore');
-
     // Build experience scores from backgroundSummary categories
     const experienceScores = backgroundSummary.experienceCategories
         ? Object.entries(backgroundSummary.experienceCategories).map(([name, data]: [string, any]) => ({
@@ -341,14 +347,7 @@ function calculatePerformanceContext(
     const rawScores = { experienceScores, categoryScores };
     const workstyleMetrics = { aiAssistAccountabilityScore: avgAccountabilityScore };
 
-    // Ensure scoringConfiguration has all required fields with defaults
-    const scoringConfig = {
-        aiAssistWeight: job.scoringConfiguration?.aiAssistWeight ?? 25,
-        experienceWeight: job.scoringConfiguration?.experienceWeight ?? 50,
-        codingWeight: job.scoringConfiguration?.codingWeight ?? 50
-    };
-
-    const result = calculateScore(rawScores, workstyleMetrics, scoringConfig);
+    const result = calculateScore(rawScores, workstyleMetrics, job.scoringConfiguration);
 
     // Classify overall performance level
     let performanceLevel: 'strong' | 'competent' | 'needs-development';
@@ -566,4 +565,3 @@ Example output:
   "story": "Developing Full-Stack Engineer with <span style=\"color: rgba(255, 59, 48, 0.9)\">limited production experience</span>. <span style=\"color: rgba(255, 59, 48, 0.9)\">Struggled during</span> coding challenges. Shows <span style=\"color: rgba(255, 59, 48, 0.9)\">basic React</span> knowledge."
 }`;
 }
-

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 import { calculateScore, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
-import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
+import { requireCodingContributionsTarget } from "@/shared/constants/interview";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
@@ -54,6 +54,19 @@ export async function PATCH(
             );
         }
 
+        const job = session.application?.job;
+        if (!job) {
+            return NextResponse.json(
+                { error: "Job not found for this session" },
+                { status: 404 }
+            );
+        }
+
+        const target = requireCodingContributionsTarget(
+            job.scoringConfiguration,
+            `interview session ${sessionId}`
+        );
+
         // Fetch all real-time contributions for this session
         const allContributions = await prisma.categoryContribution.findMany({
             where: { interviewSessionId: sessionId },
@@ -89,7 +102,7 @@ export async function PATCH(
                 const rawAverage = scores.reduce((sum: number, s: number) => sum + s, 0) / scores.length;
                 
                 // Apply confidence multiplier based on sample size
-                const confidence = Math.min(1.0, contributions.length / CONTRIBUTIONS_TARGET);
+                const confidence = Math.min(1.0, contributions.length / target);
                 const adjustedScore = Math.round(rawAverage * confidence);
                 
                 log.info(LOG_CATEGORY, `[Coding Summary Update] ${categoryName}: ${contributions.length} contributions, raw avg=${Math.round(rawAverage)}, confidence=${confidence.toFixed(2)}, adjusted=${adjustedScore}, final override=${categoryData.score}`);
@@ -136,9 +149,8 @@ export async function PATCH(
 
         // Calculate and persist final score
         let finalScore: number | null = null;
-        if (session.telemetryData?.backgroundSummary && session.application.job.scoringConfiguration) {
+        if (session.telemetryData?.backgroundSummary && job.scoringConfiguration) {
             try {
-                const job = session.application.job;
                 const jobExperienceCategories = (job.experienceCategories as any) || [];
                 const backgroundExperienceCategories = (session.telemetryData.backgroundSummary.experienceCategories as any) || {};
                 const experienceScores = jobExperienceCategories.map((cat: any) => ({
@@ -232,4 +244,3 @@ export async function PATCH(
         );
     }
 }
-

@@ -1,6 +1,6 @@
 {
   "name": "sfinx",
-  "version": "1.26.1",
+  "version": "1.26.2",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -43,6 +43,7 @@
     
     "db:migrate:dev": "export $(grep ^DATABASE_URL .env.local | xargs) && prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
+    "db:backfill:contribution-targets": "tsx server/db-scripts/backfill-contribution-targets.ts",
 
     "clean:next": "rm -rf .next .turbo node_modules/.cache",
     "e2e": "playwright test --project=voice-chromium --headed --workers=1"

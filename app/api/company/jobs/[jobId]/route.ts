@@ -5,6 +5,10 @@ import { authOptions, prisma, invalidatePattern, invalidate } from "app/shared/s
 import { loadCompanyForUser } from "../companyContext";
 import { ensureCompanyRole } from "../companyAuth";
 import { mapJobResponse, coerceSeconds } from "../jobHelpers";
+import {
+    buildScoringConfigValues,
+    validateScoringConfigInput,
+} from "../scoringConfigHelpers";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.COMPANY;
@@ -159,107 +163,126 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             updates.experienceCategories = body.experienceCategories;
         }
 
-    const { job, company } = await assertOwnership(userId, jobId);
-
-        const interview = body.interviewContent;
-        let interviewContentId = job.interviewContentId;
-        if (interview !== undefined) {
-            if (interview === null) {
-                if (interviewContentId) {
-                    const usageCount = await (prisma as any).job.count({
-                        where: { interviewContentId },
-                    });
-                    await (prisma as any).job.updateMany({
-                        where: { id: job.id },
-                        data: { interviewContentId: null },
-                    });
-                    if (usageCount === 1) {
-                        await (prisma as any).interviewContent.delete({
-                            where: { id: interviewContentId },
-                        });
-                    }
-                    interviewContentId = null;
-                }
-            } else {
-                const codingPrompt =
-                    typeof interview.codingPrompt === "string"
-                        ? interview.codingPrompt.trim()
-                        : "";
-                if (codingPrompt.length === 0) {
-                    throw new Error("Coding prompt is required for interview content");
-                }
-                const payload = {
-                    backgroundQuestion:
-                        typeof interview.backgroundQuestion === "string"
-                            ? interview.backgroundQuestion
-                            : null,
-                    backgroundQuestionCategory:
-                        typeof interview.backgroundQuestionCategory === "string" &&
-                        interview.backgroundQuestionCategory.trim().length > 0
-                            ? interview.backgroundQuestionCategory
-                            : null,
-                    codingPrompt,
-                    codingTemplate:
-                        typeof interview.codingTemplate === "string"
-                            ? interview.codingTemplate
-                            : null,
-                    codingAnswer:
-                        typeof interview.codingAnswer === "string"
-                            ? interview.codingAnswer
-                            : null,
-                    expectedOutput:
-                        typeof interview.expectedOutput === "string" &&
-                        interview.expectedOutput.trim().length > 0
-                            ? interview.expectedOutput
-                            : null,
-                    codingLanguage:
-                        typeof interview.codingLanguage === "string" &&
-                        interview.codingLanguage.trim().length > 0
-                            ? interview.codingLanguage
-                            : job.interviewContent?.codingLanguage ?? "python",
-                    backgroundQuestionTimeSeconds: coerceSeconds(
-                        (interview as any).backgroundQuestionTimeSeconds,
-                        job.interviewContent?.backgroundQuestionTimeSeconds ?? 900
-                    ),
-                    codingQuestionTimeSeconds: coerceSeconds(
-                        (interview as any).codingQuestionTimeSeconds,
-                        job.interviewContent?.codingQuestionTimeSeconds ?? 1800
-                    ),
-                };
-                if (interviewContentId) {
-                    await (prisma as any).interviewContent.update({
-                        where: { id: interviewContentId },
-                        data: payload,
-                    });
-                } else {
-                    const createdContent = await (prisma as any).interviewContent.create({
-                        data: payload,
-                    });
-                    interviewContentId = createdContent.id;
-                }
-                updates.interviewContentId = interviewContentId;
+        const scoringConfigInput =
+            body.scoringConfig && typeof body.scoringConfig === "object"
+                ? (body.scoringConfig as Record<string, unknown>)
+                : null;
+        if (scoringConfigInput) {
+            const scoringConfigValidationError = validateScoringConfigInput(scoringConfigInput);
+            if (scoringConfigValidationError) {
+                return NextResponse.json({ error: scoringConfigValidationError }, { status: 400 });
             }
         }
 
-        let updated = job;
-        if (Object.keys(updates).length > 0) {
-            updated = await (prisma as any).job.update({
+        const { job, company } = await assertOwnership(userId, jobId);
+
+        const interview = body.interviewContent;
+        const updated = await prisma.$transaction(async (tx) => {
+            const txUpdates = { ...updates };
+            let interviewContentId = job.interviewContentId;
+            if (interview !== undefined) {
+                if (interview === null) {
+                    if (interviewContentId) {
+                        const usageCount = await (tx as any).job.count({
+                            where: { interviewContentId },
+                        });
+                        await (tx as any).job.updateMany({
+                            where: { id: job.id },
+                            data: { interviewContentId: null },
+                        });
+                        if (usageCount === 1) {
+                            await (tx as any).interviewContent.delete({
+                                where: { id: interviewContentId },
+                            });
+                        }
+                        interviewContentId = null;
+                    }
+                    txUpdates.interviewContentId = null;
+                } else {
+                    const codingPrompt =
+                        typeof interview.codingPrompt === "string"
+                            ? interview.codingPrompt.trim()
+                            : "";
+                    if (codingPrompt.length === 0) {
+                        throw new Error("Coding prompt is required for interview content");
+                    }
+                    const payload = {
+                        backgroundQuestion:
+                            typeof interview.backgroundQuestion === "string"
+                                ? interview.backgroundQuestion
+                                : null,
+                        backgroundQuestionCategory:
+                            typeof interview.backgroundQuestionCategory === "string" &&
+                            interview.backgroundQuestionCategory.trim().length > 0
+                                ? interview.backgroundQuestionCategory
+                                : null,
+                        codingPrompt,
+                        codingTemplate:
+                            typeof interview.codingTemplate === "string"
+                                ? interview.codingTemplate
+                                : null,
+                        codingAnswer:
+                            typeof interview.codingAnswer === "string"
+                                ? interview.codingAnswer
+                                : null,
+                        expectedOutput:
+                            typeof interview.expectedOutput === "string" &&
+                            interview.expectedOutput.trim().length > 0
+                                ? interview.expectedOutput
+                                : null,
+                        codingLanguage:
+                            typeof interview.codingLanguage === "string" &&
+                            interview.codingLanguage.trim().length > 0
+                                ? interview.codingLanguage
+                                : job.interviewContent?.codingLanguage ?? "python",
+                        backgroundQuestionTimeSeconds: coerceSeconds(
+                            (interview as any).backgroundQuestionTimeSeconds,
+                            job.interviewContent?.backgroundQuestionTimeSeconds ?? 900
+                        ),
+                        codingQuestionTimeSeconds: coerceSeconds(
+                            (interview as any).codingQuestionTimeSeconds,
+                            job.interviewContent?.codingQuestionTimeSeconds ?? 1800
+                        ),
+                    };
+                    if (interviewContentId) {
+                        await (tx as any).interviewContent.update({
+                            where: { id: interviewContentId },
+                            data: payload,
+                        });
+                    } else {
+                        interviewContentId = (
+                            await (tx as any).interviewContent.create({
+                                data: payload,
+                            })
+                        ).id;
+                    }
+                    txUpdates.interviewContentId = interviewContentId;
+                }
+            }
+            if (Object.keys(txUpdates).length > 0) {
+                await (tx as any).job.update({
+                    where: { id: job.id },
+                    data: txUpdates,
+                });
+            }
+            if (scoringConfigInput) {
+                await (tx as any).scoringConfiguration.upsert({
+                    where: { jobId: job.id },
+                    create: {
+                        jobId: job.id,
+                        ...buildScoringConfigValues(scoringConfigInput as any),
+                    },
+                    update: buildScoringConfigValues(scoringConfigInput as any),
+                });
+            }
+            return (tx as any).job.findUniqueOrThrow({
                 where: { id: job.id },
-                data: updates,
                 include: {
                     company: true,
                     interviewContent: true,
                 },
             });
-        } else if (interview !== undefined) {
-            updated = await (prisma as any).job.findUniqueOrThrow({
-                where: { id: job.id },
-                include: {
-                    company: true,
-                    interviewContent: true,
-                },
-            });
-        }
+        });
 
         invalidatePattern(`jobs:company:${company.name}`);
         invalidate(`applicants:job:${jobId}`);

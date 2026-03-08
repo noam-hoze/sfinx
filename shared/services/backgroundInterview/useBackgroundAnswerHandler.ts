@@ -17,7 +17,6 @@ import { buildOpenAIBackgroundPrompt } from "@/shared/prompts/openAIInterviewerP
 import { buildControlContextMessages, CONTROL_CONTEXT_TURNS } from "app/shared/services";
 import { log } from "app/shared/services/logger";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
-import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
 
 const LOG_CATEGORY = LOG_CATEGORIES.BACKGROUND_INTERVIEW;
 
@@ -414,11 +413,16 @@ export function useBackgroundAnswerHandler(
           const startedAtMs = backgroundState.startedAtMs;
           
           // Calculate confidence from updated counts (no DB fetch needed)
-          const categories = updatedCategoryStats.map((stat: any) => ({
-            name: stat.categoryName,
-            confidence: Math.min(100, (stat.count / CONTRIBUTIONS_TARGET) * 100),
-            avgStrength: stat.avgStrength
-          }));
+          const categories = updatedCategoryStats.map((stat: any) => {
+            if (typeof stat.confidence !== "number") {
+              throw new Error(`Missing confidence for background category ${stat.categoryName}`);
+            }
+            return {
+              name: stat.categoryName,
+              confidence: stat.confidence * 100,
+              avgStrength: stat.avgStrength
+            };
+          });
           
           const transitionReason = shouldTransition(
             { startedAtMs, timeboxMs },

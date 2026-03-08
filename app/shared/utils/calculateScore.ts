@@ -8,6 +8,10 @@ export interface ScoringConfiguration {
     // Category weights
     experienceWeight: number;
     codingWeight: number;
+    // Background interview confidence threshold
+    backgroundContributionsTarget: number;
+    // Coding interview confidence threshold
+    codingContributionsTarget: number;
 }
 
 export interface RawScores {
@@ -97,4 +101,3 @@ export function calculateScore(
         },
     };
 }
-

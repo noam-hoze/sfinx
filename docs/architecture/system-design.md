@@ -462,6 +462,7 @@ AI transitions back to coding task
 - `id`, `jobId`
 - `experienceWeight`, `codingWeight` (main dimensions, sum to 100)
 - `aiAssistWeight` (part of coding score, default 25%)
+- `backgroundContributionsTarget`, `codingContributionsTarget` (per-job evidence thresholds)
 
 **EvidenceClip** (Video Evidence)
 - `id`, `telemetryDataId`, `title`, `thumbnailUrl`, `duration`, `description`
@@ -1010,7 +1011,7 @@ aiAssistWeight = 25%  // Part of coding score
 - `GET /api/company/jobs/with-applicants` - Job list with stats
 - `GET /api/company/jobs/[jobId]/applicants` - Applicant list
 - `GET /api/company/jobs/[jobId]/scoring-config` - Fetch scoring config
-- `PATCH /api/company/jobs/[jobId]/scoring-config` - Update weights
+- `PATCH /api/company/jobs/[jobId]/scoring-config` - Update weights and contribution targets
 - `POST /api/company/jobs/generate-categories` - AI-generate job categories from description
 
 **Candidate:**
@@ -1078,6 +1079,7 @@ if (!session) {
 
 **Caching Strategy:**
 - Job definitions cached in interview session
+- Contribution targets are currently read live from job scoring config, which means mid-interview job edits can affect an in-progress session
 - Dashboard responses cacheable (5-10 min TTL)
 - Static assets served via Vercel CDN
 
@@ -1235,6 +1237,7 @@ NEXT_PUBLIC_CODE_EVALUATION_THROTTLE_MS="8000"
 - Historical percentile rankings
 - Category effectiveness analytics
 - A/B testing for weight configurations
+- Snapshot contribution targets onto interview session start to avoid mid-interview config drift
 
 **Q3 2026:**
 - Custom formulas per company

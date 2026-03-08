@@ -45,6 +45,8 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
         experienceWeight: number;
         codingWeight: number;
         aiAssistWeight: number;
+        backgroundContributionsTarget: number;
+        codingContributionsTarget: number;
     } | null>(null);
 
     useEffect(() => {
@@ -59,6 +61,8 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
                         experienceWeight: data.config.experienceWeight,
                         codingWeight: data.config.codingWeight,
                         aiAssistWeight: data.config.aiAssistWeight,
+                        backgroundContributionsTarget: data.config.backgroundContributionsTarget,
+                        codingContributionsTarget: data.config.codingContributionsTarget,
                     });
                 }
             } catch (err) {
@@ -99,7 +103,9 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
     }, [experienceScores, scoringConfig]);
 
     const now = Date.now();
-    const limitMs = Number.isFinite(backgroundState.timeboxMs) && backgroundState.timeboxMs! > 0 ? backgroundState.timeboxMs : TIMEBOX_MS;
+    const limitMs: number = Number.isFinite(backgroundState.timeboxMs) && backgroundState.timeboxMs! > 0
+        ? backgroundState.timeboxMs!
+        : TIMEBOX_MS;
     const remainingMs = startedAtMs ? Math.max(0, startedAtMs + limitMs - now) : limitMs;
     const countdown = formatCountdown(remainingMs);
     const reasonLabel = reason ? reason.replace("_", " ") : "—";
@@ -169,7 +175,7 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
         }
 
         // Active paste evaluation - show detailed tracking
-        const confidence = activePasteEval.confidence ?? 0;
+        const confidence = (activePasteEval as any).confidence ?? 0;
         const answerCount = activePasteEval.answerCount ?? 0;
         const readyToEvaluate = activePasteEval.readyToEvaluate ?? false;
         const currentQuestion = activePasteEval.currentQuestion;
@@ -382,7 +388,7 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
                 </div>
                 
                 {/* Reason indicator - moved below header */}
-                {reason && reason !== "—" && (
+                {reason && (
                     <div className="flex items-center gap-2 text-xs">
                         <span className="text-slate-400 dark:text-slate-500">Exit reason:</span>
                         <span className="capitalize text-slate-600 dark:text-slate-300">{reasonLabel}</span>
@@ -413,11 +419,10 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
                 {/* Real-Time Contributions */}
                 <RealTimeContributionsView
                     {...transformBackgroundDataToRealtime(contributionStats, realtimeEvaluations)}
+                    contributionsTarget={scoringConfig?.backgroundContributionsTarget}
                 />
             </div>
         </div>
     );
 }
-
-
 

@@ -15,6 +15,11 @@ import InterviewContentSection, {
     defaultInterviewDurations,
     emptyInterviewContentState,
 } from "../components/InterviewContentSection";
+import ContributionTargetsFields from "../components/ContributionTargetsFields";
+import {
+    CREATION_BACKGROUND_CONTRIBUTIONS_TARGET,
+    CREATION_CODING_CONTRIBUTIONS_TARGET,
+} from "shared/constants/interview";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.COMPANY_DASHBOARD;
 
@@ -75,12 +80,16 @@ interface ScoringConfigState {
     aiAssistWeight: number;
     experienceWeight: number;
     codingWeight: number;
+    backgroundContributionsTarget: number;
+    codingContributionsTarget: number;
 }
 
 const defaultScoringConfig: ScoringConfigState = {
     aiAssistWeight: 25,
     experienceWeight: 50,
     codingWeight: 50,
+    backgroundContributionsTarget: CREATION_BACKGROUND_CONTRIBUTIONS_TARGET,
+    codingContributionsTarget: CREATION_CODING_CONTRIBUTIONS_TARGET,
 };
 
 function optionalString(value: string | null | undefined): string {
@@ -795,6 +804,19 @@ function CompanyJobDetailContent() {
                                     <p className="text-xs text-gray-500 mb-6">
                                         Define evaluation criteria and weights for background interview performance
                                     </p>
+
+                                    <ContributionTargetsFields
+                                        backgroundContributionsTarget={scoringConfig.backgroundContributionsTarget}
+                                        codingContributionsTarget={scoringConfig.codingContributionsTarget}
+                                        onBackgroundChange={(value) => setScoringConfig({
+                                            ...scoringConfig,
+                                            backgroundContributionsTarget: value,
+                                        })}
+                                        onCodingChange={(value) => setScoringConfig({
+                                            ...scoringConfig,
+                                            codingContributionsTarget: value,
+                                        })}
+                                    />
 
                                     <div className="space-y-3">
                                         {experienceCategories.map((category, index) => (

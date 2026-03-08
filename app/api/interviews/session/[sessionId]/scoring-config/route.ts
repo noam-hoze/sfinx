@@ -11,7 +11,7 @@ type RouteContext = {
 
 /**
  * GET /api/interviews/session/[sessionId]/scoring-config
- * Fetch scoring configuration for the job associated with an interview session
+ * Fetch scoring configuration for the job associated with an interview session.
  */
 export async function GET(_request: NextRequest, context: RouteContext) {
     try {
@@ -49,16 +49,15 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         }
 
         const job = session.application.job;
-        let config = job.scoringConfiguration;
-
-        if (!config) {
-            config = await prisma.scoringConfiguration.create({
-                data: { jobId: job.id },
-            });
-            log.info(LOG_CATEGORY, `[Scoring Config GET] Created default config for job ${job.id}`);
+        if (!job.scoringConfiguration) {
+            log.error(LOG_CATEGORY, `[Scoring Config GET] Missing scoring configuration for job ${job.id}`);
+            return NextResponse.json(
+                { error: "Job scoring configuration is missing" },
+                { status: 500 }
+            );
         }
 
-        return NextResponse.json({ config });
+        return NextResponse.json({ config: job.scoringConfiguration });
     } catch (error: any) {
         log.error(LOG_CATEGORY, "[Scoring Config GET] Error:", error);
         return NextResponse.json(

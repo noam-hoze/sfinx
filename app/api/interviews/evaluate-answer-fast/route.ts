@@ -3,7 +3,7 @@ import { log } from "app/shared/services";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import prisma from "lib/prisma";
 import OpenAI from "openai";
-import { CONTRIBUTIONS_TARGET } from "shared/constants/interview";
+import { requireBackgroundContributionsTarget } from "shared/constants/interview";
 import {
     buildClassificationPrompt,
     isGibberishAnswer,
@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
                         job: {
                             include: {
                                 company: true,
+                                scoringConfiguration: true,
                             },
                         },
                     },
@@ -96,7 +97,10 @@ export async function POST(request: NextRequest) {
         }
 
         // Build category list with current counts (using active categories only)
-        const TARGET = CONTRIBUTIONS_TARGET;
+        const TARGET = requireBackgroundContributionsTarget(
+            session.application.job.scoringConfiguration,
+            `interview session ${sessionId}`
+        );
         
         const categoryList = activeCategories.map((cat: any) => {
             const stats = currentCounts.find((c: any) => c.categoryName === cat.name);

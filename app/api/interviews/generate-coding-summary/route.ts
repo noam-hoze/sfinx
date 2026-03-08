@@ -60,11 +60,6 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Get scoring configuration (with defaults if not configured)
-        const scoringConfig = session.application?.job?.scoringConfiguration;
-        const iterationThresholdModerate = scoringConfig?.iterationSpeedThresholdModerate ?? 5;
-        const iterationThresholdHigh = scoringConfig?.iterationSpeedThresholdHigh ?? 10;
-
         // Fetch all coding session metrics
         const [iterations, externalToolUsages] = await Promise.all([
             prisma.iteration.findMany({
@@ -155,17 +150,13 @@ CRITICAL SCORING GUIDELINES:
 PROBLEM SOLVING SCORING - ITERATION EFFICIENCY:
 Evaluate based on iteration efficiency and solution quality using these benchmarks:
 - 1 iteration to CORRECT = 100 (perfect first-try solution)
-- 2-${iterationThresholdModerate} iterations to CORRECT = 75-99 (strong performance, minor adjustments needed)
-- ${iterationThresholdModerate + 1}-${iterationThresholdHigh} iterations to CORRECT = 50-74 (acceptable, required moderate debugging)
-- >${iterationThresholdHigh} iterations to CORRECT = 0-49 (poor efficiency, excessive trial and error)
+- Few iterations to CORRECT = 75-99 (strong performance, minor adjustments needed)
+- Moderate iteration count to CORRECT = 50-74 (acceptable, required meaningful debugging)
+- Many iterations to CORRECT = 0-49 (poor efficiency, excessive trial and error)
 - No CORRECT solution achieved: Score based on best attempt and progression quality (PARTIAL better than INCORRECT)
 - Consider progression: INCORRECT → PARTIAL → CORRECT shows learning and adaptation
 - Factor in matchPercentage trends across iterations to assess improvement trajectory
-- No iterations at all = 0 score (no attempt to solve)
-
-Iteration Benchmarks for this role:
-- Moderate threshold: ${iterationThresholdModerate} iterations
-- High threshold: ${iterationThresholdHigh} iterations`;
+- No iterations at all = 0 score (no attempt to solve)`;
 
         const userPrompt = `Analyze this coding session:
 
@@ -241,9 +232,10 @@ Provide a comprehensive summary and scores for this candidate's coding performan
 
         // Calculate and save final score if we have all required data
         let finalScore: number | null = null;
-        if (session.telemetryData?.backgroundSummary && session.application.job.scoringConfiguration) {
+        const scoringJob = session.application?.job;
+        if (session.telemetryData?.backgroundSummary && scoringJob?.scoringConfiguration) {
             try {
-                const job = session.application.job;
+                const job = scoringJob;
                 const jobExperienceCategories = (job.experienceCategories as any) || [];
                 const backgroundExperienceCategories = (session.telemetryData.backgroundSummary.experienceCategories as any) || {};
                 const experienceScores = jobExperienceCategories.map((cat: any) => ({
@@ -285,4 +277,3 @@ Provide a comprehensive summary and scores for this candidate's coding performan
         );
     }
 }
-

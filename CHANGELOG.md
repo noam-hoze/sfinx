@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.26.2] - 2026-03-08
+
+### Fixed
+
+- Removed runtime contribution-target fallbacks so interview scoring now requires persisted per-job configuration and fails loudly when config is missing.
+- Wrapped company job create/update scoring-config writes in transactions to prevent partial persistence on mutation failures.
+- Stopped scoring-config GET endpoints from auto-creating missing rows, removed stale scoring-threshold fallback code, and consolidated duplicated contribution-target form inputs.
+
 ## [1.26.1] - 2026-03-08
 
 ### Changed

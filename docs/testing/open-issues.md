@@ -1,5 +1,39 @@
 # Open Issues
 
+## [ARCH-003] Contribution targets are read live from job config during active interviews
+
+**Type:** Architecture / Design flaw  
+**Severity:** Medium  
+**Area:** Background routing, coding confidence, `ScoringConfiguration`
+
+### Problem
+
+`backgroundContributionsTarget` and `codingContributionsTarget` are currently read from the job's live `ScoringConfiguration` on each request.
+
+This means a company can edit a job while a candidate is mid-interview and change:
+- background topic routing
+- background confidence-adjusted scores
+- coding confidence-adjusted scores
+- debug progress thresholds
+
+### Expected behavior
+
+Contribution targets should be snapshotted onto the interview session when the interview starts. Once the session is active, those values should remain immutable for that session.
+
+### Proposed fix
+
+1. Add `backgroundContributionsTarget` and `codingContributionsTarget` snapshot fields to the interview session or session-owned config
+2. Copy job values into the snapshot when the interview session is activated
+3. Update background and coding runtime reads to use the session snapshot instead of the current job config
+
+### Impact on testing
+
+Add a regression test that:
+1. starts an interview
+2. changes the job config mid-session
+3. verifies the active interview continues using its original targets
+4. verifies only newly started interviews pick up the updated job config
+
 ## [ARCH-002] ExternalToolUsage not persisted when candidate pastes only once
 
 **Type:** Bug  

@@ -19,6 +19,8 @@ const defaultConfig: ScoringConfiguration = {
     aiAssistWeight: 25,
     experienceWeight: 40,
     codingWeight: 60,
+    backgroundContributionsTarget: 5,
+    codingContributionsTarget: 5,
 };
 
 // ---------------------------------------------------------------------------
@@ -104,6 +106,8 @@ describe("calculateScore", () => {
             aiAssistWeight: 25,
             experienceWeight: 40,
             codingWeight: 60,
+            backgroundContributionsTarget: 5,
+            codingContributionsTarget: 5,
         });
 
         // categoryContribution = 80 * (100 - 25) / 100 = 80 * 0.75 = 60
@@ -123,6 +127,8 @@ describe("calculateScore", () => {
             aiAssistWeight: 25,
             experienceWeight: 40,
             codingWeight: 60,
+            backgroundContributionsTarget: 5,
+            codingContributionsTarget: 5,
         });
 
         // categoryContribution = 80 * 0.75 = 60, aiAssistContribution = 0
@@ -140,6 +146,8 @@ describe("calculateScore", () => {
             aiAssistWeight: 0,
             experienceWeight: 40,
             codingWeight: 60,
+            backgroundContributionsTarget: 5,
+            codingContributionsTarget: 5,
         };
         const result = calculateScore(raw, ws, config);
 

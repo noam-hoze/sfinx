@@ -1,54 +1,102 @@
 # Contributions Target & Transition Logic
 
-**Version:** 1.0.0  
-**Date:** January 12, 2026  
-**Status:** Implemented
+**Version:** 2.0.0  
+**Date:** March 8, 2026  
+**Status:** Implemented with known limitation
 
 ---
 
 ## Overview
 
-This document describes the shared constant pattern for `CONTRIBUTIONS_TARGET`, the dual-evaluation Redux correction system, and the transition logic that determines when the background interview phase completes.
+This document describes the per-job contribution target model, the dual-evaluation Redux correction system, and the transition logic that determines when the background interview phase completes.
+
+The system no longer uses one shared `CONTRIBUTIONS_TARGET` constant for every interview. Each job now owns two thresholds in `ScoringConfiguration`:
+
+- `backgroundContributionsTarget`
+- `codingContributionsTarget`
+
+These thresholds control evidence confidence, not final background completion. Background completion still depends on `avgStrength` quality or timebox expiry.
 
 ---
 
-## Shared Constant: CONTRIBUTIONS_TARGET
+## Per-Job Contribution Targets
 
 ### Location
 
-```typescript
-// shared/constants/interview.ts
-export const CONTRIBUTIONS_TARGET = 3;
+```prisma
+model ScoringConfiguration {
+  aiAssistWeight                Float
+  experienceWeight              Float
+  codingWeight                  Float
+  backgroundContributionsTarget Int
+  codingContributionsTarget     Int
+}
 ```
 
-### Purpose
+### Meaning
 
-Defines the number of contributions required per category before the topic selection algorithm switches to the next category. This constant is used across both backend and frontend to ensure consistency.
+**`backgroundContributionsTarget`**
+- Minimum accepted background contributions per experience category before confidence reaches 100%
+- Used by topic routing to decide whether a category is still under-sampled
+- Used by background confidence calculations and debug progress
 
-### Usage
-
-**Backend:**
-- `app/api/interviews/evaluate-answer-fast/route.ts` - Topic selection algorithm
-- `app/api/interviews/session/[sessionId]/coding-summary-update/route.ts` - Confidence calculation
-- `app/api/interviews/session/[sessionId]/background-summary/route.ts` - Confidence calculation
-- `app/api/interviews/session/[sessionId]/contributions/route.ts` - Confidence calculation
-
-**Frontend:**
-- `shared/services/backgroundInterview/useBackgroundAnswerHandler.ts` - Confidence calculation for transition check
-- `app/(features)/interview/components/debug/CodingEvaluationDebugPanel.tsx` - Debug panel display
-- `app/shared/components/debug/RealTimeContributionsView.tsx` - Debug panel display
+**`codingContributionsTarget`**
+- Minimum accepted coding contributions per coding category before confidence reaches 100%
+- Used by coding summary aggregation and debug progress
 
 ### Confidence Calculation
 
 ```typescript
-confidence = Math.min(100, (contributionCount / CONTRIBUTIONS_TARGET) * 100)
+confidence = Math.min(1.0, contributionCount / target)
+adjustedScore = Math.round(rawAverage * confidence)
 ```
 
-When a category reaches `CONTRIBUTIONS_TARGET` contributions, its confidence becomes 100%, indicating sufficient sample size.
+When a category reaches its target, confidence becomes `1.0`, meaning the score is no longer discounted for low sample size.
 
-### Rationale for No Fallbacks
+### Current Runtime Behavior
 
-All code that references `CONTRIBUTIONS_TARGET` does so directly without fallbacks (e.g., `|| 5`). This ensures any missing or incorrect configuration surfaces as a bug immediately rather than silently defaulting.
+The implementation reads these values live from the job's current `ScoringConfiguration` on each request.
+
+This means:
+- editing a job's contribution targets affects subsequent requests immediately
+- an in-progress interview can change behavior mid-session if the company edits the job config
+
+### Known Limitation
+
+This live-read behavior is an implementation shortcut, not the desired long-term behavior.
+
+**Desired behavior:** snapshot both contribution targets onto the interview session when the interview starts, then use the session-scoped snapshot for all later reads.
+
+Until that snapshot design is implemented, mid-interview config edits can affect:
+- background topic routing
+- background confidence-adjusted category scores
+- coding confidence-adjusted category scores
+- debug progress displays
+
+---
+
+## Usage
+
+### Background Target Usage
+
+`backgroundContributionsTarget` is used in:
+- `app/api/interviews/next-question/route.ts`
+- `app/api/interviews/evaluate-answer-fast/route.ts`
+- `app/api/interviews/score-answer/route.ts`
+- `app/api/interviews/evaluate-answer/route.ts`
+- `app/api/interviews/session/[sessionId]/contributions/route.ts`
+- `app/api/interviews/session/[sessionId]/background-summary/route.ts`
+
+### Coding Target Usage
+
+`codingContributionsTarget` is used in:
+- `app/api/interviews/session/[sessionId]/coding-summary-update/route.ts`
+- `app/(features)/interview/components/debug/CodingEvaluationDebugPanel.tsx`
+- `app/shared/components/debug/RealTimeContributionsView.tsx`
+
+### Client Transition Check
+
+The client-side background transition check no longer recomputes confidence from a global constant. It uses confidence values already returned by the server-side scoring flow.
 
 ---
 
@@ -56,58 +104,23 @@ All code that references `CONTRIBUTIONS_TARGET` does so directly without fallbac
 
 ### Problem
 
-Fast evaluation (`evaluate-answer-fast`) may return incorrect scores due to:
-- Simplified prompt for speed
-- Minimal context
-- Model inconsistency
-
-This causes the UI to display stale/incorrect counts, and the topic selection algorithm to make decisions based on inaccurate data.
+Fast evaluation may return inaccurate counts or scores because it optimizes for latency, not depth.
 
 ### Solution
 
-When full evaluation (`evaluate-answer`) completes, it dispatches an update to Redux with the corrected counts:
+When the full background evaluation completes, Redux is corrected with the authoritative counts from the full evaluation response.
 
 ```typescript
-// shared/services/backgroundInterview/useBackgroundAnswerHandler.ts
-}).then(async (fullResponse) => {
-  const fullData = await fullResponse.json();
-  
-  // Update Redux with corrected counts from full evaluation
-  if (fullData.updatedCounts) {
-    dispatch(updateCategoryStats({ stats: fullData.updatedCounts }));
-    log.info(LOG_CATEGORY, "[async] Redux updated with full-eval counts");
-  }
-  
-  // ... rest of handler
-});
+if (fullData.updatedCounts) {
+  dispatch(updateCategoryStats({ stats: fullData.updatedCounts }));
+}
 ```
 
 ### Benefits
 
-1. **UI Accuracy**: Debug panel displays correct counts from full evaluation
-2. **Algorithm Accuracy**: Subsequent topic selection uses accurate counts
-3. **Self-Correcting**: System automatically fixes fast-eval inaccuracies
-4. **No User Impact**: Correction happens in background, no visible delay
-
-### Data Flow
-
-```
-User submits answer
-       ↓
-FAST-EVAL completes (~2-4s)
-       ↓
-Redux updated with fast-eval counts (may be inaccurate)
-       ↓
-UI displays next question immediately
-       ↓
-FULL-EVAL completes (~7-10s, async)
-       ↓
-Redux updated with full-eval counts (accurate)
-       ↓
-UI reflects corrected counts
-       ↓
-Next topic selection uses accurate counts
-```
+1. UI reflects corrected counts after full evaluation
+2. Later topic selection uses better data
+3. Fast evaluation stays responsive without permanently corrupting state
 
 ---
 
@@ -115,114 +128,43 @@ Next topic selection uses accurate counts
 
 ### Background Interview Completion
 
-The background interview phase ends when ONE of these conditions is met:
+The background interview phase ends when one of these conditions is met:
 
-1. **All Topics Complete**: All categories reach `avgStrength >= 100`
-2. **Timebox Expired**: Time limit is reached (configurable per job, default 7 minutes)
+1. All categories reach `avgStrength >= 100`
+2. The background timebox expires
 
-### Previous Behavior (Incorrect)
+### Important Distinction
 
-```typescript
-// ❌ INCORRECT: Checked confidence (sample size)
-const allComplete = opts.categories.every(cat => cat.confidence >= 100);
-```
+`backgroundContributionsTarget` does **not** directly end the background interview.
 
-This ended the interview when all topics reached `CONTRIBUTIONS_TARGET` contributions, regardless of answer quality.
+It only controls:
+- whether a category still needs more evidence
+- how strongly raw category scores are trusted before enough samples exist
 
-**Problem**: A candidate could give 3 mediocre answers (score 50-60) and progress to coding, even though they haven't demonstrated sufficient expertise.
-
-### Current Behavior (Correct)
+The completion gate checks `avgStrength`, not confidence.
 
 ```typescript
-// ✅ CORRECT: Check avgStrength (answer quality)
 const allComplete = opts.categories.every(cat => cat.avgStrength >= 100);
 ```
 
-This ends the interview only when all topics reach perfect scores (100% average strength).
-
-**Benefit**: Ensures candidates demonstrate exceptional knowledge across all experience categories before progressing to coding.
-
-### Implementation
-
-**Guard Function:**
-```typescript
-// shared/services/backgroundSessionGuard.ts
-export interface CategoryConfidence {
-  name: string;
-  confidence: number;   // Sample size: (count / TARGET) * 100
-  avgStrength: number;  // Answer quality: average of all contribution strengths
-}
-
-export function shouldTransition(
-  gs: GuardState,
-  opts: { clockMs?: number; timeboxMs?: number; categories?: CategoryConfidence[] }
-): GuardReason | null {
-  // Check if all categories reached avgStrength of 100
-  if (opts.categories && opts.categories.length > 0) {
-    const allComplete = opts.categories.every(cat => cat.avgStrength >= 100);
-    if (allComplete) return "all_topics_complete";
-  }
-
-  // Check timebox
-  const tMs = elapsedMs(gs, opts.clockMs);
-  const limit = /* ... calculate limit ... */;
-  if (tMs >= limit) return "timebox";
-  
-  return null;
-}
-```
-
-**Usage:**
-```typescript
-// shared/services/backgroundInterview/useBackgroundAnswerHandler.ts
-const categories = updatedCategoryStats.map((stat: any) => ({
-  name: stat.categoryName,
-  confidence: Math.min(100, (stat.count / CONTRIBUTIONS_TARGET) * 100),
-  avgStrength: stat.avgStrength  // No fallback - must be present
-}));
-
-const transitionReason = shouldTransition(
-  { startedAtMs, timeboxMs },
-  { timeboxMs, categories }
-);
-```
-
-### Edge Cases
-
-**Q: What if a candidate never reaches 100% avgStrength?**  
-A: The timebox will trigger and end the interview after the configured time limit.
-
-**Q: What if fast-eval returns incorrect scores?**  
-A: Full-eval corrects Redux state, ensuring subsequent transition checks use accurate `avgStrength` values.
-
-**Q: Can avgStrength be missing?**  
-A: No - the code intentionally avoids fallbacks (e.g., `|| 0`). If `avgStrength` is missing, it will surface as a bug.
+This prevents a candidate from advancing simply by accumulating enough mediocre answers.
 
 ---
 
 ## Configuration
 
-### Adjusting CONTRIBUTIONS_TARGET
+### Company Configuration Surface
 
-To change the number of contributions required per category:
+These values are configured per job through the existing scoring configuration flow:
+- `GET /api/company/jobs/[jobId]/scoring-config`
+- `PUT /api/company/jobs/[jobId]/scoring-config`
+- company dashboard job create/edit forms
 
-1. Update `shared/constants/interview.ts`:
-   ```typescript
-   export const CONTRIBUTIONS_TARGET = 5; // Or any desired value
-   ```
+### Rollout / Defaults
 
-2. No other code changes needed - all references use the shared constant.
-
-### Adjusting Transition Threshold
-
-To change the avgStrength threshold for completion:
-
-1. Update `shared/services/backgroundSessionGuard.ts`:
-   ```typescript
-   const allComplete = opts.categories.every(cat => cat.avgStrength >= 90); // Or any threshold
-   ```
-
-2. Document the rationale for the change.
+- New jobs create a `ScoringConfiguration` row with both targets populated
+- Existing jobs are backfilled to the schema default target value during migration/repair flows
+- Runtime reads do not fall back to env or hardcoded defaults; missing scoring config is treated as an invariant failure
 
 ---
 
@@ -230,13 +172,10 @@ To change the avgStrength threshold for completion:
 
 | Aspect | Previous | Current |
 |--------|----------|---------|
-| **Target constant** | Hardcoded `5` in multiple files | Shared `CONTRIBUTIONS_TARGET = 3` |
-| **Redux correction** | Fast-eval only | Full-eval corrects Redux |
-| **Transition logic** | `confidence >= 100` (sample size) | `avgStrength >= 100` (quality) |
-| **Fallbacks** | `|| 0`, `|| 5` throughout | None - bugs surface explicitly |
+| Target model | One shared env-backed target | Two per-job targets on `ScoringConfiguration` |
+| Background routing | Global threshold | `backgroundContributionsTarget` |
+| Coding confidence | Global threshold | `codingContributionsTarget` |
+| Completion gate | `avgStrength >= 100` | `avgStrength >= 100` |
+| In-progress config behavior | Not applicable | Live job config reads can affect current interviews |
 
-These changes ensure:
-- **Consistency**: Single source of truth for constants
-- **Accuracy**: Full-eval corrects fast-eval errors
-- **Quality**: Interview ends only when candidate demonstrates exceptional knowledge
-- **Debuggability**: Missing data surfaces as bugs, not silent defaults
+The current implementation improves per-job control, but session snapshotting is still required to make interview behavior immutable once a session starts.

@@ -6,6 +6,10 @@ import { loadCompanyForUser } from "./companyContext";
 import { parseCodingCategories, parseExperienceCategories } from "./categorySchemas";
 import { ensureCompanyRole } from "./companyAuth";
 import { coerceSeconds, mapJobResponse } from "./jobHelpers";
+import {
+    buildScoringConfigValues,
+    validateScoringConfigInput,
+} from "./scoringConfigHelpers";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.COMPANY;
@@ -79,9 +83,18 @@ export async function POST(request: NextRequest) {
             typeof body.requirements === "string" ? body.requirements : null;
         const codingCategories = parseCodingCategories(body.codingCategories);
         const experienceCategories = parseExperienceCategories(body.experienceCategories);
+        const scoringConfigInput =
+            body.scoringConfig && typeof body.scoringConfig === "object"
+                ? (body.scoringConfig as Record<string, unknown>)
+                : {};
+        const scoringConfigValidationError = validateScoringConfigInput(scoringConfigInput);
+        if (scoringConfigValidationError) {
+            return NextResponse.json({ error: scoringConfigValidationError }, { status: 400 });
+        }
+        const scoringConfig = buildScoringConfigValues(scoringConfigInput as any);
 
         const { company } = await loadCompanyForUser(userId);
-        let interviewContentId: string | undefined;
+        let interviewContentData: Record<string, unknown> | null = null;
         const interview = body.interviewContent;
         if (interview && typeof interview === "object") {
             const background =
@@ -109,76 +122,44 @@ export async function POST(request: NextRequest) {
                 if (codingPromptRaw.length === 0) {
                     throw new Error("Coding prompt is required for interview content");
                 }
-                const created = await (prisma as any).interviewContent.create({
-                    data: {
-                        backgroundQuestion:
-                            background && background.trim().length > 0
-                                ? background
-                                : null,
-                        backgroundQuestionCategory:
-                            typeof interview.backgroundQuestionCategory === "string" &&
-                            interview.backgroundQuestionCategory.trim().length > 0
-                                ? interview.backgroundQuestionCategory
-                                : null,
-                        codingPrompt: codingPromptRaw,
-                        codingTemplate:
-                            codingTemplate && codingTemplate.trim().length > 0
-                                ? codingTemplate
-                                : null,
-                        codingAnswer:
-                            codingAnswer && codingAnswer.trim().length > 0
-                                ? codingAnswer
-                                : null,
-                        expectedOutput:
-                            typeof interview.expectedOutput === "string" &&
-                            interview.expectedOutput.trim().length > 0
-                                ? interview.expectedOutput
-                                : null,
-                        codingLanguage:
-                            typeof interview.codingLanguage === "string" &&
-                            interview.codingLanguage.trim().length > 0
-                                ? interview.codingLanguage
-                                : "python",
-                        backgroundQuestionTimeSeconds: coerceSeconds(
-                            (interview as any).backgroundQuestionTimeSeconds,
-                            900
-                        ),
-                        codingQuestionTimeSeconds: coerceSeconds(
-                            (interview as any).codingQuestionTimeSeconds,
-                            1800
-                        ),
-                    },
-                });
-                interviewContentId = created.id;
-            }
-        }
-        if (interview && typeof interview === "object" && !interviewContentId) {
-            const background =
-                typeof interview.backgroundQuestion === "string"
-                    ? interview.backgroundQuestion
-                    : null;
-            const codingPromptRaw =
-                typeof interview.codingPrompt === "string"
-                    ? interview.codingPrompt.trim()
-                    : "";
-            const codingTemplate =
-                typeof interview.codingTemplate === "string"
-                    ? interview.codingTemplate
-                    : null;
-            const codingAnswer =
-                typeof interview.codingAnswer === "string"
-                    ? interview.codingAnswer
-                    : null;
-            const hasContent =
-                (background && background.trim().length > 0) ||
-                codingPromptRaw.length > 0 ||
-                (codingTemplate && codingTemplate.trim().length > 0) ||
-                (codingAnswer && codingAnswer.trim().length > 0);
-            if (hasContent && codingPromptRaw.length === 0) {
-                throw new Error("Coding prompt is required for interview content");
-            }
-            if (hasContent) {
-                throw new Error("Failed to create interview content");
+                interviewContentData = {
+                    backgroundQuestion:
+                        background && background.trim().length > 0
+                            ? background
+                            : null,
+                    backgroundQuestionCategory:
+                        typeof interview.backgroundQuestionCategory === "string" &&
+                        interview.backgroundQuestionCategory.trim().length > 0
+                            ? interview.backgroundQuestionCategory
+                            : null,
+                    codingPrompt: codingPromptRaw,
+                    codingTemplate:
+                        codingTemplate && codingTemplate.trim().length > 0
+                            ? codingTemplate
+                            : null,
+                    codingAnswer:
+                        codingAnswer && codingAnswer.trim().length > 0
+                            ? codingAnswer
+                            : null,
+                    expectedOutput:
+                        typeof interview.expectedOutput === "string" &&
+                        interview.expectedOutput.trim().length > 0
+                            ? interview.expectedOutput
+                            : null,
+                    codingLanguage:
+                        typeof interview.codingLanguage === "string" &&
+                        interview.codingLanguage.trim().length > 0
+                            ? interview.codingLanguage
+                            : "python",
+                    backgroundQuestionTimeSeconds: coerceSeconds(
+                        (interview as any).backgroundQuestionTimeSeconds,
+                        900
+                    ),
+                    codingQuestionTimeSeconds: coerceSeconds(
+                        (interview as any).codingQuestionTimeSeconds,
+                        1800
+                    ),
+                };
             }
         }
 
@@ -197,16 +178,33 @@ export async function POST(request: NextRequest) {
         if (experienceCategories) {
             data.experienceCategories = experienceCategories;
         }
-        if (interviewContentId) {
-            data.interviewContentId = interviewContentId;
-        }
-
-        const job = await (prisma as any).job.create({
-            data,
-            include: {
-                interviewContent: true,
-                company: true,
-            },
+        const job = await prisma.$transaction(async (tx) => {
+            const interviewContentId = interviewContentData
+                ? (
+                      await (tx as any).interviewContent.create({
+                          data: interviewContentData,
+                      })
+                  ).id
+                : undefined;
+            const createdJob = await (tx as any).job.create({
+                data: {
+                    ...data,
+                    interviewContentId,
+                },
+            });
+            await (tx as any).scoringConfiguration.create({
+                data: {
+                    jobId: createdJob.id,
+                    ...scoringConfig,
+                },
+            });
+            return (tx as any).job.findUniqueOrThrow({
+                where: { id: createdJob.id },
+                include: {
+                    interviewContent: true,
+                    company: true,
+                },
+            });
         });
 
         invalidatePattern(`jobs:company:${company.name}`);

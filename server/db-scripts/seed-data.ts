@@ -6,6 +6,10 @@ import path from "path";
 import bcrypt from "bcryptjs";
 import { log } from "app/shared/services";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+import {
+    CREATION_BACKGROUND_CONTRIBUTIONS_TARGET,
+    CREATION_CODING_CONTRIBUTIONS_TARGET,
+} from "shared/constants/interview";
 
 const LOG_CATEGORY = LOG_CATEGORIES.DB;
 
@@ -557,6 +561,12 @@ async function resetDatabase() {
                             aiAssistWeight: jobData.scoringConfiguration.aiAssistWeight,
                             experienceWeight: jobData.scoringConfiguration.experienceWeight,
                             codingWeight: jobData.scoringConfiguration.codingWeight,
+                            backgroundContributionsTarget:
+                                jobData.scoringConfiguration.backgroundContributionsTarget ??
+                                CREATION_BACKGROUND_CONTRIBUTIONS_TARGET,
+                            codingContributionsTarget:
+                                jobData.scoringConfiguration.codingContributionsTarget ??
+                                CREATION_CODING_CONTRIBUTIONS_TARGET,
                         },
                     });
                 }
@@ -969,6 +979,8 @@ Independent and proactive.`,
                     aiAssistWeight: 75,
                     experienceWeight: 50,
                     codingWeight: 50,
+                    backgroundContributionsTarget: CREATION_BACKGROUND_CONTRIBUTIONS_TARGET,
+                    codingContributionsTarget: CREATION_CODING_CONTRIBUTIONS_TARGET,
                 },
             });
         }
