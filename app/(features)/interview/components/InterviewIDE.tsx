@@ -129,6 +129,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     const reduxUserId = useSelector((state: RootState) => state.interview.userId);
     const reduxApplicationId = useSelector((state: RootState) => state.interview.applicationId);
     const codingTimeboxSeconds = useSelector((state: RootState) => state.coding.timeboxSeconds);
+    const activePasteEvaluation = useSelector((state: RootState) => state.coding.activePasteEvaluation);
     
     if (!reduxCompanyId || !reduxJobId) {
         throw new Error("Interview companyId/jobId not initialized in Redux");
@@ -140,6 +141,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     const codingDurationSeconds = codingTimeboxSeconds || DEFAULT_CODING_DURATION_SECONDS;
     
     const candidateName = (session?.user as any)?.name || "Candidate";
+    const isCodingFrozen = Boolean(activePasteEvaluation && !activePasteEvaluation.readyToEvaluate);
 
     /**
      * Queues a user-visible chat message to be sent to the agent.
@@ -1290,6 +1292,10 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                                 onTabSwitch={handleTabSwitch}
                                 onRunCode={handleRunCode}
                                 readOnly={!isCodingStarted}
+                                freezeState={{
+                                    isFrozen: isCodingFrozen,
+                                    answeredFollowups: activePasteEvaluation?.answerCount ?? 0,
+                                }}
                                 onPasteDetected={(pastedCode, timestamp) => {
                                     try {
                                         const ref = realTimeConversationRef.current;
