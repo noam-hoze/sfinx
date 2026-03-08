@@ -183,6 +183,8 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
     // Real-time code evaluation state
     const CODE_EVALUATION_THROTTLE_MS = evaluationThrottleMs;
+    const [evalCompletedCount, setEvalCompletedCount] = useState(0);
+
     const [previousCode, setPreviousCode] = useState("");
     const [codeChangeQueue, setCodeChangeQueue] = useState<Array<{
         timestamp: Date;
@@ -609,10 +611,10 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
      * Initializes editor content with the default snippet if empty.
      */
     useEffect(() => {
-        // If no code yet, fetch the coding template once company/role are known (from Redux)
+        // Always fetch the script once company/role are known so interviewScript is
+        // available for submit — then seed the editor template only when empty.
         (async () => {
-            if (state.currentCode) return;
-            if (!reduxCompanySlug || !reduxRoleSlug) return; // wait until company context is set in Redux
+            if (!reduxCompanySlug || !reduxRoleSlug) return;
             const resp = await fetch(
                 `/api/interviews/script?company=${reduxCompanySlug}&role=${reduxRoleSlug}`
             );
@@ -624,17 +626,19 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 );
             }
             const data = await resp.json();
-            setInterviewScript(data); // Store script for iteration tracking
-            const tmpl = String(data?.codingTemplate || "");
-            if (tmpl.trim().length > 0) {
-                updateCurrentCode(tmpl);
-                setPreviousCode(tmpl); // Initialize previousCode with template
+            setInterviewScript(data);
+            if (!state.currentCode) {
+                const tmpl = String(data?.codingTemplate || "");
+                if (tmpl.trim().length > 0) {
+                    updateCurrentCode(tmpl);
+                    setPreviousCode(tmpl);
+                }
             }
         })().catch((error) => {
             logger.error("❌ Failed to load interview script:", error);
             throw error;
         });
-    }, [state.currentCode, updateCurrentCode, reduxCompanySlug, reduxRoleSlug]);
+    }, [reduxCompanySlug, reduxRoleSlug]);
 
     /**
      * Resets editor code for specific tasks (e.g., task1-userlist) when task changes.
@@ -804,6 +808,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             if (response.ok) {
                 const data = await response.json();
                 logger.info(`[CODE-EVAL] ✅ Evaluated: ${data.contributionsCount || 0} contributions`);
+                setEvalCompletedCount(n => n + 1);
                 
                 // Update debug panel with real-time contribution data
                 setEvaluationDebugData((prev: any) => ({
@@ -844,7 +849,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 hasCodingCategories: !!job?.codingCategories,
                 categoriesCount: job?.codingCategories?.length
             });
-            
+
             // Only track for real-time evaluation if coding has started
             if (!isCodingStarted || !job?.codingCategories) {
                 logger.info("[CODE-CHANGE] Skipping evaluation - not ready");
@@ -880,7 +885,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 // Get the current queue
                 setCodeChangeQueue(currentQueue => {
                     logger.info("[CODE-CHANGE] Queue length:", currentQueue.length);
-                    
+
                     if (currentQueue.length === 0) {
                         setNextEvaluationTime(null);
                         return currentQueue;
@@ -897,7 +902,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                                 
                                 const errors = markers.filter((m: any) => m.severity === monaco.MarkerSeverity.Error);
                                 logger.info("[CODE-CHANGE] Syntax errors found:", errors.length);
-                                
+
                                 if (errors.length > 0) {
                                     logger.info("[CODE-CHANGE] ❌ Skipping evaluation - code has syntax errors:", errors.map((e: any) => ({ line: e.startLineNumber, message: e.message })));
                                     Promise.resolve().then(() => setNextEvaluationTime(null));
@@ -920,7 +925,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                     logger.info("[CODE-CHANGE] First change timestamp:", firstChange.timestamp.toISOString());
                     logger.info("[CODE-CHANGE] Last change code length:", lastChange.code.length);
                     logger.info("[CODE-CHANGE] Previous code length:", firstChange.previousCode.length);
-                    
+
                     // Only evaluate if substantial change
                     if (isSubstantialChange(firstChange.previousCode, lastChange.code)) {
                         // Trigger evaluation (non-blocking)
@@ -1108,6 +1113,9 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
 
     return (
         <div className="h-screen flex flex-col bg-soft-white text-deep-slate dark:bg-gray-900 dark:text-white relative">
+            {/* #region agent sentinel */}
+            <div data-testid="eval-completed" data-count={evalCompletedCount} style={{display:'none'}} />
+            {/* #endregion */}
             <header className="border-b border-gray-200/30 dark:border-gray-700/30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl px-6 py-4">
                 <div className="flex items-center justify-between max-w-8xl mx-auto">
                     {/* Left: Sfinx Logo (clickable to exit) */}

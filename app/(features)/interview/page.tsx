@@ -762,21 +762,12 @@ function InterviewPageContent() {
 
   // Glow state handlers
   const handleAudioStateChange = useCallback((isPlaying: boolean, intentText?: string, visemes?: import("@/shared/types/mascot").Viseme[]) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:handleAudioStateChange',message:'Audio state change',data:{isPlaying,hasVisemes:!!visemes,visemesCount:visemes?.length,intentText},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     setIsAIAudioPlaying(isPlaying);
     if (isPlaying && visemes) {
       setCurrentVisemes(visemes);
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:setVisemes',message:'Setting visemes',data:{count:visemes.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
     } else if (!isPlaying) {
       // Clear visemes when audio stops to prevent continued animation
       setCurrentVisemes([]);
-      // #region agent log
-      fetch('http://127.0.0.1:7244/ingest/a7a962d3-a365-4cdf-9479-10209a61a26e',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'page.tsx:clearVisemes',message:'Clearing visemes',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
     }
     if (isPlaying) {
       // Clear intent when audio starts
@@ -1103,7 +1094,7 @@ function InterviewPageContent() {
         </header>
 
         {/* Completion Screen Content */}
-        <div className="flex-1 flex items-center justify-center p-4">
+        <div data-testid="background-complete" data-session-id={interviewSessionId ?? ""} className="flex-1 flex items-center justify-center p-4">
           <CompletionScreen
             onStartCoding={handleStartCoding}
             interviewSessionId={interviewSessionId}

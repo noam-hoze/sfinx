@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
+import fs from "fs";
 import prisma from "lib/prisma";
 import OpenAI from "openai";
 import { createVideoChapter } from "../shared/createVideoChapter";
@@ -19,7 +20,6 @@ export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         const { sessionId, previousCode, currentCode, diff, timestamp, jobCategories, referenceCode, expectedOutput } = body;
-
         if (!sessionId || !diff || !timestamp || !jobCategories) {
             return NextResponse.json(
                 { error: "Missing required fields" },
@@ -147,7 +147,6 @@ Be strict with 0 scores - use them for noise. But use the full range 1-100 for l
         const evaluationResult = JSON.parse(responseContent);
         const allEvaluations = evaluationResult.evaluations || [];
         const contributions = allEvaluations.filter((e: any) => e.strength > 0);
-
         log.info(LOG_CATEGORY, `[evaluate-code-change] Found ${contributions.length} contributions with strength > 0 out of ${allEvaluations.length} evaluations`);
 
         // Calculate video offset — clamp to 0 when contribution predates recording

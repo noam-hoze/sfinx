@@ -50,6 +50,7 @@ export async function GET() {
                   select: {
                     id: true,
                     finalScore: true,
+                    status: true,
                     createdAt: true,
                     telemetryData: {
                       include: {
@@ -88,6 +89,7 @@ export async function GET() {
             email: app.candidate.email,
             image: app.candidate.image,
             matchScore: latestSession?.finalScore ?? null,
+            sessionStatus: latestSession?.status ?? null,
             highlights: extractTopHighlights(latestSession),
             interviewCompleted: !!latestSession,
             applicationId: app.id,
@@ -134,7 +136,10 @@ export async function GET() {
       },
     };
 
-    await setCached(cacheKey, result);
+    const hasProcessing = applicants.some((a) => a.sessionStatus === "PROCESSING");
+    if (!hasProcessing) {
+      await setCached(cacheKey, result);
+    }
     return NextResponse.json(result);
   } catch (error) {
     console.error("Error fetching all applicants:", error);
