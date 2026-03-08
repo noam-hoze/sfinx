@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { buildInterviewUrl } from "app/shared/utils/interviewLinks";
 import { mergeWithPredefinedCategories, type CodingCategory } from "./categorySchemas";
 
 /**
@@ -25,7 +26,11 @@ type JobWithCompany = Prisma.JobGetPayload<{
 /**
  * Normalizes Prisma job records into the shape consumed by the frontend JobGrid.
  */
-export function mapJobResponse(job: JobWithCompany, company?: JobWithCompany["company"]) {
+export function mapJobResponse(
+    job: JobWithCompany,
+    company?: JobWithCompany["company"],
+    origin?: string
+) {
     const interview = job.interviewContent;
     const owningCompany = company ?? job.company;
     
@@ -43,6 +48,10 @@ export function mapJobResponse(job: JobWithCompany, company?: JobWithCompany["co
         requirements: job.requirements,
         codingCategories: mergedCodingCategories,
         experienceCategories: job.experienceCategories,
+        interviewUrl:
+            interview && owningCompany
+                ? buildInterviewUrl(origin, owningCompany.id, job.id)
+                : null,
         interviewContent: interview
             ? {
                   id: interview.id,
@@ -70,4 +79,3 @@ export function mapJobResponse(job: JobWithCompany, company?: JobWithCompany["co
             : undefined,
     };
 }
-

@@ -1173,21 +1173,22 @@ The candidate is working on this task. Respond to their question while following
       if (readyRef.current) return;
       readyRef.current = true;
       const ms = store.getState().interview;
-      const { companySlug, roleSlug } = ms;
-      if (!companySlug) {
-        throw new Error("Interview machine missing companySlug");
+      const { companyId, jobId } = ms;
+      if (!companyId) {
+        throw new Error("Interview machine missing companyId");
       }
-      if (!roleSlug) {
-        throw new Error("Interview machine missing roleSlug");
+      if (!jobId) {
+        throw new Error("Interview machine missing jobId");
       }
+      const params = new URLSearchParams({ companyId, jobId });
       const resp = await fetch(
-        `/api/interviews/script?company=${companySlug}&role=${roleSlug}`
+        `/api/interviews/script?${params.toString()}`
       );
       if (!resp.ok) {
         const detail =
           (await resp.text().catch(() => "")) || resp.statusText || "unknown";
         throw new Error(
-          `Failed to load interview script for ${companySlug}/${roleSlug}: ${detail}`
+          `Failed to load interview script for ${jobId}: ${detail}`
         );
       }
       const data = await resp.json();

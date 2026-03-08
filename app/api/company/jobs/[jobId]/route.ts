@@ -50,6 +50,7 @@ async function assertOwnership(userId: string, jobId: string) {
 
 export async function GET(_request: NextRequest, context: RouteContext) {
     try {
+        const origin = new URL(_request.url).origin;
         const session = await getServerSession(authOptions);
         const sessionUser = session?.user as { id?: string; role?: string } | undefined;
         if (!sessionUser?.id) {
@@ -65,7 +66,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         }
 
         const { job, company } = await assertOwnership(userId, jobId);
-        return NextResponse.json(mapJobResponse(job, company));
+        return NextResponse.json(mapJobResponse(job, company, origin));
     } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
         const status = (() => {
@@ -93,6 +94,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
 export async function PUT(request: NextRequest, context: RouteContext) {
     try {
+        const origin = new URL(request.url).origin;
         const session = await getServerSession(authOptions);
         const sessionUser = session?.user as { id?: string; role?: string } | undefined;
         if (!sessionUser?.id) {
@@ -262,7 +264,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         invalidatePattern(`jobs:company:${company.name}`);
         invalidate(`applicants:job:${jobId}`);
         invalidatePattern("companies:list:");
-        const response = mapJobResponse(updated, updated.company);
+        const response = mapJobResponse(updated, updated.company, origin);
         return NextResponse.json(response);
     } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";

@@ -12,7 +12,7 @@ import React, {
     useRef,
     useState,
 } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import Image from "next/image";
 import Link from "next/link";
@@ -35,8 +35,7 @@ import { useCamera } from "./hooks/useCamera";
 import { useInterviewTimer } from "./hooks/useInterviewTimer";
 import { useThemePreference } from "./hooks/useThemePreference";
 import { fetchJobById } from "./services/jobService";
-import { useDispatch, useSelector } from "react-redux";
-import { setCompanyContext, setSessionId, setStage } from "@/shared/state/slices/interviewSlice";
+import { useSelector } from "react-redux";
 import { store, RootState } from "@/shared/state/store";
 import { useInterviewRecording } from "./InterviewRecordingContext";
 
@@ -124,20 +123,18 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
     } = useInterview();
     const { markCompanyApplied } = useJobApplication();
     const router = useRouter();
-    const searchParams = useSearchParams();
     const { data: session } = useSession();
-    const dispatch = useDispatch();
-    const reduxCompanySlug = useSelector((state: RootState) => state.interview.companySlug);
-    const reduxRoleSlug = useSelector((state: RootState) => state.interview.roleSlug);
+    const reduxCompanyId = useSelector((state: RootState) => state.interview.companyId);
+    const reduxJobId = useSelector((state: RootState) => state.interview.jobId);
     const reduxUserId = useSelector((state: RootState) => state.interview.userId);
     const reduxApplicationId = useSelector((state: RootState) => state.interview.applicationId);
     const codingTimeboxSeconds = useSelector((state: RootState) => state.coding.timeboxSeconds);
     
-    if (!reduxCompanySlug || !reduxRoleSlug) {
-        throw new Error("Company and role not initialized in Redux");
+    if (!reduxCompanyId || !reduxJobId) {
+        throw new Error("Interview companyId/jobId not initialized in Redux");
     }
-    const companyId = reduxCompanySlug;
-    const jobId = `${reduxCompanySlug}-${reduxRoleSlug}`;
+    const companyId = reduxCompanyId;
+    const jobId = reduxJobId;
     
     const [job, setJob] = useState<any | null>(null);
     const codingDurationSeconds = codingTimeboxSeconds || DEFAULT_CODING_DURATION_SECONDS;
@@ -549,7 +546,6 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         interviewSessionId,
         setIsChatInputLocked,
         updateCurrentCode,
-        dispatch,
         getActualRecordingStartTime,
     ]);
 
@@ -608,7 +604,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         return () => {
             mounted = false;
         };
-    }, [jobId, dispatch, setJobCategories]);
+    }, [jobId, setJobCategories]);
 
     /**
      * Initializes editor content with the default snippet if empty.
@@ -617,15 +613,19 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         // Always fetch the script once company/role are known so interviewScript is
         // available for submit — then seed the editor template only when empty.
         (async () => {
-            if (!reduxCompanySlug || !reduxRoleSlug) return;
+            if (!reduxJobId) return;
+            const params = new URLSearchParams({ jobId: reduxJobId });
+            if (reduxCompanyId) {
+                params.set("companyId", reduxCompanyId);
+            }
             const resp = await fetch(
-                `/api/interviews/script?company=${reduxCompanySlug}&role=${reduxRoleSlug}`
+                `/api/interviews/script?${params.toString()}`
             );
             if (!resp.ok) {
                 const detail =
                     (await resp.text().catch(() => "")) || resp.statusText;
                 throw new Error(
-                    `Failed to load interview script for ${reduxCompanySlug}/${reduxRoleSlug}: ${detail}`
+                    `Failed to load interview script for ${reduxJobId}: ${detail}`
                 );
             }
             const data = await resp.json();
@@ -641,7 +641,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             logger.error("❌ Failed to load interview script:", error);
             throw error;
         });
-    }, [reduxCompanySlug, reduxRoleSlug]);
+    }, [reduxCompanyId, reduxJobId]);
 
     /**
      * Resets editor code for specific tasks (e.g., task1-userlist) when task changes.

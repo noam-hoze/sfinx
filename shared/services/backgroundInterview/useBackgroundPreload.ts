@@ -52,10 +52,6 @@ export function useBackgroundPreload() {
           hasWarmup: !!warmupData,
         });
 
-        const parts = jobId.split("-");
-        const companySlug = parts[0];
-        const roleSlug = parts.slice(1).join("-");
-
         if (!sessionUserId) {
           throw new Error("Authentication required");
         }
@@ -118,6 +114,7 @@ export function useBackgroundPreload() {
           firstQuestion: string;
           firstIntent: string;
           companyNameFromScript: string;
+          jobTitleFromScript: string;
         }> => {
           // Fetch script (likely from localStorage cache)
           const SCRIPT_CACHE_VERSION = 'v8';
@@ -136,8 +133,15 @@ export function useBackgroundPreload() {
 
           if (!scriptData) {
             log.info(LOG_CATEGORY, "[preload:trackB] Fetching script from API...");
-            const scriptResp = await fetch(`/api/interviews/script?company=${companySlug}&role=${roleSlug}`);
-            if (!scriptResp.ok) throw new Error("Failed to load interview script");
+            const params = new URLSearchParams({ jobId });
+            if (companyId) {
+              params.set("companyId", companyId);
+            }
+            const scriptResp = await fetch(`/api/interviews/script?${params.toString()}`);
+            if (!scriptResp.ok) {
+              const detail = (await scriptResp.text().catch(() => "")) || scriptResp.statusText;
+              throw new Error(`Failed to load interview script: ${detail}`);
+            }
             scriptData = await scriptResp.json();
             try {
               localStorage.setItem(scriptCacheKey, JSON.stringify(scriptData));
@@ -148,7 +152,8 @@ export function useBackgroundPreload() {
 
           // Generate first question via OpenAI
           log.info(LOG_CATEGORY, "[preload:trackB] Generating first question...");
-          const companyNameFromScript = scriptData.companyName || companySlug.charAt(0).toUpperCase() + companySlug.slice(1);
+          const companyNameFromScript = scriptData.companyName || "the company";
+          const jobTitleFromScript = scriptData.jobTitle || "this role";
           const instruction = `Ask exactly: "${String(scriptData.backgroundQuestion)}"
 
 Also provide an evaluation intent - one natural, calm sentence describing the lens or perspective you are listening through for this answer.
@@ -176,7 +181,13 @@ Return JSON with format: {"question": "...", "evaluationIntent": "..."}`;
             console.warn("[preload:trackB] Failed to parse JSON, using raw response");
           }
 
-          return { scriptData, firstQuestion, firstIntent, companyNameFromScript };
+          return {
+            scriptData,
+            firstQuestion,
+            firstIntent,
+            companyNameFromScript,
+            jobTitleFromScript,
+          };
         };
 
         // ── Run tracks in parallel ──
@@ -186,7 +197,13 @@ Return JSON with format: {"question": "...", "evaluationIntent": "..."}`;
         ]);
 
         const { applicationId: createdApplicationId, sessionId: sessId } = dbResult;
-        const { scriptData, firstQuestion, firstIntent, companyNameFromScript } = contentResult;
+        const {
+          scriptData,
+          firstQuestion,
+          firstIntent,
+          companyNameFromScript,
+          jobTitleFromScript,
+        } = contentResult;
 
         // ── Dispatch all results to Redux ──
         dispatch(
@@ -203,8 +220,9 @@ Return JSON with format: {"question": "...", "evaluationIntent": "..."}`;
         dispatch(
           setCompanyContext({
             companyName: companyNameFromScript,
-            companySlug,
-            roleSlug,
+            companyId,
+            jobId,
+            jobTitle: jobTitleFromScript,
           })
         );
 

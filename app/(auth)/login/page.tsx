@@ -1,11 +1,13 @@
 "use client";
 
+import type { Route } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import React, { useState } from "react";
 import SfinxLogo from "app/shared/components/SfinxLogo";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { sanitizeNextPath } from "app/shared/utils/redirects";
 
 export default function LoginPage() {
     const [email, setEmail] = useState("");
@@ -15,6 +17,8 @@ export default function LoginPage() {
     // const [isGoogleLoading, setIsGoogleLoading] = useState(false);
     const [error, setError] = useState("");
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const nextPath = sanitizeNextPath(searchParams.get("next"));
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -31,8 +35,7 @@ export default function LoginPage() {
             if (result?.error) {
                 setError("Invalid credentials");
             } else {
-                // Redirect based on user role (this will be handled by NextAuth callback)
-                router.push("/");
+                router.push(nextPath as Route);
             }
         } catch (error) {
             setError("An error occurred. Please try again.");
@@ -151,7 +154,11 @@ export default function LoginPage() {
                     <p className="text-gray-600">
                         Don&apos;t have an account?{" "}
                         <Link
-                            href="/signup"
+                            href={
+                                nextPath !== "/"
+                                    ? `/signup?next=${encodeURIComponent(nextPath)}`
+                                    : "/signup"
+                            }
                             className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
                         >
                             Sign up

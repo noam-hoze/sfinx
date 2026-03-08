@@ -1,9 +1,12 @@
 "use client";
 
+import type { Route } from "next";
 import React, { useState } from "react";
 import Link from "next/link";
 import SfinxLogo from "../../shared/components/SfinxLogo";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { signIn } from "next-auth/react";
+import { isInterviewRedirect, sanitizeNextPath } from "app/shared/utils/redirects";
 
 export default function SignupPage() {
     const [name, setName] = useState("");
@@ -19,6 +22,9 @@ export default function SignupPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState("");
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const nextPath = sanitizeNextPath(searchParams.get("next"), "/login");
+    const inviteSignup = isInterviewRedirect(nextPath);
 
     const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -41,17 +47,45 @@ export default function SignupPage() {
                     name,
                     email,
                     password,
-                    role,
-                    companyName: role === "COMPANY" ? companyName : undefined,
-                    companySize: role === "COMPANY" ? companySize : undefined,
-                    jobTitle: role === "CANDIDATE" ? jobTitle : undefined,
+                    role: inviteSignup ? "CANDIDATE" : role,
+                    companyName:
+                        !inviteSignup && role === "COMPANY"
+                            ? companyName
+                            : undefined,
+                    companySize:
+                        !inviteSignup && role === "COMPANY"
+                            ? companySize
+                            : undefined,
+                    jobTitle:
+                        inviteSignup || role === "CANDIDATE"
+                            ? jobTitle
+                            : undefined,
                     location,
                     bio,
                 }),
             });
 
             if (response.ok) {
-                router.push("/login?message=Account created successfully");
+                if (inviteSignup) {
+                    const result = await signIn("credentials", {
+                        email,
+                        password,
+                        redirect: false,
+                    });
+                    if (result?.error) {
+                        setError("Account created, but automatic sign-in failed. Please sign in manually.");
+                        router.push(`/login?next=${encodeURIComponent(nextPath)}` as Route);
+                        return;
+                    }
+                    router.push(nextPath as Route);
+                    return;
+                }
+
+                const nextQuery =
+                    nextPath && nextPath !== "/login"
+                        ? `&next=${encodeURIComponent(nextPath)}`
+                        : "";
+                router.push(`/login?message=Account created successfully${nextQuery}`);
             } else {
                 const data = await response.json();
                 setError(data.error || "An error occurred");
@@ -84,6 +118,7 @@ export default function SignupPage() {
                     )}
                     <form onSubmit={handleSignup} className="space-y-6">
                         {/* Account Type Selection */}
+                        {!inviteSignup && (
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                                 Account Type
@@ -153,6 +188,13 @@ export default function SignupPage() {
                                 </button>
                             </div>
                         </div>
+                        )}
+
+                        {inviteSignup && (
+                            <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+                                Create a candidate account to continue to your interview.
+                            </div>
+                        )}
 
                         {/* Name Field */}
                         <div>
@@ -185,7 +227,7 @@ export default function SignupPage() {
                         </div>
 
                         {/* Conditional Fields Based on Account Type */}
-                        {role === "COMPANY" && (
+                        {!inviteSignup && role === "COMPANY" && (
                             <>
                                 {/* Company Name */}
                                 <div>
@@ -348,7 +390,11 @@ export default function SignupPage() {
                     <p className="text-gray-600">
                         Already have an account?{" "}
                         <Link
-                            href="/login"
+                            href={
+                                nextPath !== "/login"
+                                    ? `/login?next=${encodeURIComponent(nextPath)}`
+                                    : "/login"
+                            }
                             className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
                         >
                             Sign in
