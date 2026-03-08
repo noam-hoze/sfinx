@@ -56,34 +56,34 @@ export async function POST(request: NextRequest) {
 **Current Topic Coverage:**
 ${topicsList}
 
-**Your Task:**
-1. Score this specific answer (0-100) - Aim to help the candidate reach 100% mastery in each topic
-2. Identify which topics from the list above this answer attempts to address
-   - Even if the answer is vague or incorrect, if it tries to talk about a topic, include it
-   - Match the answer content to the topic names in the list
-   - The question itself can help identify which topic was being asked about
+**Step 1 – Classify answer INTENT (do this first):**
+Determine what the candidate is communicating with their answer:
 
-**Progressive Questioning Strategy:**
-- Question ${questionNumber || '?'} of ${questionsLimit} maximum
-- Goal: Maximize each topic score to 100%
-- Ask progressively deeper questions targeting topics with scores < 100%
-- Priority: Focus on the lowest-scoring topics first
-- Increase difficulty to challenge candidate toward mastery
+- "dont_know" → Candidate is explicitly giving up or refusing to engage:
+  Examples: "I don't know", "no idea", "pass", "skip", "not sure at all", gibberish, single characters, or any answer that signals they cannot or will not attempt to answer
 
-**Scoring (0-100):**
+- "clarification_request" → Candidate is asking for clarification or expressing confusion about the question itself:
+  Examples: "what do you mean?", "can you explain?", "I don't understand the question", "could you rephrase?"
+
+- "substantive" → Candidate attempted to actually answer the question (even if the answer is wrong, vague, or poor)
+  Examples: Any answer that engages with the content of the question, even partially
+
+IMPORTANT: "understandingLevel" reflects answer QUALITY. "detectedAnswerType" reflects answer INTENT. A candidate can have understandingLevel "none" but still be giving a substantive (even if wrong) answer.
+
+**Step 2 – Score this specific answer (0-100):**
+Only score if detectedAnswerType is "substantive". If "dont_know" or "clarification_request", score = 0.
 - 90-100: Exceptional - demonstrates deep understanding, mentions edge cases, best practices
 - 75-89: Strong - accurate explanation with good detail
 - 60-74: Adequate - basic understanding, some gaps
 - 40-59: Weak - superficial or partially incorrect
 - 0-39: Poor - fundamental misunderstanding
 
-**Example:**
-Question: "How does useEffect work?"
-Answer: "It runs after render" (vague, score: 40)
-Topics Addressed: ["useEffect lifecycle understanding"] (because the answer attempted to explain useEffect, even poorly)
+**Step 3 – Identify topics addressed:**
+Identify which topics the answer attempts to address. Include even vague or incorrect attempts.
 
 Return ONLY valid JSON with this exact structure:
 {
+  "detectedAnswerType": "dont_know" | "clarification_request" | "substantive",
   "score": number (0-100),
   "reasoning": "Brief explanation of why this answer received this score",
   "understandingLevel": "full" | "partial" | "none",
@@ -104,17 +104,21 @@ IMPORTANT: Include topics even if the answer quality is poor - what matters is W
 - Question #${questionNumber || '?'}: ${question}
 - Candidate's Answer: ${answer}
 
-**Your Task:**
-Score ONLY this specific answer to this specific question. Evaluate if the candidate understands what they were asked about.
+**Step 1 – Classify answer INTENT:**
+- "dont_know" → Candidate is explicitly giving up or refusing to engage ("I don't know", "pass", "skip", gibberish, etc.)
+- "clarification_request" → Candidate is asking for clarification about the question ("what do you mean?", "can you explain?", etc.)
+- "substantive" → Candidate attempted to actually answer (even if wrong or vague)
 
-**Scoring (0-100):**
-- 80-100: Clear, accurate explanation; demonstrates full understanding of the concept asked
+**Step 2 – Score this specific answer (0-100):**
+Only score if detectedAnswerType is "substantive". If "dont_know" or "clarification_request", score = 0.
+- 80-100: Clear, accurate explanation; demonstrates full understanding
 - 50-79: Mostly correct but missing details or shows some confusion
-- 20-49: Vague, incomplete, or partially incorrect explanation
+- 20-49: Vague, incomplete, or partially incorrect
 - 0-19: Wrong, avoids question, or shows no understanding
 
 Return ONLY valid JSON with this exact structure:
 {
+  "detectedAnswerType": "dont_know" | "clarification_request" | "substantive",
   "score": number (0-100),
   "reasoning": "Brief explanation of why this answer received this score",
   "understandingLevel": "full" | "partial" | "none"

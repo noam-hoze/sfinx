@@ -35,34 +35,43 @@ export async function POST(request: NextRequest) {
 
         log.info(LOG_CATEGORY, "[Topic Identification] Analyzing pasted code for topics...");
 
-        const systemPrompt = `You are analyzing code a candidate pasted during an interview.
+        const systemPrompt = `You are a gatekeeper for a coding interview system. A candidate pasted content into a code editor.
 
-**Pasted Code:**
+**Your ONLY job is to determine: is this pasted content actual code?**
+
+Code means any programming language syntax — Python, JavaScript, C/C++, Java, SQL, shell scripts, pseudocode, etc.
+
+If the content is NOT code (e.g. plain English text, a URL, a sentence, a paragraph, a number) → return:
+{"relevant": false, "topics": [], "initialQuestion": ""}
+
+If the content IS code (even if it's not directly related to the task) → proceed to topic extraction.
+
+**Pasted Content:**
 \`\`\`
 ${pastedContent}
 \`\`\`
 
-**Coding Task Context:**
+**Coding Task Context (for topic generation only — does NOT affect the relevant flag):**
 ${codingTask}
 
-**Your Task:**
-1. Identify the ${topicsCount} MOST IMPORTANT concepts/topics this code demonstrates that the candidate should understand
-2. Generate an initial question to begin evaluating their understanding
+---
 
-**IMPORTANT:** Limit to ${topicsCount} topics maximum. Focus on the most critical concepts only.
+**If the content IS code**, extract topics and generate an initial question:
+1. Identify the ${topicsCount} MOST IMPORTANT concepts/topics demonstrated.
+2. Generate one short initial question to evaluate the candidate's understanding.
 
-Return ONLY valid JSON in this exact format:
+Return ONLY valid JSON in exactly this format:
 {
+  "relevant": true,
   "topics": [
     {"name": "useEffect lifecycle understanding", "description": "How useEffect manages side effects and dependencies"},
-    {"name": "Error handling patterns", "description": "Catching and displaying errors from async operations"},
-    {"name": "State management with useState", "description": "Managing component state"}
+    {"name": "Error handling patterns", "description": "Catching and displaying errors from async operations"}
   ],
   "initialQuestion": "Can you explain how the useEffect hook is being used here?"
 }
 
 Keep topic names concise (< 50 characters) and descriptions brief (< 100 characters).
-Maximum 3-4 topics to ensure comprehensive evaluation without overwhelming the candidate.`;
+Maximum ${topicsCount} topics. Only set relevant=false for non-code content (plain text, sentences, URLs, etc.).`;
 
         const completion = await openaiClient.chat.completions.create({
             model: "gpt-4o-mini",
@@ -84,7 +93,13 @@ Maximum 3-4 topics to ensure comprehensive evaluation without overwhelming the c
 
         const result = JSON.parse(content);
 
-        // Validate response structure
+        // If GPT determined the content is not code or not related — return early
+        if (result.relevant === false) {
+            log.info(LOG_CATEGORY, "[Topic Identification] Content not relevant to coding task — skipping paste evaluation");
+            return NextResponse.json({ relevant: false, topics: [], initialQuestion: "" });
+        }
+
+        // Validate response structure for relevant content
         if (
             !result.topics ||
             !Array.isArray(result.topics) ||
@@ -103,7 +118,7 @@ Maximum 3-4 topics to ensure comprehensive evaluation without overwhelming the c
 
         log.info(LOG_CATEGORY, "[Topic Identification] Identified topics:", result.topics.length);
 
-        return NextResponse.json(result);
+        return NextResponse.json({ ...result, relevant: true });
     } catch (error: any) {
         log.error(LOG_CATEGORY, "[Topic Identification] Error:", error);
         return NextResponse.json(
