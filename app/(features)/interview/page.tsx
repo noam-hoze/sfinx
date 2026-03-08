@@ -990,6 +990,7 @@ function InterviewPageContent() {
           onStartInterview={handleStartInterviewClick}
           backgroundTimeMinutes={backgroundTimeMinutes}
           notice={preInterviewNotice}
+          loading={isStarting}
         />
       </div>
     );
