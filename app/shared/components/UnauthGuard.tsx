@@ -21,7 +21,7 @@ export default function UnauthGuard({ children, fallback }: UnauthGuardProps) {
             // User is authenticated, redirect away from unauth pages
             const userRole = (session.user as any)?.role;
             if (userRole === "CANDIDATE") {
-                router.push("/job-search");
+                router.push("/dashboard");
             } else if (userRole === "COMPANY") {
                 router.push("/company-dashboard");
             } else {

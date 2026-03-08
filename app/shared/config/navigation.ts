@@ -37,8 +37,13 @@ export const COMPANY_NAV_HIERARCHY: Record<string, NavItem> = {
 };
 
 export const CANDIDATE_NAV_HIERARCHY: Record<string, NavItem> = {
+  "/dashboard": {
+    label: "Dashboard",
+    breadcrumb: "Dashboard"
+  },
   "/job-search": {
     label: "Jobs",
+    parent: "/dashboard",
     breadcrumb: "Jobs"
   },
   "/interview": {
@@ -134,4 +139,3 @@ export function getBreadcrumbTrail(
   
   return trail;
 }
-

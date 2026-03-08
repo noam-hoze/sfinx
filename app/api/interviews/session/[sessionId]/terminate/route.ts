@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "app/shared/services/auth";
 import { log } from "app/shared/services";
+import { invalidatePattern } from "app/shared/services/server";
 import prisma from "lib/prisma";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
@@ -81,6 +82,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         });
 
         log.info(LOG_CATEGORY, "[Session TERMINATE] ✅ Session marked as abandoned:", updatedSession.id);
+        invalidatePattern(`candidate-dashboard:${updatedSession.candidateId}`);
 
         return NextResponse.json({
             message: "Interview session terminated",
@@ -94,4 +96,3 @@ export async function POST(request: NextRequest, context: RouteContext) {
         );
     }
 }
-

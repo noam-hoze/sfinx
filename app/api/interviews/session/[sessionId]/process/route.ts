@@ -16,6 +16,7 @@
 
 import { NextRequest, NextResponse, after } from "next/server";
 import { log } from "app/shared/services";
+import { invalidatePattern } from "app/shared/services/server";
 import prisma from "lib/prisma";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 
@@ -80,6 +81,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         where: { id: sessionId },
         data: { status: "PROCESSING" },
     });
+    invalidatePattern(`candidate-dashboard:${interviewSession.candidateId}`);
 
     log.info(LOG_CATEGORY, `[Process] Session ${sessionId} marked PROCESSING, scheduling background work`);
 
@@ -251,6 +253,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 data: { status: "COMPLETED" },
             });
             log.info(LOG_CATEGORY, `[Process] ✅ Session ${sessionId} marked COMPLETED`);
+            invalidatePattern(`candidate-dashboard:${interviewSession.candidateId}`);
         } catch (err) {
             log.error(LOG_CATEGORY, `[Process] ❌ Failed to mark session COMPLETED:`, err);
         }

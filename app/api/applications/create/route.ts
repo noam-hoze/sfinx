@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
         
         invalidate(`applicants:job:${job.id}`);
         invalidatePattern(`jobs:company:${company.name}`);
+        invalidatePattern(`candidate-dashboard:${userId}`);
         
         return NextResponse.json({
             message: "Application created successfully",

@@ -673,10 +673,10 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                 const delay = typeof redirectDelayMs === "number" ? redirectDelayMs : 4000;
                 setTimeout(() => {
                     try {
-                        const destination = "/job-search";
+                        const destination = "/dashboard";
                         window.location.href = destination;
                     } catch {
-                        const destination = "/job-search";
+                        const destination = "/dashboard";
                         router.push(destination as any);
                     }
                 }, delay);

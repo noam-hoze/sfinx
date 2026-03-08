@@ -16,7 +16,7 @@ export default function Home() {
             // Redirect based on user role
             const userRole = (session.user as any)?.role;
             if (userRole === "CANDIDATE") {
-                router.push("/job-search");
+                router.push("/dashboard");
             } else if (userRole === "COMPANY") {
                 router.push("/company-dashboard");
             }

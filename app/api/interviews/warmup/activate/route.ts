@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "app/shared/services/auth";
 import { log } from "app/shared/services";
+import { invalidatePattern } from "app/shared/services/server";
 import prisma from "lib/prisma";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
@@ -105,6 +106,7 @@ export async function PATCH(request: NextRequest) {
             });
 
             log.info(LOG_CATEGORY, "[warmup/activate] New session created:", newSession.id);
+            invalidatePattern(`candidate-dashboard:${userId}`);
 
             return NextResponse.json({
                 application: existingApp,
@@ -149,6 +151,7 @@ export async function PATCH(request: NextRequest) {
             applicationId: txResult.application.id,
             sessionId: txResult.sessionId,
         });
+        invalidatePattern(`candidate-dashboard:${userId}`);
 
         return NextResponse.json({
             application: txResult.application,

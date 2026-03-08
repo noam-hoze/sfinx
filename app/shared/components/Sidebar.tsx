@@ -58,6 +58,7 @@ export default function Sidebar() {
             { href: "/company-dashboard/interview-guide", label: "Interview Guide", icon: "link" },
         ]
         : [
+            { href: "/dashboard", label: "Dashboard", icon: "home" },
             { href: "/job-search", label: "Jobs", icon: "briefcase" },
         ];
 
@@ -103,7 +104,10 @@ export default function Sidebar() {
                             transition={{ duration: 0.15 }}
                             className="flex-1 overflow-hidden"
                         >
-                            <Link href="/" className="flex items-center">
+                            <Link
+                                href={role === "COMPANY" ? "/company-dashboard" : "/dashboard"}
+                                className="flex items-center"
+                            >
                                 <SfinxLogo width={100} height={32} className="w-[100px] h-auto" />
                             </Link>
                         </motion.div>
@@ -153,6 +157,12 @@ export default function Sidebar() {
                                 {item.icon === "users" && (
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-2a6 6 0 0112 0v2zm0 0h6v-2a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                                    </svg>
+                                )}
+                                {item.icon === "home" && (
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10.5 12 3l9 7.5M5.25 9.75V21h13.5V9.75" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 21v-6h6v6" />
                                     </svg>
                                 )}
                                 {item.icon === "briefcase" && (
