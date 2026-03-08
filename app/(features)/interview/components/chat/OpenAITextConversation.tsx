@@ -366,6 +366,13 @@ const OpenAITextConversation = forwardRef<any, Props>(
           
           if (topicsResponse.ok) {
             const topicsData = await topicsResponse.json();
+
+            // If GPT determined the content is not code or not task-relevant, silently ignore the paste
+            if (topicsData.relevant === false) {
+              /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval] Content not relevant to coding task — ignoring paste");
+              return;
+            }
+
             topics = topicsData.topics.map((t: any) => ({ ...t, percentage: 0 }));
             initialQuestion = topicsData.initialQuestion;
             /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval] Topics identified:", topics.length);
@@ -840,8 +847,14 @@ Generate your question now:`;
             // Check if all topics are covered using the UPDATED topics
             const allTopicsMaximized = updatedTopics.length > 0 && updatedTopics.every(t => t.percentage === 100);
             const questionLimitReached = nextAnswerCount >= questionsLimit;
-            const candidateSaidIDontKnow = text.toLowerCase().includes("i don't know");
-            const shouldEvaluate = allTopicsMaximized || questionLimitReached || candidateSaidIDontKnow;
+            // Use OpenAI's judgment of answer intent — not a hardcoded string match.
+            // dont_know: candidate explicitly gave up / said pass / sent gibberish → exit early
+            // clarification_request: candidate asked "what do you mean?" → stay in mode, post clarification
+            // substantive: candidate engaged with the question → continue probing
+            const detectedAnswerType = questionScore?.detectedAnswerType || "substantive";
+            const candidateExplicitlyGaveUp = detectedAnswerType === "dont_know";
+            const candidateAskedClarification = detectedAnswerType === "clarification_request";
+            const shouldEvaluate = allTopicsMaximized || questionLimitReached || candidateExplicitlyGaveUp;
             
             // If evaluation complete, post static message and exit
             if (shouldEvaluate) {
@@ -856,10 +869,30 @@ Generate your question now:`;
               try {
                 /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval][acknowledgment_sent]", {
                   text: exitMessage,
-                  reason: allTopicsMaximized ? "all_topics_100" : questionLimitReached ? "question_limit" : "i_dont_know"
+                  reason: allTopicsMaximized ? "all_topics_100" : questionLimitReached ? "question_limit" : "candidate_gave_up"
                 });
               } catch {}
               
+              clearPendingState();
+            } else if (candidateAskedClarification) {
+              // Candidate asked "what do you mean?" — stay in paste eval mode, post a rephrased question
+              /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval][clarification_requested] Generating rephrased question");
+              dispatch(setPendingReply({ pending: true }));
+
+              const clarificationPrompt = `You are helping a candidate understand a question about code they pasted in a coding interview.
+
+The candidate did not understand the question and asked for clarification.
+
+**Original question asked:** ${pasteConversation.filter(m => m.role === "assistant").slice(-1)[0]?.content || ""}
+**Candidate's response:** ${text}
+**Pasted code:** ${activePasteEval.pastedContent}
+
+Rephrase the original question in a simpler, clearer way (1-2 sentences max). Be warm and encouraging. Do not ask a completely new question — just clarify what was already asked.`;
+
+              const clarificationReply = await askViaChatCompletion(clarificationPrompt, []);
+              if (clarificationReply) {
+                post(clarificationReply, "ai", { isPasteEval: true, pasteEvaluationId: activePasteEval.pasteEvaluationId });
+              }
               clearPendingState();
             } else {
               // Continue evaluation - generate next question from OpenAI
