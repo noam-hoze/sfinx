@@ -520,34 +520,9 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
                         });
                         return;
                       }
-
                       const messagesData = await messagesRes.json();
-                      /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] POST /messages data:", messagesData);
-
-                      // Messages saved successfully, now trigger summary generation
-                      const summaryUrl = `/api/interviews/session/${sessionId}/background-summary?skip-auth=true`;
-
-                      const summaryPayload: Record<string, any> = {
-                        companyName: ms.companyName,
-                        roleName: ms.roleSlug?.replace(/-/g, " "),
-                        userId: userId
-                      };
-
-                      /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] Calling POST /background-summary with payload:", summaryPayload);
-
-                      try {
-                        const summaryRes = await fetch(summaryUrl, {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify(summaryPayload),
-                        });
-                        
-                        /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] POST /background-summary response:", summaryRes.status, summaryRes.statusText);
-                        const summaryData = await summaryRes.json();
-                        /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[background][persist] POST /background-summary data:", summaryData);
-                      } catch (summaryErr) {
-                        /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[background][persist] Failed to generate summary:", summaryErr);
-                      }
+                      log.info(LOG_CATEGORY, "[background][persist] POST /messages data:", messagesData);
+                      // Background summary is now generated server-side in the process pipeline.
                     } catch (err) {
                       /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[background][persist] Error in persistence flow:", err);
                     }

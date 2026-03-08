@@ -20,11 +20,6 @@ export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         const { sessionId, previousCode, currentCode, diff, timestamp, jobCategories, referenceCode, expectedOutput } = body;
-
-        // #region agent log
-        try { fs.appendFileSync('/Users/noonejoze/Projects/sfinx/.cursor/debug-08ebcb.log', JSON.stringify({sessionId:'08ebcb',location:'evaluate-code-change/route.ts:entry',message:'API called',data:{hasSessionId:!!sessionId,hasDiff:!!diff,diffLen:diff?.length,hasJobCategories:!!jobCategories,categoriesCount:jobCategories?.length,diffPreview:diff?.slice(0,120)},timestamp:Date.now(),hypothesisId:'H-API'})+'\n'); } catch(_){}
-        // #endregion
-
         if (!sessionId || !diff || !timestamp || !jobCategories) {
             return NextResponse.json(
                 { error: "Missing required fields" },
@@ -152,11 +147,6 @@ Be strict with 0 scores - use them for noise. But use the full range 1-100 for l
         const evaluationResult = JSON.parse(responseContent);
         const allEvaluations = evaluationResult.evaluations || [];
         const contributions = allEvaluations.filter((e: any) => e.strength > 0);
-
-        // #region agent log
-        try { fs.appendFileSync('/Users/noonejoze/Projects/sfinx/.cursor/debug-08ebcb.log', JSON.stringify({sessionId:'08ebcb',location:'evaluate-code-change/route.ts:afterOpenAI',message:'OpenAI result',data:{totalEvals:allEvaluations.length,positiveContributions:contributions.length,evaluations:allEvaluations.map((e:any)=>({category:e.category,strength:e.strength}))},timestamp:Date.now(),hypothesisId:'H-API'})+'\n'); } catch(_){}
-        // #endregion
-
         log.info(LOG_CATEGORY, `[evaluate-code-change] Found ${contributions.length} contributions with strength > 0 out of ${allEvaluations.length} evaluations`);
 
         // Calculate video offset — clamp to 0 when contribution predates recording
