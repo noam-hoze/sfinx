@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.26.1] - 2026-03-08
+
+### Changed
+
+- Standardized database seed and setup script naming so production commands use the base script name and development commands use the `:dev` suffix.
+- Updated local development workflow guidance in `CLAUDE.md` to require a semver version bump and `CHANGELOG.md` update for every commit.
+
 ## [1.23.0] - 2025-11-25
 
 ### Enhanced
