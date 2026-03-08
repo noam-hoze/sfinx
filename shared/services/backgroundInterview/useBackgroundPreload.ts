@@ -116,39 +116,18 @@ export function useBackgroundPreload() {
           companyNameFromScript: string;
           jobTitleFromScript: string;
         }> => {
-          // Fetch script (likely from localStorage cache)
-          const SCRIPT_CACHE_VERSION = 'v8';
-          const scriptCacheKey = `interview-script-${jobId}-${SCRIPT_CACHE_VERSION}`;
-          let scriptData: any = null;
-
-          try {
-            const cached = localStorage.getItem(scriptCacheKey);
-            if (cached) {
-              scriptData = JSON.parse(cached);
-              log.info(LOG_CATEGORY, "[preload:trackB] Script loaded from cache");
-            }
-          } catch (err) {
-            console.warn("[preload:trackB] Failed to read script cache:", err);
+          // Fetch script from API (no cache — timer config must always be fresh)
+          log.info(LOG_CATEGORY, "[preload:trackB] Fetching script from API...");
+          const params = new URLSearchParams({ jobId });
+          if (companyId) {
+            params.set("companyId", companyId);
           }
-
-          if (!scriptData) {
-            log.info(LOG_CATEGORY, "[preload:trackB] Fetching script from API...");
-            const params = new URLSearchParams({ jobId });
-            if (companyId) {
-              params.set("companyId", companyId);
-            }
-            const scriptResp = await fetch(`/api/interviews/script?${params.toString()}`);
-            if (!scriptResp.ok) {
-              const detail = (await scriptResp.text().catch(() => "")) || scriptResp.statusText;
-              throw new Error(`Failed to load interview script: ${detail}`);
-            }
-            scriptData = await scriptResp.json();
-            try {
-              localStorage.setItem(scriptCacheKey, JSON.stringify(scriptData));
-            } catch {
-              // localStorage full — ignore
-            }
+          const scriptResp = await fetch(`/api/interviews/script?${params.toString()}`);
+          if (!scriptResp.ok) {
+            const detail = (await scriptResp.text().catch(() => "")) || scriptResp.statusText;
+            throw new Error(`Failed to load interview script: ${detail}`);
           }
+          const scriptData = await scriptResp.json();
 
           // Generate first question via OpenAI
           log.info(LOG_CATEGORY, "[preload:trackB] Generating first question...");
