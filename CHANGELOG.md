@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.26.3] - 2026-03-08
+
+### Added
+
+- Introduced a coding freeze state during external-tool follow-up questioning so candidates see a dedicated pause state while the system asks them to explain pasted code.
+
+### Changed
+
+- Updated the coding editor experience to show a calm freeze overlay, block run actions, and prevent tab switching until the external-tool follow-up flow completes.
+
 ## [1.26.2] - 2026-03-08
 
 ### Fixed
