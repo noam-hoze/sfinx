@@ -1,11 +1,18 @@
 "use client";
 
 import React from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import InterviewStageScreen from "app/shared/components/InterviewStageScreen";
+
+type PreInterviewNotice = {
+  title: string;
+  description: string;
+};
 
 type PreInterviewScreenProps = {
   onStartInterview: () => void;
   backgroundTimeMinutes: number;
+  notice?: PreInterviewNotice | null;
 };
 
 /**
@@ -15,6 +22,7 @@ type PreInterviewScreenProps = {
 export default function PreInterviewScreen({
   onStartInterview,
   backgroundTimeMinutes,
+  notice,
 }: PreInterviewScreenProps) {
   return (
     <InterviewStageScreen
@@ -44,6 +52,32 @@ export default function PreInterviewScreen({
         </h1>
       </div>
       
+      <AnimatePresence>
+        {notice && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ type: "spring", stiffness: 360, damping: 28 }}
+            className="glass-card mb-6 rounded-squircle-sm border border-red-200/70 bg-red-50/80 p-4"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-red-100 text-red-600">
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v4m0 4h.01M4.938 19h14.124c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.206 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-semibold tracking-tight text-red-700">{notice.title}</p>
+                <p className="mt-1 text-sm leading-relaxed text-red-700/90">{notice.description}</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Instructions */}
       <div className="space-y-3 mb-6">
         <div className="bg-white rounded-2xl p-5 border-2 border-purple-300 shadow-sm">

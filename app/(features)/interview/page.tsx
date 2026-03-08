@@ -73,6 +73,7 @@ function InterviewPageContent() {
   // Local loading state for preload phase
   const [isPreloading, setIsPreloading] = useState(true);
   const [showPreInterviewScreen, setShowPreInterviewScreen] = useState(false);
+  const [preInterviewNotice, setPreInterviewNotice] = useState<{ title: string; description: string } | null>(null);
   
   // Redux state
   const stage = useSelector((state: RootState) => state.interview.stage);
@@ -133,6 +134,7 @@ function InterviewPageContent() {
   const completedRef = useRef<boolean>(false);
   const hasAutoStartedRef = useRef<boolean>(false);
   const hasPreloadedRef = useRef<boolean>(false);
+  const skipToCodingStartAttemptedRef = useRef<boolean>(false);
 
   // Extracted services
   const { preload } = useBackgroundPreload();
@@ -509,6 +511,7 @@ function InterviewPageContent() {
 
     try {
       hasAutoStartedRef.current = true;
+      setPreInterviewNotice(null);
       setIsStarting(true);
       log.info(LOG_CATEGORY, "[interview] Starting interview from PreInterviewScreen");
 
@@ -522,7 +525,10 @@ function InterviewPageContent() {
       if (!activeSessionId) {
         setIsStarting(false);
         hasAutoStartedRef.current = false;
-        alert("Screen recording is required.");
+        setPreInterviewNotice({
+          title: "Screen sharing is required to continue",
+          description: "It looks like screen sharing was canceled. Please click Start Interview again and select your full screen.",
+        });
         return;
       }
 
@@ -556,7 +562,10 @@ function InterviewPageContent() {
       log.error(LOG_CATEGORY, "[interview] Start interview failed:", error);
       setIsStarting(false);
       hasAutoStartedRef.current = false;
-      alert("Microphone access is required.");
+      setPreInterviewNotice({
+        title: "Microphone access is required",
+        description: "Please allow microphone access and click Start Interview again.",
+      });
     }
   }, [isStarting, showAnnouncement, stage, session, ensureRecordingSession, dispatch, isMuted]);
 
@@ -566,14 +575,21 @@ function InterviewPageContent() {
     return;
   }, []);
 
+  useEffect(() => {
+    if (!skipToCoding) {
+      skipToCodingStartAttemptedRef.current = false;
+    }
+  }, [skipToCoding]);
+
   // Auto-skip to coding when flag is set and user is logged in
   useEffect(() => {
     log.info(LOG_CATEGORY, "[interview] Auto-skip check:", { skipToCoding, userId, showCodingIDE, isStarting, isPreloading, skipScreenShare });
     
-    if (!skipToCoding || !userId || showCodingIDE || isStarting || isPreloading || !companySlug || !roleSlug) return;
+    if (!skipToCoding || !userId || showCodingIDE || isStarting || isPreloading || !companySlug || !roleSlug || skipToCodingStartAttemptedRef.current) return;
 
     const initializeCodingSession = async () => {
       try {
+        skipToCodingStartAttemptedRef.current = true;
         setIsStarting(true);
         log.info(LOG_CATEGORY, "[interview] Skip-to-coding mode: initializing");
 
@@ -600,8 +616,12 @@ function InterviewPageContent() {
           // Normal flow with recording
           activeSessionId = await ensureRecordingSession();
           if (!activeSessionId) {
-            log.error(LOG_CATEGORY, "[interview] Recording required for skip-to-coding");
-            alert("Screen recording is required to start the interview.");
+            log.warn(LOG_CATEGORY, "[interview] Screen-share was cancelled during skip-to-coding; falling back to pre-interview screen");
+            setPreInterviewNotice({
+              title: "Screen sharing was canceled",
+              description: "To continue, click Start Interview and choose your full screen in the share dialog.",
+            });
+            setShowPreInterviewScreen(true);
             setIsStarting(false);
             return;
           }
@@ -624,8 +644,12 @@ function InterviewPageContent() {
         log.info(LOG_CATEGORY, "[interview] Skip-to-coding complete");
       } catch (error) {
         log.error(LOG_CATEGORY, "[interview] Skip-to-coding failed:", error);
+        setPreInterviewNotice({
+          title: "Couldn't start coding automatically",
+          description: "You can continue from the pre-interview screen by clicking Start Interview.",
+        });
+        setShowPreInterviewScreen(true);
         setIsStarting(false);
-        alert("Failed to start coding session. Please refresh and try again.");
       }
     };
 
@@ -665,7 +689,10 @@ function InterviewPageContent() {
       const activeSessionId = await ensureRecordingSession();
       if (!activeSessionId) {
         setIsStarting(false);
-        alert("Screen recording is required.");
+        setPreInterviewNotice({
+          title: "Screen sharing is required to continue",
+          description: "It looks like screen sharing was canceled. Please click Start Interview again and select your full screen.",
+        });
         return;
       }
 
@@ -673,7 +700,10 @@ function InterviewPageContent() {
     } catch (error) {
       log.error(LOG_CATEGORY, "[interview] Start failed:", error);
       setIsStarting(false);
-      alert("Microphone access is required.");
+      setPreInterviewNotice({
+        title: "Microphone access is required",
+        description: "Please allow microphone access and click Start Interview again.",
+      });
     }
   };
 
@@ -959,6 +989,7 @@ function InterviewPageContent() {
         <PreInterviewScreen
           onStartInterview={handleStartInterviewClick}
           backgroundTimeMinutes={backgroundTimeMinutes}
+          notice={preInterviewNotice}
         />
       </div>
     );
