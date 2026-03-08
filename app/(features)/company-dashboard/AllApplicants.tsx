@@ -27,6 +27,7 @@ interface Applicant {
     email: string;
     image: string | null;
     matchScore: number | null;
+    sessionStatus: string | null;
     highlights: string[];
     interviewCompleted: boolean;
     applicationId: string;
@@ -364,7 +365,9 @@ function CompletedTable({ applicants, onRowClick }: CompletedTableProps) {
                                         key={applicant.applicationId}
                                         onClick={() => onRowClick(applicant)}
                                         className={`relative cursor-pointer ${
-                                            isTopPerformer
+                                            applicant.sessionStatus === "PROCESSING"
+                                                ? "border-l-4 border-violet-400/70"
+                                                : isTopPerformer
                                                 ? "bg-gradient-to-r from-purple-50/40 to-blue-50/40 border-l-4 border-purple-500/40 animate-subtle-pulse"
                                                 : ""
                                         }`}
@@ -373,9 +376,12 @@ function CompletedTable({ applicants, onRowClick }: CompletedTableProps) {
                                         exit={{ opacity: 0, x: 8 }}
                                         transition={{ ...springEnter, delay: index * 0.03 }}
                                         whileHover={{
-                                            backgroundColor: isTopPerformer
-                                                ? "rgba(139,92,246,0.06)"
-                                                : "rgba(139,92,246,0.03)",
+                                            backgroundColor:
+                                                applicant.sessionStatus === "PROCESSING"
+                                                    ? "rgba(139,92,246,0.04)"
+                                                    : isTopPerformer
+                                                    ? "rgba(139,92,246,0.06)"
+                                                    : "rgba(139,92,246,0.03)",
                                         }}
                                     >
                                         {/* Candidate */}
@@ -410,8 +416,21 @@ function CompletedTable({ applicants, onRowClick }: CompletedTableProps) {
                                         </td>
 
                                         {/* Score */}
-                                        <td className="px-6 py-4 text-center">
-                                            {applicant.matchScore !== null ? (
+                                        <td className="px-6 py-4 text-center" data-testid="applicant-score">
+                                            {applicant.sessionStatus === "PROCESSING" ? (
+                                                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-50 border border-violet-200/60">
+                                                    <motion.svg
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        className="w-3 h-3 text-violet-500 shrink-0"
+                                                        animate={{ rotate: 360 }}
+                                                        transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
+                                                    >
+                                                        <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                                                    </motion.svg>
+                                                    <span className="text-xs font-medium text-violet-600 whitespace-nowrap">Analyzing…</span>
+                                                </div>
+                                            ) : applicant.matchScore !== null ? (
                                                 <div className={`text-xl font-bold tabular-nums ${
                                                     applicant.matchScore >= 75
                                                         ? "text-emerald-600"
@@ -428,7 +447,23 @@ function CompletedTable({ applicants, onRowClick }: CompletedTableProps) {
 
                                         {/* Highlights */}
                                         <td className="px-6 py-4">
-                                            {applicant.highlights?.length > 0 ? (
+                                            {applicant.sessionStatus === "PROCESSING" ? (
+                                                <div className="flex gap-2">
+                                                    {([80, 64, 96] as const).map((w, i) => (
+                                                        <div key={i} className="h-6 rounded-full overflow-hidden flex-shrink-0" style={{ width: w }}>
+                                                            <motion.div
+                                                                className="h-full w-full"
+                                                                style={{
+                                                                    background: "linear-gradient(90deg, #EDE9FE 0%, #DDD6FE 35%, #C4B5FD 50%, #DDD6FE 65%, #EDE9FE 100%)",
+                                                                    backgroundSize: "200% 100%",
+                                                                }}
+                                                                animate={{ backgroundPosition: ["200% 0%", "-200% 0%"] }}
+                                                                transition={{ duration: 1.8, repeat: Infinity, ease: "linear", delay: i * 0.3 }}
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : applicant.highlights?.length > 0 ? (
                                                 <div className="flex flex-wrap gap-2">
                                                     {applicant.highlights.map((highlight, idx) => (
                                                         <span
@@ -564,12 +599,21 @@ export default function AllApplicants() {
     const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
 
     useEffect(() => {
+        let intervalId: ReturnType<typeof setInterval> | null = null;
+
         async function fetchApplicants() {
             try {
                 const res = await fetch("/api/company/applicants");
                 if (res.ok) {
                     const json: ApiResponse = await res.json();
                     setData(json);
+                    const hasProcessing = json.applicants.some((a) => a.sessionStatus === "PROCESSING");
+                    if (hasProcessing && !intervalId) {
+                        intervalId = setInterval(fetchApplicants, 5000);
+                    } else if (!hasProcessing && intervalId) {
+                        clearInterval(intervalId);
+                        intervalId = null;
+                    }
                 }
             } catch (error) {
                 console.error("Failed to fetch applicants:", error);
@@ -579,6 +623,10 @@ export default function AllApplicants() {
         }
 
         fetchApplicants();
+
+        return () => {
+            if (intervalId) clearInterval(intervalId);
+        };
     }, []);
 
     // Client-side filtering by selected job

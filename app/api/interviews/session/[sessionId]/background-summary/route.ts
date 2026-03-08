@@ -281,7 +281,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
         });
 
         log.info(LOG_CATEGORY, "[background-summary/POST] Found", messages.length, "background messages");
-
         if (messages.length === 0) {
             log.warn(LOG_CATEGORY, "[background-summary/POST] ❌ No background messages found in DB");
             return NextResponse.json(
@@ -397,21 +396,33 @@ export async function POST(request: NextRequest, context: RouteContext) {
             return acc;
         }, {} as Record<string, typeof contributions>);
 
-        // Calculate average with confidence multiplier based on sample size
+        // Initialize ALL job categories with zero scores — base case when no contributions
         const experienceCategories: Record<string, any> = {};
+        for (const categoryDef of experienceCategoryDefinitions) {
+            experienceCategories[categoryDef.name] = {
+                score: 0,
+                rawAverage: 0,
+                contributionCount: 0,
+                confidence: 0,
+                text: "",
+                description: categoryDef.description || "",
+                evidenceLinks: [],
+                contributions: [],
+            };
+        }
+
+        // Override with actual scores for categories that received contributions
         for (const [categoryName, contribs] of Object.entries(byCategory)) {
-            const rawAverage = 
+            const rawAverage =
                 contribs.reduce((sum, c) => sum + c.contributionStrength, 0) / contribs.length;
-            
-            // Apply confidence multiplier: more contributions = more confident in the score
+
             const confidence = Math.min(1.0, contribs.length / CONTRIBUTIONS_TARGET);
             const adjustedScore = Math.round(rawAverage * confidence);
-            
-            log.info(LOG_CATEGORY, `[background-summary/POST] ${categoryName}: ${contribs.length} contributions, raw avg=${Math.round(rawAverage)}, confidence=${confidence.toFixed(2)}, adjusted=${adjustedScore}`);
-            
-            const categoryDef = experienceCategoryDefinitions?.find(c => c.name === categoryName);
 
-            // Build category data without evidenceLinks for now (will be added after clips are created)
+            log.info(LOG_CATEGORY, `[background-summary/POST] ${categoryName}: ${contribs.length} contributions, raw avg=${Math.round(rawAverage)}, confidence=${confidence.toFixed(2)}, adjusted=${adjustedScore}`);
+
+            const categoryDef = experienceCategoryDefinitions?.find((c: any) => c.name === categoryName);
+
             experienceCategories[categoryName] = {
                 score: adjustedScore,
                 rawAverage: Math.round(rawAverage),
@@ -419,7 +430,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 confidence: confidence,
                 text: contribs.map(c => c.explanation).join(" "),
                 description: categoryDef?.description || "",
-                evidenceLinks: [], // Will be populated after clips are created
+                evidenceLinks: [],
                 contributions: contribs.map(c => ({
                     timestamp: c.timestamp.toISOString(),
                     strength: c.contributionStrength,
@@ -442,6 +453,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             })),
             evidenceJson: summaryData,
         };
+
 
         const backgroundSummary = await prisma.backgroundSummary.upsert({
             where: {
