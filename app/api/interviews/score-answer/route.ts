@@ -34,8 +34,7 @@ export async function POST(request: NextRequest) {
             answer,
             experienceCategories,
             currentCounts,
-            currentFocusTopic,
-            clientSideIncremented
+            currentFocusTopic
         } = body;
 
         if (!sessionId || !question || answer === undefined || !experienceCategories || !currentCounts) {
@@ -256,20 +255,14 @@ Return JSON:
         // INCREMENT DONT_KNOW_COUNT IF DETECTED
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         if (result.isDontKnow && currentFocusTopic) {
-            // Skip increment if already done client-side
-            if (clientSideIncremented) {
-                log.info(LOG_CATEGORY, `[score-answer] Skip increment for "${currentFocusTopic}" - already done client-side`);
-                updatedCounts = updatedCounts; // No change needed, keep as-is
-            } else {
-                // Increment dontKnowCount for current focus topic
-                updatedCounts = updatedCounts.map((c: any) => {
-                    if (c.categoryName === currentFocusTopic) {
-                        return { ...c, dontKnowCount: (c.dontKnowCount || 0) + 1 };
-                    }
-                    return c;
-                });
-                log.info(LOG_CATEGORY, `[score-answer] Server-side increment for "${currentFocusTopic}"`);
-            }
+            // ALWAYS Increment dontKnowCount for current focus topic
+            updatedCounts = updatedCounts.map((c: any) => {
+                if (c.categoryName === currentFocusTopic) {
+                    return { ...c, dontKnowCount: (c.dontKnowCount || 0) + 1 };
+                }
+                return c;
+            });
+            log.info(LOG_CATEGORY, `[score-answer] Server-side increment for "${currentFocusTopic}"`);
 
             // Check exclusions
             const threshold = parseInt(process.env.NEXT_PUBLIC_DONT_KNOW_THRESHOLD || '2', 10);

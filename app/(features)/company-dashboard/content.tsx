@@ -9,14 +9,14 @@ import { log } from "app/shared/services";
 import { readResponseError } from "app/shared/utils/http";
 import { SfinxSpinner } from "app/shared/components";
 import InterviewContentSection, {
-
-import { LOG_CATEGORIES } from "app/shared/services/logger.config";
-const LOG_CATEGORY = LOG_CATEGORIES.COMPANY_DASHBOARD;
     InterviewContentState,
     InterviewDurationState,
     defaultInterviewDurations,
     emptyInterviewContentState,
 } from "./jobs/components/InterviewContentSection";
+import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+
+const LOG_CATEGORY = LOG_CATEGORIES.COMPANY_DASHBOARD;
 
 interface CompanyJobListItem extends JobGridJob {
     salary: string | null;

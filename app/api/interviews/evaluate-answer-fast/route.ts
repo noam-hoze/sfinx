@@ -7,6 +7,7 @@ import { CONTRIBUTIONS_TARGET } from "shared/constants/interview";
 import {
     buildClassificationPrompt,
     isGibberishAnswer,
+    isLikelyDontKnow,
     type AnswerType
 } from "shared/services/backgroundInterview/answerClassification";
 
@@ -109,8 +110,8 @@ export async function POST(request: NextRequest) {
         // (more accurate, handles creative phrasings like "huh?", "sorry?", etc.)
 
         // DETERMINISTIC ROUTING: Pick next topic based on current counts
-        const activeCategoryNames = activeCategories.map((cat: any) => cat.name);
-        const countsForSelection = currentCounts.filter((c: any) => activeCategoryNames.includes(c.categoryName));
+        let activeCategoryNames = activeCategories.map((cat: any) => cat.name);
+        let countsForSelection = currentCounts.filter((c: any) => activeCategoryNames.includes(c.categoryName));
 
         // Partition: active (count < TARGET) vs inactive (count >= TARGET)
         const active = countsForSelection.filter((c: any) => c.count < TARGET);
@@ -218,78 +219,7 @@ Return JSON:
             throw new Error("OpenAI response missing required fields");
         }
 
-        // Derive classification flags from OpenAI's judgment (single source of truth)
-        const answerType: AnswerType = result.detectedAnswerType;
-        const isClarificationRequest = answerType === 'clarification_request';
-        const isDontKnow = answerType === 'dont_know';
-
-        // If this is an "I don't know" answer, increment dontKnowCount in-memory for the topic being evaluated
-        let countsForTopicSelection = currentCounts;
-        // Use newFocusTopic (the topic being evaluated) instead of currentFocusTopic (which may be null on first question)
-        if (result.isDontKnow && newFocusTopic) {
-            countsForTopicSelection = currentCounts.map((c: any) => {
-                if (c.categoryName === newFocusTopic) {
-                    return { ...c, dontKnowCount: c.dontKnowCount + 1 };
-                }
-                return c;
-            });
-            
-            // Re-compute exclusions with incremented count
-            if (!process.env.NEXT_PUBLIC_DONT_KNOW_THRESHOLD) {
-                throw new Error("NEXT_PUBLIC_DONT_KNOW_THRESHOLD environment variable is not set");
-            }
-            const threshold = parseInt(process.env.NEXT_PUBLIC_DONT_KNOW_THRESHOLD, 10);
-            if (!Number.isFinite(threshold) || threshold < 1) {
-                throw new Error("NEXT_PUBLIC_DONT_KNOW_THRESHOLD must be a positive integer");
-            }
-            const newExcludedTopics = countsForTopicSelection
-                .filter((c: any) => c.dontKnowCount >= threshold)
-                .map((c: any) => c.categoryName);
-            
-            if (newExcludedTopics.length > 0) {
-                // Re-filter active categories
-                const newActiveCategories = experienceCategories.filter(
-                    (cat: any) => !newExcludedTopics.includes(cat.name)
-                );
-                
-                // Check if all categories now excluded
-                if (newActiveCategories.length === 0) {
-                    log.info(LOG_CATEGORY, "[evaluate-answer-fast] All categories excluded after increment");
-                    return NextResponse.json({
-                        success: true,
-                        allCategoriesExcluded: true,
-                        scores: [],
-                        question: null,
-                        isDontKnow: false,
-                        updatedCounts: currentCounts,
-                        newFocusTopic: null,
-                    });
-                }
-                
-                // Update activeCategories for topic selection below
-                activeCategories = newActiveCategories;
-
-                // Re-calculate newFocusTopic with updated exclusions
-                const activeCategoryNames = activeCategories.map((cat: any) => cat.name);
-                const countsForReselection = countsForTopicSelection.filter((c: any) =>
-                    activeCategoryNames.includes(c.categoryName)
-                );
-
-                const activeForReselection = countsForReselection.filter((c: any) => c.count < TARGET);
-
-                if (activeForReselection.length > 0) {
-                    // MODE 1: Contribution collection
-                    newFocusTopic = activeForReselection.sort((a: any, b: any) =>
-                        b.count - a.count || b.avgStrength - a.avgStrength
-                    )[0].categoryName;
-                } else {
-                    // MODE 2: Rebalance
-                    newFocusTopic = countsForReselection.sort((a: any, b: any) =>
-                        a.avgStrength - b.avgStrength
-                    )[0].categoryName;
-                }
-            }
-        }
+        const isClarificationRequest = result.detectedAnswerType === 'clarification_request';
 
         // Helper: Map contribution strength to normalized points
         const getNormalizedPoints = (strength: number): number => {
@@ -301,9 +231,9 @@ Return JSON:
         };
         
         // Calculate updated counts in-memory
-        const updatedCounts = experienceCategories.map((category: any) => {
-            // Use countsForTopicSelection which has updated dontKnowCount if "I don't know" was detected
-            const existing = countsForTopicSelection.find((c: any) => c.categoryName === category.name);
+        const updatedCountsFromScores = experienceCategories.map((category: any) => {
+            // Use countsForSelection which has updated dontKnowCount if "I don't know" was detected
+            const existing = currentCounts.find((c: any) => c.categoryName === category.name); // Use currentCounts as base
             const newScore = result.scores.find((s: any) => s.category === category.name);
 
             if (!newScore || newScore.strength === 0) {
@@ -369,18 +299,36 @@ Return JSON:
             };
         });
 
-        log.info(LOG_CATEGORY, `[evaluate-answer-fast] Classification: ${answerType}, Fast evaluation complete`);
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // "I DON'T KNOW" DETECTION & HANDLING
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        const isDontKnow = result.detectedAnswerType === "dont_know" || isLikelyDontKnow(answer);
+        
+        let finalCounts = updatedCountsFromScores;
+        
+        // If "I don't know" detected, increment dontKnowCount for current focus topic
+        if (isDontKnow && currentFocusTopic) {
+            finalCounts = updatedCountsFromScores.map((c: any) => {
+                if (c.categoryName === currentFocusTopic) {
+                    return { ...c, dontKnowCount: (c.dontKnowCount || 0) + 1 };
+                }
+                return c;
+            });
+            log.info(LOG_CATEGORY, `[evaluate-answer-fast] Server-side increment for "${currentFocusTopic}"`);
+        }
+
+        log.info(LOG_CATEGORY, `[evaluate-answer-fast] Classification: ${result.detectedAnswerType}, Fast evaluation complete`);
 
         return NextResponse.json({
             success: true,
-            scores: result.scores,
             question: result.question,
-            isDontKnow,
-            isClarificationRequest,
-            isGibberish,
-            updatedCounts,
-            newFocusTopic,
+            isGibberish: isGibberish,
+            isClarificationRequest: isClarificationRequest,
+            isDontKnow: isDontKnow,
+            scores: result.scores,
             evaluationIntent: result.evaluationIntent || "",
+            updatedCounts: finalCounts,
+            newFocusTopic,
         });
     } catch (error) {
         log.error(LOG_CATEGORY, "[evaluate-answer-fast] ❌ Error:", error);

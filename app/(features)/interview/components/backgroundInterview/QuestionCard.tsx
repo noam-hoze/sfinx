@@ -329,11 +329,11 @@ export default function QuestionCard({
             );
           }
 
-          // CLIENT-SIDE INCREMENT for auto-skip
-          if (currentFocusTopic) {
-            dispatch(incrementDontKnowCount({ category: currentFocusTopic }));
-            log.info(LOG_CATEGORY, `[QuestionCard] Client-side increment for auto-skip: ${currentFocusTopic}`);
-          }
+          // CLIENT-SIDE INCREMENT removed so server controls state
+          // if (currentFocusTopic) {
+          //   dispatch(incrementDontKnowCount({ category: currentFocusTopic }));
+          //   log.info(LOG_CATEGORY, `[QuestionCard] Client-side increment for auto-skip: ${currentFocusTopic}`);
+          // }
 
           onSubmitAnswer("I don't know");
           setAnswer("");
@@ -354,11 +354,11 @@ export default function QuestionCard({
       );
     }
 
-    // CLIENT-SIDE INCREMENT for exact "I don't know" text
-    if (isExactDontKnow && currentFocusTopic) {
-      dispatch(incrementDontKnowCount({ category: currentFocusTopic }));
-      log.info(LOG_CATEGORY, `[QuestionCard] Client-side increment for exact text: ${currentFocusTopic}`);
-    }
+    // CLIENT-SIDE INCREMENT removed so server controls state
+    // if (isExactDontKnow && currentFocusTopic) {
+    //   dispatch(incrementDontKnowCount({ category: currentFocusTopic }));
+    //   log.info(LOG_CATEGORY, `[QuestionCard] Client-side increment for exact text: ${currentFocusTopic}`);
+    // }
 
     onSubmitAnswer(answer);
     setAnswer("");
@@ -380,11 +380,11 @@ export default function QuestionCard({
       );
     }
 
-    // IMMEDIATE CLIENT-SIDE INCREMENT
-    if (currentFocusTopic) {
-      dispatch(incrementDontKnowCount({ category: currentFocusTopic }));
-      log.info(LOG_CATEGORY, `[QuestionCard] Client-side increment for skip: ${currentFocusTopic}`);
-    }
+    // IMMEDIATE CLIENT-SIDE INCREMENT removed so server controls state
+    // if (currentFocusTopic) {
+    //   dispatch(incrementDontKnowCount({ category: currentFocusTopic }));
+    //   log.info(LOG_CATEGORY, `[QuestionCard] Client-side increment for skip: ${currentFocusTopic}`);
+    // }
 
     onSubmitAnswer("I don't know");
     setAnswer("");

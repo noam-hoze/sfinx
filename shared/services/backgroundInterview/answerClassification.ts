@@ -237,6 +237,14 @@ export function isExactDontKnow(answer: string): boolean {
 }
 
 /**
+ * Check if an answer is likely "I don't know" using regex fallback
+ * Used for pre-computing exclusions before OpenAI classification
+ */
+export function isLikelyDontKnow(answer: string): boolean {
+  return /\b(I don't know|not sure|no experience|haven't worked with|unfamiliar with|can't recall)\b/i.test(answer);
+}
+
+/**
  * Determine if retry counter should increment based on answer type
  */
 export function shouldIncrementRetryCounter(

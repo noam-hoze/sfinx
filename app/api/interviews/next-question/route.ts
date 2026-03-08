@@ -7,6 +7,7 @@ import { CONTRIBUTIONS_TARGET } from "shared/constants/interview";
 import {
     buildClassificationPrompt,
     isGibberishAnswer,
+    isLikelyDontKnow,
     shouldIncrementRetryCounter,
     shouldMoveToNextQuestion,
     type AnswerType,
@@ -145,7 +146,7 @@ export async function POST(request: NextRequest) {
 
         // Fast "I don't know" detection for topic selection (internal logic only)
         // OpenAI will provide the actual classification returned to frontend
-        const isDontKnowForTopicSelection = /\b(I don't know|not sure|no experience|haven't worked with|unfamiliar with|can't recall)\b/i.test(lastAnswer);
+        const isDontKnowForTopicSelection = isLikelyDontKnow(lastAnswer);
 
         // If "I don't know" detected, increment dontKnowCount for current focus topic
         if (isDontKnowForTopicSelection && currentFocusTopic) {
