@@ -363,3 +363,25 @@ media-player {
 .animate-subtle-pulse {
   animation: subtle-pulse 3s ease-in-out infinite;
 }
+
+/* Shimmer animation for loading states */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent 20%,
+    rgba(139, 92, 246, 0.15) 50%,
+    transparent 80%,
+    transparent 100%
+  );
+  animation: shimmer 1.5s infinite linear;
+}

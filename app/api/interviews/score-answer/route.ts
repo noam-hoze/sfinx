@@ -183,7 +183,7 @@ Return JSON:
         };
 
         // Calculate updated counts in-memory
-        const updatedCounts = experienceCategories.map((category: any) => {
+        let updatedCounts = experienceCategories.map((category: any) => {
             const existing = currentCounts.find((c: any) => c.categoryName === category.name);
             const newScore = result.scores.find((s: any) => s.category === category.name);
 

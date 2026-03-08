@@ -415,81 +415,66 @@ function CompletedTable({ applicants, onRowClick }: CompletedTableProps) {
                                             </span>
                                         </td>
 
-                                        {/* Score */}
-                                        <td className="px-6 py-4 text-center" data-testid="applicant-score">
-                                            {applicant.sessionStatus === "PROCESSING" ? (
-                                                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-violet-50 border border-violet-200/60">
-                                                    <motion.svg
-                                                        viewBox="0 0 24 24"
-                                                        fill="none"
-                                                        className="w-3 h-3 text-violet-500 shrink-0"
-                                                        animate={{ rotate: 360 }}
-                                                        transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
-                                                    >
-                                                        <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-                                                    </motion.svg>
-                                                    <span className="text-xs font-medium text-violet-600 whitespace-nowrap">Analyzing…</span>
+                                        {/* Dynamic content columns based on Processing status */}
+                                        {applicant.sessionStatus === "PROCESSING" ? (
+                                            <td className="px-6 py-4" colSpan={3}>
+                                                <div className="relative w-full h-8 rounded-full overflow-hidden bg-violet-100/40 flex items-center justify-center">
+                                                    <div className="animate-shimmer" style={{ animationDuration: '1.5s' }} />
+                                                    <span className="relative z-10 text-xs font-bold text-violet-700 tracking-wider uppercase">
+                                                        Analyzing
+                                                    </span>
                                                 </div>
-                                            ) : applicant.matchScore !== null ? (
-                                                <div className={`text-xl font-bold tabular-nums ${
-                                                    applicant.matchScore >= 75
-                                                        ? "text-emerald-600"
-                                                        : applicant.matchScore >= 50
-                                                        ? "text-amber-600"
-                                                        : "text-red-600"
-                                                }`}>
-                                                    {Math.round(applicant.matchScore)}
-                                                </div>
-                                            ) : (
-                                                <span className="text-gray-400">-</span>
-                                            )}
-                                        </td>
-
-                                        {/* Highlights */}
-                                        <td className="px-6 py-4">
-                                            {applicant.sessionStatus === "PROCESSING" ? (
-                                                <div className="flex gap-2">
-                                                    {([80, 64, 96] as const).map((w, i) => (
-                                                        <div key={i} className="h-6 rounded-full overflow-hidden flex-shrink-0" style={{ width: w }}>
-                                                            <motion.div
-                                                                className="h-full w-full"
-                                                                style={{
-                                                                    background: "linear-gradient(90deg, #EDE9FE 0%, #DDD6FE 35%, #C4B5FD 50%, #DDD6FE 65%, #EDE9FE 100%)",
-                                                                    backgroundSize: "200% 100%",
-                                                                }}
-                                                                animate={{ backgroundPosition: ["200% 0%", "-200% 0%"] }}
-                                                                transition={{ duration: 1.8, repeat: Infinity, ease: "linear", delay: i * 0.3 }}
-                                                            />
+                                            </td>
+                                        ) : (
+                                            <>
+                                                {/* Score */}
+                                                <td className="px-6 py-4 text-center" data-testid="applicant-score">
+                                                    {applicant.matchScore !== null ? (
+                                                        <div className={`text-xl font-bold tabular-nums ${
+                                                            applicant.matchScore >= 75
+                                                                ? "text-emerald-600"
+                                                                : applicant.matchScore >= 50
+                                                                ? "text-amber-600"
+                                                                : "text-red-600"
+                                                        }`}>
+                                                            {Math.round(applicant.matchScore)}
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            ) : applicant.highlights?.length > 0 ? (
-                                                <div className="flex flex-wrap gap-2">
-                                                    {applicant.highlights.map((highlight, idx) => (
-                                                        <span
-                                                            key={idx}
-                                                            className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full"
-                                                        >
-                                                            {highlight}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <span className="text-gray-400 text-sm">-</span>
-                                            )}
-                                        </td>
+                                                    ) : (
+                                                        <span className="text-gray-400">-</span>
+                                                    )}
+                                                </td>
 
-                                        {/* Actions */}
-                                        <td className="px-6 py-4 text-center">
-                                            <svg
-                                                className="w-5 h-5 text-gray-400 inline-block"
-                                                fill="none"
-                                                stroke="currentColor"
-                                                viewBox="0 0 24 24"
-                                            >
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                            </svg>
-                                        </td>
+                                                {/* Highlights */}
+                                                <td className="px-6 py-4">
+                                                    {applicant.highlights?.length > 0 ? (
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {applicant.highlights.map((highlight, idx) => (
+                                                                <span
+                                                                    key={idx}
+                                                                    className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full"
+                                                                >
+                                                                    {highlight}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-gray-400 text-sm">-</span>
+                                                    )}
+                                                </td>
+
+                                                {/* Actions */}
+                                                <td className="px-6 py-4 text-center">
+                                                    <svg
+                                                        className="w-5 h-5 text-gray-400 inline-block"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        viewBox="0 0 24 24"
+                                                    >
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                    </svg>
+                                                </td>
+                                            </>
+                                        )}
                                     </motion.tr>
                                 );
                             })}

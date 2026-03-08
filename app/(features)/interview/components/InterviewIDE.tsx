@@ -64,11 +64,14 @@ function RecordingElapsedTimer({ getStart }: { getStart: () => Date | null }) {
         }, 500);
         return () => clearInterval(id);
     }, [getStart]);
+    return null;
+    /* 
     return (
         <span className="font-mono text-xs bg-red-600 text-white px-2 py-0.5 rounded">
             REC {elapsed}
         </span>
     );
+    */
 }
 
 interface InterviewerContentProps {
