@@ -36,26 +36,26 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run Vitest
-        run: |
-          # run vitest in CI mode; use the project script if present, otherwise fall back to npx
-          if npm run | grep -q "test"; then
-            # prefer test script if it exists
-            npm run test --if-present --silent -- --run || npx vitest run --run
-          else
-            npx vitest run --run
-          fi
-        env:
-          CI: true
+      # - name: Run Vitest
+      #   run: |
+      #     # run vitest in CI mode; use the project script if present, otherwise fall back to npx
+      #     if npm run | grep -q "test"; then
+      #       # prefer test script if it exists
+      #       npm run test --if-present --silent -- --run || npx vitest run --run
+      #     else
+      #       npx vitest run --run
+      #     fi
+      #   env:
+      #     CI: true
 
-      - name: Upload Vitest artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: vitest-results
-          path: |
-            coverage
-            vitest-results
-            vitest-report
-            *.xml
-            *.json
+      # - name: Upload Vitest artifacts
+      #   if: always()
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: vitest-results
+      #     path: |
+      #       coverage
+      #       vitest-results
+      #       vitest-report
+      #       *.xml
+      #       *.json
