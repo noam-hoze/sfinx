@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from "react";
 import AuthGuard from "app/shared/components/AuthGuard";
 import type { InterviewGuideConfig, InterviewStageConfig, PrepTipConfig, TeamPhotoConfig } from "app/shared/types/interviewGuide";
+import { getInterviewGuidePreviewStorageKey } from "app/shared/utils/interviewGuidePreview";
 
 /**
  * Image upload widget. Shows a preview of the current image and a styled upload button.
@@ -77,6 +78,14 @@ function emptyConfig(): InterviewGuideConfig {
         tips: [{ title: "", description: "", tags: [] }],
         teamPhotos: [],
     };
+}
+
+/** Reads the API error message for the initial config load. */
+function getLoadErrorMessage(data: unknown): string {
+    if (typeof data === "object" && data !== null && typeof (data as { error?: unknown }).error === "string") {
+        return (data as { error: string }).error;
+    }
+    return "Failed to load interview guide configuration.";
 }
 
 /** Generic string input row. */
@@ -199,30 +208,54 @@ function TeamPhotosSection({ photos, onChange }: { photos: TeamPhotoConfig[]; on
     );
 }
 
-/** Derives the company ID from the GET response to construct the live URL. */
-function useLiveUrl(savedOnce: boolean, companyId: string | null) {
-    if (!savedOnce || !companyId) return null;
-    return `/interview-guide/${companyId}`;
+/** Hard error state for initial config load failures. */
+function LoadErrorState({ message }: { message: string }) {
+    return (
+        <div className="max-w-3xl mx-auto py-10 px-6">
+            <div className="rounded-3xl border border-red-200 bg-red-50/80 p-8 shadow-sm">
+                <h1 className="text-2xl font-bold text-gray-900">Interview Guide</h1>
+                <p className="mt-3 text-sm font-medium text-red-700">{message}</p>
+                <p className="mt-2 text-sm text-gray-600">The editor is blocked until the interview guide loads successfully from the database.</p>
+                <button type="button" onClick={() => window.location.reload()} className="mt-6 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:border-gray-300 hover:bg-gray-50">
+                    Reload page
+                </button>
+            </div>
+        </div>
+    );
 }
 
 function InterviewGuideEditor() {
     const [config, setConfig] = useState<InterviewGuideConfig>(emptyConfig());
     const [companyId, setCompanyId] = useState<string | null>(null);
-    const [savedOnce, setSavedOnce] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    const [previewing, setPreviewing] = useState(false);
     const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
 
     useEffect(() => {
-        fetch("/api/company/interview-guide")
-            .then((r) => r.json())
-            .then((data) => {
-                if (data.config) { setConfig(data.config); setSavedOnce(true); }
-                if (data.companyId) setCompanyId(data.companyId);
-            })
-            .catch(() => setMessage({ text: "Failed to load config", ok: false }));
-    }, []);
+        let active = true;
 
-    const liveUrl = useLiveUrl(savedOnce, companyId);
+        const loadConfig = async () => {
+            try {
+                const response = await fetch("/api/company/interview-guide");
+                const data = await response.json();
+                if (!response.ok) throw new Error(getLoadErrorMessage(data));
+                if (!active) return;
+                if (data.config) setConfig(data.config);
+                if (data.companyId) setCompanyId(data.companyId);
+                setLoadError(null);
+            } catch (error) {
+                if (!active) return;
+                setLoadError(error instanceof Error ? error.message : "Failed to load interview guide configuration.");
+            } finally {
+                if (active) setLoading(false);
+            }
+        };
+
+        void loadConfig();
+        return () => { active = false; };
+    }, []);
 
     const save = async () => {
         setSaving(true);
@@ -236,13 +269,30 @@ function InterviewGuideEditor() {
             const data = await resp.json();
             if (!resp.ok) throw new Error(data.error);
             setConfig(data.config);
-            setSavedOnce(true);
             setMessage({ text: "Saved successfully", ok: true });
+            return true;
         } catch (err) {
             setMessage({ text: err instanceof Error ? err.message : "Save failed", ok: false });
+            return false;
         } finally {
             setSaving(false);
         }
+    };
+
+    const handlePreview = async () => {
+        if (!companyId) return;
+
+        setPreviewing(true);
+        try {
+            window.localStorage.setItem(
+                getInterviewGuidePreviewStorageKey(companyId),
+                JSON.stringify(config),
+            );
+            window.open(`/interview-guide/${companyId}?preview=1`, "_blank", "noopener,noreferrer");
+        } catch {
+            setMessage({ text: "Preview is unavailable right now. Please try again.", ok: false });
+        }
+        setPreviewing(false);
     };
 
     const setStage = (i: number, stage: InterviewStageConfig) => {
@@ -255,6 +305,14 @@ function InterviewGuideEditor() {
 
     const removeStage = (i: number) => setConfig({ ...config, stages: config.stages.filter((_, idx) => idx !== i) });
 
+    if (loading) {
+        return <div className="max-w-3xl mx-auto py-10 px-6 text-sm text-gray-500">Loading interview guide…</div>;
+    }
+
+    if (loadError) {
+        return <LoadErrorState message={loadError} />;
+    }
+
     return (
         <div className="max-w-3xl mx-auto py-10 px-6">
             {/* Header */}
@@ -264,10 +322,23 @@ function InterviewGuideEditor() {
                     <p className="text-sm text-gray-500 mt-1">Configure your public candidate landing page.</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    {liveUrl && (
-                        <a href={liveUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-electric-blue font-medium hover:underline">View live page →</a>
-                    )}
-                    <button onClick={save} disabled={saving} className="px-5 py-2 rounded-lg bg-electric-blue text-white text-sm font-semibold hover:bg-blue-600 disabled:opacity-50 transition-colors">
+                    <button
+                        type="button"
+                        onClick={() => { void handlePreview(); }}
+                        disabled={!companyId || saving || previewing}
+                        className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:border-gray-300 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        <svg className="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14m-6 4h3a2 2 0 002-2V8a2 2 0 00-2-2H9a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        {previewing ? "Opening preview…" : "Preview"}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => { void save(); }}
+                        disabled={saving || previewing}
+                        className="px-5 py-2 rounded-lg bg-electric-blue text-white text-sm font-semibold hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                    >
                         {saving ? "Saving…" : "Save changes"}
                     </button>
                 </div>
