@@ -120,8 +120,10 @@ export const useScreenRecording = () => {
             return true;
         }
         try {
-            const displayStream = await navigator.mediaDevices.getDisplayMedia({
-                video: true,
+            const displayStream = await (navigator.mediaDevices as any).getDisplayMedia({
+                video: {
+                    displaySurface: "monitor",
+                },
                 audio: true,
             });
 
