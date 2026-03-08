@@ -11,25 +11,41 @@
     "test": "vitest run",
     
     "seed": "tsx server/db-scripts/seed-data.ts",
-    "seed:companies": "tsx server/db-scripts/seed-company-candidates.ts --env=dev",
-    "seed:companies:prod": "tsx server/db-scripts/seed-company-candidates.ts --env=prod",
-    "seed:axonpulse": "tsx server/db-scripts/seed-company-candidates.ts --env=dev --companies=axonpulse",
-    "seed:uvision": "tsx server/db-scripts/seed-company-candidates.ts --env=dev --companies=uvision",
-    "setup:companies": "tsx server/db-scripts/sync-schema-and-seed.ts --env=dev --skip-studio && pnpm seed:companies",
-    "setup:axonpulse": "tsx server/db-scripts/sync-schema-and-seed.ts --env=dev --skip-studio && pnpm seed:axonpulse && tsx server/db-scripts/populate-axonpulse-guide.ts --env=dev",
-    "setup:uvision": "tsx server/db-scripts/sync-schema-and-seed.ts --env=dev --skip-studio && pnpm seed:uvision && tsx server/db-scripts/populate-uvision-guide.ts --env=dev",
-    "sync-db:dev": "tsx server/db-scripts/sync-schema-and-seed.ts --env=dev",
+    "seed:companies": "tsx server/db-scripts/seed-company-candidates.ts --env=prod",
+    "seed:companies:dev": "tsx server/db-scripts/seed-company-candidates.ts --env=dev",
+  
+    "seed:axonpulse": "tsx server/db-scripts/seed-company-candidates.ts --env=prod --companies=axonpulse",
+    "seed:axonpulse:dev": "tsx server/db-scripts/seed-company-candidates.ts --env=dev --companies=axonpulse",
+  
+    "seed:uvision": "tsx server/db-scripts/seed-company-candidates.ts --env=prod --companies=uvision",
+    "seed:uvision:dev": "tsx server/db-scripts/seed-company-candidates.ts --env=dev --companies=uvision",
+  
+    "setup:companies": "tsx server/db-scripts/sync-schema-and-seed.ts --env=prod --skip-studio && pnpm seed:companies",
+    "setup:companies:dev": "tsx server/db-scripts/sync-schema-and-seed.ts --env=dev --skip-studio && pnpm seed:companies:dev",
+  
+    "setup:axonpulse": "tsx server/db-scripts/sync-schema-and-seed.ts --env=prod --skip-studio && pnpm seed:axonpulse && tsx server/db-scripts/populate-axonpulse-guide.ts --env=prod",
+    "setup:axonpulse:dev": "tsx server/db-scripts/sync-schema-and-seed.ts --env=dev --skip-studio && pnpm seed:axonpulse:dev && tsx server/db-scripts/populate-axonpulse-guide.ts --env=dev",
+  
+    "setup:uvision": "tsx server/db-scripts/sync-schema-and-seed.ts --env=prod --skip-studio && pnpm seed:uvision && tsx server/db-scripts/populate-uvision-guide.ts --env=prod",
+    "setup:uvision:dev": "tsx server/db-scripts/sync-schema-and-seed.ts --env=dev --skip-studio && pnpm seed:uvision:dev && tsx server/db-scripts/populate-uvision-guide.ts --env=dev",
+   
     "sync-db": "tsx server/db-scripts/sync-schema-and-seed.ts --env=prod",
-    "clean:next": "rm -rf .next .turbo node_modules/.cache",
-    "e2e": "playwright test --project=voice-chromium --headed --workers=1",
+    "sync-db:dev": "tsx server/db-scripts/sync-schema-and-seed.ts --env=dev",
+  
+    "studio": "prisma studio",
+    "studio:dev": "export $(grep ^DATABASE_URL .env.local | xargs) && prisma studio",
+    
     "prisma:generate": "prisma generate",
     "prisma:generate:dev": "export $(grep ^DATABASE_URL .env.local | xargs) && prisma generate",
+    
     "db:push": "prisma db push",
     "db:push:dev": "export $(grep ^DATABASE_URL .env.local | xargs) && prisma db push",
+    
     "db:migrate:dev": "export $(grep ^DATABASE_URL .env.local | xargs) && prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
-    "studio": "prisma studio",
-    "studio:dev": "export $(grep ^DATABASE_URL .env.local | xargs) && prisma studio"
+
+    "clean:next": "rm -rf .next .turbo node_modules/.cache",
+    "e2e": "playwright test --project=voice-chromium --headed --workers=1"
   },
   "dependencies": {
     "@google-cloud/dialogflow-cx": "^5.3.0",
