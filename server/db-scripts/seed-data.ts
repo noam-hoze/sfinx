@@ -456,6 +456,7 @@ async function resetDatabase() {
                     locations: companyData.locations,
                     cultureTags: companyData.cultureTags,
                     size: mapCompanySize(companyData.size),
+                    ...(companyData.description ? { description: companyData.description } : {}),
                 },
             });
 

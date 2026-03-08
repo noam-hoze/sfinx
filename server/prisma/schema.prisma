@@ -93,11 +93,13 @@ model Company {
   locations   String[]
   cultureTags String[]
   size        CompanySize
-  website     String?
-  description String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  jobs        Job[]
+  website              String?
+  description          String?
+  /// JSON config for the public interview guide landing page. Null = page not yet published.
+  interviewGuideConfig Json?
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  jobs                 Job[]
 }
 
 model Job {
