@@ -21,33 +21,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'pnpm'
 
-      - name: Restore cache (lockfile-aware)
-        uses: actions/cache@v4
-        with:
-          # Cache will use whichever lockfile exists
-          path: ~/.pnpm-store
-          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json', '**/pnpm-lock.yaml', '**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-
-      - name: Install dependencies (detect package manager)
-        run: |
-          set -e
-          if [ -f pnpm-lock.yaml ]; then
-            npm install -g pnpm
-            pnpm install --frozen-lockfile
-          elif [ -f yarn.lock ]; then
-            npm install -g yarn
-            yarn install --frozen-lockfile
-          else
-            npm ci
-          fi
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Run Vitest
         run: |
