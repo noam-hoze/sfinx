@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.26.2] - 2026-03-08
+
+### Fixed
+
+- **Background phase timer not respected** (#214): Removed localStorage caching of the interview script in `useBackgroundPreload.ts`. The cache was serving stale timer values after job configuration changes, causing the interview to display and enforce the old duration instead of the updated one.
+
 ## [1.26.1] - 2026-03-08
 
 ### Changed
