@@ -286,6 +286,9 @@ async function seedCandidatesForCompany(companyId: string, count: number, hashed
                             jobSpecificCategories: codingCategories,
                         },
                     },
+                    workstyleMetrics: companyId === "uvision" ? {
+                        create: { externalToolUsage: 50 },
+                    } : undefined,
                 },
             });
 
