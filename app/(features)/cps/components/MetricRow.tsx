@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "shared/state/store";
 import { setActiveEvidenceKey, setActiveCaption } from "shared/state/slices/cpsSlice";
@@ -34,6 +34,7 @@ const MetricRow: React.FC<MetricRowProps> = ({
 }) => {
     const dispatch = useDispatch();
     const activeEvidenceKey = useSelector((state: RootState) => state.cps.activeEvidenceKey);
+    const [currentEvidenceIndex, setCurrentEvidenceIndex] = useState(0);
     
     // Handle N/A case when value is null
     const isNA = value === null;
@@ -66,6 +67,25 @@ const MetricRow: React.FC<MetricRowProps> = ({
     const normalizedLinks: EvidenceLink[] = evidenceLinks.map(link => 
         typeof link === 'number' ? { timestamp: link } : link
     );
+
+    useEffect(() => {
+        if (currentEvidenceIndex > normalizedLinks.length - 1) {
+            setCurrentEvidenceIndex(Math.max(0, normalizedLinks.length - 1));
+        }
+    }, [normalizedLinks.length, currentEvidenceIndex]);
+
+    const handleEvidenceJump = (link: EvidenceLink, index: number) => {
+        if (!onVideoJump) return;
+        const evidenceKey = `${label}-${link.timestamp}-${index}`;
+        dispatch(setActiveEvidenceKey(evidenceKey));
+        dispatch(setActiveCaption(link.caption || ''));
+        onVideoJump(link.timestamp);
+    };
+
+    const hasEvidence = normalizedLinks.length > 0;
+    const selectedEvidence = hasEvidence ? normalizedLinks[currentEvidenceIndex] : null;
+    const selectedEvidenceKey = selectedEvidence ? `${label}-${selectedEvidence.timestamp}-${currentEvidenceIndex}` : null;
+    const isSelectedActive = selectedEvidenceKey && activeEvidenceKey === selectedEvidenceKey;
 
     // Helper to get status badge icon and color
     const getStatusBadge = (evaluation?: string) => {
@@ -153,41 +173,53 @@ const MetricRow: React.FC<MetricRowProps> = ({
                 </div>
             </div>
 
-            {/* Evidence Links - Apple-inspired play buttons with status badges */}
-            {evidenceLinks && evidenceLinks.length > 0 && onVideoJump && (
-                <div className="mt-3 flex gap-2">
-                    {normalizedLinks.map((link, index) => {
-                        // Create unique key for this evidence link (include label to prevent duplicates across categories)
-                        const evidenceKey = `${label}-${link.timestamp}-${index}`;
-                        const isActive = activeEvidenceKey === evidenceKey;
-                        return (
-                            <button
-                                key={evidenceKey}
-                                onClick={() => {
-                                    dispatch(setActiveEvidenceKey(evidenceKey));
-                                    dispatch(setActiveCaption(link.caption || ''));
-                                    onVideoJump(link.timestamp);
-                                }}
-                                className={`relative w-8 h-8 flex items-center justify-center rounded-full transition-all duration-200 !cursor-pointer shadow-sm ${
-                                    isActive
-                                        ? "bg-blue-500 text-white scale-110 shadow-md"
-                                        : "bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:scale-105 hover:shadow"
-                                }`}
-                                style={{ cursor: 'pointer' }}
-                                title={`Jump to ${Math.floor(link.timestamp / 60)}:${(link.timestamp % 60)
-                                    .toString()
-                                    .padStart(2, "0")} - ${link.evaluation || "N/A"}`}
-                            >
-                                {/* Play icon */}
-                                <svg className="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M8 5v14l11-7z" />
-                                </svg>
-                                
-                                {/* Status badge */}
-                                {getStatusBadge(link.evaluation)}
-                            </button>
-                        );
-                    })}
+            {/* Evidence Links - compact slider control */}
+            {hasEvidence && onVideoJump && selectedEvidence && (
+                <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-gray-100/90 px-1 py-1">
+                    <button
+                        onClick={() => {
+                            const previousIndex = currentEvidenceIndex === 0 ? normalizedLinks.length - 1 : currentEvidenceIndex - 1;
+                            setCurrentEvidenceIndex(previousIndex);
+                            handleEvidenceJump(normalizedLinks[previousIndex], previousIndex);
+                        }}
+                        className="h-7 w-7 rounded-full text-gray-500 hover:bg-white hover:text-gray-700 transition-colors"
+                        title="Previous evidence"
+                    >
+                        ‹
+                    </button>
+
+                    <button
+                        onClick={() => handleEvidenceJump(selectedEvidence, currentEvidenceIndex)}
+                        className={`relative h-7 w-7 flex items-center justify-center rounded-full transition-all duration-200 ${
+                            isSelectedActive
+                                ? "bg-blue-500 text-white shadow"
+                                : "bg-white text-gray-700 hover:bg-blue-50 hover:text-blue-600"
+                        }`}
+                        title={`Jump to ${Math.floor(selectedEvidence.timestamp / 60)}:${(selectedEvidence.timestamp % 60)
+                            .toString()
+                            .padStart(2, "0")} - ${selectedEvidence.evaluation || "N/A"}`}
+                    >
+                        <svg className="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                        </svg>
+                        {getStatusBadge(selectedEvidence.evaluation)}
+                    </button>
+
+                    <span className="text-[11px] font-medium text-gray-500 px-1 min-w-[36px] text-center">
+                        {currentEvidenceIndex + 1}/{normalizedLinks.length}
+                    </span>
+
+                    <button
+                        onClick={() => {
+                            const nextIndex = currentEvidenceIndex === normalizedLinks.length - 1 ? 0 : currentEvidenceIndex + 1;
+                            setCurrentEvidenceIndex(nextIndex);
+                            handleEvidenceJump(normalizedLinks[nextIndex], nextIndex);
+                        }}
+                        className="h-7 w-7 rounded-full text-gray-500 hover:bg-white hover:text-gray-700 transition-colors"
+                        title="Next evidence"
+                    >
+                        ›
+                    </button>
                 </div>
             )}
         </div>
@@ -195,4 +227,3 @@ const MetricRow: React.FC<MetricRowProps> = ({
 };
 
 export default MetricRow;
-
