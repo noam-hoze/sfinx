@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.28.0] - 2026-03-09
+
+### Added
+
+- **Full-session question deduplication**: All substantive probe questions are now stored in Redux as `SubstantiveProbe` records (`{ question, topic, angle, slot }`) in `substantiveProbeHistory`. The complete list is sent to the next-question endpoint as `allPreviousProbes` on every turn, forming the banned-questions list for the entire session — not just the last 4 turns.
+- **Semantic fingerprints with constrained slot vocabulary**: Each substantive probe response now includes a structured `fingerprint: { topic, angle, slot }`. The `slot` field is constrained to a 12-label vocabulary (`actual_number`, `sizing_method`, `overflow_policy`, `observed_result`, `instrumentation_tool`, `failure_case`, `concurrency_model`, `ownership_rule`, `deferred_work`, `payload_shape`, `tradeoff_choice`, `redesign_point`). Questions are banned by both text equivalence AND fingerprint match, catching rephrased variants like "buffer size" vs "maximum capacity".
+- **Substantive-only tracking**: Only real probe questions (where `detectedAnswerType === 'substantive'` and `fingerprint` is present) are stored. Clarification rephrases, gibberish retries, and topic-transition lines are excluded from the banned list to prevent over-constraining.
+- **`SubstantiveProbe` Redux type + `addSubstantiveProbe` reducer**: Added to `backgroundSlice` alongside the existing `coveredAnglesPerTopic` tracking.
+- **`ProbeFingerprint` type** added to `answerClassification.ts` to type the structured fingerprint returned by OpenAI.
+- **Model upgrade**: Switched `NEXT_PUBLIC_OPENAI_EVALUATION_MODEL` from `gpt-4o-mini` to `o4-mini` (reasoning model). The next-question endpoint now uses `max_completion_tokens` instead of `max_tokens` and omits `temperature`.
+
+### Changed
+
+- `buildClassificationPrompt`: RULE 1 now uses `formatBannedProbes(allPreviousProbes)` (full session history) instead of `formatBannedQuestions(recentHistory)` (last 4 turns only). `recentHistory` is retained separately as conversational context only.
+- Updated `docs/architecture/dynamic-category-prioritization-system.md` to v1.2.0 with three-layer deduplication documentation and full slot vocabulary table.
+- Updated `docs/evaluation/answer-evaluation-optimization.md` with `allPreviousProbes`, `fingerprint`, and `addSubstantiveProbe` dispatch documentation.
+- Updated model references in `system-design.md`, `e2e-test-io.md`, and `MEMORY.md`.
+
 ## [1.26.6] - 2026-03-08
 
 ### Fixed

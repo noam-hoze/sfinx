@@ -150,23 +150,29 @@ Return JSON:
             model: evaluationModel,
             messages,
             response_format: { type: "json_object" },
-            temperature: 0.3, // Consistent scoring
+            max_completion_tokens: 4000, // Reasoning models use max_completion_tokens
         });
         const elapsed = Date.now() - startTime;
 
         const responseText = completion.choices[0]?.message?.content;
+        const finishReason = completion.choices[0]?.finish_reason;
         console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         console.log("← OpenAI Response [score-answer]");
         console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log(`Latency: ${elapsed}ms`);
-        console.log(JSON.stringify(JSON.parse(responseText || "{}"), null, 2));
+        console.log(`Latency: ${elapsed}ms | finish_reason: ${finishReason}`);
+        console.log("Raw responseText:", responseText);
         console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
         if (!responseText) {
-            throw new Error("OpenAI returned empty response");
+            throw new Error(`OpenAI returned empty response (finish_reason: ${finishReason})`);
         }
 
-        const result = JSON.parse(responseText);
+        let result: any;
+        try {
+            result = JSON.parse(responseText);
+        } catch (parseErr) {
+            throw new Error(`JSON parse failed. finish_reason=${finishReason}, raw=${responseText}`);
+        }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         // CALCULATE UPDATED COUNTS IN-MEMORY

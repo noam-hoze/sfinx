@@ -1,20 +1,16 @@
 "use client";
 
 import React, { useRef, useEffect, useMemo, useState } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { setActiveCaption } from "shared/state/slices/cpsSlice";
+import { RootState } from "shared/state/store";
 import { MediaPlayer, MediaProvider } from "@vidstack/react";
 import {
     DefaultVideoLayout,
     defaultLayoutIcons,
 } from "@vidstack/react/player/layouts/default";
 import EvidenceNavigationOverlay from "./EvidenceNavigationOverlay";
-
-interface EvidenceLink {
-    timestamp: number;
-    category: string;
-    caption?: string;
-}
+import { EvidenceJumpHandler, EvidenceLink } from "../types/evidence";
 
 type Props = {
     videoUrl?: string | null;
@@ -24,7 +20,7 @@ type Props = {
     caption?: string | null;
     paused?: boolean;
     evidenceLinks?: EvidenceLink[];
-    onVideoJump?: (timestamp: number, caption?: string) => void;
+    onVideoJump?: EvidenceJumpHandler;
     currentVideoTime?: number;
 };
 
@@ -40,10 +36,13 @@ export default function EvidenceReel({
     currentVideoTime = 0,
 }: Props) {
     const playerRef = useRef<any>(null);
+    const closeCaptionTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
     const dispatch = useDispatch();
+    const activeEvidenceSelection = useSelector(
+        (state: RootState) => state.cps.activeEvidenceSelection
+    );
     const [isFadingOut, setIsFadingOut] = useState(false);
     const [internalVideoTime, setInternalVideoTime] = useState(0);
-    const [lastJumpedIndex, setLastJumpedIndex] = useState(0);
 
     // Track video time updates
     useEffect(() => {
@@ -63,14 +62,23 @@ export default function EvidenceReel({
         };
     }, []);
 
-    // Find current evidence index based on last jumped index (not video time)
-    const currentEvidenceIndex = lastJumpedIndex;
+    const currentEvidenceIndex =
+        activeEvidenceSelection &&
+        activeEvidenceSelection.globalIndex >= 0 &&
+        activeEvidenceSelection.globalIndex < evidenceLinks.length
+            ? activeEvidenceSelection.globalIndex
+            : 0;
 
     const handleEvidenceNavigate = (index: number) => {
         if (onVideoJump && evidenceLinks[index]) {
             const evidence = evidenceLinks[index];
-            setLastJumpedIndex(index);
-            onVideoJump(evidence.timestamp, evidence.caption);
+            onVideoJump(evidence.timestamp, {
+                caption: evidence.caption,
+                categoryKey: evidence.categoryKey ?? null,
+                localIndex: evidence.localIndex ?? null,
+                globalIndex: index,
+                source: "overlay",
+            });
         }
     };
 
@@ -109,33 +117,33 @@ export default function EvidenceReel({
         }
     }, [paused]);
 
-    // Auto-hide caption after 8 seconds with fade out
     useEffect(() => {
-        if (!caption) {
-            setIsFadingOut(false);
-            return;
+        if (closeCaptionTimerRef.current) {
+            clearTimeout(closeCaptionTimerRef.current);
+            closeCaptionTimerRef.current = null;
         }
-        
-        // Start fade out at 7.5 seconds
-        const fadeTimer = setTimeout(() => {
-            setIsFadingOut(true);
-        }, 7500);
-        
-        // Remove caption at 8 seconds
-        const hideTimer = setTimeout(() => {
-            dispatch(setActiveCaption(null));
-        }, 8000);
 
+        setIsFadingOut(false);
+    }, [caption]);
+
+    useEffect(() => {
         return () => {
-            clearTimeout(fadeTimer);
-            clearTimeout(hideTimer);
+            if (closeCaptionTimerRef.current) {
+                clearTimeout(closeCaptionTimerRef.current);
+            }
         };
-    }, [caption, dispatch]);
+    }, []);
     
     const handleCloseCaption = () => {
         setIsFadingOut(true);
-        setTimeout(() => {
+
+        if (closeCaptionTimerRef.current) {
+            clearTimeout(closeCaptionTimerRef.current);
+        }
+
+        closeCaptionTimerRef.current = window.setTimeout(() => {
             dispatch(setActiveCaption(null));
+            closeCaptionTimerRef.current = null;
         }, 300);
     };
 
