@@ -16,6 +16,7 @@ import { incrementDontKnowCount } from "@/shared/state/slices/backgroundSlice";
 import type { RootState } from "@/shared/state/store";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
+const ALLOW_NON_EDITOR_PASTE = process.env.NEXT_PUBLIC_ALLOW_NON_EDITOR_PASTE === "true";
 
 /**
  * Generates TTS and optionally mascot visemes
@@ -649,6 +650,12 @@ export default function QuestionCard({
                     value={answer}
                     onChange={(e) => setAnswer(e.target.value)}
                     onKeyDown={handleKeyDown}
+                    onPaste={(e) => {
+                      if (!ALLOW_NON_EDITOR_PASTE) {
+                        e.preventDefault();
+                        log.info(LOG_CATEGORY, "[background][paste_blocked] Paste blocked for non-editor input");
+                      }
+                    }}
                     placeholder="Type your answer here."
                     disabled={loading}
                     rows={6}
