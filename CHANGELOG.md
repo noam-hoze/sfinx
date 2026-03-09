@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.26.5] - 2026-03-09
+
+### Added
+- Added subtle inline notices when paste is blocked in non-editor interview inputs, so candidates get immediate feedback in the coding chat and background answer fields.
+
 ## [1.26.4] - 2026-03-09
 - Repositioned the background-phase countdown into the center of the interview header so it no longer overlaps the right-side control cluster during the final minute.
 
