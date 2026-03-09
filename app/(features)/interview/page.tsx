@@ -1239,14 +1239,31 @@ function InterviewPageContent() {
       {/* Interview Header */}
       {!isPreloading && stage === "background" && (
         <header className="border-b border-gray-200/30 bg-white/95 backdrop-blur-2xl px-6 py-4">
-          <div className="flex items-center justify-between max-w-8xl mx-auto">
+          <div className="grid max-w-8xl mx-auto grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4">
             {/* Left: Sfinx Logo (clickable to exit) */}
-            <Link href="/job-search" className="flex items-center cursor-pointer">
+            <Link href="/job-search" className="flex items-center cursor-pointer justify-self-start">
               <SfinxLogo width={100} height={32} className="w-[100px] h-auto" />
             </Link>
 
+            {/* Center: Background countdown */}
+            <div className="flex min-h-10 items-center justify-center">
+              {shouldShowBackgroundCountdown && (
+                <div
+                  className={`rounded-full border px-3 py-1.5 text-sm font-semibold font-mono shadow-sm backdrop-blur-sm transition-colors duration-300 ${
+                    isUrgentCountdown
+                      ? "bg-red-50/90 border-red-200 text-red-700"
+                      : "bg-violet-50/90 border-violet-200 text-violet-700"
+                  }`}
+                  aria-live="polite"
+                  role="status"
+                >
+                  {backgroundCountdownLabel}
+                </div>
+              )}
+            </div>
+
             {/* Right: Controls and Avatar */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 justify-self-end">
               {/* Debug Toggle Button */}
               {isDebugModeEnabled && showDebugButton && (
                 <button
@@ -1380,22 +1397,6 @@ function InterviewPageContent() {
       {!isPreloading && stage !== "coding" && (
         <div className="pt-8 px-6">
           <Breadcrumbs items={breadcrumbTrail} />
-        </div>
-      )}
-
-      {shouldShowBackgroundCountdown && (
-        <div className="absolute top-6 right-6 z-30 pointer-events-none">
-          <div
-            className={`rounded-full border px-3 py-1.5 text-sm font-semibold font-mono shadow-sm backdrop-blur-sm transition-colors duration-300 ${
-              isUrgentCountdown
-                ? "bg-red-50/90 border-red-200 text-red-700"
-                : "bg-violet-50/90 border-violet-200 text-violet-700"
-            }`}
-            aria-live="polite"
-            role="status"
-          >
-            {backgroundCountdownLabel}
-          </div>
         </div>
       )}
       
