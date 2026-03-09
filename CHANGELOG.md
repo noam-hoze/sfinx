@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.26.6] - 2026-03-08
+
+### Fixed
+- **Stale applicants after sync-db:dev**: The seed cleanup block was missing `Application`, `InterviewSession`, `TelemetryData`, and related tables, causing old applicant records to survive `pnpm sync-db:dev` despite `--force-reset`. All dependent records are now explicitly deleted before re-seeding.
+
 ## [1.26.5] - 2026-03-09
 
 ### Added
