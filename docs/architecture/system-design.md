@@ -102,7 +102,7 @@ Sfinx is an autonomous AI-powered technical interview platform that conducts, ev
 │                                                                    │
 │  ┌──────────────────┐  ┌──────────────┐  ┌──────────────────┐    │
 │  │   OpenAI API     │  │   Monaco     │  │   Screen         │    │
-│  │   (gpt-4o-mini)  │  │   Editor     │  │   Recording API  │    │
+│  │   (o4-mini)      │  │   Editor     │  │   Recording API  │    │
 │  └──────────────────┘  └──────────────┘  └──────────────────┘    │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -125,7 +125,7 @@ Sfinx is an autonomous AI-powered technical interview platform that conducts, ev
 - NextAuth 4.24 (authentication)
 
 **AI/ML:**
-- OpenAI gpt-4o-mini (text completions; evaluation model configurable via `OPENAI_EVALUATION_MODEL`)
+- OpenAI o4-mini (reasoning model; background interview evaluation via `NEXT_PUBLIC_OPENAI_EVALUATION_MODEL`)
 - OpenAI Realtime API (voice conversations)
 - OpenAI whisper-1 (audio transcription)
 - OpenAI text-embedding-3-small (**planned, not yet implemented**)
