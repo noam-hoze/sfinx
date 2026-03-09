@@ -3,6 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions, prisma, getCached, setCached } from "app/shared/services/server";
 import { extractTopHighlights } from "../jobs/highlightUtils";
 
+const SUBMITTED_SESSION_STATUSES = ["PROCESSING", "COMPLETED"] as const;
+
 /**
  * GET /api/company/applicants
  * Returns ALL applicants across ALL company jobs with scores, highlights, and job info.
@@ -47,6 +49,11 @@ export async function GET() {
                   },
                 },
                 interviewSessions: {
+                  where: {
+                    status: {
+                      in: [...SUBMITTED_SESSION_STATUSES],
+                    },
+                  },
                   select: {
                     id: true,
                     finalScore: true,
@@ -91,7 +98,7 @@ export async function GET() {
             matchScore: latestSession?.finalScore ?? null,
             sessionStatus: latestSession?.status ?? null,
             highlights: extractTopHighlights(latestSession),
-            interviewCompleted: !!latestSession,
+            interviewCompleted: latestSession?.status === "COMPLETED",
             applicationId: app.id,
             jobId: job.id,
             jobTitle: job.title,
