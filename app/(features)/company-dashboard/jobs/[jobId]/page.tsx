@@ -113,6 +113,7 @@ function CompanyJobDetailContent() {
     const [saving, setSaving] = useState(false);
     const [removingInterview, setRemovingInterview] = useState(false);
     const [scoringConfig, setScoringConfig] = useState<ScoringConfigState>(defaultScoringConfig);
+    const [scoringConfigReady, setScoringConfigReady] = useState(false);
     const [codingCategories, setCodingCategories] = useState<CodingCategory[]>([]);
     const [experienceCategories, setExperienceCategories] = useState<ExperienceCategory[]>([]);
     const [activeSection, setActiveSection] = useState<string>("details");
@@ -207,10 +208,15 @@ function CompanyJobDetailContent() {
                     const data = await resp.json();
                     if (data.config) {
                         setScoringConfig(data.config);
+                        setScoringConfigReady(true);
                     }
+                } else {
+                    const detail = await readResponseError(resp);
+                    throw new Error(`Failed to load scoring config: ${resp.status} ${detail}`);
                 }
             } catch (err) {
                 log.error(LOG_CATEGORY, "❌ Failed to load scoring configuration:", err);
+                setError("Failed to load scoring configuration. Refresh before saving.");
             }
         };
         fetchScoringConfig();
@@ -218,6 +224,10 @@ function CompanyJobDetailContent() {
 
     const handleSave = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        if (!scoringConfigReady) {
+            setError("Scoring configuration is still loading. Please wait before saving.");
+            return;
+        }
         setSaving(true);
         try {
             const payload: any = {
@@ -1092,7 +1102,7 @@ function CompanyJobDetailContent() {
                         <button
                             type="submit"
                             className="px-4 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
-                            disabled={saving}
+                            disabled={saving || !scoringConfigReady}
                         >
                             {saving ? "Saving..." : "Save Changes"}
                         </button>
