@@ -5,6 +5,8 @@
 export interface ScoringConfiguration {
     // Workstyle metric weights
     aiAssistWeight: number;
+    /** Problem solving weight — evaluates correctness via code review + output match */
+    problemSolvingWeight: number;
     // Category weights
     experienceWeight: number;
     codingWeight: number;
@@ -19,6 +21,8 @@ export interface RawScores {
 
 export interface WorkstyleMetrics {
     aiAssistAccountabilityScore?: number; // Already 0-100
+    /** Problem solving score (0-100): average of correctness + output match. Undefined if no expected solution. */
+    problemSolvingScore?: number;
 }
 
 export interface CalculatedScore {
@@ -27,6 +31,7 @@ export interface CalculatedScore {
     codingScore: number; // 0-100 weighted average including workstyle
     normalizedWorkstyle: {
         aiAssist: number | null; // 0-100
+        problemSolving: number | null; // 0-100
     };
 }
 
@@ -38,21 +43,24 @@ export function calculateScore(
     workstyleMetrics: WorkstyleMetrics,
     config: ScoringConfiguration
 ): CalculatedScore {
-    const hasAiAssistScore = workstyleMetrics.aiAssistAccountabilityScore !== undefined && 
+    const hasAiAssistScore = workstyleMetrics.aiAssistAccountabilityScore !== undefined &&
                               workstyleMetrics.aiAssistAccountabilityScore !== null;
     const normalizedAiAssist = workstyleMetrics.aiAssistAccountabilityScore;
+
+    const hasProblemSolvingScore = workstyleMetrics.problemSolvingScore !== undefined &&
+                                    workstyleMetrics.problemSolvingScore !== null;
 
     // Calculate experience score from dynamic categories (same pattern as coding)
     let experienceWeightedSum = 0;
     let totalExperienceWeight = 0;
-    
+
     rawScores.experienceScores.forEach(category => {
         if (category.weight > 0) {
             experienceWeightedSum += category.score * category.weight;
             totalExperienceWeight += category.weight;
         }
     });
-    
+
     const experienceScore = totalExperienceWeight > 0 ? experienceWeightedSum / totalExperienceWeight : 0;
 
     // Calculate coding score from category scores with their individual weights
@@ -69,17 +77,21 @@ export function calculateScore(
 
     const categoryAverage = totalCategoryWeight > 0 ? categoryWeightedSum / totalCategoryWeight : 0;
 
-    // Step 2: Scale category contribution by (100 - aiAssistWeight)%
-    // If aiAssistWeight = 25%, categories get 75% of the coding score
-    const categoryContribution = categoryAverage * (100 - config.aiAssistWeight) / 100;
+    // Step 2: Categories contribute (100 - aiAssistWeight - problemSolvingWeight)% of coding score
+    const categoryContribution = categoryAverage * (100 - config.aiAssistWeight - config.problemSolvingWeight) / 100;
 
     // Step 3: AI assist contributes its percentage of the coding score
     const aiAssistContribution = hasAiAssistScore
         ? normalizedAiAssist! * config.aiAssistWeight / 100
         : 0;
 
-    // Step 4: Final coding score (0-100)
-    const codingScore = categoryContribution + aiAssistContribution;
+    // Step 4: Problem solving contributes its percentage of the coding score
+    const problemSolvingContribution = hasProblemSolvingScore
+        ? workstyleMetrics.problemSolvingScore! * config.problemSolvingWeight / 100
+        : 0;
+
+    // Step 5: Final coding score (0-100)
+    const codingScore = categoryContribution + aiAssistContribution + problemSolvingContribution;
 
     // Calculate final score (weighted average of experience and coding)
     const totalMainCategoryWeight = config.experienceWeight + config.codingWeight;
@@ -94,7 +106,7 @@ export function calculateScore(
         codingScore: Math.round(codingScore),
         normalizedWorkstyle: {
             aiAssist: hasAiAssistScore ? Math.round(normalizedAiAssist!) : null,
+            problemSolving: hasProblemSolvingScore ? Math.round(workstyleMetrics.problemSolvingScore!) : null,
         },
     };
 }
-

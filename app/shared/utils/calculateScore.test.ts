@@ -17,6 +17,7 @@ import type { RawScores, WorkstyleMetrics, ScoringConfiguration } from "./calcul
 
 const defaultConfig: ScoringConfiguration = {
     aiAssistWeight: 25,
+    problemSolvingWeight: 25,
     experienceWeight: 40,
     codingWeight: 60,
 };
@@ -102,11 +103,12 @@ describe("calculateScore", () => {
         const ws: WorkstyleMetrics = { aiAssistAccountabilityScore: 100 };
         const result = calculateScore(raw, ws, {
             aiAssistWeight: 25,
+            problemSolvingWeight: 0,
             experienceWeight: 40,
             codingWeight: 60,
         });
 
-        // categoryContribution = 80 * (100 - 25) / 100 = 80 * 0.75 = 60
+        // categoryContribution = 80 * (100 - 25 - 0) / 100 = 80 * 0.75 = 60
         // aiAssistContribution = 100 * 25 / 100 = 25
         // codingScore = 60 + 25 = 85
         expect(result.codingScore).toBe(85);
@@ -121,6 +123,7 @@ describe("calculateScore", () => {
         const ws: WorkstyleMetrics = {};
         const result = calculateScore(raw, ws, {
             aiAssistWeight: 25,
+            problemSolvingWeight: 0,
             experienceWeight: 40,
             codingWeight: 60,
         });
@@ -128,6 +131,66 @@ describe("calculateScore", () => {
         // categoryContribution = 80 * 0.75 = 60, aiAssistContribution = 0
         expect(result.codingScore).toBe(60);
         expect(result.normalizedWorkstyle.aiAssist).toBeNull();
+    });
+
+    it("includes problem solving in coding score when provided", () => {
+        const raw: RawScores = {
+            experienceScores: [],
+            categoryScores: [makeCodingScore(80)],
+        };
+        const ws: WorkstyleMetrics = { problemSolvingScore: 100 };
+        const result = calculateScore(raw, ws, {
+            aiAssistWeight: 0,
+            problemSolvingWeight: 25,
+            experienceWeight: 40,
+            codingWeight: 60,
+        });
+
+        // categoryContribution = 80 * (100 - 0 - 25) / 100 = 80 * 0.75 = 60
+        // problemSolvingContribution = 100 * 25 / 100 = 25
+        // codingScore = 60 + 25 = 85
+        expect(result.codingScore).toBe(85);
+        expect(result.normalizedWorkstyle.problemSolving).toBe(100);
+    });
+
+    it("omits problem solving contribution when score is undefined", () => {
+        const raw: RawScores = {
+            experienceScores: [],
+            categoryScores: [makeCodingScore(80)],
+        };
+        const ws: WorkstyleMetrics = {};
+        const result = calculateScore(raw, ws, {
+            aiAssistWeight: 0,
+            problemSolvingWeight: 25,
+            experienceWeight: 40,
+            codingWeight: 60,
+        });
+
+        // categoryContribution = 80 * 0.75 = 60, problemSolvingContribution = 0
+        expect(result.codingScore).toBe(60);
+        expect(result.normalizedWorkstyle.problemSolving).toBeNull();
+    });
+
+    it("combines aiAssist and problemSolving weights correctly", () => {
+        const raw: RawScores = {
+            experienceScores: [],
+            categoryScores: [makeCodingScore(100)],
+        };
+        const ws: WorkstyleMetrics = { aiAssistAccountabilityScore: 80, problemSolvingScore: 60 };
+        const result = calculateScore(raw, ws, {
+            aiAssistWeight: 25,
+            problemSolvingWeight: 25,
+            experienceWeight: 40,
+            codingWeight: 60,
+        });
+
+        // categoryContribution = 100 * (100 - 25 - 25) / 100 = 100 * 0.5 = 50
+        // aiAssistContribution = 80 * 25 / 100 = 20
+        // problemSolvingContribution = 60 * 25 / 100 = 15
+        // codingScore = 50 + 20 + 15 = 85
+        expect(result.codingScore).toBe(85);
+        expect(result.normalizedWorkstyle.aiAssist).toBe(80);
+        expect(result.normalizedWorkstyle.problemSolving).toBe(60);
     });
 
     it("computes finalScore as weighted average of experience and coding", () => {
@@ -138,6 +201,7 @@ describe("calculateScore", () => {
         const ws: WorkstyleMetrics = {};
         const config: ScoringConfiguration = {
             aiAssistWeight: 0,
+            problemSolvingWeight: 0,
             experienceWeight: 40,
             codingWeight: 60,
         };

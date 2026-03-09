@@ -124,13 +124,30 @@ export async function PATCH(
             }
         }
 
-        // Update coding summary with enriched categories
+        // Extract Problem Solving as a workstyle metric — it is not a job-specific category
+        const problemSolvingEntry = (enrichedCategories as any)["Problem Solving"];
+        const problemSolvingScore: number | undefined = problemSolvingEntry?.score;
+
+        // Persist only job-specific categories (exclude Problem Solving)
+        const categoryOnlyEntries = Object.fromEntries(
+            Object.entries(enrichedCategories).filter(([name]) => name !== "Problem Solving")
+        );
+
         await prisma.codingSummary.update({
             where: { id: session.telemetryData.codingSummary.id },
             data: {
-                jobSpecificCategories: enrichedCategories,
+                jobSpecificCategories: categoryOnlyEntries,
             },
         });
+
+        if (problemSolvingScore !== undefined && session.telemetryData?.id) {
+            await prisma.workstyleMetrics.upsert({
+                where: { telemetryDataId: session.telemetryData.id },
+                create: { telemetryDataId: session.telemetryData.id, problemSolvingScore },
+                update: { problemSolvingScore },
+            });
+            log.info(LOG_CATEGORY, `[Coding Summary Update] Persisted problemSolvingScore=${problemSolvingScore} to WorkstyleMetrics`);
+        }
 
         log.info(LOG_CATEGORY, "[Coding Summary Update] Successfully updated job-specific categories with contribution data");
 
@@ -148,69 +165,43 @@ export async function PATCH(
                 }));
 
                 const jobCodingCategories = (job.codingCategories as any) || [];
-                
-                // Check if Problem Solving is present
-                const hasProblemSolving = !!enrichedCategories["Problem Solving"];
-                
-                // Categories in DB sum to 100, but with AI assist weight of 75, 
-                // categories should only be 25 total. Scale them down.
-                const dbWeightSum = jobCodingCategories.reduce((sum: number, cat: any) => sum + (cat.weight || 0), 0);
-                const targetCategoryWeight = 100 - (job.scoringConfiguration?.aiAssistWeight || 25);
-                const scaleFactor = targetCategoryWeight / (hasProblemSolving ? (dbWeightSum / jobCodingCategories.length) * (jobCodingCategories.length + 1) : dbWeightSum);
-                
-                const categoryScores = jobCodingCategories.map((cat: any) => {
-                    // Match by base name (before any parentheses)
-                    const baseName = cat.name.split(' (')[0];
-                    const matchingKey = Object.keys(enrichedCategories).find(key => 
-                        key.startsWith(baseName) || cat.name.startsWith(key)
-                    ) || cat.name;
-                    
-                    // If Problem Solving added, redistribute weights equally within target
-                    const weight = hasProblemSolving 
-                        ? targetCategoryWeight / (jobCodingCategories.length + 1)
-                        : cat.weight * scaleFactor;
-                    
-                    return {
-                        name: cat.name,
-                        score: enrichedCategories[matchingKey]?.score || 0,
-                        weight: Math.round(weight * 100) / 100
-                    };
-                });
-
-                // Add Problem Solving if present
-                if (hasProblemSolving) {
-                    const equalWeight = targetCategoryWeight / (jobCodingCategories.length + 1);
-                    categoryScores.push({
-                        name: "Problem Solving",
-                        score: enrichedCategories["Problem Solving"].score || 0,
-                        weight: Math.round(equalWeight * 100) / 100
-                    });
-                }
+                const categoryScores = jobCodingCategories.map((cat: any) => ({
+                    name: cat.name,
+                    score: (categoryOnlyEntries as any)[cat.name]?.score ?? 0,
+                    weight: cat.weight ?? 1,
+                }));
 
                 const rawScores: RawScores = { experienceScores, categoryScores };
-                
+
                 // Get External Tools accountability score if available
                 const externalToolUsages = await prisma.externalToolUsage.findMany({
                     where: { interviewSessionId: sessionId },
                     select: { accountabilityScore: true }
                 });
-                
+
                 const avgAccountabilityScore = externalToolUsages.length > 0
                     ? externalToolUsages.reduce((sum, usage) => sum + usage.accountabilityScore, 0) / externalToolUsages.length
                     : undefined;
-                
-                const workstyleMetrics: WorkstyleMetrics = { 
-                    aiAssistAccountabilityScore: avgAccountabilityScore
+
+                const scoringConfig = job.scoringConfiguration as any;
+                const workstyleMetrics: WorkstyleMetrics = {
+                    aiAssistAccountabilityScore: avgAccountabilityScore,
+                    problemSolvingScore,
                 };
 
-                const result = calculateScore(rawScores, workstyleMetrics, job.scoringConfiguration as any);
+                const result = calculateScore(rawScores, workstyleMetrics, {
+                    aiAssistWeight: scoringConfig.aiAssistWeight ?? 25,
+                    problemSolvingWeight: scoringConfig.problemSolvingWeight ?? 25,
+                    experienceWeight: scoringConfig.experienceWeight ?? 50,
+                    codingWeight: scoringConfig.codingWeight ?? 50,
+                });
                 finalScore = Math.round(result.finalScore);
                 await prisma.interviewSession.update({
                     where: { id: sessionId },
                     data: { finalScore },
                 });
 
-                log.info(LOG_CATEGORY, `[Coding Summary Update] Calculated and saved finalScore=${finalScore} for session ${sessionId}`);
+                log.info(LOG_CATEGORY, `[Coding Summary Update] Calculated and saved finalScore=${finalScore} (problemSolving=${problemSolvingScore ?? "N/A"}) for session ${sessionId}`);
             } catch (error) {
                 log.error(LOG_CATEGORY, "[Coding Summary Update] Score calculation error:", error);
             }

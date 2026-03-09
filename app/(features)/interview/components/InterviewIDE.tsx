@@ -793,13 +793,20 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             logger.info(diff);
             logger.info("[CODE-EVAL] ============================");
 
+            const jobCategoriesWithPS = interviewScript?.codingAnswer
+                ? [...(job.codingCategories || []), {
+                      name: "Problem Solving",
+                      description: "Correctness of the solution relative to the coding task",
+                  }]
+                : (job.codingCategories || []);
+
             const requestPayload = {
                 sessionId: interviewSessionId,
                 previousCode: prevCode,
                 currentCode: currCode,
                 diff: diff,
                 timestamp: timestamp.toISOString(),
-                jobCategories: job.codingCategories,
+                jobCategories: jobCategoriesWithPS,
                 referenceCode: interviewScript?.codingAnswer,
                 expectedOutput: interviewScript?.expectedOutput
             };

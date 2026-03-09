@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.0] - 2026-03-09
+
+### Added
+
+- **Problem Solving in CPS**: Problem Solving now appears as a metric row in the CPS Coding section alongside External Tools Usage. Score and evidence clips are displayed in the candidate profile.
+- **Real-time Problem Solving evidence**: `evaluate-code-change` now evaluates Problem Solving correctness as the candidate types (when a reference solution exists), creating `CategoryContribution` and `EvidenceClip` records in real-time — same pattern as dynamic coding categories.
+- **Problem Solving score persistence**: `problemSolvingScore` is now saved to `WorkstyleMetrics` in the database after `coding-summary-update` fires, enabling CPS display across sessions.
+- **`problemSolvingScore` in schema**: Added `problemSolvingScore Int?` field to `WorkstyleMetrics` Prisma model.
+- **PS score included in live score recalculation**: Telemetry route now reads `problemSolvingScore` from `WorkstyleMetrics` and passes it to `calculateScore`, fixing the live CPS score to correctly reflect Problem Solving weight.
+
+### Fixed
+
+- **Scoring config not persisting on save**: `aiAssistWeight`, `problemSolvingWeight`, and other scoring config fields were silently ignored on job save because the job PUT route never processed `scoringConfig`. Fixed by adding a parallel call to `PUT /api/company/jobs/[jobId]/scoring-config` in both `[jobId]/page.tsx` and `new/page.tsx`.
+- **Problem Solving prompt was similarity-based**: `evaluate-code-change` was scoring Problem Solving by how similar the code was to the reference solution. Corrected to evaluate correctness — a different algorithm that produces correct results scores equally high.
+- **Wrong model in `evaluate-code-change`**: Hardcoded `gpt-4o-mini` replaced with `NEXT_PUBLIC_OPENAI_EVALUATION_MODEL`; `temperature` removed; `max_completion_tokens` used.
+
 ## [1.28.2] - 2026-03-09
 
 ### Fixed

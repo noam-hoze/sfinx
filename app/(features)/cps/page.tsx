@@ -364,7 +364,19 @@ function TelemetryContent() {
                 });
             });
         }
-        
+
+        if (workstyle?.problemSolving?.evidenceLinks) {
+            workstyle.problemSolving.evidenceLinks.forEach((link: any, localIndex: number) => {
+                links.push({
+                    timestamp: link.timestamp,
+                    categoryKey: "Problem Solving",
+                    displayCategory: "Problem Solving",
+                    caption: link.caption,
+                    localIndex,
+                });
+            });
+        }
+
         // Sort by timestamp
         return links.sort((a, b) => a.timestamp - b.timestamp);
     }, [

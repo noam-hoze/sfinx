@@ -96,10 +96,12 @@ SCORING GUIDELINES (0-100):
 EVALUATION:
 ${referenceCode ? `
 **SPECIAL INSTRUCTIONS FOR "Problem Solving" CATEGORY:**
-- Compare the FULL "CODE AFTER CHANGES" to the "REFERENCE SOLUTION"
-- If they are IDENTICAL or implement the EXACT SAME logic/algorithm/structure, give 100/100
-- If they differ in approach or implementation details, score proportionally: 80-95 for very close, 60-79 for similar approach, 40-59 for different approach but working, below 40 for incorrect approach
-- DO NOT penalize for matching the reference - that's the goal!
+- Evaluate how correctly the current code solves the coding task
+- Use the REFERENCE SOLUTION only as context for what a correct solution looks like — do NOT score based on similarity to it
+- A different algorithm that produces correct results scores just as high as the reference
+- Score based on: correct logic, correct handling of core requirements, absence of bugs
+- Partial/in-progress implementation should score proportionally (e.g. 20-50 if core logic is being built but incomplete)
+- DO NOT penalize for a different approach — only penalize for incorrect or missing logic
 
 **FOR OTHER CATEGORIES:**
 - ONLY credit NEW code in the + lines of the diff
@@ -124,7 +126,7 @@ Be strict with 0 scores - use them for noise. But use the full range 1-100 for l
         log.info(LOG_CATEGORY, "[evaluate-code-change] Calling OpenAI for evaluation");
 
         const completion = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
+            model: process.env.NEXT_PUBLIC_OPENAI_EVALUATION_MODEL!,
             messages: [
                 {
                     role: "system",
@@ -136,7 +138,7 @@ Be strict with 0 scores - use them for noise. But use the full range 1-100 for l
                 },
             ],
             response_format: { type: "json_object" },
-            temperature: 0.3,
+            max_completion_tokens: 1024,
         });
 
         const responseContent = completion.choices[0]?.message?.content;
