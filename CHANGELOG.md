@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.26.3] - 2026-03-09
+
+### Fixed
+
+- Repositioned the background-phase countdown into the center of the interview header so it no longer overlaps the right-side control cluster during the final minute.
+
 ## [1.26.2] - 2026-03-08
 
 ### Fixed
