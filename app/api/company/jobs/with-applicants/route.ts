@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions, prisma, getCached, setCached } from "app/shared/services/server";
 
+const SUBMITTED_SESSION_STATUSES = ["PROCESSING", "COMPLETED"] as const;
+
 export async function GET() {
     const session = await getServerSession(authOptions);
     if (!session?.user || (session.user as any).role !== "COMPANY") {
@@ -34,6 +36,11 @@ export async function GET() {
                     applications: {
                         include: {
                             interviewSessions: {
+                                where: {
+                                    status: {
+                                        in: [...SUBMITTED_SESSION_STATUSES],
+                                    },
+                                },
                                 select: {
                                     id: true,
                                     finalScore: true,
