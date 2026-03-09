@@ -1,5 +1,6 @@
 import React from "react";
 import MetricRow from "./MetricRow";
+import { EvidenceJumpHandler } from "../types/evidence";
 
 interface BackgroundSummary {
     executiveSummary?: string;
@@ -15,7 +16,7 @@ interface BackgroundSummary {
 interface ExperienceMetricsProps {
     backgroundSummary: BackgroundSummary | null;
     experienceCategories?: Array<{name: string; description: string; weight: number}>;
-    onVideoJump: (timestamp: number) => void;
+    onVideoJump: EvidenceJumpHandler;
 }
 
 const ExperienceMetrics: React.FC<ExperienceMetricsProps> = ({
@@ -47,6 +48,7 @@ const ExperienceMetrics: React.FC<ExperienceMetricsProps> = ({
                                 benchmarkLow={0}
                                 benchmarkHigh={100}
                                 evidenceLinks={data?.evidenceLinks || []}
+                                evidenceCategory={categoryDef.name}
                                 onVideoJump={onVideoJump}
                             />
                         );

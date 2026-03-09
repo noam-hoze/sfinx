@@ -6,7 +6,10 @@ import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "shared/state/store";
-import { setActiveCaption } from "shared/state/slices/cpsSlice";
+import {
+    setActiveCaption,
+    setActiveEvidenceSelection,
+} from "shared/state/slices/cpsSlice";
 import EvidenceReel from "./components/EvidenceReel";
 import CollapsibleSection from "./components/CollapsibleSection";
 import ExperienceModal from "./components/ExperienceModal";
@@ -22,6 +25,12 @@ import { log } from "app/shared/services";
 import { type ScoringConfiguration } from "app/shared/utils/calculateScore";
 import { useDebug } from "app/shared/contexts";
 import { selectBreadcrumbSource } from "@/shared/state/slices/navigationSlice";
+import {
+    EvidenceJumpHandler,
+    EvidenceJumpOptions,
+    EvidenceLink,
+    EXTERNAL_TOOLS_EVIDENCE_CATEGORY,
+} from "./types/evidence";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.CPS;
@@ -164,7 +173,7 @@ function TelemetryContent() {
         }, 5000);
 
         return () => clearInterval(intervalId);
-    }, [activeSession?.status, candidateId, applicationId]);
+    }, [activeSession?.status, activeSession?.videoUrl, candidateId, applicationId]);
 
     // Fetch background summary for active session
     useEffect(() => {
@@ -283,55 +292,88 @@ function TelemetryContent() {
 
     // Collect all evidence links from all sources
     const allEvidenceLinks = useMemo(() => {
-        const links: Array<{timestamp: number; category: string; caption?: string}> = [];
+        const links: EvidenceLink[] = [];
         
         // Collect from experience categories
+        const experienceCategoryDefs =
+            (activeSession?.application?.job?.experienceCategories as any[]) || [];
         if (backgroundSummary?.experienceCategories) {
-            Object.entries(backgroundSummary.experienceCategories).forEach(([name, data]: [string, any]) => {
-                if (data.evidenceLinks) {
-                    data.evidenceLinks.forEach((link: any) => {
-                        const timestamp = typeof link === 'number' ? link : link.timestamp;
-                        links.push({
-                            timestamp,
-                            category: name,
-                            caption: typeof link === 'object' ? link.caption : undefined
+            experienceCategoryDefs
+                .filter((categoryDef) => categoryDef.weight > 0)
+                .forEach((categoryDef) => {
+                    const data =
+                        backgroundSummary.experienceCategories?.[categoryDef.name];
+
+                    if (data?.evidenceLinks) {
+                        data.evidenceLinks.forEach((link: any, localIndex: number) => {
+                            const evidenceLink =
+                                typeof link === "number" ? { timestamp: link } : link;
+                            links.push({
+                                timestamp: evidenceLink.timestamp,
+                                categoryKey: categoryDef.name,
+                                displayCategory: categoryDef.name,
+                                caption: evidenceLink.caption,
+                                localIndex,
+                            });
                         });
-                    });
-                }
-            });
+                    }
+                });
         }
         
         // Collect from coding categories
+        const codingCategoryDefs = (activeSession?.application?.job?.codingCategories as any[]) || [];
         if (codingSummary?.jobSpecificCategories) {
-            Object.entries(codingSummary.jobSpecificCategories).forEach(([name, data]: [string, any]) => {
-                if (data.evidenceLinks) {
-                    data.evidenceLinks.forEach((link: any) => {
-                        const timestamp = typeof link === 'number' ? link : link.timestamp;
-                        links.push({
-                            timestamp,
-                            category: name,
-                            caption: typeof link === 'object' ? link.caption : undefined
+            codingCategoryDefs
+                .filter((categoryDef) => categoryDef.weight > 0)
+                .forEach((categoryDef) => {
+                    const baseName = categoryDef.name.split(" (")[0];
+                    const matchingKey =
+                        Object.keys(codingSummary.jobSpecificCategories).find(
+                            (key) =>
+                                key.startsWith(baseName) ||
+                                categoryDef.name.startsWith(key)
+                        ) || categoryDef.name;
+                    const data = codingSummary.jobSpecificCategories?.[matchingKey];
+
+                    if (data?.evidenceLinks) {
+                        data.evidenceLinks.forEach((link: any, localIndex: number) => {
+                            const evidenceLink =
+                                typeof link === "number" ? { timestamp: link } : link;
+                            links.push({
+                                timestamp: evidenceLink.timestamp,
+                                categoryKey: matchingKey,
+                                displayCategory: categoryDef.name,
+                                caption: evidenceLink.caption,
+                                localIndex,
+                            });
                         });
-                    });
-                }
-            });
+                    }
+                });
         }
         
         // Collect from workstyle
         if (workstyle?.aiAssistUsage?.evidenceLinks) {
-            workstyle.aiAssistUsage.evidenceLinks.forEach((link: any) => {
-                const timestamp = typeof link === 'number' ? link : link.timestamp;
+            workstyle.aiAssistUsage.evidenceLinks.forEach((link: any, localIndex: number) => {
+                const evidenceLink = typeof link === "number" ? { timestamp: link } : link;
                 links.push({
-                    timestamp,
-                    category: 'External Tool Usage',
-                    caption: typeof link === 'object' ? link.caption : undefined
+                    timestamp: evidenceLink.timestamp,
+                    categoryKey: EXTERNAL_TOOLS_EVIDENCE_CATEGORY,
+                    displayCategory: EXTERNAL_TOOLS_EVIDENCE_CATEGORY,
+                    caption: evidenceLink.caption,
+                    localIndex,
                 });
             });
         }
         
         // Sort by timestamp
         return links.sort((a, b) => a.timestamp - b.timestamp);
-    }, [backgroundSummary, codingSummary, workstyle]);
+    }, [
+        activeSession?.application?.job?.codingCategories,
+        activeSession?.application?.job?.experienceCategories,
+        backgroundSummary,
+        codingSummary,
+        workstyle,
+    ]);
 
     const activeMatchScore: number | null =
         activeSession?.finalScore ?? 
@@ -358,7 +400,7 @@ function TelemetryContent() {
     })();
 
     const topMetricLabelMap: Record<string, string> = {
-        aiAssistUsage: "External Tool Usage",
+        aiAssistUsage: EXTERNAL_TOOLS_EVIDENCE_CATEGORY,
     };
     const topMetricLabel = topMetricKey
         ? topMetricLabelMap[topMetricKey]
@@ -416,10 +458,62 @@ function TelemetryContent() {
         return <span dangerouslySetInnerHTML={{ __html: safeStory }} />;
     };
 
-    const onVideoJump = (timestamp: number) => {
+    const onVideoJump: EvidenceJumpHandler = (
+        timestamp: number,
+        options?: EvidenceJumpOptions
+    ) => {
+        const resolvedGlobalIndex =
+            options?.globalIndex ??
+            allEvidenceLinks.findIndex((link) => {
+                if (link.timestamp !== timestamp) {
+                    return false;
+                }
+                if (
+                    options?.categoryKey &&
+                    link.categoryKey !== options.categoryKey
+                ) {
+                    return false;
+                }
+                if (
+                    options?.localIndex !== undefined &&
+                    options?.localIndex !== null &&
+                    link.localIndex !== options.localIndex
+                ) {
+                    return false;
+                }
+                return true;
+            });
+        const matchedEvidence =
+            resolvedGlobalIndex >= 0 ? allEvidenceLinks[resolvedGlobalIndex] : null;
+
+        dispatch(
+            setActiveEvidenceSelection(
+                matchedEvidence
+                      ? {
+                            globalIndex: resolvedGlobalIndex,
+                            categoryKey:
+                                matchedEvidence.categoryKey ??
+                                options?.categoryKey ??
+                              null,
+                            localIndex:
+                                matchedEvidence.localIndex ??
+                                options?.localIndex ??
+                                null,
+                            timestamp: matchedEvidence.timestamp,
+                            source: options?.source ?? "external",
+                        }
+                    : null
+            )
+        );
+        dispatch(setActiveCaption(options?.caption ?? null));
         setCurrentVideoTime(timestamp);
         setJumpKey((k) => k + 1);
     };
+
+    useEffect(() => {
+        dispatch(setActiveEvidenceSelection(null));
+        dispatch(setActiveCaption(null));
+    }, [activeSession?.id, dispatch]);
 
 
     if (loading) {
@@ -690,13 +784,7 @@ function TelemetryContent() {
                                     paused={false}
                                     evidenceLinks={allEvidenceLinks}
                                     currentVideoTime={currentVideoTime}
-                                    onVideoJump={(timestamp, caption) => {
-                                        setCurrentVideoTime(timestamp);
-                                        setJumpKey((k) => k + 1);
-                                        if (caption) {
-                                            dispatch(setActiveCaption(caption));
-                                        }
-                                    }}
+                                    onVideoJump={onVideoJump}
                                 />
                             ) : (
                                 <div className="w-full h-full bg-gray-200 flex items-center justify-center">

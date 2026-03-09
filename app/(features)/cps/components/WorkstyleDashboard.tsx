@@ -2,6 +2,10 @@ import React, { useState } from "react";
 import { WorkstyleMetrics } from "../../../shared/contexts";
 import MetricRow from "./MetricRow";
 import CodeQualityModal from "./CodeQualityModal";
+import {
+    EvidenceJumpHandler,
+    EXTERNAL_TOOLS_EVIDENCE_CATEGORY,
+} from "../types/evidence";
 
 interface CodingSummary {
     codeQuality?: {
@@ -22,7 +26,7 @@ interface WorkstyleDashboardProps {
     workstyle: WorkstyleMetrics;
     codingSummary?: CodingSummary | null;
     codingCategories?: Array<{name: string; description: string; weight: number}>;
-    onVideoJump: (timestamp: number) => void;
+    onVideoJump: EvidenceJumpHandler;
     sessionId?: string;
     editMode?: boolean;
     onUpdateWorkstyle?: (workstyle: WorkstyleMetrics) => void;
@@ -47,13 +51,14 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
         <>
             <div className="divide-y divide-gray-100">
                 <MetricRow
-                    label="External Tools Usage"
+                    label={EXTERNAL_TOOLS_EVIDENCE_CATEGORY}
                     description="Understanding and accountability for pasted code"
                     value={aiAssistValue}
                     benchmarkLow={0}
                     benchmarkHigh={100}
                     inverse={false}
                     evidenceLinks={workstyle.aiAssistUsage?.evidenceLinks}
+                    evidenceCategory={EXTERNAL_TOOLS_EVIDENCE_CATEGORY}
                     onVideoJump={onVideoJump}
                 />
 
@@ -79,6 +84,7 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                                 benchmarkLow={0}
                                 benchmarkHigh={100}
                                 evidenceLinks={(data as any)?.evidenceLinks || []}
+                                evidenceCategory={matchingKey}
                                 onVideoJump={onVideoJump}
                             />
                         );
