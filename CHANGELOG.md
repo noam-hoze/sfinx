@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.28.1] - 2026-03-09
+
+### Changed
+
+- Reduced the coding editor freeze overlay blur and tint during external-tool follow-up mode so candidates can still read their code while the editor remains locked.
+
 ## [1.28.0] - 2026-03-09
 
 ### Added
