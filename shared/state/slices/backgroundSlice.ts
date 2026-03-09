@@ -17,6 +17,17 @@ export type CategoryStats = {
     dontKnowCount: number;
 };
 
+/**
+ * A substantive probe question recorded for full-session deduplication.
+ * Stores both raw text and a structured fingerprint for semantic matching.
+ */
+export type SubstantiveProbe = {
+    question: string;   // Full rendered question text
+    topic: string;      // Focus topic at the time of the question
+    angle: string;      // ProbeAngle value
+    slot: string;       // Constrained slot label from allowed vocabulary
+};
+
 export type BackgroundState = {
     messages: ChatMessage[];
     startedAtMs?: number;
@@ -32,6 +43,8 @@ export type BackgroundState = {
     clarificationRetryCount: number;
     /** Tracks which probe angles have been used per topic to prevent semantic repetition. */
     coveredAnglesPerTopic: Record<string, string[]>;
+    /** Full history of substantive probe questions for global deduplication. */
+    substantiveProbeHistory: SubstantiveProbe[];
 };
 
 const initialState: BackgroundState = {
@@ -44,6 +57,7 @@ const initialState: BackgroundState = {
     currentQuestionSequence: 0,
     clarificationRetryCount: 0,
     coveredAnglesPerTopic: {},
+    substantiveProbeHistory: [],
 };
 
 const backgroundSlice = createSlice({
@@ -136,6 +150,10 @@ const backgroundSlice = createSlice({
         resetClarificationRetry: (state) => {
             state.clarificationRetryCount = 0;
         },
+        /** Record a substantive probe question for full-session deduplication. */
+        addSubstantiveProbe: (state, action: PayloadAction<SubstantiveProbe>) => {
+            state.substantiveProbeHistory.push(action.payload);
+        },
         /** Record that a probe angle has been used for a given topic, preventing semantic repetition. */
         addCoveredAngle: (state, action: PayloadAction<{ topic: string; angle: string }>) => {
             const { topic, angle } = action.payload;
@@ -171,6 +189,7 @@ export const {
     incrementClarificationRetry,
     resetClarificationRetry,
     addCoveredAngle,
+    addSubstantiveProbe,
 } = backgroundSlice.actions;
 
 export default backgroundSlice.reducer;

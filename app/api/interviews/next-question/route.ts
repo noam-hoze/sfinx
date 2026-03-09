@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
             clarificationRetryCount,
             recentHistory,
             coveredAngles,
+            allPreviousProbes,
         } = body;
 
         if (!sessionId || !lastQuestion || lastAnswer === undefined || !experienceCategories || !currentCounts) {
@@ -235,6 +236,7 @@ export async function POST(request: NextRequest) {
             isGibberish,
             recentHistory: Array.isArray(recentHistory) ? recentHistory : [],
             coveredAngles: Array.isArray(coveredAngles) ? coveredAngles : [],
+            allPreviousProbes: Array.isArray(allPreviousProbes) ? allPreviousProbes : [],
         });
 
         const messages = [
@@ -262,24 +264,29 @@ export async function POST(request: NextRequest) {
             model: evaluationModel,
             messages,
             response_format: { type: "json_object" },
-            temperature: 0.7, // More natural for question generation
-            max_tokens: 200, // Includes question + probeAngle field
+            max_completion_tokens: 4000, // Reasoning models use max_completion_tokens (includes reasoning tokens)
         });
         const elapsed = Date.now() - startTime;
 
         const responseText = completion.choices[0]?.message?.content;
+        const finishReason = completion.choices[0]?.finish_reason;
         console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         console.log("← OpenAI Response [next-question]");
         console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log(`Latency: ${elapsed}ms`);
-        console.log(JSON.stringify(JSON.parse(responseText || "{}"), null, 2));
+        console.log(`Latency: ${elapsed}ms | finish_reason: ${finishReason}`);
+        console.log("Raw responseText:", responseText);
         console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
         if (!responseText) {
-            throw new Error("OpenAI returned empty response");
+            throw new Error(`OpenAI returned empty response (finish_reason: ${finishReason})`);
         }
 
-        const result = JSON.parse(responseText) as ClassifiedQuestionResponse;
+        let result: ClassifiedQuestionResponse;
+        try {
+            result = JSON.parse(responseText) as ClassifiedQuestionResponse;
+        } catch (parseErr) {
+            throw new Error(`JSON parse failed. finish_reason=${finishReason}, raw=${responseText}`);
+        }
 
         // Validate response structure
         if (!result.detectedAnswerType || !result.question) {
@@ -305,6 +312,7 @@ export async function POST(request: NextRequest) {
             shouldIncrementRetry,
             shouldMoveOn,
             probeAngle: result.probeAngle ?? null,
+            fingerprint: result.fingerprint ?? null,
             latencyMs: elapsed, // For monitoring
         });
     } catch (error) {

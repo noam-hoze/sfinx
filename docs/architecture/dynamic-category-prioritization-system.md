@@ -909,11 +909,11 @@ const canPivot = (contributionsCount: number, avgStrength: number): boolean => {
 
 ### Problem
 
-The category selection algorithm ensures all topics get covered. But within a single topic, the interviewer can loop semantically — asking "what was your target latency?" and then "how did you measure whether you hit the latency requirement?" and then "what latency goal were you targeting?" These questions have different wording but identical informational intent.
+The category selection algorithm ensures all topics get covered. But within a single topic, the interviewer can loop semantically — asking "what was your target latency?" and then "how did you measure whether you hit the latency requirement?" and then "what latency goal were you targeting?" These questions have different wording but identical informational intent. Additionally, questions asked more than ~4 turns back were invisible to the deduplication rule, so early-session questions could be verbatim-repeated in later turns.
 
-The cause: the classification prompt previously only received the last question and answer, with no memory of which validation dimensions had already been probed two or three turns back.
+### Solution: Three-Layer Deduplication
 
-### Solution: ProbeAngle Tracking
+#### Layer 1 — Angle tracking (within-topic)
 
 Each follow-up question is assigned a `ProbeAngle` — the validation dimension it probes. The system tracks which angles have been used per topic and passes them to the classification prompt, which is instructed to pick an uncovered angle.
 
@@ -930,28 +930,58 @@ Each follow-up question is assigned a `ProbeAngle` — the validation dimension 
 | `tradeoff` | Why X over Y (must name both options) |
 | `redesign` | What they would change now |
 
+#### Layer 2 — Full-session banned-questions list (text + fingerprint)
+
+Every substantive probe question is stored in Redux as a `SubstantiveProbe`:
+
+```typescript
+type SubstantiveProbe = {
+  question: string;  // Full question text (raw text deduplication)
+  topic: string;     // Focus topic at time of generation
+  angle: string;     // ProbeAngle value
+  slot: string;      // Constrained slot label (semantic deduplication)
+};
+```
+
+The full `substantiveProbeHistory` array is sent on every request as `allPreviousProbes`. The classification prompt bans any question that matches by raw text equivalence **or** by fingerprint (`topic + angle + slot`). This catches "buffer size" vs "maximum capacity" — different phrasing, same slot, same ban.
+
+**Slot vocabulary** (model is constrained to these labels only — no free-form invention):
+
+| Slot | Meaning |
+|------|---------|
+| `actual_number` | A specific measured or designed-for quantity |
+| `sizing_method` | How size/capacity/parameters were determined |
+| `overflow_policy` | What happens when capacity is exceeded |
+| `observed_result` | What the data/traces/logs actually showed |
+| `instrumentation_tool` | The tool or mechanism used to measure |
+| `failure_case` | A specific thing that broke or misbehaved |
+| `concurrency_model` | Producer/consumer structure, thread ownership |
+| `ownership_rule` | What code owns what memory/resource |
+| `deferred_work` | Work pushed out of the hot path |
+| `payload_shape` | Structure of enqueued/transmitted data |
+| `tradeoff_choice` | The specific X-over-Y decision and why |
+| `redesign_point` | What they would change now |
+
+**Only substantive probes are stored** — clarification rephrases, gibberish retries, and topic-transition lines are excluded. This prevents over-constraining the model on non-informational turns.
+
+#### Layer 3 — Recent history context
+
+The classification prompt also receives the last 4 Q+A pairs as `recentHistory` for local conversational continuity. This is separate from the banned-questions list and is not used for deduplication.
+
 ### Data Flow
 
-1. OpenAI generates the next question and returns `probeAngle` in the JSON response from `/api/interviews/next-question`.
-2. The client dispatches `addCoveredAngle({ topic: newFocusTopic, angle: probeAngle })` to Redux.
-3. `backgroundSlice` stores angles per topic in `coveredAnglesPerTopic: Record<string, string[]>`.
-4. On the next answer submission, the client reads `coveredAnglesPerTopic[currentFocusTopic]` and sends it as `coveredAngles` in the request body.
-5. `buildClassificationPrompt` injects the list as "Angles already covered — do NOT repeat" and instructs the model to pick an uncovered one.
+1. OpenAI generates the next question and returns `probeAngle` and `fingerprint` in the JSON response.
+2. The client dispatches `addCoveredAngle` (angle tracking) and, when `detectedAnswerType === 'substantive'`, `addSubstantiveProbe` (full-session deduplication).
+3. `backgroundSlice` stores both in `coveredAnglesPerTopic` and `substantiveProbeHistory`.
+4. On the next submission, the client sends `coveredAngles` (current topic angles) and `allPreviousProbes` (full history) in the request body.
+5. `buildClassificationPrompt` injects both lists: angles for cluster-slot progression, all-probes as the banned list.
 
 ### Relationship to Category Selection
 
-Angle tracking is **orthogonal to and does not affect** category selection:
-- `coveredAnglesPerTopic` is advisory prompt context only.
-- The two-mode topic selection algorithm (MODE 1 / MODE 2) reads only `currentCounts` and `excludedTopics` — it does not read `coveredAngles`.
+All three deduplication layers are **orthogonal to and do not affect** category selection:
+- `coveredAnglesPerTopic` and `substantiveProbeHistory` are advisory prompt context only.
+- The two-mode topic selection algorithm (MODE 1 / MODE 2) reads only `currentCounts` and `excludedTopics`.
 - `newFocusTopic` is still determined entirely server-side by contribution counts.
-
-When the topic switches (new `newFocusTopic` arrives), the new topic automatically starts with an empty angle list since `coveredAnglesPerTopic[newTopic]` will be `[]`.
-
-### Recent History Context
-
-In addition to angle tracking, the classification prompt now receives the last 4 Q+A pairs as `recentHistory`. This provides local context for the model to avoid semantic repetition even before all angles have been explicitly labeled and stored.
-
-`buildRecentHistory()` in `useBackgroundAnswerHandler.ts` builds this from Redux `messages` by pairing consecutive `ai`/`user` message entries.
 
 ---
 
@@ -971,11 +1001,13 @@ Key achievements:
 - ✅ Full transparency via currentQuestionTarget display
 - ✅ Predictable, rule-based topic selection
 - ✅ Angle-based repetition prevention prevents semantic looping within a topic
+- ✅ Full-session banned-questions list (text + fingerprint) prevents cross-turn repetition across the entire interview
+- ✅ Constrained slot vocabulary ensures stable fingerprint matching (no model drift)
 
 The system is production-ready and has been validated through extensive testing with multiple candidate scenarios.
 
 ---
 
-**Document Version:** 1.1.0
-**Last Updated:** March 8, 2026
+**Document Version:** 1.2.0
+**Last Updated:** March 9, 2026
 **Maintained by:** Sfinx Engineering Team
