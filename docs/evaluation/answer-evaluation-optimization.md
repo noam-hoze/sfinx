@@ -47,7 +47,7 @@ User submits answer
 ┌──────────────────────────────────────────────┐
 │  FAST API (Blocking, ~4s)                    │
 │  /api/interviews/evaluate-answer-fast        │
-│  - Minimal OpenAI call (gpt-4o-mini)         │
+│  - Minimal OpenAI call (o4-mini)             │
 │  - Returns: scores + acknowledgment +        │
 │    nextQuestion + targetedCategory           │
 │  - Updates Redux store with category stats   │
@@ -71,7 +71,7 @@ User sees next question (~4s total)
 
 1. **In-Memory Category Stats**: Redux store maintains `categoryStats` (counts + avg strengths), eliminating redundant DB fetches
 2. **Async DB Operations**: All DB writes (contributions, clips, chapters) run fire-and-forget after API response
-3. **Fast Model**: `gpt-4o-mini` for scoring/next question (via `NEXT_PUBLIC_OPENAI_EVALUATION_MODEL` env var)
+3. **Reasoning Model**: `o4-mini` for next-question generation (via `NEXT_PUBLIC_OPENAI_EVALUATION_MODEL` env var); uses `max_completion_tokens` instead of `max_tokens` (reasoning token budget)
 4. **Minimal Prompts**: Fast API uses lightweight prompt focusing only on scores and next question
 
 ---
@@ -270,7 +270,7 @@ nextQuestionText = `${fastData.acknowledgment} ${fastData.nextQuestion}`;
 ### Environment Variables
 
 - `OPENAI_API_KEY`: OpenAI API key (server-side only)
-- `NEXT_PUBLIC_OPENAI_EVALUATION_MODEL`: Model for evaluation (default: `gpt-4o-mini`)
+- `NEXT_PUBLIC_OPENAI_EVALUATION_MODEL`: Model for evaluation (currently `o4-mini`, a reasoning model)
 
 ### Redux State (`backgroundSlice`)
 
@@ -475,16 +475,41 @@ The legacy dual-call flow (`/api/interviews/evaluate-answer-fast`) has been supe
 The fast blocking call now uses a dedicated endpoint that accepts additional context fields for the angle-based repetition prevention system:
 
 **Additional request fields:**
-- `recentHistory`: Last 4 Q+A pairs from the conversation (built client-side from Redux `messages`)
+- `recentHistory`: Last 4 Q+A pairs (conversational context only — not the deduplication list)
 - `coveredAngles`: Array of `ProbeAngle` values already used for the current topic (from Redux `coveredAnglesPerTopic`)
+- `allPreviousProbes`: Full session history of substantive probe questions — each entry is `{ question, topic, angle, slot }`. Used as the banned-questions list. Clarification rephrases, gibberish retries, and topic-transition lines are excluded.
 
 **Additional response fields:**
 - `probeAngle`: The validation dimension the generated question targets (`implementation | sizing | correctness | measurement | observed_evidence | failure_mode | tradeoff | redesign`)
+- `fingerprint`: Structured semantic fingerprint `{ topic, angle, slot }` — present for substantive probes, `null` for clarification/dont_know turns. `slot` is constrained to a 12-label vocabulary (see below).
+
+**Fingerprint slot vocabulary** (model must use only these labels):
+```
+actual_number | sizing_method | overflow_policy | observed_result | instrumentation_tool
+failure_case | concurrency_model | ownership_rule | deferred_work | payload_shape
+tradeoff_choice | redesign_point
+```
 
 **Client dispatch after response:**
 ```typescript
-// Track angle to prevent semantic repetition on next turn
+// Track angle for within-topic deduplication
 dispatch(addCoveredAngle({ topic: questionData.newFocusTopic, angle: questionData.probeAngle }));
+
+// Record substantive probe for full-session deduplication (fingerprint-based)
+if (questionData.detectedAnswerType === 'substantive' && questionData.fingerprint) {
+  dispatch(addSubstantiveProbe({
+    question: questionData.question,
+    topic: questionData.fingerprint.topic,
+    angle: questionData.fingerprint.angle,
+    slot: questionData.fingerprint.slot,
+  }));
+}
+```
+
+**Redux storage** (`backgroundSlice`):
+```typescript
+substantiveProbeHistory: SubstantiveProbe[];  // grows each substantive turn
+// type SubstantiveProbe = { question, topic, angle, slot }
 ```
 
 See [Angle-Based Repetition Prevention](../architecture/dynamic-category-prioritization-system.md#angle-based-repetition-prevention) for full details.

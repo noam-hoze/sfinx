@@ -29,12 +29,23 @@ export type ProbeAngle =
   | 'redesign';         // What they would change now
 
 /**
+ * Structured semantic fingerprint for a substantive probe question.
+ * Uses constrained vocabulary to enable stable deduplication across sessions.
+ */
+export interface ProbeFingerprint {
+  topic: string;   // Focus topic name
+  angle: string;   // ProbeAngle value
+  slot: string;    // Constrained slot label (see SLOT_VOCABULARY)
+}
+
+/**
  * OpenAI response structure for question generation with classification
  */
 export interface ClassifiedQuestionResponse {
   detectedAnswerType: AnswerType;
-  question: string;        // Natural conversational response
-  probeAngle?: ProbeAngle; // Angle of the follow-up generated (substantive answers only)
+  question: string;               // Natural conversational response
+  probeAngle?: ProbeAngle;        // Angle of the follow-up generated (substantive answers only)
+  fingerprint?: ProbeFingerprint | null; // Semantic fingerprint (substantive probes only; null otherwise)
 }
 
 /**
@@ -50,6 +61,8 @@ export interface ClassificationPromptParams {
   isGibberish: boolean;  // Pre-computed from regex (kept for speed)
   recentHistory?: Array<{ question: string; answer: string }>; // Last ~4 Q+A pairs for context
   coveredAngles?: string[]; // Angles already probed for the current topic
+  /** Full history of prior substantive probe questions for global deduplication. */
+  allPreviousProbes?: Array<{ question: string; topic: string; angle: string; slot: string }>;
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -60,7 +73,15 @@ export interface ClassificationPromptParams {
 function formatRecentHistory(history: Array<{ question: string; answer: string }>): string {
   if (history.length === 0) return '';
   const lines = history.map((h, i) => `Turn ${i + 1}:\nQ: ${h.question}\nA: ${h.answer}`).join('\n\n');
-  return `\nRecent conversation (for context — do NOT repeat angles already probed):\n${lines}\n`;
+  return `\nRecent conversation:\n${lines}\n`;
+}
+
+/** Format the full substantive probe history as a numbered banned-questions list with fingerprints. */
+function formatBannedProbes(probes: Array<{ question: string; topic: string; angle: string; slot: string }>): string {
+  if (probes.length === 0) return '(none yet — this is the first follow-up)';
+  return probes
+    .map((p, i) => `  ${i + 1}. ${p.question}\n     fingerprint: topic=${p.topic} | angle=${p.angle} | slot=${p.slot}`)
+    .join('\n');
 }
 
 /** Format covered angles list for injection into the classification prompt. */
@@ -83,6 +104,7 @@ export function buildClassificationPrompt(params: ClassificationPromptParams): s
     isGibberish,
     recentHistory = [],
     coveredAngles = [],
+    allPreviousProbes = [],
   } = params;
 
   const retryCount = clarificationRetryCount;
@@ -184,54 +206,84 @@ ${atThreshold ? `
 
 **If substantive:**
 - Set detectedAnswerType: "substantive"
-- CONVERSATIONAL MOVES (choose one — do NOT use reflection templates):
-  FORBIDDEN openers: "I see you...", "It's clear that...", "You mentioned...", "You highlighted...", "You utilized...", "So you explained..."
-  A human interviewer does not echo the answer back. Pick a move that fits naturally:
 
-  Direct zoom-in (start with the question, no preamble):
-  * "How did you size that buffer?"
-  * "What did you keep out of the ISR?"
-  * "What was your overflow policy?"
+RULE 1 — BANNED QUESTIONS (check this first):
+The following substantive probe questions have already been asked this session. NEVER ask them again,
+and NEVER ask anything that would elicit substantially the same information.
+${formatBannedProbes(allPreviousProbes)}
 
-  Challenge:
-  * "Why a ring buffer and not something else?"
-  * "What breaks if the consumer falls behind?"
-  * "How did you know that margin was enough?"
+A question is banned if EITHER:
+(a) The candidate would give substantially the same answer as a listed question (text equivalence), OR
+(b) Its fingerprint (topic + angle + slot) matches any listed fingerprint exactly.
 
-  Ask for evidence:
-  * "How did you actually measure that?"
-  * "What did the traces show?"
-  * "Did you have occupancy data from the real system?"
+Text equivalence examples:
+- "What was your target latency?" = "What latency goal were you targeting?" = "What was the latency requirement?"
+- "What did the traces show?" = "What did your measurements reveal?" = "What did the recorded data show during stress?"
+- "What was your buffer size?" = "How did you decide the buffer capacity?" = "How large was the buffer?"
 
-  Ask for a real case:
-  * "Did you ever hit overflow in testing?"
-  * "Walk me through one failure you saw."
-  * "Give me one burst scenario you designed for."
+SLOT VOCABULARY — use ONLY these labels in your fingerprint, never invent new ones:
+  actual_number | sizing_method | overflow_policy | observed_result | instrumentation_tool
+  failure_case | concurrency_model | ownership_rule | deferred_work | payload_shape
+  tradeoff_choice | redesign_point
 
-  Narrow naturally:
-  * "Let's stay on the buffer for a second — how did you size it?"
-  * "On the overflow side — what policy did you choose?"
-  * "Say more about that ISR path."
+RULE 2 — DRILLING:
+Scan the answer for the single most specific technical claim — a named data structure, metric,
+protocol, tool, design decision, concurrency model, or failure mode. Ask ONE targeted question
+about THAT specific claim.
+Examples:
+  * ISR → "What specifically ran inside the ISR, and what did you explicitly keep out?"
+  * ring buffer → "How did you size the buffer, and what was your overflow policy?"
+  * layer isolation → "Give me one concrete bug — how did you prove which layer was responsible?"
+  * synchronization → "Was this single-producer/single-consumer, and how did you guarantee correctness?"
+  * design choice → "You went with X — what specifically ruled out Y?"
+"What trade-offs did you consider?" is FORBIDDEN as a standalone follow-up.
 
-  Brief optional opener (non-reflective, only when natural):
-  * "Got it." / "Right." / "Okay." / "Interesting." — then question immediately, NO restatement after
+RULE 3 — SPECIFICITY ESCALATION:
+Before moving to a new angle, check: does the last answer make a claim about sizing,
+measurement, correctness, observed behavior, failure, or validation WITHOUT a concrete anchor?
 
-- DRILLING RULE (CRITICAL): Before writing a follow-up, scan the answer for the single most specific technical claim — a named data structure, metric, protocol, tool, design decision, concurrency model, or failure mode. Ask ONE targeted question about THAT specific claim.
-  Examples of GOOD drilling:
-  * Answer mentions "ring buffer" → "How did you size the buffer, and what was your overflow policy?"
-  * Answer mentions "ISR" → "What specifically ran inside the ISR, and what did you explicitly keep out?"
-  * Answer mentions "layer isolation" → "Give me one concrete bug — how did you prove which layer was responsible?"
-  * Answer mentions "latency" → "What was your target latency, and how did you measure whether you hit it?"
-  * Answer mentions "synchronization" → "Was this single-producer/single-consumer, and how did you guarantee correctness?"
-  * Answer mentions a design choice → "You went with X — what specifically ruled out Y?"
-- "What trade-offs did you consider?" is FORBIDDEN as a standalone follow-up. Only ask about trade-offs when you name the specific context: "You chose X over Y — what drove that?"
-- Fallback probes (only when no extractable technical detail exists):
-  * "Why that approach?"
-  * "What alternatives did you explore?"
-  * "Walk me through that decision"
-- ANGLE TRACKING: Angles already covered for this topic: ${formatCoveredAngles(coveredAngles)}.
-  Pick an UNCOVERED angle: implementation | sizing | correctness | measurement | observed_evidence | failure_mode | tradeoff | redesign.
-  Set probeAngle in your JSON to the angle you chose.
+Concrete anchor = a number / a named tool / a specific observed bug / a falsifiable observation.
+
+If NO anchor is present, your follow-up MUST request one specific concrete fact.
+Do NOT move to a new angle yet.
+Examples:
+  "sized from worst-case burst rate"  → "What was the actual buffer size?"
+  "tracked worst-case latency"        → "What was the highest latency you recorded?"
+  "used stress tests"                 → "What tool or signal produced those measurements?"
+  "had an overflow policy"            → "How many events per burst did you design for?"
+  "isolated the layers"               → "What was one specific bug, and which layer was it in?"
+
+Note: pure transition answers ("I chose latency over throughput") do NOT require escalation —
+only claims about what was done, measured, or observed.
+
+When escalation fires on consecutive abstract answers, prefer varying the anchor type when the
+answer supports it (prefer number → tool → observed result), but do NOT force a tool question
+when only a number makes sense.
+
+When escalation fires, the new question must NOT be a more concrete rewording of the immediately
+previous question — it must request a genuinely different missing anchor.
+
+If specificity escalation applies, it overrides angle progression. Request the anchor first.
+
+RULE 4 — ANGLE TRACKING + CLUSTER PROGRESSION:
+Angles already covered for this topic: ${formatCoveredAngles(coveredAngles)}.
+
+Do NOT revisit an already covered informational slot. A broader angle may remain active
+until its slots are exhausted. Within a cluster, move forward to a new slot — never sideways
+to a paraphrase of the same slot.
+
+Cluster slot progression:
+  MEASUREMENT / EVIDENCE: requirement/target → measurement method → instrumentation/tool → observed result → anomaly/deviation
+  IMPLEMENTATION:         ISR contents → deferred work → enqueued payload structure → queue insertion/removal mechanics
+  CORRECTNESS:            concurrency model → ownership rules → synchronization/atomicity → failure/race prevention
+
+Pick an UNCOVERED slot, then map it to the closest probeAngle in your JSON
+(implementation | sizing | correctness | measurement | observed_evidence | failure_mode | tradeoff | redesign).
+
+RULE 5 — CONVERSATIONAL MOVES (tone chosen last):
+FORBIDDEN openers: "I see you...", "It's clear that...", "You mentioned...", "You highlighted...", "You utilized..."
+Start with the question directly, or a single non-reflective word ("Right.", "Got it.", "Interesting.") then the question immediately.
+
 - Or ask next question about: "${newFocusTopic}"
 `;
   }
@@ -265,7 +317,9 @@ Return JSON:
 {
   "detectedAnswerType": "clarification_request" | "dont_know" | "substantive",
   "question": "Your naturally written response with appropriate acknowledgment + question",
-  "probeAngle": "implementation|sizing|correctness|measurement|observed_evidence|failure_mode|tradeoff|redesign or null for non-substantive answers"
+  "probeAngle": "implementation|sizing|correctness|measurement|observed_evidence|failure_mode|tradeoff|redesign or null for non-substantive answers",
+  "fingerprint": { "topic": "<currentTopicName>", "angle": "<probeAngle>", "slot": "<one label from SLOT VOCABULARY above>" }
+    — REQUIRED for substantive probes; set to null for clarification_request and dont_know turns
 }`;
 }
 

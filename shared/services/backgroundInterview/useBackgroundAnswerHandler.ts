@@ -7,7 +7,7 @@
 import { useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { store, RootState } from "@/shared/state/store";
-import { addMessage, setEvaluatingAnswer, setCurrentFocusTopic, setCurrentQuestionTarget, updateCategoryStats, forceTimeExpiry, incrementQuestionSequence, incrementClarificationRetry, addCoveredAngle, type ChatMessage } from "@/shared/state/slices/backgroundSlice";
+import { addMessage, setEvaluatingAnswer, setCurrentFocusTopic, setCurrentQuestionTarget, updateCategoryStats, forceTimeExpiry, incrementQuestionSequence, incrementClarificationRetry, addCoveredAngle, addSubstantiveProbe, type ChatMessage, type SubstantiveProbe } from "@/shared/state/slices/backgroundSlice";
 import {
   askViaChatCompletion,
   generateAssistantReply,
@@ -142,6 +142,7 @@ export function useBackgroundAnswerHandler(
               log.info(LOG_CATEGORY, "[split-eval] Calling next-question endpoint...");
               const recentHistory = buildRecentHistory(backgroundState.messages, 4);
               const coveredAngles = backgroundState.coveredAnglesPerTopic[currentFocusTopic ?? ''] ?? [];
+              const allPreviousProbes: SubstantiveProbe[] = backgroundState.substantiveProbeHistory;
               const questionResponse = await fetch(`/api/interviews/next-question`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -156,6 +157,7 @@ export function useBackgroundAnswerHandler(
                   clarificationRetryCount,
                   recentHistory,
                   coveredAngles,
+                  allPreviousProbes,
                 })
               });
 
@@ -178,6 +180,16 @@ export function useBackgroundAnswerHandler(
               // Track which angle was just probed to prevent semantic repetition
               if (questionData.probeAngle && questionData.newFocusTopic) {
                 dispatch(addCoveredAngle({ topic: questionData.newFocusTopic, angle: questionData.probeAngle }));
+              }
+
+              // Record substantive probes for full-session deduplication
+              if (questionData.detectedAnswerType === 'substantive' && questionData.fingerprint) {
+                dispatch(addSubstantiveProbe({
+                  question: questionData.question,
+                  topic: questionData.fingerprint.topic,
+                  angle: questionData.fingerprint.angle,
+                  slot: questionData.fingerprint.slot,
+                }));
               }
 
               // Use next question from response
