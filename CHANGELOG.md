@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.28.2] - 2026-03-09
+
+### Fixed
+
+- Stopped interview screen sharing and microphone capture reliably when candidates leave `/interview`, including client-side navigation away from the route.
+
 ## [1.28.1] - 2026-03-09
 
 ### Changed

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { Suspense } from "react";
 import { useSession, signOut } from "next-auth/react";
 import Link from "next/link";
@@ -96,6 +96,7 @@ function mapInterviewEntryError(error: unknown): { title: string; description: s
 
 function InterviewPageContent() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const { isMuted, toggleMute } = useMute();
   const {
@@ -161,7 +162,13 @@ function InterviewPageContent() {
   const skipToCoding = process.env.NEXT_PUBLIC_SKIP_TO_CODING === "true";
   const skipScreenShare = process.env.NEXT_PUBLIC_SKIP_SCREEN_SHARE === "true";
   const recordingControls = useScreenRecording();
-  const { startRecording, interviewSessionId, setInterviewSessionId, getActualRecordingStartTime } = recordingControls;
+  const {
+    startRecording,
+    stopRecording,
+    interviewSessionId,
+    setInterviewSessionId,
+    getActualRecordingStartTime,
+  } = recordingControls;
 
   // Build breadcrumb trail
   const breadcrumbTrail = getBreadcrumbTrail("/interview", "CANDIDATE", {
@@ -173,10 +180,13 @@ function InterviewPageContent() {
   const clickSoundRef = useRef<HTMLAudioElement | null>(null);
   const startSoundRef = useRef<HTMLAudioElement | null>(null);
   const interviewSessionIdRef = useRef<string | null>(null);
+  const micStreamRef = useRef<MediaStream | null>(null);
   const completedRef = useRef<boolean>(false);
   const hasAutoStartedRef = useRef<boolean>(false);
   const hasPreloadedRef = useRef<boolean>(false);
   const skipToCodingStartAttemptedRef = useRef<boolean>(false);
+  const lastTerminatedSessionIdRef = useRef<string | null>(null);
+  const previousPathnameRef = useRef(pathname);
 
   // Extracted services
   const { preload } = useBackgroundPreload();
@@ -284,6 +294,10 @@ function InterviewPageContent() {
   }, [interviewSessionId]);
 
   useEffect(() => {
+    micStreamRef.current = micStream;
+  }, [micStream]);
+
+  useEffect(() => {
     completedRef.current = completed;
   }, [completed]);
 
@@ -294,84 +308,99 @@ function InterviewPageContent() {
     }
   }, [stage]);
 
-  // Cleanup mic on unmount
-  useEffect(() => {
-    return () => {
-      if (micStream) {
-        micStream.getTracks().forEach((track) => track.stop());
-        log.info(LOG_CATEGORY, "[interview] Mic stream stopped on cleanup");
-      }
-    };
-  }, [micStream]);
+  const stopInterviewMedia = useCallback(() => {
+    void stopRecording().catch((error) => {
+      log.error(LOG_CATEGORY, "[interview] Error stopping recording:", error);
+    });
 
-  // Session cleanup: terminate session when leaving interview page
-  useEffect(() => {
-    // Only run cleanup on actual unmount, not on dependency changes
-    return () => {
+    const activeMicStream = micStreamRef.current;
+    if (activeMicStream) {
+      activeMicStream.getTracks().forEach((track) => track.stop());
+      micStreamRef.current = null;
+      log.info(LOG_CATEGORY, "[interview] Mic stream stopped on cleanup");
+    }
+  }, [stopRecording]);
+
+  const cleanupInterviewSession = useCallback(
+    ({ useBeacon = false }: { useBeacon?: boolean } = {}) => {
+      stopInterviewMedia();
+
       const sessionId = interviewSessionIdRef.current;
       const isCompleted = completedRef.current;
 
       if (!sessionId || isCompleted) {
-        log.info(LOG_CATEGORY, "[interview] Skipping cleanup - sessionId:", sessionId, "completed:", isCompleted);
+        log.info(
+          LOG_CATEGORY,
+          "[interview] Skipping session termination - sessionId:",
+          sessionId,
+          "completed:",
+          isCompleted
+        );
         return;
       }
 
-      log.info(LOG_CATEGORY, "[interview] Component unmounting - terminating session:", sessionId);
-
-      // Stop recording
-      try {
-        recordingControls.stopRecording();
-      } catch (error) {
-        log.error(LOG_CATEGORY, "[interview] Error stopping recording:", error);
+      if (lastTerminatedSessionIdRef.current === sessionId) {
+        return;
       }
+      lastTerminatedSessionIdRef.current = sessionId;
 
-      // Stop mic stream
-      if (micStream) {
-        micStream.getTracks().forEach((track) => track.stop());
-      }
-
-      // Mark session as abandoned in backend
       const url = `/api/interviews/session/${sessionId}/terminate`;
 
-      // Use fetch without await (fire and forget on unmount)
+      if (useBeacon && typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+        navigator.sendBeacon(url, new Blob([], { type: "application/json" }));
+        return;
+      }
+
       fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       }).catch((error) => {
         log.error(LOG_CATEGORY, "[interview] Error terminating session:", error);
       });
+    },
+    [stopInterviewMedia]
+  );
+
+  // Session cleanup: terminate session when leaving interview page
+  useEffect(() => {
+    return () => {
+      log.info(LOG_CATEGORY, "[interview] Component unmounting - cleaning up interview resources");
+      cleanupInterviewSession();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [cleanupInterviewSession]);
+
+  // Stop screen sharing if client-side navigation leaves the interview route.
+  useEffect(() => {
+    const previousPathname = previousPathnameRef.current;
+    if (previousPathname === "/interview" && pathname !== "/interview") {
+      log.info(
+        LOG_CATEGORY,
+        "[interview] Route changed away from interview - cleaning up interview resources"
+      );
+      cleanupInterviewSession();
+    }
+    previousPathnameRef.current = pathname;
+  }, [pathname, cleanupInterviewSession]);
 
   // Cleanup on page close/refresh
   useEffect(() => {
     const handleBeforeUnload = () => {
-      if (!interviewSessionId || completed) return;
+      log.info(LOG_CATEGORY, "[interview] Page unloading - cleaning up interview resources");
+      cleanupInterviewSession({ useBeacon: true });
+    };
 
-      log.info(LOG_CATEGORY, "[interview] Page closing - terminating session");
-
-      // Stop recording synchronously
-      try {
-        recordingControls.stopRecording();
-      } catch (error) {
-        log.error(LOG_CATEGORY, "[interview] Error stopping recording:", error);
-      }
-
-      // Stop mic stream
-      if (micStream) {
-        micStream.getTracks().forEach((track) => track.stop());
-      }
-
-      // Use sendBeacon for reliable delivery as page closes
-      const url = `/api/interviews/session/${interviewSessionId}/terminate`;
-
-      navigator.sendBeacon(url, new Blob([], { type: "application/json" }));
+    const handlePageHide = () => {
+      log.info(LOG_CATEGORY, "[interview] Page hidden - cleaning up interview resources");
+      cleanupInterviewSession({ useBeacon: true });
     };
 
     window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [interviewSessionId, completed, micStream, recordingControls]);
+    window.addEventListener("pagehide", handlePageHide);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, [cleanupInterviewSession]);
 
   // Watch for reset trigger
   useEffect(() => {
