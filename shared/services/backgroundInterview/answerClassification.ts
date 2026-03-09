@@ -154,18 +154,49 @@ ${atThreshold ? `
 
 **If substantive:**
 - Set detectedAnswerType: "substantive"
-- Acknowledge what they said with VARIED phrasing (be specific to their answer):
-  * "I see you used X approach"
-  * "So you prioritized Y over Z"
-  * "Interesting that you chose A"
-  * "You mentioned B was important"
-  * "Got it, you went with C"
-  * "Right, so you focused on D"
-- Then probe deeper with VARIED questions:
-  * "What trade-offs did you consider?"
+- CONVERSATIONAL MOVES (choose one — do NOT use reflection templates):
+  FORBIDDEN openers: "I see you...", "It's clear that...", "You mentioned...", "You highlighted...", "You utilized...", "So you explained..."
+  A human interviewer does not echo the answer back. Pick a move that fits naturally:
+
+  Direct zoom-in (start with the question, no preamble):
+  * "How did you size that buffer?"
+  * "What did you keep out of the ISR?"
+  * "What was your overflow policy?"
+
+  Challenge:
+  * "Why a ring buffer and not something else?"
+  * "What breaks if the consumer falls behind?"
+  * "How did you know that margin was enough?"
+
+  Ask for evidence:
+  * "How did you actually measure that?"
+  * "What did the traces show?"
+  * "Did you have occupancy data from the real system?"
+
+  Ask for a real case:
+  * "Did you ever hit overflow in testing?"
+  * "Walk me through one failure you saw."
+  * "Give me one burst scenario you designed for."
+
+  Narrow naturally:
+  * "Let's stay on the buffer for a second — how did you size it?"
+  * "On the overflow side — what policy did you choose?"
+  * "Say more about that ISR path."
+
+  Brief optional opener (non-reflective, only when natural):
+  * "Got it." / "Right." / "Okay." / "Interesting." — then question immediately, NO restatement after
+
+- DRILLING RULE (CRITICAL): Before writing a follow-up, scan the answer for the single most specific technical claim — a named data structure, metric, protocol, tool, design decision, concurrency model, or failure mode. Ask ONE targeted question about THAT specific claim.
+  Examples of GOOD drilling:
+  * Answer mentions "ring buffer" → "How did you size the buffer, and what was your overflow policy?"
+  * Answer mentions "ISR" → "What specifically ran inside the ISR, and what did you explicitly keep out?"
+  * Answer mentions "layer isolation" → "Give me one concrete bug — how did you prove which layer was responsible?"
+  * Answer mentions "latency" → "What was your target latency, and how did you measure whether you hit it?"
+  * Answer mentions "synchronization" → "Was this single-producer/single-consumer, and how did you guarantee correctness?"
+  * Answer mentions a design choice → "You went with X — what specifically ruled out Y?"
+- "What trade-offs did you consider?" is FORBIDDEN as a standalone follow-up. Only ask about trade-offs when you name the specific context: "You chose X over Y — what drove that?"
+- Fallback probes (only when no extractable technical detail exists):
   * "Why that approach?"
-  * "What challenges did that create?"
-  * "How did you decide on that?"
   * "What alternatives did you explore?"
   * "Walk me through that decision"
 - Or ask next question about: "${newFocusTopic}"
@@ -194,6 +225,8 @@ TONE REQUIREMENTS (CRITICAL):
 - Vary your vocabulary, sentence structure, and phrasing
 - Brief and to the point (≤2 sentences before question)
 - Sound like a real human interviewer, not a template
+- FORBIDDEN OPENERS: Never start a follow-up with "I see you...", "It's clear that...", "You mentioned...", "You highlighted...", "You utilized...", or any phrase that echoes the candidate's answer back at them
+- Start follow-ups with the question itself, or with a single non-reflective word ("Right.", "Got it.", "Okay.", "Interesting.") immediately followed by the question — never a restatement
 
 Return JSON:
 {
