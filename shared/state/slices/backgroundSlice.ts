@@ -30,6 +30,8 @@ export type BackgroundState = {
     categoryStats: CategoryStats[];
     currentQuestionSequence: number;
     clarificationRetryCount: number;
+    /** Tracks which probe angles have been used per topic to prevent semantic repetition. */
+    coveredAnglesPerTopic: Record<string, string[]>;
 };
 
 const initialState: BackgroundState = {
@@ -41,6 +43,7 @@ const initialState: BackgroundState = {
     categoryStats: [],
     currentQuestionSequence: 0,
     clarificationRetryCount: 0,
+    coveredAnglesPerTopic: {},
 };
 
 const backgroundSlice = createSlice({
@@ -133,6 +136,16 @@ const backgroundSlice = createSlice({
         resetClarificationRetry: (state) => {
             state.clarificationRetryCount = 0;
         },
+        /** Record that a probe angle has been used for a given topic, preventing semantic repetition. */
+        addCoveredAngle: (state, action: PayloadAction<{ topic: string; angle: string }>) => {
+            const { topic, angle } = action.payload;
+            if (!state.coveredAnglesPerTopic[topic]) {
+                state.coveredAnglesPerTopic[topic] = [];
+            }
+            if (!state.coveredAnglesPerTopic[topic].includes(angle)) {
+                state.coveredAnglesPerTopic[topic].push(angle);
+            }
+        },
     },
     extraReducers: (builder) => {
         builder.addCase(resetInterview, () => initialState);
@@ -157,6 +170,7 @@ export const {
     incrementQuestionSequence,
     incrementClarificationRetry,
     resetClarificationRetry,
+    addCoveredAngle,
 } = backgroundSlice.actions;
 
 export default backgroundSlice.reducer;

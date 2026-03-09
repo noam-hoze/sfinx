@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.27.0] - 2026-03-08
+
+### Added
+
+- **Angle-based repetition prevention**: Introduced `ProbeAngle` taxonomy (`implementation`, `sizing`, `correctness`, `measurement`, `observed_evidence`, `failure_mode`, `tradeoff`, `redesign`) to track which validation dimensions have been probed per topic. The classification prompt receives `coveredAngles` and is instructed to pick an uncovered angle, eliminating semantic loops where the same intent is repeated with different wording.
+- **Recent conversation context**: The next-question classification prompt now receives the last 4 Q+A pairs (`recentHistory`) so the model can reason about what has already been explored beyond just the immediately preceding turn.
+- **`coveredAnglesPerTopic` Redux state**: Added per-topic angle tracking in `backgroundSlice` with `addCoveredAngle` reducer. Angles accumulate per topic and are reset implicitly when a new topic is selected.
+- **`probeAngle` in next-question response**: The `/api/interviews/next-question` endpoint now returns the angle used by the generated question, which the client stores to build future `coveredAngles` arrays.
+
+### Changed
+
+- Interviewer follow-up strategy: forbidden reflection-template openers ("I see you…", "It's clear that…", "You mentioned…", "You highlighted…"). Follow-ups now open with a direct question or a single non-reflective word.
+- Interviewer drilling behavior: the classification prompt now identifies the single most specific technical claim in the answer and asks a targeted question about that exact claim instead of defaulting to generic probes. "What trade-offs did you consider?" is banned as a standalone follow-up.
+- Updated `docs/architecture/dynamic-category-prioritization-system.md` to v1.1.0 with Angle-Based Repetition Prevention section.
+- Updated `docs/evaluation/answer-evaluation-optimization.md` with split evaluation request/response field documentation.
+
 ## [1.26.3] - 2026-03-08
 
 ### Added

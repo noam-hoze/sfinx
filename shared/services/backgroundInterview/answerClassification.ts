@@ -16,11 +16,25 @@ export type AnswerType =
   | 'substantive';           // Normal answer with content
 
 /**
+ * Validation angle probed by a follow-up question, used to prevent semantic repetition within a topic.
+ */
+export type ProbeAngle =
+  | 'implementation'    // What ran inside it, how it was structured
+  | 'sizing'            // How size/capacity/parameters were chosen
+  | 'correctness'       // Concurrency, safety guarantees, producer/consumer model
+  | 'measurement'       // How latency/throughput/occupancy was validated
+  | 'observed_evidence' // What traces/logs/data actually showed
+  | 'failure_mode'      // What broke, overflow, race conditions in practice
+  | 'tradeoff'          // Why X over Y (must name both options)
+  | 'redesign';         // What they would change now
+
+/**
  * OpenAI response structure for question generation with classification
  */
 export interface ClassifiedQuestionResponse {
   detectedAnswerType: AnswerType;
-  question: string;  // Natural conversational response with varied acknowledgment
+  question: string;        // Natural conversational response
+  probeAngle?: ProbeAngle; // Angle of the follow-up generated (substantive answers only)
 }
 
 /**
@@ -34,11 +48,25 @@ export interface ClassificationPromptParams {
   clarificationRetryCount: number;
   clarificationThreshold: number;
   isGibberish: boolean;  // Pre-computed from regex (kept for speed)
+  recentHistory?: Array<{ question: string; answer: string }>; // Last ~4 Q+A pairs for context
+  coveredAngles?: string[]; // Angles already probed for the current topic
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // PROMPT BUILDERS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+/** Format recent Q+A history for injection into the classification prompt. */
+function formatRecentHistory(history: Array<{ question: string; answer: string }>): string {
+  if (history.length === 0) return '';
+  const lines = history.map((h, i) => `Turn ${i + 1}:\nQ: ${h.question}\nA: ${h.answer}`).join('\n\n');
+  return `\nRecent conversation (for context — do NOT repeat angles already probed):\n${lines}\n`;
+}
+
+/** Format covered angles list for injection into the classification prompt. */
+function formatCoveredAngles(angles: string[]): string {
+  return angles.length > 0 ? angles.join(', ') : 'none yet';
+}
 
 /**
  * Build OpenAI prompt for question generation with answer classification
@@ -52,7 +80,9 @@ export function buildClassificationPrompt(params: ClassificationPromptParams): s
     newFocusTopic,
     clarificationRetryCount,
     clarificationThreshold,
-    isGibberish
+    isGibberish,
+    recentHistory = [],
+    coveredAngles = [],
   } = params;
 
   const retryCount = clarificationRetryCount;
@@ -199,6 +229,9 @@ ${atThreshold ? `
   * "Why that approach?"
   * "What alternatives did you explore?"
   * "Walk me through that decision"
+- ANGLE TRACKING: Angles already covered for this topic: ${formatCoveredAngles(coveredAngles)}.
+  Pick an UNCOVERED angle: implementation | sizing | correctness | measurement | observed_evidence | failure_mode | tradeoff | redesign.
+  Set probeAngle in your JSON to the angle you chose.
 - Or ask next question about: "${newFocusTopic}"
 `;
   }
@@ -207,7 +240,7 @@ ${atThreshold ? `
 
 Last Question: ${lastQuestion}
 Last Answer: ${lastAnswer}
-
+${formatRecentHistory(recentHistory)}
 Current status: ${categoryList}
 
 CRITICAL INSTRUCTION - VARIATION REQUIRED:
@@ -231,7 +264,8 @@ TONE REQUIREMENTS (CRITICAL):
 Return JSON:
 {
   "detectedAnswerType": "clarification_request" | "dont_know" | "substantive",
-  "question": "Your naturally written response with appropriate acknowledgment + question"
+  "question": "Your naturally written response with appropriate acknowledgment + question",
+  "probeAngle": "implementation|sizing|correctness|measurement|observed_evidence|failure_mode|tradeoff|redesign or null for non-substantive answers"
 }`;
 }
 

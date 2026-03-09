@@ -7,7 +7,7 @@
 import { useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { store, RootState } from "@/shared/state/store";
-import { addMessage, setEvaluatingAnswer, setCurrentFocusTopic, setCurrentQuestionTarget, updateCategoryStats, forceTimeExpiry, incrementQuestionSequence, incrementClarificationRetry } from "@/shared/state/slices/backgroundSlice";
+import { addMessage, setEvaluatingAnswer, setCurrentFocusTopic, setCurrentQuestionTarget, updateCategoryStats, forceTimeExpiry, incrementQuestionSequence, incrementClarificationRetry, addCoveredAngle, type ChatMessage } from "@/shared/state/slices/backgroundSlice";
 import {
   askViaChatCompletion,
   generateAssistantReply,
@@ -20,6 +20,23 @@ import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
 
 const LOG_CATEGORY = LOG_CATEGORIES.BACKGROUND_INTERVIEW;
+
+/**
+ * Build a compact recent Q+A history from the chat message store.
+ * Pairs each "ai" question with the following "user" answer, returning the last maxPairs.
+ */
+function buildRecentHistory(
+  messages: ChatMessage[],
+  maxPairs: number
+): Array<{ question: string; answer: string }> {
+  const pairs: Array<{ question: string; answer: string }> = [];
+  for (let i = 0; i < messages.length - 1; i++) {
+    if (messages[i].speaker === 'ai' && messages[i + 1].speaker === 'user') {
+      pairs.push({ question: messages[i].text, answer: messages[i + 1].text });
+    }
+  }
+  return pairs.slice(-maxPairs);
+}
 
 interface AnswerHandlerResult {
   transitionReason?: string;
@@ -123,6 +140,8 @@ export function useBackgroundAnswerHandler(
 
               // CALL 1: Next Question (BLOCKING, ~300-500ms)
               log.info(LOG_CATEGORY, "[split-eval] Calling next-question endpoint...");
+              const recentHistory = buildRecentHistory(backgroundState.messages, 4);
+              const coveredAngles = backgroundState.coveredAnglesPerTopic[currentFocusTopic ?? ''] ?? [];
               const questionResponse = await fetch(`/api/interviews/next-question`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -135,6 +154,8 @@ export function useBackgroundAnswerHandler(
                   currentFocusTopic,
                   excludedTopics,
                   clarificationRetryCount,
+                  recentHistory,
+                  coveredAngles,
                 })
               });
 
@@ -152,6 +173,11 @@ export function useBackgroundAnswerHandler(
               // Update focus topic immediately
               if (questionData.newFocusTopic) {
                 dispatch(setCurrentFocusTopic({ topicName: questionData.newFocusTopic }));
+              }
+
+              // Track which angle was just probed to prevent semantic repetition
+              if (questionData.probeAngle && questionData.newFocusTopic) {
+                dispatch(addCoveredAngle({ topic: questionData.newFocusTopic, angle: questionData.probeAngle }));
               }
 
               // Use next question from response
