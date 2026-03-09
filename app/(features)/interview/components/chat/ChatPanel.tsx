@@ -44,10 +44,12 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
     const isPendingReply = useSelector((s: RootState) => s.coding.pendingReply);
     const [isVoiceRecording, setIsVoiceRecording] = useState(false);
     const [isTranscribing, setIsTranscribing] = useState(false);
+    const [showPasteNotice, setShowPasteNotice] = useState(false);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLTextAreaElement>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
+    const pasteNoticeTimeoutRef = useRef<number | null>(null);
 
     // Auto-focus input when it gets re-enabled
     useEffect(() => {
@@ -65,6 +67,25 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
             });
         }
     }, [messages.length, isPendingReply]);
+
+    useEffect(() => {
+        return () => {
+            if (pasteNoticeTimeoutRef.current !== null) {
+                window.clearTimeout(pasteNoticeTimeoutRef.current);
+            }
+        };
+    }, []);
+
+    const showPasteBlockedNotice = () => {
+        setShowPasteNotice(true);
+        if (pasteNoticeTimeoutRef.current !== null) {
+            window.clearTimeout(pasteNoticeTimeoutRef.current);
+        }
+        pasteNoticeTimeoutRef.current = window.setTimeout(() => {
+            setShowPasteNotice(false);
+            pasteNoticeTimeoutRef.current = null;
+        }, 2500);
+    };
 
     const startVoiceRecording = async () => {
         if (!micStream) return;
@@ -268,6 +289,7 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
                                 if (!ALLOW_NON_EDITOR_PASTE) {
                                     e.preventDefault();
                                     log.info(LOG_CATEGORY, "[chat][paste_blocked] Paste blocked for non-editor input");
+                                    showPasteBlockedNotice();
                                 }
                             }}
                         />
@@ -309,6 +331,14 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
                         <span>Live Voice Transcription</span>
                         <span>{transcriptions.length} messages</span>
                     </div>
+                )}
+                {showPasteNotice && (
+                    <p
+                        aria-live="polite"
+                        className="mt-2 text-xs text-amber-700 dark:text-amber-300"
+                    >
+                        Paste is turned off here. Please type your message.
+                    </p>
                 )}
             </div>
         </div>

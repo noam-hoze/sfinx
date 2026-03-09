@@ -102,6 +102,7 @@ export default function QuestionCard({
   const [audioFinished, setAudioFinished] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [showPasteNotice, setShowPasteNotice] = useState(false);
   const [recordingError, setRecordingError] = useState<string | null>(null);
   const [showBlankAnswerDialog, setShowBlankAnswerDialog] = useState(false);
   const [dontAskAgain, setDontAskAgain] = useState(false);
@@ -111,6 +112,7 @@ export default function QuestionCard({
   const controlsSoundRef = useRef<HTMLAudioElement | null>(null);
   const submitClickTimeRef = useRef<Date>(new Date());
   const questionReadyTimeRef = useRef<Date>(new Date()); // Timestamp when question becomes fully available
+  const pasteNoticeTimeoutRef = useRef<number | null>(null);
 
   // Word-by-word animation for question text
   const [questionAnimationEnabled, setQuestionAnimationEnabled] = useState(false);
@@ -256,8 +258,22 @@ export default function QuestionCard({
       if (mediaRecorderRef.current && isRecording) {
         mediaRecorderRef.current.stop();
       }
+      if (pasteNoticeTimeoutRef.current !== null) {
+        window.clearTimeout(pasteNoticeTimeoutRef.current);
+      }
     };
   }, [isRecording]);
+
+  const showPasteBlockedNotice = () => {
+    setShowPasteNotice(true);
+    if (pasteNoticeTimeoutRef.current !== null) {
+      window.clearTimeout(pasteNoticeTimeoutRef.current);
+    }
+    pasteNoticeTimeoutRef.current = window.setTimeout(() => {
+      setShowPasteNotice(false);
+      pasteNoticeTimeoutRef.current = null;
+    }, 2500);
+  };
 
   // Keyboard shortcuts for dialog
   React.useEffect(() => {
@@ -654,6 +670,7 @@ export default function QuestionCard({
                       if (!ALLOW_NON_EDITOR_PASTE) {
                         e.preventDefault();
                         log.info(LOG_CATEGORY, "[background][paste_blocked] Paste blocked for non-editor input");
+                        showPasteBlockedNotice();
                       }
                     }}
                     placeholder="Type your answer here."
@@ -662,6 +679,14 @@ export default function QuestionCard({
                     autoFocus
                     className="w-full px-4 py-3 text-gray-900 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-gray-300 focus:bg-white disabled:opacity-50 disabled:cursor-not-allowed resize-none placeholder:text-gray-400"
                   />
+                  {showPasteNotice && (
+                    <p
+                      aria-live="polite"
+                      className="mt-2 text-xs text-amber-700"
+                    >
+                      Paste is turned off here. Please type your answer.
+                    </p>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -857,4 +882,3 @@ export default function QuestionCard({
     </div>
   );
 }
-
