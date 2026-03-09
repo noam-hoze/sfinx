@@ -45,7 +45,9 @@ export async function POST(request: NextRequest) {
             currentCounts,
             currentFocusTopic,
             excludedTopics,
-            clarificationRetryCount
+            clarificationRetryCount,
+            recentHistory,
+            coveredAngles,
         } = body;
 
         if (!sessionId || !lastQuestion || lastAnswer === undefined || !experienceCategories || !currentCounts) {
@@ -231,6 +233,8 @@ export async function POST(request: NextRequest) {
             clarificationRetryCount: retryCount,
             clarificationThreshold: CLARIFICATION_THRESHOLD,
             isGibberish,
+            recentHistory: Array.isArray(recentHistory) ? recentHistory : [],
+            coveredAngles: Array.isArray(coveredAngles) ? coveredAngles : [],
         });
 
         const messages = [
@@ -259,7 +263,7 @@ export async function POST(request: NextRequest) {
             messages,
             response_format: { type: "json_object" },
             temperature: 0.7, // More natural for question generation
-            max_tokens: 150, // Keep questions short
+            max_tokens: 200, // Includes question + probeAngle field
         });
         const elapsed = Date.now() - startTime;
 
@@ -300,6 +304,7 @@ export async function POST(request: NextRequest) {
             isDontKnow,
             shouldIncrementRetry,
             shouldMoveOn,
+            probeAngle: result.probeAngle ?? null,
             latencyMs: elapsed, // For monitoring
         });
     } catch (error) {

@@ -25,7 +25,8 @@ This document describes the complete architecture, implementation, and design pr
 7. [Race Condition Fix](#race-condition-fix)
 8. [Debug Panel Integration](#debug-panel-integration)
 9. [OpenAI Integration](#openai-integration)
-10. [Edge Cases](#edge-cases)
+10. [Angle-Based Repetition Prevention](#angle-based-repetition-prevention)
+11. [Edge Cases](#edge-cases)
 
 ---
 
@@ -904,6 +905,56 @@ const canPivot = (contributionsCount: number, avgStrength: number): boolean => {
 
 ---
 
+## Angle-Based Repetition Prevention
+
+### Problem
+
+The category selection algorithm ensures all topics get covered. But within a single topic, the interviewer can loop semantically — asking "what was your target latency?" and then "how did you measure whether you hit the latency requirement?" and then "what latency goal were you targeting?" These questions have different wording but identical informational intent.
+
+The cause: the classification prompt previously only received the last question and answer, with no memory of which validation dimensions had already been probed two or three turns back.
+
+### Solution: ProbeAngle Tracking
+
+Each follow-up question is assigned a `ProbeAngle` — the validation dimension it probes. The system tracks which angles have been used per topic and passes them to the classification prompt, which is instructed to pick an uncovered angle.
+
+**Angle taxonomy** (`ProbeAngle` type in `answerClassification.ts`):
+
+| Angle | What it probes |
+|-------|---------------|
+| `implementation` | What ran inside it, how it was structured |
+| `sizing` | How size, capacity, or parameters were chosen |
+| `correctness` | Concurrency, safety guarantees, producer/consumer model |
+| `measurement` | How latency, throughput, or occupancy was validated |
+| `observed_evidence` | What traces, logs, or data actually showed |
+| `failure_mode` | What broke, overflow, race conditions in practice |
+| `tradeoff` | Why X over Y (must name both options) |
+| `redesign` | What they would change now |
+
+### Data Flow
+
+1. OpenAI generates the next question and returns `probeAngle` in the JSON response from `/api/interviews/next-question`.
+2. The client dispatches `addCoveredAngle({ topic: newFocusTopic, angle: probeAngle })` to Redux.
+3. `backgroundSlice` stores angles per topic in `coveredAnglesPerTopic: Record<string, string[]>`.
+4. On the next answer submission, the client reads `coveredAnglesPerTopic[currentFocusTopic]` and sends it as `coveredAngles` in the request body.
+5. `buildClassificationPrompt` injects the list as "Angles already covered — do NOT repeat" and instructs the model to pick an uncovered one.
+
+### Relationship to Category Selection
+
+Angle tracking is **orthogonal to and does not affect** category selection:
+- `coveredAnglesPerTopic` is advisory prompt context only.
+- The two-mode topic selection algorithm (MODE 1 / MODE 2) reads only `currentCounts` and `excludedTopics` — it does not read `coveredAngles`.
+- `newFocusTopic` is still determined entirely server-side by contribution counts.
+
+When the topic switches (new `newFocusTopic` arrives), the new topic automatically starts with an empty angle list since `coveredAnglesPerTopic[newTopic]` will be `[]`.
+
+### Recent History Context
+
+In addition to angle tracking, the classification prompt now receives the last 4 Q+A pairs as `recentHistory`. This provides local context for the model to avoid semantic repetition even before all angles have been explicitly labeled and stored.
+
+`buildRecentHistory()` in `useBackgroundAnswerHandler.ts` builds this from Redux `messages` by pairing consecutive `ai`/`user` message entries.
+
+---
+
 ## Conclusion
 
 The Dynamic Category Prioritization System successfully balances two competing goals:
@@ -919,11 +970,12 @@ Key achievements:
 - ✅ Fixed race condition with fresh evaluation data
 - ✅ Full transparency via currentQuestionTarget display
 - ✅ Predictable, rule-based topic selection
+- ✅ Angle-based repetition prevention prevents semantic looping within a topic
 
 The system is production-ready and has been validated through extensive testing with multiple candidate scenarios.
 
 ---
 
-**Document Version:** 1.0.0  
-**Last Updated:** January 11, 2026  
+**Document Version:** 1.1.0
+**Last Updated:** March 8, 2026
 **Maintained by:** Sfinx Engineering Team

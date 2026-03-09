@@ -466,6 +466,31 @@ See [Contributions Target & Transition Logic](./contributions-target-and-transit
 
 ---
 
+## Split Evaluation Architecture (Current)
+
+The legacy dual-call flow (`/api/interviews/evaluate-answer-fast`) has been superseded by a 3-call split architecture controlled by the `NEXT_PUBLIC_USE_SPLIT_EVALUATION` flag.
+
+### Next-Question Endpoint (`/api/interviews/next-question`)
+
+The fast blocking call now uses a dedicated endpoint that accepts additional context fields for the angle-based repetition prevention system:
+
+**Additional request fields:**
+- `recentHistory`: Last 4 Q+A pairs from the conversation (built client-side from Redux `messages`)
+- `coveredAngles`: Array of `ProbeAngle` values already used for the current topic (from Redux `coveredAnglesPerTopic`)
+
+**Additional response fields:**
+- `probeAngle`: The validation dimension the generated question targets (`implementation | sizing | correctness | measurement | observed_evidence | failure_mode | tradeoff | redesign`)
+
+**Client dispatch after response:**
+```typescript
+// Track angle to prevent semantic repetition on next turn
+dispatch(addCoveredAngle({ topic: questionData.newFocusTopic, angle: questionData.probeAngle }));
+```
+
+See [Angle-Based Repetition Prevention](../architecture/dynamic-category-prioritization-system.md#angle-based-repetition-prevention) for full details.
+
+---
+
 ## Future Improvements
 
 1. **Streaming Responses**: Stream acknowledgment + question separately for sub-second perceived latency
