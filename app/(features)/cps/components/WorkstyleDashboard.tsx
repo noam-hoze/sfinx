@@ -62,6 +62,20 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                     onVideoJump={onVideoJump}
                 />
 
+                {workstyle.problemSolving && (
+                    <MetricRow
+                        label="Problem Solving"
+                        description="Code correctness and output accuracy vs. expected solution"
+                        value={workstyle.problemSolving.score}
+                        benchmarkLow={0}
+                        benchmarkHigh={100}
+                        inverse={false}
+                        evidenceLinks={workstyle.problemSolving.evidenceLinks}
+                        evidenceCategory="Problem Solving"
+                        onVideoJump={onVideoJump}
+                    />
+                )}
+
                 {/* Job-Specific Categories */}
                 {codingCategories
                     ?.filter(categoryDef => categoryDef.weight > 0)

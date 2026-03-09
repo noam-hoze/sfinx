@@ -73,12 +73,14 @@ interface ExperienceCategory {
 
 interface ScoringConfigState {
     aiAssistWeight: number;
+    problemSolvingWeight: number;
     experienceWeight: number;
     codingWeight: number;
 }
 
 const defaultScoringConfig: ScoringConfigState = {
     aiAssistWeight: 25,
+    problemSolvingWeight: 25,
     experienceWeight: 50,
     codingWeight: 50,
 };
@@ -269,16 +271,25 @@ function CompanyJobDetailContent() {
                 payload.interviewContent = null;
             }
 
-            const resp = await fetch(`/api/company/jobs/${jobId}`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(payload),
-            });
+            const [resp, scoringResp] = await Promise.all([
+                fetch(`/api/company/jobs/${jobId}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                }),
+                fetch(`/api/company/jobs/${jobId}/scoring-config`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(scoringConfig),
+                }),
+            ]);
             if (!resp.ok) {
                 const detail = await readResponseError(resp);
                 throw new Error(`Failed to save job: ${resp.status} ${detail}`);
+            }
+            if (!scoringResp.ok) {
+                const detail = await readResponseError(scoringResp);
+                throw new Error(`Failed to save scoring config: ${scoringResp.status} ${detail}`);
             }
             const updated = (await resp.json()) as JobDetailResponse;
             setJob(updated);
@@ -881,9 +892,12 @@ function CompanyJobDetailContent() {
                                                 { name: "", description: "", example: "", weight: 0 }
                                             ]);
                                         }}
-                                        className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                                        className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:border-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-2 mt-3"
                                     >
-                                        + Add Experience Category
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                        </svg>
+                                        Add Experience Category
                                     </button>
 
                                     {experienceCategories.length > 0 && (
@@ -916,117 +930,154 @@ function CompanyJobDetailContent() {
                                         Define evaluation criteria and weights for coding performance
                                     </p>
 
-                                    {/* Job-Specific Categories */}
-                                    <div className="mb-6">
-                                        <h4 className="text-sm font-medium text-gray-700 mb-3">
-                                            Job-Specific Categories
-                                        </h4>
-                                        
-                                        <div className="space-y-3">
-                                            {codingCategories.map((category, index) => (
-                                                <div
-                                                    key={index}
-                                                    className="group relative bg-gray-50/50 border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-all"
-                                                >
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            const updated = codingCategories.filter((_, i) => i !== index);
-                                                            setCodingCategories(updated);
-                                                        }}
-                                                        className="absolute top-3 right-3 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    >
-                                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                                        </svg>
-                                                    </button>
-                                                    
-                                                    <div className="space-y-2 pr-6">
-                                                        <input
-                                                            type="text"
-                                                            value={category.name}
-                                                            onChange={(e) => {
-                                                                const updated = [...codingCategories];
-                                                                updated[index].name = e.target.value;
-                                                                setCodingCategories(updated);
-                                                            }}
-                                                            placeholder="Category name (e.g., TypeScript Proficiency)"
-                                                            className="w-full text-sm font-semibold text-gray-900 bg-transparent border-0 px-0 py-0 focus:ring-0 outline-none placeholder:text-gray-400 placeholder:font-normal"
-                                                        />
-                                                        
-                                                        <input
-                                                            type="text"
-                                                            value={category.description}
-                                                            onChange={(e) => {
-                                                                const updated = [...codingCategories];
-                                                                updated[index].description = e.target.value;
-                                                                setCodingCategories(updated);
-                                                            }}
-                                                            placeholder="Description (e.g., Type safety, interfaces, generics)"
-                                                            className="w-full text-xs text-gray-500 bg-transparent border-0 px-0 py-0 focus:ring-0 outline-none placeholder:text-gray-400"
-                                                        />
-                                                        
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-xs text-gray-500">Weight:</span>
-                                                            <input
-                                                                type="number"
-                                                                min="0"
-                                                                max="100"
-                                                                value={category.weight}
-                                                                onChange={(e) => {
-                                                                    const updated = [...codingCategories];
-                                                                    updated[index].weight = Number(e.target.value);
-                                                                    setCodingCategories(updated);
-                                                                }}
-                                                                className="w-16 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded px-2 py-1 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none"
-                                                            />
-                                                            <span className="text-xs text-gray-500">%</span>
-                                                        </div>
-                                                    </div>
+                                    {/* Predefined + Job-Specific categories share the same card style */}
+                                    <div className="space-y-3 mb-6">
+
+                                        {/* External Tools Usage — predefined, no delete */}
+                                        <div className="relative bg-violet-50/60 border border-violet-200 rounded-lg p-4">
+                                            <span className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-medium text-violet-600 select-none">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-2.5"><path fillRule="evenodd" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7A1.5 1.5 0 0 0 3 8.5v4A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5v-4A1.5 1.5 0 0 0 11 7V4.5A3.5 3.5 0 0 0 8 1Zm2 6V4.5a2 2 0 1 0-4 0V7h4Z" clipRule="evenodd" /></svg>
+                                                System
+                                            </span>
+                                            <div className="space-y-2 pr-16">
+                                                <p className="text-sm font-semibold text-gray-900">External Tools Usage</p>
+                                                <p className="text-xs text-gray-500">Evaluates how well the candidate understands and explains code they did not write themselves. Triggered when code is pasted into the editor.</p>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs text-gray-500">Weight:</span>
+                                                    <input
+                                                        type="number"
+                                                        value={scoringConfig.aiAssistWeight}
+                                                        onChange={(e) => setScoringConfig({
+                                                            ...scoringConfig,
+                                                            aiAssistWeight: Number(e.target.value)
+                                                        })}
+                                                        className="w-16 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded px-2 py-1 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none"
+                                                    />
+                                                    <span className="text-xs text-gray-500">%</span>
                                                 </div>
-                                            ))}
-                                            
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setCodingCategories([...codingCategories, { name: "", description: "", weight: 0 }]);
-                                                }}
-                                                className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:border-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-2"
-                                            >
-                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                                </svg>
-                                                Add Category
-                                            </button>
-                                            
-                                            <div className={`text-xs ${codingCategories.reduce((sum, c) => sum + c.weight, 0) === 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                                                Total: {codingCategories.reduce((sum, c) => sum + c.weight, 0)}%
-                                                {codingCategories.reduce((sum, c) => sum + c.weight, 0) !== 100 && ' (should equal 100%)'}
                                             </div>
                                         </div>
+
+                                        {/* Problem Solving — predefined, no delete */}
+                                        <div className="relative bg-violet-50/60 border border-violet-200 rounded-lg p-4">
+                                            <span className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-medium text-violet-600 select-none">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="size-2.5"><path fillRule="evenodd" d="M8 1a3.5 3.5 0 0 0-3.5 3.5V7A1.5 1.5 0 0 0 3 8.5v4A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5v-4A1.5 1.5 0 0 0 11 7V4.5A3.5 3.5 0 0 0 8 1Zm2 6V4.5a2 2 0 1 0-4 0V7h4Z" clipRule="evenodd" /></svg>
+                                                System
+                                            </span>
+                                            <div className="space-y-2 pr-16">
+                                                <p className="text-sm font-semibold text-gray-900">Problem Solving</p>
+                                                <p className="text-xs text-gray-500">Evaluates correctness of the solution by comparing the candidate&#39;s code and output against the reference solution.</p>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs text-gray-500">Weight:</span>
+                                                    <input
+                                                        type="number"
+                                                        value={scoringConfig.problemSolvingWeight}
+                                                        onChange={(e) => setScoringConfig({
+                                                            ...scoringConfig,
+                                                            problemSolvingWeight: Number(e.target.value)
+                                                        })}
+                                                        className="w-16 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded px-2 py-1 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none"
+                                                    />
+                                                    <span className="text-xs text-gray-500">%</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Job-Specific Categories */}
+                                        {codingCategories.map((category, index) => (
+                                            <div
+                                                key={index}
+                                                className="group relative bg-gray-50/50 border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-all"
+                                            >
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const updated = codingCategories.filter((_, i) => i !== index);
+                                                        setCodingCategories(updated);
+                                                    }}
+                                                    className="absolute top-3 right-3 text-gray-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                    </svg>
+                                                </button>
+                                                <div className="space-y-2 pr-6">
+                                                    <input
+                                                        type="text"
+                                                        value={category.name}
+                                                        onChange={(e) => {
+                                                            const updated = [...codingCategories];
+                                                            updated[index].name = e.target.value;
+                                                            setCodingCategories(updated);
+                                                        }}
+                                                        placeholder="Category name (e.g., TypeScript Proficiency)"
+                                                        className="w-full text-sm font-semibold text-gray-900 bg-transparent border-0 px-0 py-0 focus:ring-0 outline-none placeholder:text-gray-400 placeholder:font-normal"
+                                                    />
+                                                    <input
+                                                        type="text"
+                                                        value={category.description}
+                                                        onChange={(e) => {
+                                                            const updated = [...codingCategories];
+                                                            updated[index].description = e.target.value;
+                                                            setCodingCategories(updated);
+                                                        }}
+                                                        placeholder="Description (e.g., Type safety, interfaces, generics)"
+                                                        className="w-full text-xs text-gray-500 bg-transparent border-0 px-0 py-0 focus:ring-0 outline-none placeholder:text-gray-400"
+                                                    />
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs text-gray-500">Weight:</span>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            max="100"
+                                                            value={category.weight}
+                                                            onChange={(e) => {
+                                                                const updated = [...codingCategories];
+                                                                updated[index].weight = Number(e.target.value);
+                                                                setCodingCategories(updated);
+                                                            }}
+                                                            className="w-16 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded px-2 py-1 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 outline-none"
+                                                        />
+                                                        <span className="text-xs text-gray-500">%</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
 
-                                    {/* External Tools Usage */}
-                                    <div>
-                                        <h4 className="text-sm font-medium text-gray-700 mb-3">
-                                            External Tools Usage
-                                        </h4>
-                                        <div className="flex items-center gap-3">
-                                            <label className="text-xs text-gray-500">
-                                                AI Assist Weight:
-                                            </label>
-                                            <input
-                                                type="number"
-                                                value={scoringConfig.aiAssistWeight}
-                                                onChange={(e) => setScoringConfig({
-                                                    ...scoringConfig,
-                                                    aiAssistWeight: Number(e.target.value)
-                                                })}
-                                                className="w-20 text-sm font-medium text-gray-900 bg-white border border-gray-200 rounded-lg px-3 py-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none"
-                                            />
-                                            <span className="text-xs text-gray-500">%</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setCodingCategories([...codingCategories, { name: "", description: "", weight: 0 }]);
+                                        }}
+                                        className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-600 hover:border-blue-500 hover:text-blue-600 transition-colors flex items-center justify-center gap-2 mb-2"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                        </svg>
+                                        Add Coding Category
+                                    </button>
+
+                                    {codingCategories.length > 0 && (
+                                        <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="text-gray-600">Total Weight:</span>
+                                                <span className={`font-semibold ${
+                                                    Math.abs(codingCategories.reduce((sum, c) => sum + c.weight, 0) - 100) < 0.01
+                                                        ? 'text-green-600'
+                                                        : 'text-red-600'
+                                                }`}>
+                                                    {codingCategories.reduce((sum, c) => sum + c.weight, 0).toFixed(2)}%
+                                                </span>
+                                            </div>
+                                            {Math.abs(codingCategories.reduce((sum, c) => sum + c.weight, 0) - 100) > 0.01 && (
+                                                <p className="text-xs text-red-600 mt-1">
+                                                    ⚠️ Weights must sum to 100%
+                                                </p>
+                                            )}
                                         </div>
-                                    </div>
+                                    )}
+
                                 </div>
                             </div>
                     </section>

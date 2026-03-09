@@ -309,6 +309,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
                     ? Math.round(totalScore / sessionExternalTools.length)
                     : null;
 
+                const psEvidenceClips = (telemetry?.evidenceClips || [])
+                    .filter((clip: any) => clip.categoryName === "Problem Solving")
+                    .map((clip: any) => ({ timestamp: clip.startTime, caption: clip.title }));
+                const problemSolvingScore = telemetry?.workstyleMetrics?.problemSolvingScore ?? null;
+
                 // Calculate score using scoring configuration
                 let calculatedScore: number | null = null;
                 let calculatedExperienceScore: number | null = null;
@@ -352,6 +357,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
                         const workstyleMetrics: WorkstyleMetrics = {
                             aiAssistAccountabilityScore: avgAccountabilityScore,
+                            problemSolvingScore: telemetry?.workstyleMetrics?.problemSolvingScore ?? undefined,
                         };
 
                         const result = calculateScore(rawScores, workstyleMetrics, scoringConfig as ScoringConfiguration);
@@ -482,6 +488,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
                                   partialCount,
                                   noneCount,
                               },
+                              ...(problemSolvingScore !== null && {
+                                  problemSolving: {
+                                      score: problemSolvingScore,
+                                      evidenceLinks: psEvidenceClips,
+                                  },
+                              }),
                           }
                         : null,
                     hasFairnessFlag: telemetry?.hasFairnessFlag ?? false,

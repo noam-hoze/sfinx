@@ -130,6 +130,8 @@ model ScoringConfiguration {
   jobId                            String   @unique
   /// Workstyle metric weights (part of coding score)
   aiAssistWeight                   Float    @default(25)
+  /// Problem solving weight — evaluates correctness via code review + output match
+  problemSolvingWeight             Float    @default(25)
   /// Category weights (should sum to 100)
   experienceWeight                 Float    @default(50)
   codingWeight                     Float    @default(50)
@@ -229,9 +231,10 @@ model TelemetryData {
 model WorkstyleMetrics {
   id                String        @id @default(cuid())
   telemetryDataId   String        @unique
-  refactorCleanups  Int?
-  aiAssistUsage     Int?
-  externalToolUsage Int?
+  refactorCleanups     Int?
+  aiAssistUsage        Int?
+  externalToolUsage    Int?
+  problemSolvingScore  Int?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
   telemetryData     TelemetryData @relation(fields: [telemetryDataId], references: [id], onDelete: Cascade)

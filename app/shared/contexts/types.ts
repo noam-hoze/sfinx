@@ -138,6 +138,10 @@ export interface WorkstyleMetrics {
         tpe?: number;
         evidenceLinks?: number[];
     };
+    problemSolving?: {
+        score: number;
+        evidenceLinks?: Array<{ timestamp: number; caption?: string }>;
+    };
 }
 
 export interface TelemetryData {
