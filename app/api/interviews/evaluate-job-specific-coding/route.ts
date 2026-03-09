@@ -25,12 +25,7 @@ async function evaluateProblemSolvingCorrectness(params: {
         take: 1,
     });
 
-    if (iterations.length === 0) {
-        log.info(LOG_CATEGORY, "[Job-Specific Coding Eval] Problem Solving: no code runs, score = 0");
-        return { score: 0, text: "Code was not executed during the interview." };
-    }
-
-    const outputMatchPercentage = iterations[0].matchPercentage;
+    const outputMatchPercentage = iterations.length > 0 ? iterations[0].matchPercentage : 0;
 
     const correctnessPrompt = `You are evaluating whether a candidate's code correctly solves a coding challenge.
 
