@@ -121,6 +121,8 @@ function InterviewPageContent() {
   const companyId = useSelector((state: RootState) => state.interview.companyId);
   const currentJobId = useSelector((state: RootState) => state.interview.jobId);
   const currentJobTitle = useSelector((state: RootState) => state.interview.jobTitle);
+  const backgroundStartedAtMs = useSelector((state: RootState) => state.background.startedAtMs);
+  const backgroundTimeboxMs = useSelector((state: RootState) => state.background.timeboxMs);
   const preloadedFirstQuestion = useSelector((state: RootState) => state.interview.preloadedFirstQuestion);
   const preloadedFirstIntent = useSelector((state: RootState) => state.interview.preloadedFirstIntent);
   const userId = useSelector((state: RootState) => state.interview.userId);
@@ -154,6 +156,7 @@ function InterviewPageContent() {
   const [isUserRecording, setIsUserRecording] = useState(false);
   const [currentIntent, setCurrentIntent] = useState<string>("");
   const [pendingIntent, setPendingIntent] = useState<string>("");
+  const [backgroundNowMs, setBackgroundNowMs] = useState<number>(Date.now());
 
   const skipToCoding = process.env.NEXT_PUBLIC_SKIP_TO_CODING === "true";
   const skipScreenShare = process.env.NEXT_PUBLIC_SKIP_SCREEN_SHARE === "true";
@@ -876,6 +879,31 @@ function InterviewPageContent() {
     return () => clearInterval(interval);
   }, [stage, completed, submitting, backgroundTimeSeconds]);
 
+  useEffect(() => {
+    if (stage !== "background" || !backgroundStartedAtMs) return;
+
+    const interval = setInterval(() => {
+      setBackgroundNowMs(Date.now());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [stage, backgroundStartedAtMs]);
+
+  const effectiveBackgroundTimeboxMs = backgroundTimeboxMs || (backgroundTimeSeconds ? backgroundTimeSeconds * 1000 : 7000);
+  const backgroundElapsedMs = backgroundStartedAtMs ? Math.max(0, backgroundNowMs - backgroundStartedAtMs) : 0;
+  const backgroundRemainingMs = Math.max(0, effectiveBackgroundTimeboxMs - backgroundElapsedMs);
+  const shouldShowBackgroundCountdown =
+    stage === "background" &&
+    Boolean(backgroundStartedAtMs) &&
+    !completed &&
+    backgroundRemainingMs > 0 &&
+    backgroundRemainingMs <= 60000;
+  const isUrgentCountdown = backgroundRemainingMs <= 10000;
+  const backgroundRemainingSeconds = Math.ceil(backgroundRemainingMs / 1000);
+  const backgroundMinutes = Math.floor(backgroundRemainingSeconds / 60);
+  const backgroundSeconds = backgroundRemainingSeconds % 60;
+  const backgroundCountdownLabel = `${backgroundMinutes}:${String(backgroundSeconds).padStart(2, "0")}`;
+
   // Start coding handler
   const handleStartCoding = () => {
     if (!companyId || !currentJobId) {
@@ -1211,14 +1239,31 @@ function InterviewPageContent() {
       {/* Interview Header */}
       {!isPreloading && stage === "background" && (
         <header className="border-b border-gray-200/30 bg-white/95 backdrop-blur-2xl px-6 py-4">
-          <div className="flex items-center justify-between max-w-8xl mx-auto">
+          <div className="grid max-w-8xl mx-auto grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4">
             {/* Left: Sfinx Logo (clickable to exit) */}
-            <Link href="/job-search" className="flex items-center cursor-pointer">
+            <Link href="/job-search" className="flex items-center cursor-pointer justify-self-start">
               <SfinxLogo width={100} height={32} className="w-[100px] h-auto" />
             </Link>
 
+            {/* Center: Background countdown */}
+            <div className="flex min-h-10 items-center justify-center">
+              {shouldShowBackgroundCountdown && (
+                <div
+                  className={`rounded-full border px-3 py-1.5 text-sm font-semibold font-mono shadow-sm backdrop-blur-sm transition-colors duration-300 ${
+                    isUrgentCountdown
+                      ? "bg-red-50/90 border-red-200 text-red-700"
+                      : "bg-violet-50/90 border-violet-200 text-violet-700"
+                  }`}
+                  aria-live="polite"
+                  role="status"
+                >
+                  {backgroundCountdownLabel}
+                </div>
+              )}
+            </div>
+
             {/* Right: Controls and Avatar */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 justify-self-end">
               {/* Debug Toggle Button */}
               {isDebugModeEnabled && showDebugButton && (
                 <button
