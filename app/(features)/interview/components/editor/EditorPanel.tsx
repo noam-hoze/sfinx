@@ -540,7 +540,7 @@ const EditorPanel: React.FC<EditorPanelProps> = ({
                 )}
 
                 {isEditorFrozen && (
-                    <div className="absolute inset-0 z-20 flex items-center justify-center bg-sfinx-purple/10 backdrop-blur-[2px] pointer-events-none">
+                    <div className="absolute inset-0 z-20 flex items-center justify-center bg-sfinx-purple/8 backdrop-blur-[0.5px] pointer-events-none">
                         <div className="max-w-md mx-6 rounded-squircle-sm border border-sfinx-purple/20 bg-white/95 dark:bg-gray-900/95 shadow-lg px-5 py-4 text-center">
                             <div className="w-10 h-10 mx-auto mb-3 rounded-full bg-sfinx-purple/15 text-sfinx-purple flex items-center justify-center">
                                 <Lock className="w-5 h-5" />
