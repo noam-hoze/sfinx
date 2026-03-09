@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.1] - 2026-03-09
+
+### Changed
+
+- **uVision seed — external tool usage**: `workstyleMetrics` now created with `externalToolUsage: 50` for all seeded uVision candidates.
+- **uVision seed — experience stage duration**: `backgroundQuestionTimeSeconds` reduced from 1800 to 600 (10 minutes) in `companies.json`.
+
 ## [1.29.0] - 2026-03-09
 
 ### Added
