@@ -1,12 +1,7 @@
 "use client";
 
 import React from "react";
-
-interface EvidenceLink {
-    timestamp: number;
-    category: string;
-    caption?: string;
-}
+import { EvidenceLink } from "../types/evidence";
 
 interface EvidenceNavigationOverlayProps {
     evidenceLinks: EvidenceLink[];
@@ -62,7 +57,7 @@ export default function EvidenceNavigationOverlay({
                     {currentIndex + 1} / {evidenceLinks.length}
                 </div>
                 <div className="text-white/70 text-[10px] font-medium">
-                    {currentEvidence?.category}
+                    {currentEvidence?.displayCategory || currentEvidence?.categoryKey}
                 </div>
                 <div className="text-white/50 text-[10px] font-mono">
                     {formatTime(currentEvidence?.timestamp || 0)}
