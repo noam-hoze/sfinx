@@ -4,6 +4,7 @@ import { log } from "app/shared/services/logger";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
+const ALLOW_NON_EDITOR_PASTE = process.env.NEXT_PUBLIC_ALLOW_NON_EDITOR_PASTE === "true";
 
 import React, { useState, useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
@@ -261,6 +262,12 @@ const ChatPanel = ({ micMuted = false, onToggleMicMute, onSendText, isInputDisab
                                 if (e.key === 'Enter' && !e.shiftKey) {
                                     e.preventDefault();
                                     e.currentTarget.form?.requestSubmit();
+                                }
+                            }}
+                            onPaste={(e) => {
+                                if (!ALLOW_NON_EDITOR_PASTE) {
+                                    e.preventDefault();
+                                    log.info(LOG_CATEGORY, "[chat][paste_blocked] Paste blocked for non-editor input");
                                 }
                             }}
                         />
