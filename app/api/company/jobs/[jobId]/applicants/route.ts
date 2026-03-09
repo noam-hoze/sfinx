@@ -4,6 +4,8 @@ import { authOptions, getCached, setCached } from "app/shared/services/server";
 import prisma from "lib/prisma";
 import { extractTopHighlights } from "../../highlightUtils";
 
+const SUBMITTED_SESSION_STATUSES = ["PROCESSING", "COMPLETED"] as const;
+
 /**
  * GET /api/company/jobs/[jobId]/applicants
  * Fetch all applicants for a specific job.
@@ -84,9 +86,15 @@ export async function GET(
           },
         },
         interviewSessions: {
+          where: {
+            status: {
+              in: [...SUBMITTED_SESSION_STATUSES],
+            },
+          },
           select: {
             id: true,
             finalScore: true,
+            status: true,
             createdAt: true,
             telemetryData: {
               include: {
@@ -120,7 +128,7 @@ export async function GET(
           image: app.candidate.image,
           matchScore,
           appliedAt: app.appliedAt.toISOString(),
-          interviewCompleted: !!latestSession,
+          interviewCompleted: latestSession?.status === "COMPLETED",
           applicationId: app.id,
           highlights,
         };

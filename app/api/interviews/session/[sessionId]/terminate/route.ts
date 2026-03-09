@@ -19,8 +19,8 @@ function normalizeSessionId(sessionId: string | string[] | undefined) {
 }
 
 /**
- * Terminate an interview session (mark as abandoned).
- * Used when user leaves the interview page.
+ * Terminate an interview session.
+ * Unsubmitted sessions are deleted so they are not visible to companies.
  */
 export async function POST(request: NextRequest, context: RouteContext) {
     try {
@@ -69,22 +69,30 @@ export async function POST(request: NextRequest, context: RouteContext) {
             );
         }
 
-        // Mark session as abandoned
-        const updatedSession = await prisma.interviewSession.update({
+        if (interviewSession.status === "PROCESSING" || interviewSession.status === "COMPLETED") {
+            log.info(
+                LOG_CATEGORY,
+                "[Session TERMINATE] ℹ️ Keeping submitted session:",
+                interviewSession.id,
+                "status:",
+                interviewSession.status
+            );
+            return NextResponse.json({
+                message: "Interview session already submitted; preserved",
+                interviewSession,
+            });
+        }
+
+        await prisma.interviewSession.delete({
             where: {
                 id: sessionId,
             },
-            data: {
-                status: "ABANDONED",
-                completedAt: new Date(),
-            },
         });
 
-        log.info(LOG_CATEGORY, "[Session TERMINATE] ✅ Session marked as abandoned:", updatedSession.id);
+        log.info(LOG_CATEGORY, "[Session TERMINATE] ✅ Unsubmitted session deleted:", sessionId);
 
         return NextResponse.json({
-            message: "Interview session terminated",
-            interviewSession: updatedSession,
+            message: "Interview session discarded",
         });
     } catch (error) {
         log.error(LOG_CATEGORY, "[Session TERMINATE] ❌ ERROR:", error);
