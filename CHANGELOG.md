@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.2] - 2026-03-09
+
+### Fixed
+
+- **Problem Solving score with no code runs**: Previously, skipping the Run button entirely returned a score of 0 regardless of code correctness. Now `outputMatchPercentage` defaults to 0 when no iterations exist, so correctness is still evaluated via o4-mini — yielding up to 50% from correctness alone, with the remaining 50% requiring a successful run.
+
 ## [1.29.1] - 2026-03-09
 
 ### Changed
