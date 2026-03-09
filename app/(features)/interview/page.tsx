@@ -170,7 +170,6 @@ function InterviewPageContent() {
   const clickSoundRef = useRef<HTMLAudioElement | null>(null);
   const startSoundRef = useRef<HTMLAudioElement | null>(null);
   const interviewSessionIdRef = useRef<string | null>(null);
-  const completedRef = useRef<boolean>(false);
   const hasAutoStartedRef = useRef<boolean>(false);
   const hasPreloadedRef = useRef<boolean>(false);
   const skipToCodingStartAttemptedRef = useRef<boolean>(false);
@@ -280,16 +279,7 @@ function InterviewPageContent() {
     interviewSessionIdRef.current = interviewSessionId;
   }, [interviewSessionId]);
 
-  useEffect(() => {
-    completedRef.current = completed;
-  }, [completed]);
 
-  // Monitor stage for completion
-  useEffect(() => {
-    if (stage === "coding") {
-      setCompleted(true);
-    }
-  }, [stage]);
 
   // Cleanup mic on unmount
   useEffect(() => {
@@ -306,10 +296,8 @@ function InterviewPageContent() {
     // Only run cleanup on actual unmount, not on dependency changes
     return () => {
       const sessionId = interviewSessionIdRef.current;
-      const isCompleted = completedRef.current;
-
-      if (!sessionId || isCompleted) {
-        log.info(LOG_CATEGORY, "[interview] Skipping cleanup - sessionId:", sessionId, "completed:", isCompleted);
+      if (!sessionId) {
+        log.info(LOG_CATEGORY, "[interview] Skipping cleanup - no sessionId");
         return;
       }
 
@@ -327,7 +315,7 @@ function InterviewPageContent() {
         micStream.getTracks().forEach((track) => track.stop());
       }
 
-      // Mark session as abandoned in backend
+      // Terminate session in backend (deletes if unsubmitted)
       const url = `/api/interviews/session/${sessionId}/terminate`;
 
       // Use fetch without await (fire and forget on unmount)
@@ -344,7 +332,7 @@ function InterviewPageContent() {
   // Cleanup on page close/refresh
   useEffect(() => {
     const handleBeforeUnload = () => {
-      if (!interviewSessionId || completed) return;
+      if (!interviewSessionId) return;
 
       log.info(LOG_CATEGORY, "[interview] Page closing - terminating session");
 
