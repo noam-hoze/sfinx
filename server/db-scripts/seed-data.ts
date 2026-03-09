@@ -434,6 +434,14 @@ async function resetDatabase() {
         log.info(LOG_CATEGORY, "Clearing existing data...");
 
         // Delete in reverse order of dependencies
+        await prisma.gapAnalysis.deleteMany();
+        await prisma.workstyleMetrics.deleteMany();
+        await prisma.backgroundSummary.deleteMany();
+        await prisma.codingSummary.deleteMany();
+        await prisma.telemetryData.deleteMany();
+        await prisma.interviewSession.deleteMany();
+        await prisma.application.deleteMany();
+        await prisma.scoringConfiguration.deleteMany();
         await prisma.job.deleteMany();
         await prisma.interviewContent.deleteMany();
         await prisma.company.deleteMany();
