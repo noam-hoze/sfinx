@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 import { calculateScore, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
+import { resolveCategoryKeyByName } from "app/shared/utils/resolveCategoryByName";
 import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
@@ -167,7 +168,10 @@ export async function PATCH(
                 const jobCodingCategories = (job.codingCategories as any) || [];
                 const categoryScores = jobCodingCategories.map((cat: any) => ({
                     name: cat.name,
-                    score: (categoryOnlyEntries as any)[cat.name]?.score ?? 0,
+                    score:
+                        (categoryOnlyEntries as any)[
+                            resolveCategoryKeyByName(categoryOnlyEntries as Record<string, unknown>, cat.name) ?? ""
+                        ]?.score ?? 0,
                     weight: cat.weight ?? 1,
                 }));
 

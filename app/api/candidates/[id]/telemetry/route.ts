@@ -3,6 +3,7 @@ import { log } from "app/shared/services";
 import { getCached, setCached } from "app/shared/services/server";
 import prisma from "lib/prisma";
 import { calculateScore, type RawScores, type WorkstyleMetrics, type ScoringConfiguration } from "app/shared/utils/calculateScore";
+import { resolveCategoryKeyByName } from "app/shared/utils/resolveCategoryByName";
 import { mergeWithPredefinedCategories, type CodingCategory } from "app/api/company/jobs/categorySchemas";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
@@ -339,7 +340,10 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         const codingCategoriesData = (codingSummary.jobSpecificCategories as any) || {};
                         const categoryScores = jobCodingCategories.map((cat: any) => ({
                             name: cat.name,
-                            score: codingCategoriesData[cat.name]?.score || 0,
+                            score:
+                                codingCategoriesData[
+                                    resolveCategoryKeyByName(codingCategoriesData as Record<string, unknown>, cat.name) ?? ""
+                                ]?.score || 0,
                             weight: cat.weight || 1
                         }));
 
