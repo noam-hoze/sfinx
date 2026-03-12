@@ -77,8 +77,13 @@ export function calculateScore(
 
     const categoryAverage = totalCategoryWeight > 0 ? categoryWeightedSum / totalCategoryWeight : 0;
 
-    // Step 2: Categories contribute (100 - aiAssistWeight - problemSolvingWeight)% of coding score
-    const categoryContribution = categoryAverage * (100 - config.aiAssistWeight - config.problemSolvingWeight) / 100;
+    // Step 2: Only subtract metric weights when those metrics actually exist.
+    // This avoids depressing coding scores for jobs that have no AI-assist or
+    // Problem Solving observations for a session.
+    const activeAiAssistWeight = hasAiAssistScore ? config.aiAssistWeight : 0;
+    const activeProblemSolvingWeight = hasProblemSolvingScore ? config.problemSolvingWeight : 0;
+    const categoryWeightShare = 100 - activeAiAssistWeight - activeProblemSolvingWeight;
+    const categoryContribution = categoryAverage * categoryWeightShare / 100;
 
     // Step 3: AI assist contributes its percentage of the coding score
     const aiAssistContribution = hasAiAssistScore

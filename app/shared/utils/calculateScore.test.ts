@@ -128,8 +128,8 @@ describe("calculateScore", () => {
             codingWeight: 60,
         });
 
-        // categoryContribution = 80 * 0.75 = 60, aiAssistContribution = 0
-        expect(result.codingScore).toBe(60);
+        // AI assist is missing, so category keeps full 100% share.
+        expect(result.codingScore).toBe(80);
         expect(result.normalizedWorkstyle.aiAssist).toBeNull();
     });
 
@@ -166,8 +166,26 @@ describe("calculateScore", () => {
             codingWeight: 60,
         });
 
-        // categoryContribution = 80 * 0.75 = 60, problemSolvingContribution = 0
-        expect(result.codingScore).toBe(60);
+        // Problem solving is missing, so category keeps full 100% share.
+        expect(result.codingScore).toBe(80);
+        expect(result.normalizedWorkstyle.problemSolving).toBeNull();
+    });
+
+    it("does not penalize category score when both workstyle metrics are missing", () => {
+        const raw: RawScores = {
+            experienceScores: [],
+            categoryScores: [makeCodingScore(82)],
+        };
+        const ws: WorkstyleMetrics = {};
+        const result = calculateScore(raw, ws, {
+            aiAssistWeight: 25,
+            problemSolvingWeight: 25,
+            experienceWeight: 40,
+            codingWeight: 60,
+        });
+
+        expect(result.codingScore).toBe(82);
+        expect(result.normalizedWorkstyle.aiAssist).toBeNull();
         expect(result.normalizedWorkstyle.problemSolving).toBeNull();
     });
 
