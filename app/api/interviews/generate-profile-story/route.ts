@@ -3,6 +3,7 @@ import prisma from "lib/prisma";
 import OpenAI from "openai";
 import { log } from "app/shared/services";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+import { calculateScore, type ScoringConfiguration, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
@@ -38,6 +39,7 @@ export async function POST(request: NextRequest) {
                     include: {
                         backgroundSummary: true,
                         codingSummary: true,
+                        workstyleMetrics: true,
                     },
                 },
                 application: {
@@ -131,7 +133,8 @@ export async function POST(request: NextRequest) {
             backgroundSummary,
             codingSummary,
             externalToolUsages,
-            session.application.job
+            session.application.job,
+            session.telemetryData.workstyleMetrics?.problemSolvingScore ?? undefined
         );
 
         log.info(LOG_CATEGORY, "[Generate Profile Story] Performance context:", {
@@ -294,11 +297,12 @@ function organizeByStrength(
 /**
  * Calculates comprehensive performance context from interview data.
  */
-function calculatePerformanceContext(
+export function calculatePerformanceContext(
     backgroundSummary: any,
     codingSummary: any,
     externalToolUsages: Array<{ accountabilityScore: number; understanding: string }>,
-    job: { scoringConfiguration: any }
+    job: { scoringConfiguration: any },
+    problemSolvingScore?: number
 ): {
     finalScore: number;
     experienceScore: number;
@@ -311,9 +315,6 @@ function calculatePerformanceContext(
         description: string;
     };
 } {
-    // Import calculateScore utility
-    const { calculateScore } = require('app/shared/utils/calculateScore');
-
     // Build experience scores from backgroundSummary categories
     const experienceScores = backgroundSummary.experienceCategories
         ? Object.entries(backgroundSummary.experienceCategories).map(([name, data]: [string, any]) => ({
@@ -339,13 +340,17 @@ function calculatePerformanceContext(
 
     // Calculate scores using the same logic as coding-summary-update
     const rawScores = { experienceScores, categoryScores };
-    const workstyleMetrics = { aiAssistAccountabilityScore: avgAccountabilityScore };
+    const workstyleMetrics: WorkstyleMetrics = {
+        aiAssistAccountabilityScore: avgAccountabilityScore,
+        problemSolvingScore,
+    };
 
     // Ensure scoringConfiguration has all required fields with defaults
-    const scoringConfig = {
+    const scoringConfig: ScoringConfiguration = {
         aiAssistWeight: job.scoringConfiguration?.aiAssistWeight ?? 25,
+        problemSolvingWeight: job.scoringConfiguration?.problemSolvingWeight ?? 25,
         experienceWeight: job.scoringConfiguration?.experienceWeight ?? 50,
-        codingWeight: job.scoringConfiguration?.codingWeight ?? 50
+        codingWeight: job.scoringConfiguration?.codingWeight ?? 50,
     };
 
     const result = calculateScore(rawScores, workstyleMetrics, scoringConfig);
