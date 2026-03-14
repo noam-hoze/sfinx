@@ -252,13 +252,6 @@ export async function POST(request: NextRequest) {
             },
         ];
 
-        console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log("→ OpenAI Request [next-question]");
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log("Model:", evaluationModel);
-        console.log("\nSystem:", messages[0].content);
-        console.log("\nUser Prompt:", messages[1].content);
-
         const startTime = Date.now();
         const completion = await openai.chat.completions.create({
             model: evaluationModel,
@@ -270,12 +263,6 @@ export async function POST(request: NextRequest) {
 
         const responseText = completion.choices[0]?.message?.content;
         const finishReason = completion.choices[0]?.finish_reason;
-        console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log("← OpenAI Response [next-question]");
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log(`Latency: ${elapsed}ms | finish_reason: ${finishReason}`);
-        console.log("Raw responseText:", responseText);
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
 
         if (!responseText) {
             throw new Error(`OpenAI returned empty response (finish_reason: ${finishReason})`);
@@ -285,7 +272,7 @@ export async function POST(request: NextRequest) {
         try {
             result = JSON.parse(responseText) as ClassifiedQuestionResponse;
         } catch (parseErr) {
-            throw new Error(`JSON parse failed. finish_reason=${finishReason}, raw=${responseText}`);
+            throw new Error(`JSON parse failed. finish_reason=${finishReason}`);
         }
 
         // Validate response structure
