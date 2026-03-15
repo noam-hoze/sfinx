@@ -165,11 +165,18 @@ export async function PATCH(
                 }));
 
                 const jobCodingCategories = (job.codingCategories as any) || [];
-                const categoryScores = jobCodingCategories.map((cat: any) => ({
-                    name: cat.name,
-                    score: (categoryOnlyEntries as any)[cat.name]?.score ?? 0,
-                    weight: cat.weight ?? 1,
-                }));
+                const categoryScores = jobCodingCategories.map((cat: any) => {
+                    const baseName = cat.name.split(" (")[0];
+                    const matchingKey = Object.keys(categoryOnlyEntries).find((key) =>
+                        key === cat.name || key.startsWith(baseName) || cat.name.startsWith(key)
+                    ) || cat.name;
+
+                    return {
+                        name: cat.name,
+                        score: (categoryOnlyEntries as any)[matchingKey]?.score ?? 0,
+                        weight: cat.weight ?? 1,
+                    };
+                });
 
                 const rawScores: RawScores = { experienceScores, categoryScores };
 
