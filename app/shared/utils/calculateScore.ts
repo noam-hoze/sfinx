@@ -49,6 +49,9 @@ export function calculateScore(
 
     const hasProblemSolvingScore = workstyleMetrics.problemSolvingScore !== undefined &&
                                     workstyleMetrics.problemSolvingScore !== null;
+    const problemSolvingWeight = hasProblemSolvingScore
+        ? config.problemSolvingWeight
+        : 0;
 
     // Calculate experience score from dynamic categories (same pattern as coding)
     let experienceWeightedSum = 0;
@@ -77,8 +80,9 @@ export function calculateScore(
 
     const categoryAverage = totalCategoryWeight > 0 ? categoryWeightedSum / totalCategoryWeight : 0;
 
-    // Step 2: Categories contribute (100 - aiAssistWeight - problemSolvingWeight)% of coding score
-    const categoryContribution = categoryAverage * (100 - config.aiAssistWeight - config.problemSolvingWeight) / 100;
+    // Step 2: Categories contribute the remaining coding share.
+    // If Problem Solving is unavailable (e.g. no reference solution), reallocate its weight to categories.
+    const categoryContribution = categoryAverage * (100 - config.aiAssistWeight - problemSolvingWeight) / 100;
 
     // Step 3: AI assist contributes its percentage of the coding score
     const aiAssistContribution = hasAiAssistScore
@@ -87,7 +91,7 @@ export function calculateScore(
 
     // Step 4: Problem solving contributes its percentage of the coding score
     const problemSolvingContribution = hasProblemSolvingScore
-        ? workstyleMetrics.problemSolvingScore! * config.problemSolvingWeight / 100
+        ? workstyleMetrics.problemSolvingScore! * problemSolvingWeight / 100
         : 0;
 
     // Step 5: Final coding score (0-100)

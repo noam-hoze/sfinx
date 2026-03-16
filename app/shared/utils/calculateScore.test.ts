@@ -166,8 +166,9 @@ describe("calculateScore", () => {
             codingWeight: 60,
         });
 
-        // categoryContribution = 80 * 0.75 = 60, problemSolvingContribution = 0
-        expect(result.codingScore).toBe(60);
+        // Problem solving is unavailable, so its 25% share is reallocated to categories.
+        // categoryContribution = 80 * 1.0 = 80, problemSolvingContribution = 0
+        expect(result.codingScore).toBe(80);
         expect(result.normalizedWorkstyle.problemSolving).toBeNull();
     });
 
