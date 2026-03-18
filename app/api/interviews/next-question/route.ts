@@ -304,6 +304,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
+            detectedAnswerType: answerType,
             question: result.question,
             newFocusTopic,
             isGibberish,
