@@ -77,8 +77,10 @@ export function calculateScore(
 
     const categoryAverage = totalCategoryWeight > 0 ? categoryWeightedSum / totalCategoryWeight : 0;
 
-    // Step 2: Categories contribute (100 - aiAssistWeight - problemSolvingWeight)% of coding score
-    const categoryContribution = categoryAverage * (100 - config.aiAssistWeight - config.problemSolvingWeight) / 100;
+    // Step 2: If no Problem Solving score exists (e.g. no reference answer),
+    // shift that weight back to categories so candidates are not auto-penalized.
+    const effectiveProblemSolvingWeight = hasProblemSolvingScore ? config.problemSolvingWeight : 0;
+    const categoryContribution = categoryAverage * (100 - config.aiAssistWeight - effectiveProblemSolvingWeight) / 100;
 
     // Step 3: AI assist contributes its percentage of the coding score
     const aiAssistContribution = hasAiAssistScore
@@ -87,7 +89,7 @@ export function calculateScore(
 
     // Step 4: Problem solving contributes its percentage of the coding score
     const problemSolvingContribution = hasProblemSolvingScore
-        ? workstyleMetrics.problemSolvingScore! * config.problemSolvingWeight / 100
+        ? workstyleMetrics.problemSolvingScore! * effectiveProblemSolvingWeight / 100
         : 0;
 
     // Step 5: Final coding score (0-100)
