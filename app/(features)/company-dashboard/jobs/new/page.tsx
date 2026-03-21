@@ -7,6 +7,11 @@ import { AuthGuard } from "app/shared/components";
 import { log } from "app/shared/services";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 import { readResponseError } from "app/shared/utils/http";
+import {
+    defaultScoringConfig,
+    getScoringConfigValidationError,
+    ScoringConfigState,
+} from "../scoringConfigValidation";
 import InterviewContentSection, {
     InterviewContentState,
     InterviewDurationState,
@@ -39,13 +44,6 @@ interface ExperienceCategory {
     weight: number;
 }
 
-interface ScoringConfigState {
-    aiAssistWeight: number;
-    problemSolvingWeight: number;
-    experienceWeight: number;
-    codingWeight: number;
-}
-
 interface CategoryGenerationResponse {
     codingCategories: CodingCategory[];
     experienceCategories: ExperienceCategory[];
@@ -73,13 +71,6 @@ const defaultCreateState: CreateJobState = {
     salary: "",
     description: "",
     requirements: "",
-};
-
-const defaultScoringConfig: ScoringConfigState = {
-    aiAssistWeight: 25,
-    problemSolvingWeight: 25,
-    experienceWeight: 50,
-    codingWeight: 50,
 };
 
 /**
@@ -195,6 +186,13 @@ function CreateJobContent() {
 
     const handleCreateJob = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        setError(null);
+        const scoringConfigError =
+            getScoringConfigValidationError(scoringConfig);
+        if (scoringConfigError) {
+            setError(scoringConfigError);
+            return;
+        }
         setCreateSubmitting(true);
         try {
             const hasInterviewContent =
