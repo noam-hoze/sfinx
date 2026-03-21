@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.4] - 2026-03-21
+
+### Fixed
+
+- **Scoring config form guard**: The company job create and edit forms now block invalid `aiAssistWeight`, `problemSolvingWeight`, `experienceWeight`, and `codingWeight` combinations before any save request, preventing partial job writes when the scoring-config API rejects bad totals.
+
 ## [1.29.3] - 2026-03-21
 
 ### Fixed

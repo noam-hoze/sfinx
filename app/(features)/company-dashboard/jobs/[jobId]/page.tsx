@@ -9,6 +9,11 @@ import Breadcrumbs from "app/shared/components/Breadcrumbs";
 import { log } from "app/shared/services";
 import { readResponseError } from "app/shared/utils/http";
 import { getBreadcrumbTrail } from "app/shared/config/navigation";
+import {
+    defaultScoringConfig,
+    getScoringConfigValidationError,
+    ScoringConfigState,
+} from "../scoringConfigValidation";
 import InterviewContentSection, {
     InterviewContentState,
     InterviewDurationState,
@@ -70,20 +75,6 @@ interface ExperienceCategory {
     example: string;
     weight: number;
 }
-
-interface ScoringConfigState {
-    aiAssistWeight: number;
-    problemSolvingWeight: number;
-    experienceWeight: number;
-    codingWeight: number;
-}
-
-const defaultScoringConfig: ScoringConfigState = {
-    aiAssistWeight: 25,
-    problemSolvingWeight: 25,
-    experienceWeight: 50,
-    codingWeight: 50,
-};
 
 function optionalString(value: string | null | undefined): string {
     if (typeof value === "string") {
@@ -218,6 +209,13 @@ function CompanyJobDetailContent() {
 
     const handleSave = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        setError(null);
+        const scoringConfigError =
+            getScoringConfigValidationError(scoringConfig);
+        if (scoringConfigError) {
+            setError(scoringConfigError);
+            return;
+        }
         setSaving(true);
         try {
             const payload: any = {
