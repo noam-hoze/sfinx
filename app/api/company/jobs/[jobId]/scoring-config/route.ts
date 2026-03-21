@@ -13,9 +13,24 @@ interface RouteContext {
     params: Promise<{ jobId: string }>;
 }
 
+const DEFAULT_SCORING_CONFIG = {
+    aiAssistWeight: 25,
+    problemSolvingWeight: 25,
+    experienceWeight: 50,
+    codingWeight: 50,
+};
+
 function normalizeJobId(jobId: string | string[] | undefined): string {
     if (Array.isArray(jobId)) return jobId[0] ?? "";
     return jobId ?? "";
+}
+
+function resolveWeight(
+    body: Record<string, unknown>,
+    field: keyof typeof DEFAULT_SCORING_CONFIG,
+    fallback: number
+): number {
+    return body[field] !== undefined ? Number(body[field]) : fallback;
 }
 
 /**
@@ -131,6 +146,9 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         const { company } = await loadCompanyForUser(userId);
         const job = await prisma.job.findUnique({
             where: { id: jobId },
+            include: {
+                scoringConfiguration: true,
+            },
         });
 
         if (!job) {
@@ -161,26 +179,26 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             }
         }
 
+        const currentConfig = job.scoringConfiguration ?? DEFAULT_SCORING_CONFIG;
+
         // Validate category weights sum to 100 (with tolerance for floating point)
-        if (body.experienceWeight !== undefined && body.codingWeight !== undefined) {
-            const sum = Number(body.experienceWeight) + Number(body.codingWeight);
-            if (Math.abs(sum - 100) > 0.01) {
-                return NextResponse.json(
-                    { error: "Experience weight and coding weight must sum to 100" },
-                    { status: 400 }
-                );
-            }
+        const mainCategorySum = resolveWeight(body, "experienceWeight", currentConfig.experienceWeight) +
+            resolveWeight(body, "codingWeight", currentConfig.codingWeight);
+        if (Math.abs(mainCategorySum - 100) > 0.01) {
+            return NextResponse.json(
+                { error: "Experience weight and coding weight must sum to 100" },
+                { status: 400 }
+            );
         }
 
         // Validate coding workstyle weights do not exceed 100%
-        if (body.aiAssistWeight !== undefined && body.problemSolvingWeight !== undefined) {
-            const workstyleSum = Number(body.aiAssistWeight) + Number(body.problemSolvingWeight);
-            if (workstyleSum > 100) {
-                return NextResponse.json(
-                    { error: "aiAssistWeight and problemSolvingWeight cannot sum to more than 100" },
-                    { status: 400 }
-                );
-            }
+        const workstyleSum = resolveWeight(body, "aiAssistWeight", currentConfig.aiAssistWeight) +
+            resolveWeight(body, "problemSolvingWeight", currentConfig.problemSolvingWeight);
+        if (workstyleSum > 100) {
+            return NextResponse.json(
+                { error: "aiAssistWeight and problemSolvingWeight cannot sum to more than 100" },
+                { status: 400 }
+            );
         }
 
         // Validate thresholds are sensible
