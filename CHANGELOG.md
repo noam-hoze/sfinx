@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.5] - 2026-03-21
+
+### Fixed
+
+- **Atomic job + scoring-config saves**: Company job create/edit requests now validate and persist `scoringConfig` inside the main job API call, so invalid scoring payloads reject before any job write and valid submissions no longer depend on a second follow-up save.
+
 ## [1.29.4] - 2026-03-21
 
 ### Fixed

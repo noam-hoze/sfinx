@@ -257,16 +257,8 @@ function CreateJobContent() {
             }
 
             const created = await resp.json();
-            if (created.id) {
-                const scoringResp = await fetch(`/api/company/jobs/${created.id}/scoring-config`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(scoringConfig),
-                });
-                if (!scoringResp.ok) {
-                    const detail = await readResponseError(scoringResp);
-                    throw new Error(`Failed to save scoring config: ${scoringResp.status} ${detail}`);
-                }
+            if (!created.id) {
+                throw new Error("Created job response is missing an id");
             }
 
             log.info(LOG_CATEGORY, "Job created successfully");

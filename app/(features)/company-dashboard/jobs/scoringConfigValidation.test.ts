@@ -29,6 +29,15 @@ describe("getScoringConfigValidationError", () => {
         );
     });
 
+    it("rejects negative weights", () => {
+        expect(
+            getScoringConfigValidationError({
+                ...defaultScoringConfig,
+                codingWeight: -1,
+            })
+        ).toBe("codingWeight must be a non-negative number.");
+    });
+
     it("accepts workstyle totals at 100", () => {
         expect(
             getScoringConfigValidationError({

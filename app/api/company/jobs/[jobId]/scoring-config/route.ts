@@ -5,6 +5,11 @@ import prisma from "lib/prisma";
 import { log } from "app/shared/services";
 import { loadCompanyForUser } from "../../companyContext";
 import { ensureCompanyRole } from "../../companyAuth";
+import {
+    DEFAULT_SCORING_CONFIG,
+    isScoringConfigValidationMessage,
+    resolveScoringConfigPayload,
+} from "../../scoringConfigPayload";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.COMPANY;
@@ -13,24 +18,9 @@ interface RouteContext {
     params: Promise<{ jobId: string }>;
 }
 
-const DEFAULT_SCORING_CONFIG = {
-    aiAssistWeight: 25,
-    problemSolvingWeight: 25,
-    experienceWeight: 50,
-    codingWeight: 50,
-};
-
 function normalizeJobId(jobId: string | string[] | undefined): string {
     if (Array.isArray(jobId)) return jobId[0] ?? "";
     return jobId ?? "";
-}
-
-function resolveWeight(
-    body: Record<string, unknown>,
-    field: keyof typeof DEFAULT_SCORING_CONFIG,
-    fallback: number
-): number {
-    return body[field] !== undefined ? Number(body[field]) : fallback;
 }
 
 /**
@@ -159,75 +149,13 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        // Validate weights are positive numbers
-        const weightFields = [
-            'aiAssistWeight',
-            'problemSolvingWeight',
-            'experienceWeight',
-            'codingWeight',
-        ];
-
-        for (const field of weightFields) {
-            if (body[field] !== undefined) {
-                const value = Number(body[field]);
-                if (isNaN(value) || value < 0) {
-                    return NextResponse.json(
-                        { error: `${field} must be a positive number` },
-                        { status: 400 }
-                    );
-                }
-            }
-        }
-
         const currentConfig = job.scoringConfiguration ?? DEFAULT_SCORING_CONFIG;
-
-        // Validate category weights sum to 100 (with tolerance for floating point)
-        const mainCategorySum = resolveWeight(body, "experienceWeight", currentConfig.experienceWeight) +
-            resolveWeight(body, "codingWeight", currentConfig.codingWeight);
-        if (Math.abs(mainCategorySum - 100) > 0.01) {
+        const updates = resolveScoringConfigPayload(body, currentConfig);
+        if (!updates) {
             return NextResponse.json(
-                { error: "Experience weight and coding weight must sum to 100" },
+                { error: "Scoring config is required" },
                 { status: 400 }
             );
-        }
-
-        // Validate coding workstyle weights do not exceed 100%
-        const workstyleSum = resolveWeight(body, "aiAssistWeight", currentConfig.aiAssistWeight) +
-            resolveWeight(body, "problemSolvingWeight", currentConfig.problemSolvingWeight);
-        if (workstyleSum > 100) {
-            return NextResponse.json(
-                { error: "aiAssistWeight and problemSolvingWeight cannot sum to more than 100" },
-                { status: 400 }
-            );
-        }
-
-        // Validate thresholds are sensible
-        if (
-            body.iterationSpeedThresholdModerate !== undefined &&
-            body.iterationSpeedThresholdHigh !== undefined
-        ) {
-            const moderate = Number(body.iterationSpeedThresholdModerate);
-            const high = Number(body.iterationSpeedThresholdHigh);
-            if (moderate >= high) {
-                return NextResponse.json(
-                    { error: "Iteration speed moderate threshold must be less than high threshold" },
-                    { status: 400 }
-                );
-            }
-        }
-
-        // Build update data
-        const updates: any = {};
-        const updateableFields = [
-            ...weightFields,
-            'iterationSpeedThresholdModerate',
-            'iterationSpeedThresholdHigh',
-        ];
-
-        for (const field of updateableFields) {
-            if (body[field] !== undefined) {
-                updates[field] = Number(body[field]);
-            }
         }
 
         // Upsert configuration
@@ -250,7 +178,15 @@ export async function PUT(request: NextRequest, context: RouteContext) {
                 ? error.message
                 : "Failed to update scoring configuration";
         const status =
-            message === "Company role required" || message.includes("Forbidden") ? 403 : 500;
+            message === "Company role required" || message.includes("Forbidden")
+                ? 403
+                : message === "Job not found"
+                  ? 404
+                  : message === "Job ID is required" ||
+                      message === "Scoring config is required" ||
+                      isScoringConfigValidationMessage(message)
+                    ? 400
+                    : 500;
         return NextResponse.json({ error: message }, { status });
     }
 }

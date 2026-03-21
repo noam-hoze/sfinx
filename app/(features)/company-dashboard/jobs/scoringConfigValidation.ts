@@ -19,6 +19,22 @@ export const defaultScoringConfig: ScoringConfigState = {
 };
 
 const WEIGHT_TOLERANCE = 0.01;
+const WEIGHT_FIELDS: Array<keyof ScoringConfigState> = [
+    "aiAssistWeight",
+    "problemSolvingWeight",
+    "experienceWeight",
+    "codingWeight",
+];
+
+function getWeightValidationError(config: ScoringConfigState): string | null {
+    for (const field of WEIGHT_FIELDS) {
+        const value = config[field];
+        if (!Number.isFinite(value) || value < 0) {
+            return `${field} must be a non-negative number.`;
+        }
+    }
+    return null;
+}
 
 /**
  * Returns a submission error when the scoring config would fail API validation.
@@ -26,6 +42,11 @@ const WEIGHT_TOLERANCE = 0.01;
 export function getScoringConfigValidationError(
     config: ScoringConfigState
 ): string | null {
+    const weightError = getWeightValidationError(config);
+    if (weightError) {
+        return weightError;
+    }
+
     const mainCategorySum = config.experienceWeight + config.codingWeight;
     if (Math.abs(mainCategorySum - 100) > WEIGHT_TOLERANCE) {
         return "Experience weight and coding weight must sum to 100.";

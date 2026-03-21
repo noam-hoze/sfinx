@@ -1,0 +1,90 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("server-only", () => ({}));
+vi.mock("next-auth/next", () => ({ getServerSession: vi.fn() }));
+vi.mock("app/shared/services", () => ({
+    log: { error: vi.fn(), info: vi.fn() },
+}));
+vi.mock("app/shared/services/server", () => ({
+    authOptions: {},
+    prisma: {
+        $transaction: vi.fn(),
+        job: { findUnique: vi.fn() },
+    },
+    invalidatePattern: vi.fn(),
+    invalidate: vi.fn(),
+}));
+vi.mock("../companyContext", () => ({
+    loadCompanyForUser: vi.fn(),
+}));
+vi.mock("../companyAuth", () => ({
+    ensureCompanyRole: vi.fn(),
+}));
+vi.mock("../jobHelpers", () => ({
+    coerceSeconds: vi.fn(),
+    mapJobResponse: vi.fn(),
+}));
+
+import { getServerSession } from "next-auth/next";
+import { prisma } from "app/shared/services/server";
+import { loadCompanyForUser } from "../companyContext";
+import { PUT } from "./route";
+
+function makeRequest(body: unknown) {
+    return {
+        url: "http://localhost/api/company/jobs/job-1",
+        json: async () => body,
+    } as any;
+}
+
+function makeContext(jobId = "job-1") {
+    return { params: Promise.resolve({ jobId }) } as any;
+}
+
+beforeEach(() => {
+    vi.clearAllMocks();
+    (getServerSession as any).mockResolvedValue({
+        user: { id: "user-1", role: "COMPANY" },
+    });
+    (loadCompanyForUser as any).mockResolvedValue({
+        company: { id: "company-1" },
+    });
+    (prisma.job.findUnique as any).mockResolvedValue({
+        id: "job-1",
+        companyId: "company-1",
+        interviewContentId: null,
+        interviewContent: null,
+        company: { id: "company-1" },
+        scoringConfiguration: {
+            aiAssistWeight: 25,
+            problemSolvingWeight: 25,
+            experienceWeight: 50,
+            codingWeight: 50,
+        },
+    });
+});
+
+describe("PUT /api/company/jobs/[jobId]", () => {
+    it("rejects invalid scoring config before starting a transaction", async () => {
+        const response = await PUT(
+            makeRequest({
+                title: "Updated title",
+                scoringConfig: {
+                    aiAssistWeight: 25,
+                    problemSolvingWeight: 25,
+                    experienceWeight: 120,
+                    codingWeight: 10,
+                },
+            }),
+            makeContext()
+        );
+        const body = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(body.error).toBe(
+            "Experience weight and coding weight must sum to 100"
+        );
+        expect(prisma.job.findUnique).toHaveBeenCalled();
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+});

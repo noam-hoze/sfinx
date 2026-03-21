@@ -269,25 +269,14 @@ function CompanyJobDetailContent() {
                 payload.interviewContent = null;
             }
 
-            const [resp, scoringResp] = await Promise.all([
-                fetch(`/api/company/jobs/${jobId}`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
-                }),
-                fetch(`/api/company/jobs/${jobId}/scoring-config`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(scoringConfig),
-                }),
-            ]);
+            const resp = await fetch(`/api/company/jobs/${jobId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
             if (!resp.ok) {
                 const detail = await readResponseError(resp);
                 throw new Error(`Failed to save job: ${resp.status} ${detail}`);
-            }
-            if (!scoringResp.ok) {
-                const detail = await readResponseError(scoringResp);
-                throw new Error(`Failed to save scoring config: ${scoringResp.status} ${detail}`);
             }
             const updated = (await resp.json()) as JobDetailResponse;
             setJob(updated);
