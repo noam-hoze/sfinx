@@ -27,13 +27,14 @@ vi.mock("../jobHelpers", () => ({
         scoringConfiguration: true,
     },
     coerceSeconds: vi.fn(),
+    lockJobRow: vi.fn(),
     mapJobResponse: vi.fn(),
 }));
 
 import { getServerSession } from "next-auth/next";
 import { prisma } from "app/shared/services/server";
 import { loadCompanyForUser } from "../companyContext";
-import { mapJobResponse } from "../jobHelpers";
+import { lockJobRow, mapJobResponse } from "../jobHelpers";
 import { PUT } from "./route";
 
 function makeRequest(body: unknown) {
@@ -71,7 +72,31 @@ beforeEach(() => {
 });
 
 describe("PUT /api/company/jobs/[jobId]", () => {
-    it("rejects invalid scoring config before starting a transaction", async () => {
+    it("rejects invalid scoring config after loading the locked job", async () => {
+        const tx = {
+            $queryRaw: vi.fn(),
+            job: {
+                findUniqueOrThrow: vi.fn().mockResolvedValue({
+                    id: "job-1",
+                    company: { id: "company-1" },
+                    interviewContent: null,
+                    scoringConfiguration: {
+                        aiAssistWeight: 25,
+                        problemSolvingWeight: 25,
+                        experienceWeight: 50,
+                        codingWeight: 50,
+                    },
+                }),
+                update: vi.fn(),
+            },
+            scoringConfiguration: {
+                upsert: vi.fn(),
+            },
+        };
+        (prisma.$transaction as any).mockImplementation(async (callback: any) =>
+            callback(tx)
+        );
+
         const response = await PUT(
             makeRequest({
                 title: "Updated title",
@@ -90,8 +115,45 @@ describe("PUT /api/company/jobs/[jobId]", () => {
         expect(body.error).toBe(
             "Experience weight and coding weight must sum to 100"
         );
-        expect(prisma.job.findUnique).toHaveBeenCalled();
-        expect(prisma.$transaction).not.toHaveBeenCalled();
+        expect(prisma.$transaction).toHaveBeenCalled();
+        expect(lockJobRow).toHaveBeenCalledWith(tx, "job-1");
+        expect(tx.scoringConfiguration.upsert).not.toHaveBeenCalled();
+    });
+
+    it("validates partial scoring config against the locked current config", async () => {
+        const tx = {
+            $queryRaw: vi.fn(),
+            job: {
+                findUniqueOrThrow: vi.fn().mockResolvedValue({
+                    id: "job-1",
+                    company: { id: "company-1" },
+                    interviewContent: null,
+                    scoringConfiguration: {
+                        aiAssistWeight: 25,
+                        problemSolvingWeight: 40,
+                        experienceWeight: 50,
+                        codingWeight: 50,
+                    },
+                }),
+                update: vi.fn(),
+            },
+            scoringConfiguration: {
+                upsert: vi.fn(),
+            },
+        };
+        (prisma.$transaction as any).mockImplementation(async (callback: any) =>
+            callback(tx)
+        );
+
+        const response = await PUT(
+            makeRequest({ scoringConfig: { aiAssistWeight: 70 } }),
+            makeContext()
+        );
+        const body = await response.json();
+
+        expect(response.status).toBe(400);
+        expect(body.error).toContain("cannot sum to more than 100");
+        expect(tx.scoringConfiguration.upsert).not.toHaveBeenCalled();
     });
 
     it("returns the refreshed scoring config after an atomic save", async () => {
@@ -102,24 +164,28 @@ describe("PUT /api/company/jobs/[jobId]", () => {
             codingWeight: 60,
         };
         const tx = {
+            $queryRaw: vi.fn(),
             job: {
-                update: vi.fn().mockResolvedValue({
-                    id: "job-1",
-                    company: { id: "company-1" },
-                    interviewContent: null,
-                    scoringConfiguration: {
-                        aiAssistWeight: 25,
-                        problemSolvingWeight: 25,
-                        experienceWeight: 50,
-                        codingWeight: 50,
-                    },
-                }),
-                findUniqueOrThrow: vi.fn().mockResolvedValue({
-                    id: "job-1",
-                    company: { id: "company-1" },
-                    interviewContent: null,
-                    scoringConfiguration: updatedConfig,
-                }),
+                update: vi.fn().mockResolvedValue({}),
+                findUniqueOrThrow: vi
+                    .fn()
+                    .mockResolvedValueOnce({
+                        id: "job-1",
+                        company: { id: "company-1" },
+                        interviewContent: null,
+                        scoringConfiguration: {
+                            aiAssistWeight: 25,
+                            problemSolvingWeight: 25,
+                            experienceWeight: 50,
+                            codingWeight: 50,
+                        },
+                    })
+                    .mockResolvedValueOnce({
+                        id: "job-1",
+                        company: { id: "company-1" },
+                        interviewContent: null,
+                        scoringConfiguration: updatedConfig,
+                    }),
             },
             scoringConfiguration: {
                 upsert: vi.fn().mockResolvedValue({
@@ -148,6 +214,7 @@ describe("PUT /api/company/jobs/[jobId]", () => {
             create: { jobId: "job-1", ...updatedConfig },
             update: updatedConfig,
         });
+        expect(lockJobRow).toHaveBeenCalledWith(tx, "job-1");
         expect(tx.job.findUniqueOrThrow).toHaveBeenCalled();
         expect(body.scoringConfig).toEqual(updatedConfig);
     });

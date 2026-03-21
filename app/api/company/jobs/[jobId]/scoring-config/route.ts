@@ -5,6 +5,7 @@ import prisma from "lib/prisma";
 import { log } from "app/shared/services";
 import { loadCompanyForUser } from "../../companyContext";
 import { ensureCompanyRole } from "../../companyAuth";
+import { lockJobRow } from "../../jobHelpers";
 import {
     DEFAULT_SCORING_CONFIG,
     isScoringConfigValidationMessage,
@@ -132,40 +133,39 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
         const body = await request.json();
 
-        // Verify job belongs to user's company
         const { company } = await loadCompanyForUser(userId);
-        const job = await prisma.job.findUnique({
-            where: { id: jobId },
-            include: {
-                scoringConfiguration: true,
-            },
-        });
+        const config = await prisma.$transaction(async (tx) => {
+            await lockJobRow(tx, jobId);
+            const job = await tx.job.findUnique({
+                where: { id: jobId },
+                include: {
+                    scoringConfiguration: true,
+                },
+            });
 
-        if (!job) {
-            return NextResponse.json({ error: "Job not found" }, { status: 404 });
-        }
+            if (!job) {
+                throw new Error("Job not found");
+            }
+            if (job.companyId !== company.id) {
+                throw new Error("Forbidden");
+            }
 
-        if (job.companyId !== company.id) {
-            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-        }
-
-        const currentConfig = job.scoringConfiguration ?? DEFAULT_SCORING_CONFIG;
-        const updates = resolveScoringConfigPayload(body, currentConfig);
-        if (!updates) {
-            return NextResponse.json(
-                { error: "Scoring config is required" },
-                { status: 400 }
+            const updates = resolveScoringConfigPayload(
+                body,
+                job.scoringConfiguration ?? DEFAULT_SCORING_CONFIG
             );
-        }
+            if (!updates) {
+                throw new Error("Scoring config is required");
+            }
 
-        // Upsert configuration
-        const config = await prisma.scoringConfiguration.upsert({
-            where: { jobId },
-            create: {
-                jobId,
-                ...updates,
-            },
-            update: updates,
+            return tx.scoringConfiguration.upsert({
+                where: { jobId },
+                create: {
+                    jobId,
+                    ...updates,
+                },
+                update: updates,
+            });
         });
 
         log.info(LOG_CATEGORY, `[scoring-config/PUT] Updated configuration for job ${jobId}`);

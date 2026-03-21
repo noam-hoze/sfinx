@@ -4,7 +4,12 @@ import { log } from "app/shared/services";
 import { authOptions, prisma, invalidatePattern, invalidate } from "app/shared/services/server";
 import { loadCompanyForUser } from "../companyContext";
 import { ensureCompanyRole } from "../companyAuth";
-import { mapJobResponse, coerceSeconds, JOB_RESPONSE_INCLUDE } from "../jobHelpers";
+import {
+    mapJobResponse,
+    coerceSeconds,
+    JOB_RESPONSE_INCLUDE,
+    lockJobRow,
+} from "../jobHelpers";
 import {
     DEFAULT_SCORING_CONFIG,
     isScoringConfigValidationMessage,
@@ -162,15 +167,20 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         }
 
         const { job, company } = await assertOwnership(userId, jobId);
-        const scoringConfig = resolveScoringConfigPayload(
-            body.scoringConfig,
-            job.scoringConfiguration ?? DEFAULT_SCORING_CONFIG
-        );
 
         const interview = body.interviewContent;
         const updated = await prisma.$transaction(async (tx) => {
+            await lockJobRow(tx, job.id);
+            const currentJob = await tx.job.findUniqueOrThrow({
+                where: { id: job.id },
+                include: JOB_RESPONSE_INCLUDE,
+            });
+            const scoringConfig = resolveScoringConfigPayload(
+                body.scoringConfig,
+                currentJob.scoringConfiguration ?? DEFAULT_SCORING_CONFIG
+            );
             const txUpdates: any = { ...updates };
-            let interviewContentId = job.interviewContentId;
+            let interviewContentId = currentJob.interviewContentId;
             if (interview !== undefined) {
                 if (interview === null) {
                     if (interviewContentId) {
@@ -224,14 +234,16 @@ export async function PUT(request: NextRequest, context: RouteContext) {
                             typeof interview.codingLanguage === "string" &&
                             interview.codingLanguage.trim().length > 0
                                 ? interview.codingLanguage
-                                : job.interviewContent?.codingLanguage ?? "python",
+                                : currentJob.interviewContent?.codingLanguage ?? "python",
                         backgroundQuestionTimeSeconds: coerceSeconds(
                             (interview as any).backgroundQuestionTimeSeconds,
-                            job.interviewContent?.backgroundQuestionTimeSeconds ?? 900
+                            currentJob.interviewContent?.backgroundQuestionTimeSeconds ??
+                                900
                         ),
                         codingQuestionTimeSeconds: coerceSeconds(
                             (interview as any).codingQuestionTimeSeconds,
-                            job.interviewContent?.codingQuestionTimeSeconds ?? 1800
+                            currentJob.interviewContent?.codingQuestionTimeSeconds ??
+                                1800
                         ),
                     };
                     if (interviewContentId) {
@@ -249,7 +261,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
                 }
             }
 
-            let nextJob = job;
+            let nextJob = currentJob;
             if (Object.keys(txUpdates).length > 0) {
                 nextJob = await tx.job.update({
                     where: { id: job.id },

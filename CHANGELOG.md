@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.7] - 2026-03-21
+
+### Fixed
+
+- **Scoring config concurrent partial saves**: Company job save paths now lock the job row before resolving `scoringConfig`, so overlapping partial updates merge against the latest persisted weights instead of rewriting stale values back into the row.
+- **Scoring config numeric coercion**: `null`, booleans, and empty strings are now rejected for scoring weights across job create/edit APIs instead of being silently coerced into numeric values.
+
 ## [1.29.6] - 2026-03-21
 
 ### Fixed

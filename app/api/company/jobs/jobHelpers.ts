@@ -29,6 +29,16 @@ export const JOB_RESPONSE_INCLUDE = {
     scoringConfiguration: true,
 } satisfies Prisma.JobInclude;
 
+/**
+ * Serializes job-scoped writes so scoring config merges see the latest row.
+ */
+export async function lockJobRow(
+    tx: Prisma.TransactionClient,
+    jobId: string
+) {
+    await tx.$queryRaw`SELECT id FROM "Job" WHERE id = ${jobId} FOR UPDATE`;
+}
+
 type JobWithCompany = Prisma.JobGetPayload<{
     include: typeof JOB_RESPONSE_INCLUDE;
 }>;

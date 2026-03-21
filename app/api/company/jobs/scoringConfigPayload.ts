@@ -19,6 +19,12 @@ export const DEFAULT_SCORING_CONFIG: ScoringConfigWeights = {
 };
 
 const WEIGHT_TOLERANCE = 0.01;
+const WEIGHT_FIELDS: WeightField[] = [
+    "aiAssistWeight",
+    "problemSolvingWeight",
+    "experienceWeight",
+    "codingWeight",
+];
 
 type WeightField = keyof ScoringConfigWeights;
 
@@ -29,19 +35,31 @@ function asRecord(value: unknown): Record<string, unknown> {
     return value as Record<string, unknown>;
 }
 
-function readWeight(
-    body: Record<string, unknown>,
-    field: WeightField,
-    fallback: number
-): number {
-    if (body[field] === undefined) {
-        return fallback;
+function parseWeightValue(value: unknown, field: WeightField): number {
+    if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+        return value;
     }
-    const value = Number(body[field]);
-    if (!Number.isFinite(value) || value < 0) {
-        throw new Error(`${field} must be a non-negative number`);
+    if (typeof value === "string" && value.trim().length > 0) {
+        const parsed = Number(value);
+        if (Number.isFinite(parsed) && parsed >= 0) {
+            return parsed;
+        }
     }
-    return value;
+    throw new Error(`${field} must be a non-negative number`);
+}
+
+function resolveWeightPatch(
+    body: Record<string, unknown>
+): Partial<ScoringConfigWeights> {
+    return WEIGHT_FIELDS.reduce<Partial<ScoringConfigWeights>>(
+        (patch, field) => {
+            if (body[field] !== undefined) {
+                patch[field] = parseWeightValue(body[field], field);
+            }
+            return patch;
+        },
+        {}
+    );
 }
 
 function validateTotals(config: ScoringConfigWeights) {
@@ -82,14 +100,8 @@ export function resolveScoringConfigPayload(
 
     const body = asRecord(value);
     const config = {
-        aiAssistWeight: readWeight(body, "aiAssistWeight", fallback.aiAssistWeight),
-        problemSolvingWeight: readWeight(
-            body,
-            "problemSolvingWeight",
-            fallback.problemSolvingWeight
-        ),
-        experienceWeight: readWeight(body, "experienceWeight", fallback.experienceWeight),
-        codingWeight: readWeight(body, "codingWeight", fallback.codingWeight),
+        ...fallback,
+        ...resolveWeightPatch(body),
     };
     validateTotals(config);
     return config;
