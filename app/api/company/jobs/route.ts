@@ -5,7 +5,7 @@ import { authOptions, prisma, invalidatePattern } from "app/shared/services/serv
 import { loadCompanyForUser } from "./companyContext";
 import { parseCodingCategories, parseExperienceCategories } from "./categorySchemas";
 import { ensureCompanyRole } from "./companyAuth";
-import { coerceSeconds, mapJobResponse } from "./jobHelpers";
+import { coerceSeconds, JOB_RESPONSE_INCLUDE, mapJobResponse } from "./jobHelpers";
 import {
     isScoringConfigValidationMessage,
     resolveScoringConfigPayload,
@@ -29,9 +29,7 @@ export async function GET(_request: NextRequest) {
         const jobs = await (prisma as any).job.findMany({
             where: { companyId: company.id },
             orderBy: { createdAt: "desc" },
-            include: {
-                interviewContent: true,
-            },
+            include: JOB_RESPONSE_INCLUDE,
         });
 
         return NextResponse.json({
@@ -180,10 +178,6 @@ export async function POST(request: NextRequest) {
 
             const createdJob = await tx.job.create({
                 data,
-                include: {
-                    interviewContent: true,
-                    company: true,
-                },
             });
             if (scoringConfig) {
                 await tx.scoringConfiguration.upsert({
@@ -192,7 +186,10 @@ export async function POST(request: NextRequest) {
                     update: scoringConfig,
                 });
             }
-            return createdJob;
+            return tx.job.findUniqueOrThrow({
+                where: { id: createdJob.id },
+                include: JOB_RESPONSE_INCLUDE,
+            });
         });
 
         invalidatePattern(`jobs:company:${company.name}`);

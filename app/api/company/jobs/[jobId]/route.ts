@@ -4,7 +4,7 @@ import { log } from "app/shared/services";
 import { authOptions, prisma, invalidatePattern, invalidate } from "app/shared/services/server";
 import { loadCompanyForUser } from "../companyContext";
 import { ensureCompanyRole } from "../companyAuth";
-import { mapJobResponse, coerceSeconds } from "../jobHelpers";
+import { mapJobResponse, coerceSeconds, JOB_RESPONSE_INCLUDE } from "../jobHelpers";
 import {
     DEFAULT_SCORING_CONFIG,
     isScoringConfigValidationMessage,
@@ -39,11 +39,7 @@ async function assertOwnership(userId: string, jobId: string) {
     const { company } = await loadCompanyForUser(userId);
     const job = await (prisma as any).job.findUnique({
         where: { id: jobId },
-        include: {
-            company: true,
-            interviewContent: true,
-            scoringConfiguration: true,
-        },
+        include: JOB_RESPONSE_INCLUDE,
     });
     if (!job) {
         throw new Error("Job not found");
@@ -258,18 +254,12 @@ export async function PUT(request: NextRequest, context: RouteContext) {
                 nextJob = await tx.job.update({
                     where: { id: job.id },
                     data: txUpdates,
-                    include: {
-                        company: true,
-                        interviewContent: true,
-                    },
+                    include: JOB_RESPONSE_INCLUDE,
                 });
             } else if (interview !== undefined) {
                 nextJob = await tx.job.findUniqueOrThrow({
                     where: { id: job.id },
-                    include: {
-                        company: true,
-                        interviewContent: true,
-                    },
+                    include: JOB_RESPONSE_INCLUDE,
                 });
             }
 
@@ -278,6 +268,10 @@ export async function PUT(request: NextRequest, context: RouteContext) {
                     where: { jobId: job.id },
                     create: { jobId: job.id, ...scoringConfig },
                     update: scoringConfig,
+                });
+                nextJob = await tx.job.findUniqueOrThrow({
+                    where: { id: job.id },
+                    include: JOB_RESPONSE_INCLUDE,
                 });
             }
             return nextJob;

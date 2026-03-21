@@ -34,6 +34,7 @@ interface JobDetailResponse {
     interviewUrl: string | null;
     codingCategories?: CodingCategory[];
     experienceCategories?: ExperienceCategory[];
+    scoringConfig: ScoringConfigState;
     company: {
         id: string;
         name: string;
@@ -133,6 +134,7 @@ function CompanyJobDetailContent() {
                 });
                 setCodingCategories(data.codingCategories || []);
                 setExperienceCategories(data.experienceCategories || []);
+                setScoringConfig(data.scoringConfig);
                 if (data.interviewContent) {
                     setInterviewState({
                         backgroundQuestion: optionalString(
@@ -188,23 +190,6 @@ function CompanyJobDetailContent() {
         fetchDetail().catch((err) => {
             log.error(LOG_CATEGORY, "❌ Unexpected job detail fetch error:", err);
         });
-    }, [jobId]);
-
-    useEffect(() => {
-        const fetchScoringConfig = async () => {
-            try {
-                const resp = await fetch(`/api/company/jobs/${jobId}/scoring-config`);
-                if (resp.ok) {
-                    const data = await resp.json();
-                    if (data.config) {
-                        setScoringConfig(data.config);
-                    }
-                }
-            } catch (err) {
-                log.error(LOG_CATEGORY, "❌ Failed to load scoring configuration:", err);
-            }
-        };
-        fetchScoringConfig();
     }, [jobId]);
 
     const handleSave = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -289,6 +274,7 @@ function CompanyJobDetailContent() {
                 requirements: optionalString(updated.requirements),
             });
             setCodingCategories(updated.codingCategories || []);
+            setScoringConfig(updated.scoringConfig);
             if (updated.interviewContent) {
                 setInterviewState({
                     backgroundQuestion:

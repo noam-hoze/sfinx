@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.6] - 2026-03-21
+
+### Fixed
+
+- **Job edit scoring-config overwrite**: Company job detail responses now include the effective `scoringConfig`, and the edit page hydrates from that single payload, preventing custom weights from being overwritten back to defaults before the separate scoring-config request could finish.
+
 ## [1.29.5] - 2026-03-21
 
 ### Fixed

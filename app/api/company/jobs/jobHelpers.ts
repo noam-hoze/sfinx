@@ -1,6 +1,10 @@
 import type { Prisma } from "@prisma/client";
 import { buildInterviewUrl } from "app/shared/utils/interviewLinks";
 import { mergeWithPredefinedCategories, type CodingCategory } from "./categorySchemas";
+import {
+    DEFAULT_SCORING_CONFIG,
+    type ScoringConfigWeights,
+} from "./scoringConfigPayload";
 
 /**
  * Coerces mixed input (string or number) into a positive integer number of seconds.
@@ -19,9 +23,19 @@ export function coerceSeconds(value: unknown, fallback: number): number {
     return fallback;
 }
 
+export const JOB_RESPONSE_INCLUDE = {
+    company: true,
+    interviewContent: true,
+    scoringConfiguration: true,
+} satisfies Prisma.JobInclude;
+
 type JobWithCompany = Prisma.JobGetPayload<{
-    include: { company: true; interviewContent: true };
+    include: typeof JOB_RESPONSE_INCLUDE;
 }>;
+
+function resolveJobScoringConfig(job: JobWithCompany): ScoringConfigWeights {
+    return job.scoringConfiguration ?? DEFAULT_SCORING_CONFIG;
+}
 
 /**
  * Normalizes Prisma job records into the shape consumed by the frontend JobGrid.
@@ -48,6 +62,7 @@ export function mapJobResponse(
         requirements: job.requirements,
         codingCategories: mergedCodingCategories,
         experienceCategories: job.experienceCategories,
+        scoringConfig: resolveJobScoringConfig(job),
         interviewUrl:
             interview && owningCompany
                 ? buildInterviewUrl(origin, owningCompany.id, job.id)

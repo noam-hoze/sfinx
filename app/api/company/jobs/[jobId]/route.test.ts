@@ -21,6 +21,11 @@ vi.mock("../companyAuth", () => ({
     ensureCompanyRole: vi.fn(),
 }));
 vi.mock("../jobHelpers", () => ({
+    JOB_RESPONSE_INCLUDE: {
+        company: true,
+        interviewContent: true,
+        scoringConfiguration: true,
+    },
     coerceSeconds: vi.fn(),
     mapJobResponse: vi.fn(),
 }));
@@ -28,6 +33,7 @@ vi.mock("../jobHelpers", () => ({
 import { getServerSession } from "next-auth/next";
 import { prisma } from "app/shared/services/server";
 import { loadCompanyForUser } from "../companyContext";
+import { mapJobResponse } from "../jobHelpers";
 import { PUT } from "./route";
 
 function makeRequest(body: unknown) {
@@ -86,5 +92,63 @@ describe("PUT /api/company/jobs/[jobId]", () => {
         );
         expect(prisma.job.findUnique).toHaveBeenCalled();
         expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("returns the refreshed scoring config after an atomic save", async () => {
+        const updatedConfig = {
+            aiAssistWeight: 30,
+            problemSolvingWeight: 20,
+            experienceWeight: 40,
+            codingWeight: 60,
+        };
+        const tx = {
+            job: {
+                update: vi.fn().mockResolvedValue({
+                    id: "job-1",
+                    company: { id: "company-1" },
+                    interviewContent: null,
+                    scoringConfiguration: {
+                        aiAssistWeight: 25,
+                        problemSolvingWeight: 25,
+                        experienceWeight: 50,
+                        codingWeight: 50,
+                    },
+                }),
+                findUniqueOrThrow: vi.fn().mockResolvedValue({
+                    id: "job-1",
+                    company: { id: "company-1" },
+                    interviewContent: null,
+                    scoringConfiguration: updatedConfig,
+                }),
+            },
+            scoringConfiguration: {
+                upsert: vi.fn().mockResolvedValue({
+                    jobId: "job-1",
+                    ...updatedConfig,
+                }),
+            },
+        };
+        (prisma.$transaction as any).mockImplementation(async (callback: any) =>
+            callback(tx)
+        );
+        (mapJobResponse as any).mockImplementation((job: any) => ({
+            id: job.id,
+            scoringConfig: job.scoringConfiguration,
+        }));
+
+        const response = await PUT(
+            makeRequest({ title: "Updated title", scoringConfig: updatedConfig }),
+            makeContext()
+        );
+        const body = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(tx.scoringConfiguration.upsert).toHaveBeenCalledWith({
+            where: { jobId: "job-1" },
+            create: { jobId: "job-1", ...updatedConfig },
+            update: updatedConfig,
+        });
+        expect(tx.job.findUniqueOrThrow).toHaveBeenCalled();
+        expect(body.scoringConfig).toEqual(updatedConfig);
     });
 });
