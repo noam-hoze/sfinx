@@ -9,6 +9,11 @@ import Breadcrumbs from "app/shared/components/Breadcrumbs";
 import { log } from "app/shared/services";
 import { readResponseError } from "app/shared/utils/http";
 import { getBreadcrumbTrail } from "app/shared/config/navigation";
+import {
+    defaultScoringConfig,
+    getScoringConfigValidationError,
+    ScoringConfigState,
+} from "../scoringConfigValidation";
 import InterviewContentSection, {
     InterviewContentState,
     InterviewDurationState,
@@ -29,6 +34,7 @@ interface JobDetailResponse {
     interviewUrl: string | null;
     codingCategories?: CodingCategory[];
     experienceCategories?: ExperienceCategory[];
+    scoringConfig: ScoringConfigState;
     company: {
         id: string;
         name: string;
@@ -70,20 +76,6 @@ interface ExperienceCategory {
     example: string;
     weight: number;
 }
-
-interface ScoringConfigState {
-    aiAssistWeight: number;
-    problemSolvingWeight: number;
-    experienceWeight: number;
-    codingWeight: number;
-}
-
-const defaultScoringConfig: ScoringConfigState = {
-    aiAssistWeight: 25,
-    problemSolvingWeight: 25,
-    experienceWeight: 50,
-    codingWeight: 50,
-};
 
 function optionalString(value: string | null | undefined): string {
     if (typeof value === "string") {
@@ -142,6 +134,7 @@ function CompanyJobDetailContent() {
                 });
                 setCodingCategories(data.codingCategories || []);
                 setExperienceCategories(data.experienceCategories || []);
+                setScoringConfig(data.scoringConfig);
                 if (data.interviewContent) {
                     setInterviewState({
                         backgroundQuestion: optionalString(
@@ -199,25 +192,15 @@ function CompanyJobDetailContent() {
         });
     }, [jobId]);
 
-    useEffect(() => {
-        const fetchScoringConfig = async () => {
-            try {
-                const resp = await fetch(`/api/company/jobs/${jobId}/scoring-config`);
-                if (resp.ok) {
-                    const data = await resp.json();
-                    if (data.config) {
-                        setScoringConfig(data.config);
-                    }
-                }
-            } catch (err) {
-                log.error(LOG_CATEGORY, "❌ Failed to load scoring configuration:", err);
-            }
-        };
-        fetchScoringConfig();
-    }, [jobId]);
-
     const handleSave = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        setError(null);
+        const scoringConfigError =
+            getScoringConfigValidationError(scoringConfig);
+        if (scoringConfigError) {
+            setError(scoringConfigError);
+            return;
+        }
         setSaving(true);
         try {
             const payload: any = {
@@ -271,25 +254,14 @@ function CompanyJobDetailContent() {
                 payload.interviewContent = null;
             }
 
-            const [resp, scoringResp] = await Promise.all([
-                fetch(`/api/company/jobs/${jobId}`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
-                }),
-                fetch(`/api/company/jobs/${jobId}/scoring-config`, {
-                    method: "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(scoringConfig),
-                }),
-            ]);
+            const resp = await fetch(`/api/company/jobs/${jobId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
             if (!resp.ok) {
                 const detail = await readResponseError(resp);
                 throw new Error(`Failed to save job: ${resp.status} ${detail}`);
-            }
-            if (!scoringResp.ok) {
-                const detail = await readResponseError(scoringResp);
-                throw new Error(`Failed to save scoring config: ${scoringResp.status} ${detail}`);
             }
             const updated = (await resp.json()) as JobDetailResponse;
             setJob(updated);
@@ -302,6 +274,7 @@ function CompanyJobDetailContent() {
                 requirements: optionalString(updated.requirements),
             });
             setCodingCategories(updated.codingCategories || []);
+            setScoringConfig(updated.scoringConfig);
             if (updated.interviewContent) {
                 setInterviewState({
                     backgroundQuestion:
