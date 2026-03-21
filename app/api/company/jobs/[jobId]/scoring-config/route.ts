@@ -172,6 +172,17 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             }
         }
 
+        // Validate coding workstyle weights do not exceed 100%
+        if (body.aiAssistWeight !== undefined && body.problemSolvingWeight !== undefined) {
+            const workstyleSum = Number(body.aiAssistWeight) + Number(body.problemSolvingWeight);
+            if (workstyleSum > 100) {
+                return NextResponse.json(
+                    { error: "aiAssistWeight and problemSolvingWeight cannot sum to more than 100" },
+                    { status: 400 }
+                );
+            }
+        }
+
         // Validate thresholds are sensible
         if (
             body.iterationSpeedThresholdModerate !== undefined &&
