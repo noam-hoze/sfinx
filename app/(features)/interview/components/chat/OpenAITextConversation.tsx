@@ -50,8 +50,10 @@ import {
 } from "../../../../shared/services";
 import { formatInitialTaskMessage } from "@/shared/utils/formatTaskMessage";
 import {
+  getPasteEvalConversation,
   getPasteClarificationCount,
   getUpdatedPasteAnswerCount,
+  hasFinalizedPasteEvaluation,
   shouldClearStuckPasteEvaluation,
 } from "@/shared/utils/pasteEvaluationState";
 
@@ -235,6 +237,10 @@ const OpenAITextConversation = forwardRef<any, Props>(
       savingRef.current = true;
       try {
         const hasPartialAnswers = activePasteEval.questionScores && activePasteEval.questionScores.length > 0;
+        const pasteTranscript = getPasteEvalConversation(
+          codingState.messages,
+          activePasteEval.timestamp
+        );
         const ts = aiQuestionTimestampRef.current;
         if (!ts) {
           log.error(LOG_CATEGORY, "[paste_eval][flush] aiQuestionTimestampRef is null — skipping DB save");
@@ -278,6 +284,40 @@ const OpenAITextConversation = forwardRef<any, Props>(
             accountabilityScore: avgScore,
             reasoning: evaluation,
             caption: evaluation,
+          };
+
+          const resp = await fetch(`/api/interviews/session/${sessionId}/external-tools`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(dbPayload),
+          });
+          if (resp.ok) savedToDbRef.current = true;
+          else log.error(LOG_CATEGORY, "[paste_eval][flush] API error:", resp.status);
+        } else if (hasFinalizedPasteEvaluation(activePasteEval)) {
+          const finalScore =
+            activePasteEval.accountabilityScore ??
+            activePasteEval.pasteAccountabilityScore;
+          const evaluation =
+            activePasteEval.evaluationReasoning ||
+            activePasteEval.evaluationCaption ||
+            "Paste evaluation ended before a full score breakdown was stored.";
+          const caption = activePasteEval.evaluationCaption || evaluation;
+          const understanding =
+            finalScore >= 80 ? "full" : finalScore >= 50 ? "partial" : "none";
+          const dbPayload = {
+            timestamp: activePasteEval.timestamp,
+            pastedContent: activePasteEval.pastedContent,
+            characterCount: activePasteEval.pastedContent.length,
+            aiQuestion:
+              pasteTranscript.aiQuestions ||
+              activePasteEval.currentQuestion ||
+              "Paste follow-up unavailable",
+            aiQuestionTimestamp: ts,
+            userAnswer: pasteTranscript.userAnswers || "",
+            understanding,
+            accountabilityScore: finalScore,
+            reasoning: evaluation,
+            caption,
           };
 
           const resp = await fetch(`/api/interviews/session/${sessionId}/external-tools`, {
@@ -715,14 +755,26 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
             // Build paste evaluation prompt with CONTROL format
             // Get raw messages directly from store (not filtered by buildControlContextMessages)
             const rawMessages = store.getState().coding.messages;
-            
-            // Only get paste eval messages AFTER the paste timestamp
-            const pasteConversation = rawMessages
-              .filter(m => m.isPasteEval && m.timestamp >= activePasteEval.timestamp)
-              .map(m => ({
-                role: m.speaker === "user" ? "user" as const : "assistant" as const,
-                content: m.text,
+            const endPasteEvaluationWithError = (message: string) => {
+              post(message, "ai");
+              if ((window as any).__clearPasteHighlight) {
+                (window as any).__clearPasteHighlight();
+              }
+              clearPendingState();
+              dispatch(setPasteEvaluationSummary({
+                reasoning: message,
+                caption: message,
+                finalScore:
+                  activePasteEval.accountabilityScore ??
+                  activePasteEval.pasteAccountabilityScore,
               }));
+              dispatch(completePasteEvaluation());
+              setInputLocked?.(false);
+            };
+            const { conversation: pasteConversation } = getPasteEvalConversation(
+              rawMessages,
+              activePasteEval.timestamp
+            );
             
             try {
               /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval][conversation_extracted]", {
@@ -818,18 +870,7 @@ Generate your question now:`;
             if (lastQuestion && lastAnswer && !questionScore) {
               /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval] Missing Q&A classification");
               const pasteEvalErrorMessage = "I hit a problem evaluating that pasted-code answer, so I'm ending this follow-up and returning to your implementation.";
-              post(pasteEvalErrorMessage, "ai");
-              if ((window as any).__clearPasteHighlight) {
-                (window as any).__clearPasteHighlight();
-              }
-              clearPendingState();
-              dispatch(setPasteEvaluationSummary({
-                reasoning: pasteEvalErrorMessage,
-                caption: pasteEvalErrorMessage,
-                finalScore: activePasteEval.pasteAccountabilityScore,
-              }));
-              dispatch(completePasteEvaluation());
-              setInputLocked?.(false);
+              endPasteEvaluationWithError(pasteEvalErrorMessage);
               return;
             }
             
@@ -933,11 +974,20 @@ The candidate did not understand the question and asked for clarification.
 
 Rephrase the original question in a simpler, clearer way (1-2 sentences max). Be warm and encouraging. Do not ask a completely new question — just clarify what was already asked.`;
 
-              const clarificationReply = await askViaChatCompletion(clarificationPrompt, []);
-              if (clarificationReply) {
-                post(clarificationReply, "ai", { isPasteEval: true, pasteEvaluationId: activePasteEval.pasteEvaluationId });
-                dispatch(setPasteQuestion(clarificationReply));
+              let clarificationReply: string | null = null;
+              try {
+                clarificationReply = await askViaChatCompletion(clarificationPrompt, []);
+              } catch (error) {
+                log.error(LOG_CATEGORY, "[paste_eval][clarification_failed]", error);
               }
+              if (!clarificationReply) {
+                endPasteEvaluationWithError(
+                  "I hit a problem rephrasing that pasted-code question, so I'm ending this follow-up and returning to your implementation."
+                );
+                return;
+              }
+              post(clarificationReply, "ai", { isPasteEval: true, pasteEvaluationId: activePasteEval.pasteEvaluationId });
+              dispatch(setPasteQuestion(clarificationReply));
               clearPendingState();
             } else {
               // Continue evaluation - generate next question from OpenAI
@@ -948,14 +998,20 @@ Rephrase the original question in a simpler, clearer way (1-2 sentences max). Be
               }));
               
               // Generate AI follow-up question
-              const aiQuestion = await askViaChatCompletion(
-                pasteEvalPrompt,
-                historyMessages
-              );
+              let aiQuestion: string | null = null;
+              try {
+                aiQuestion = await askViaChatCompletion(
+                  pasteEvalPrompt,
+                  historyMessages
+                );
+              } catch (error) {
+                log.error(LOG_CATEGORY, "[paste_eval][followup_failed]", error);
+              }
               
               if (!aiQuestion) {
-                clearPendingState();
-                setInputLocked?.(false);
+                endPasteEvaluationWithError(
+                  "I hit a problem generating the next pasted-code follow-up, so I'm ending this follow-up and returning to your implementation."
+                );
                 return;
               }
               

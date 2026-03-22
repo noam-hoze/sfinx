@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   getPasteClarificationCount,
+  getPasteEvalConversation,
   getUpdatedPasteAnswerCount,
   hasFinalizedPasteEvaluation,
   isCompletedPasteEvaluation,
@@ -106,5 +107,49 @@ describe("getPasteClarificationCount", () => {
         { detectedAnswerType: "clarification_request" },
       ])
     ).toBe(2);
+  });
+});
+
+describe("getPasteEvalConversation", () => {
+  it("keeps only tagged paste-eval messages from the active paste onward", () => {
+    const transcript = getPasteEvalConversation(
+      [
+        {
+          id: "old-ai",
+          text: "Earlier paste question",
+          speaker: "ai",
+          timestamp: 80,
+          isPasteEval: true,
+        },
+        {
+          id: "coding",
+          text: "How do I center this div?",
+          speaker: "user",
+          timestamp: 120,
+        },
+        {
+          id: "paste-ai",
+          text: "What does this function return?",
+          speaker: "ai",
+          timestamp: 150,
+          isPasteEval: true,
+        },
+        {
+          id: "paste-user",
+          text: "It returns the cached value.",
+          speaker: "user",
+          timestamp: 160,
+          isPasteEval: true,
+        },
+      ],
+      100
+    );
+
+    expect(transcript.conversation).toEqual([
+      { role: "assistant", content: "What does this function return?" },
+      { role: "user", content: "It returns the cached value." },
+    ]);
+    expect(transcript.aiQuestions).toBe("What does this function return?");
+    expect(transcript.userAnswers).toBe("It returns the cached value.");
   });
 });

@@ -1,4 +1,4 @@
-import type { CodingState } from "@/shared/state/slices/codingSlice";
+import type { ChatMessage, CodingState } from "@/shared/state/slices/codingSlice";
 import type { AnswerType } from "@/shared/services/backgroundInterview/answerClassification";
 
 /** Returns true once a paste evaluation has a finalized score or summary. */
@@ -48,4 +48,33 @@ export function getPasteClarificationCount(
   return questionScores?.filter(
     (questionScore) => questionScore.detectedAnswerType === "clarification_request"
   ).length ?? 0;
+}
+
+/** Builds the persisted paste-eval transcript from tagged chat messages. */
+export function getPasteEvalConversation(
+  messages: ChatMessage[],
+  pasteTimestamp: number
+): {
+  conversation: Array<{ role: "user" | "assistant"; content: string }>;
+  aiQuestions: string;
+  userAnswers: string;
+} {
+  const conversation = messages
+    .filter((message) => message.isPasteEval && message.timestamp >= pasteTimestamp)
+    .map((message) => ({
+      role: message.speaker === "user" ? "user" as const : "assistant" as const,
+      content: message.text,
+    }));
+
+  return {
+    conversation,
+    aiQuestions: conversation
+      .filter((message) => message.role === "assistant")
+      .map((message) => message.content)
+      .join("\n"),
+    userAnswers: conversation
+      .filter((message) => message.role === "user")
+      .map((message) => message.content)
+      .join("\n"),
+  };
 }
