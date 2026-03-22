@@ -802,10 +802,31 @@ Generate your question now:`;
                 if (scoreResponse.ok) {
                   questionScore = await scoreResponse.json();
                   /* eslint-disable no-console */ log.info(LOG_CATEGORY, `[paste_eval][Q${nextAnswerCount}_score]`, questionScore);
+                } else {
+                  /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval] Failed to score Q&A response");
                 }
               } catch (e) {
                 /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval] Failed to score Q&A:", e);
               }
+            }
+
+            if (lastQuestion && lastAnswer && !questionScore) {
+              /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval] Missing Q&A classification");
+              const pasteEvalErrorMessage = "I hit a problem evaluating that pasted-code answer, so I'm ending this follow-up and returning to your implementation.";
+              post(pasteEvalErrorMessage, "ai");
+              if ((window as any).__clearPasteHighlight) {
+                (window as any).__clearPasteHighlight();
+              }
+              clearPendingState();
+              dispatch(setPasteEvaluationSummary({
+                reasoning: pasteEvalErrorMessage,
+                caption: pasteEvalErrorMessage,
+                finalScore: activePasteEval.pasteAccountabilityScore,
+              }));
+              dispatch(setPasteReadyToEvaluate(true));
+              dispatch(setPasteQuestion(""));
+              setInputLocked?.(false);
+              return;
             }
             
             // Calculate updated topics first (before checking coverage)
@@ -851,7 +872,7 @@ Generate your question now:`;
             // dont_know: candidate explicitly gave up / said pass / sent gibberish → exit early
             // clarification_request: candidate asked "what do you mean?" → stay in mode, post clarification
             // substantive: candidate engaged with the question → continue probing
-            const detectedAnswerType = questionScore?.detectedAnswerType || "substantive";
+            const detectedAnswerType = questionScore?.detectedAnswerType;
             const candidateExplicitlyGaveUp = detectedAnswerType === "dont_know";
             const candidateAskedClarification = detectedAnswerType === "clarification_request";
             const shouldEvaluate = allTopicsMaximized || questionLimitReached || candidateExplicitlyGaveUp;

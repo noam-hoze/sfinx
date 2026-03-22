@@ -58,21 +58,12 @@ function mockSessionLookup() {
 }
 
 /** Mocks an OpenAI classified question response. */
-function mockCompletion() {
+function mockCompletion(content: Record<string, unknown>) {
     createMock.mockResolvedValue({
         choices: [{
             finish_reason: "stop",
             message: {
-                content: JSON.stringify({
-                    detectedAnswerType: "substantive",
-                    question: "What specifically ruled out a write-through cache here?",
-                    probeAngle: "tradeoff",
-                    fingerprint: {
-                        topic: "Distributed Systems",
-                        angle: "tradeoff",
-                        slot: "tradeoff_choice",
-                    },
-                }),
+                content: JSON.stringify(content),
             },
         }],
     });
@@ -89,7 +80,16 @@ beforeEach(() => {
 describe("POST /api/interviews/next-question", () => {
     it("returns detectedAnswerType for substantive probe tracking", async () => {
         mockSessionLookup();
-        mockCompletion();
+        mockCompletion({
+            detectedAnswerType: "substantive",
+            question: "What specifically ruled out a write-through cache here?",
+            probeAngle: "tradeoff",
+            fingerprint: {
+                topic: "Distributed Systems",
+                angle: "tradeoff",
+                slot: "tradeoff_choice",
+            },
+        });
 
         const response = await POST(makeRequest(requestBody));
         const body = await response.json();
@@ -102,5 +102,109 @@ describe("POST /api/interviews/next-question", () => {
             angle: "tradeoff",
             slot: "tradeoff_choice",
         });
+    });
+
+    it("keeps the current focus topic for clarification retries", async () => {
+        mockSessionLookup();
+        mockCompletion({
+            detectedAnswerType: "clarification_request",
+            question: "Can you walk me through how that cache worked in practice?",
+        });
+
+        const response = await POST(makeRequest({
+            ...requestBody,
+            currentFocusTopic: "Algorithms",
+            experienceCategories: [{ name: "Algorithms" }, { name: "Distributed Systems" }],
+            currentCounts: [
+                { categoryName: "Algorithms", count: 0, avgStrength: 20, dontKnowCount: 0 },
+                { categoryName: "Distributed Systems", count: 2, avgStrength: 90, dontKnowCount: 0 },
+            ],
+        }));
+        const body = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(body.detectedAnswerType).toBe("clarification_request");
+        expect(body.newFocusTopic).toBe("Algorithms");
+        expect(body.probeAngle).toBeNull();
+        expect(body.fingerprint).toBeNull();
+        expect(body.shouldIncrementRetry).toBe(true);
+    });
+
+    it("advances to the next focus topic after an explicit skip", async () => {
+        mockSessionLookup();
+        mockCompletion({
+            detectedAnswerType: "dont_know",
+            question: "No problem. Let's talk about Distributed Systems instead.",
+        });
+
+        const response = await POST(makeRequest({
+            ...requestBody,
+            currentFocusTopic: "Algorithms",
+            experienceCategories: [{ name: "Algorithms" }, { name: "Distributed Systems" }],
+            currentCounts: [
+                { categoryName: "Algorithms", count: 0, avgStrength: 20, dontKnowCount: 0 },
+                { categoryName: "Distributed Systems", count: 2, avgStrength: 90, dontKnowCount: 0 },
+            ],
+        }));
+        const body = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(body.detectedAnswerType).toBe("dont_know");
+        expect(body.newFocusTopic).toBe("Distributed Systems");
+        expect(body.shouldMoveOn).toBe(false);
+    });
+
+    it("rejects substantive responses without probe metadata", async () => {
+        mockSessionLookup();
+        mockCompletion({
+            detectedAnswerType: "substantive",
+            question: "What ruled out write-through?",
+        });
+
+        const response = await POST(makeRequest(requestBody));
+        const body = await response.json();
+
+        expect(response.status).toBe(500);
+        expect(body.error).toContain("Substantive response missing probe metadata");
+    });
+
+    it("rejects substantive responses with malformed fingerprint slots", async () => {
+        mockSessionLookup();
+        mockCompletion({
+            detectedAnswerType: "substantive",
+            question: "What ruled out write-through?",
+            probeAngle: "tradeoff",
+            fingerprint: {
+                topic: "Distributed Systems",
+                angle: "tradeoff",
+                slot: true,
+            },
+        });
+
+        const response = await POST(makeRequest(requestBody));
+        const body = await response.json();
+
+        expect(response.status).toBe(500);
+        expect(body.error).toContain("Substantive response has inconsistent probe metadata");
+    });
+
+    it("rejects non-substantive responses with probe metadata", async () => {
+        mockSessionLookup();
+        mockCompletion({
+            detectedAnswerType: "clarification_request",
+            question: "Let me rephrase that.",
+            probeAngle: "tradeoff",
+            fingerprint: {
+                topic: "Distributed Systems",
+                angle: "tradeoff",
+                slot: "tradeoff_choice",
+            },
+        });
+
+        const response = await POST(makeRequest(requestBody));
+        const body = await response.json();
+
+        expect(response.status).toBe(500);
+        expect(body.error).toContain("Non-substantive response must not include probe metadata");
     });
 });
