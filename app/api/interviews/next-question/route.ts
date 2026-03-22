@@ -11,6 +11,7 @@ import {
     shouldIncrementRetryCounter,
     shouldMoveToNextQuestion,
     type AnswerType,
+    type ProbeAngle,
     type ClassifiedQuestionResponse
 } from "shared/services/backgroundInterview/answerClassification";
 
@@ -19,6 +20,78 @@ const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
+
+/** Validates answer-type values returned by OpenAI. */
+function isAnswerType(value: unknown): value is AnswerType {
+    return value === "clarification_request" || value === "dont_know" || value === "substantive";
+}
+
+/** Validates probe-angle values returned by OpenAI. */
+function isProbeAngle(value: unknown): value is ProbeAngle {
+    return value === "implementation" ||
+        value === "sizing" ||
+        value === "correctness" ||
+        value === "measurement" ||
+        value === "observed_evidence" ||
+        value === "failure_mode" ||
+        value === "tradeoff" ||
+        value === "redesign";
+}
+
+/** Validates constrained fingerprint slot values returned by OpenAI. */
+function isProbeSlot(value: unknown): value is string {
+    return value === "actual_number" ||
+        value === "sizing_method" ||
+        value === "overflow_policy" ||
+        value === "observed_result" ||
+        value === "instrumentation_tool" ||
+        value === "failure_case" ||
+        value === "concurrency_model" ||
+        value === "ownership_rule" ||
+        value === "deferred_work" ||
+        value === "payload_shape" ||
+        value === "tradeoff_choice" ||
+        value === "redesign_point";
+}
+
+/** Ensures the OpenAI response matches the caller contract. */
+function validateClassifiedResponse(result: ClassifiedQuestionResponse, expectedTopic: string) {
+    if (!isAnswerType(result.detectedAnswerType) || typeof result.question !== "string" || !result.question.trim()) {
+        throw new Error("OpenAI response missing required fields");
+    }
+
+    if (result.detectedAnswerType === "substantive") {
+        if (!isProbeAngle(result.probeAngle) || !result.fingerprint) {
+            throw new Error("Substantive response missing probe metadata");
+        }
+
+        if (
+            result.fingerprint.topic !== expectedTopic ||
+            result.fingerprint.angle !== result.probeAngle ||
+            !isProbeSlot(result.fingerprint.slot)
+        ) {
+            throw new Error("Substantive response has inconsistent probe metadata");
+        }
+        return;
+    }
+
+    if (result.probeAngle != null || result.fingerprint != null) {
+        throw new Error("Non-substantive response must not include probe metadata");
+    }
+}
+
+/** Keeps clarification retries pinned to the current topic. */
+function getResponseFocusTopic(
+    answerType: AnswerType,
+    currentFocusTopic: string | undefined,
+    nextFocusTopic: string,
+    shouldMoveOn: boolean
+): string {
+    if (answerType === "clarification_request" && !shouldMoveOn && currentFocusTopic) {
+        return currentFocusTopic;
+    }
+    return nextFocusTopic;
+}
 
 /**
  * POST /api/interviews/next-question
@@ -252,12 +325,11 @@ export async function POST(request: NextRequest) {
             },
         ];
 
-        console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log("→ OpenAI Request [next-question]");
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log("Model:", evaluationModel);
-        console.log("\nSystem:", messages[0].content);
-        console.log("\nUser Prompt:", messages[1].content);
+        log.info(LOG_CATEGORY, "[next-question] OpenAI request", {
+            model: evaluationModel,
+            focusTopic: newFocusTopic,
+            retryCount,
+        });
 
         const startTime = Date.now();
         const completion = await openai.chat.completions.create({
@@ -270,12 +342,11 @@ export async function POST(request: NextRequest) {
 
         const responseText = completion.choices[0]?.message?.content;
         const finishReason = completion.choices[0]?.finish_reason;
-        console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log("← OpenAI Response [next-question]");
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        console.log(`Latency: ${elapsed}ms | finish_reason: ${finishReason}`);
-        console.log("Raw responseText:", responseText);
-        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n");
+        log.info(LOG_CATEGORY, "[next-question] OpenAI response", {
+            latencyMs: elapsed,
+            finishReason,
+            hasResponseText: Boolean(responseText),
+        });
 
         if (!responseText) {
             throw new Error(`OpenAI returned empty response (finish_reason: ${finishReason})`);
@@ -288,10 +359,7 @@ export async function POST(request: NextRequest) {
             throw new Error(`JSON parse failed. finish_reason=${finishReason}, raw=${responseText}`);
         }
 
-        // Validate response structure
-        if (!result.detectedAnswerType || !result.question) {
-            throw new Error("OpenAI response missing required fields");
-        }
+        validateClassifiedResponse(result, newFocusTopic);
 
         // Derive classification flags from OpenAI's judgment (single source of truth)
         const answerType: AnswerType = result.detectedAnswerType;
@@ -299,20 +367,27 @@ export async function POST(request: NextRequest) {
         const isDontKnow = answerType === 'dont_know';
         const shouldIncrementRetry = shouldIncrementRetryCounter(answerType, retryCount, CLARIFICATION_THRESHOLD);
         const shouldMoveOn = shouldMoveToNextQuestion(answerType, retryCount, CLARIFICATION_THRESHOLD);
+        const responseFocusTopic = getResponseFocusTopic(
+            answerType,
+            currentFocusTopic,
+            newFocusTopic,
+            shouldMoveOn
+        );
 
         log.info(LOG_CATEGORY, `[next-question] Classification: ${answerType}, Question generated in ${elapsed}ms`);
 
         return NextResponse.json({
             success: true,
+            detectedAnswerType: answerType,
             question: result.question,
-            newFocusTopic,
+            newFocusTopic: responseFocusTopic,
             isGibberish,
             isClarificationRequest,
             isDontKnow,
             shouldIncrementRetry,
             shouldMoveOn,
-            probeAngle: result.probeAngle ?? null,
-            fingerprint: result.fingerprint ?? null,
+            probeAngle: answerType === "substantive" ? result.probeAngle : null,
+            fingerprint: answerType === "substantive" ? result.fingerprint : null,
             latencyMs: elapsed, // For monitoring
         });
     } catch (error) {
