@@ -592,11 +592,11 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
         // Check if we're in active paste evaluation to tag message
         const codingState = store.getState().coding;
         const activePasteEval = codingState.activePasteEvaluation;
-        const isPasteEvalActive = !!activePasteEval;
+        const isPasteEvalActive = Boolean(activePasteEval?.currentQuestion);
         
         post(text, "user", { 
           isPasteEval: isPasteEvalActive,
-          pasteEvaluationId: activePasteEval?.pasteEvaluationId,
+          pasteEvaluationId: isPasteEvalActive ? activePasteEval?.pasteEvaluationId : undefined,
         });
         // Lock input when user sends message
         setInputLocked?.(true);

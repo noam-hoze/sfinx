@@ -31,12 +31,31 @@ function hasValidScore(answerType: AnswerType, score: number): boolean {
     return true;
 }
 
-/** Validates the topic list returned for phase-2 coverage updates. */
-function hasValidTopicsAddressed(answerType: AnswerType, topics: unknown, validTopics: string[]): boolean {
+/** Trims OpenAI topic labels before contract comparison. */
+function normalizeTopicLabel(topic: string): string {
+    return topic.trim();
+}
+
+/** Maps returned topic labels onto the canonical phase-2 topic keys. */
+function getCanonicalTopicsAddressed(topics: unknown, validTopics: string[]): string[] | null {
     if (!Array.isArray(topics)) {
-        return false;
+        return null;
     }
-    return topics.every((topic) => typeof topic === "string" && validTopics.includes(topic));
+
+    const canonicalTopics = new Map(
+        validTopics.map((topic) => [normalizeTopicLabel(topic), topic])
+    );
+
+    const normalizedTopics = topics.map((topic) => {
+        if (typeof topic !== "string") {
+            return null;
+        }
+        return canonicalTopics.get(normalizeTopicLabel(topic)) ?? null;
+    });
+
+    return normalizedTopics.every((topic): topic is string => typeof topic === "string")
+        ? normalizedTopics
+        : null;
 }
 
 export async function POST(request: NextRequest) {
@@ -110,6 +129,8 @@ Only score if detectedAnswerType is "substantive". If "dont_know" or "clarificat
 
 **Step 3 – Identify topics addressed:**
 Identify which topics the answer attempts to address. Include even vague or incorrect attempts.
+Use ONLY topic names from "Current Topic Coverage".
+Copy each topic name exactly as written. Do not rename, abbreviate, pluralize, or invent topics.
 
 Return ONLY valid JSON with this exact structure:
 {
@@ -189,9 +210,11 @@ Return ONLY valid JSON with this exact structure:
         // Validate Phase 2 fields if topics were provided
         if (hasTopics) {
             const validTopics = Object.keys(currentTopicCoverage);
-            if (!hasValidTopicsAddressed(result.detectedAnswerType, result.topicsAddressed, validTopics)) {
+            const canonicalTopicsAddressed = getCanonicalTopicsAddressed(result.topicsAddressed, validTopics);
+            if (!canonicalTopicsAddressed) {
                 throw new Error("Invalid response structure: missing topicsAddressed");
             }
+            result.topicsAddressed = canonicalTopicsAddressed;
             // Add metadata fields if not present (backward compatible)
             if (typeof result.questionCount !== 'number') {
                 result.questionCount = questionNumber || 1;

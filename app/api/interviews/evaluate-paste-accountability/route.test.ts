@@ -111,6 +111,28 @@ describe("POST /api/interviews/evaluate-paste-accountability", () => {
         expect(body.details).toContain("Invalid response structure from OpenAI");
     });
 
+    it("reuses canonical topic names from current coverage", async () => {
+        mockCompletion({
+            detectedAnswerType: "substantive",
+            score: 70,
+            reasoning: "The answer partially covered parsing concerns.",
+            understandingLevel: "partial",
+            topicsAddressed: [" Parsing "],
+        });
+
+        const response = await POST(makeRequest({
+            ...requestBody,
+            currentTopicCoverage: { Parsing: 0 },
+        }));
+        const body = await response.json();
+        const systemPrompt = createMock.mock.calls[0][0].messages[0].content;
+
+        expect(response.status).toBe(200);
+        expect(body.topicsAddressed).toEqual(["Parsing"]);
+        expect(systemPrompt).toContain('Use ONLY topic names from "Current Topic Coverage".');
+        expect(systemPrompt).toContain("Copy each topic name exactly as written.");
+    });
+
     it("rejects malformed topic coverage updates", async () => {
         mockCompletion({
             detectedAnswerType: "substantive",
