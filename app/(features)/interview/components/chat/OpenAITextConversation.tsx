@@ -25,6 +25,7 @@ import {
   setPasteQuestion,
   setPasteScore,
   setPasteReadyToEvaluate,
+  completePasteEvaluation,
   updatePasteTopics,
   updatePasteQuestionScores,
   setPasteEvaluationSummary,
@@ -48,6 +49,13 @@ import {
   CONTROL_CONTEXT_TURNS,
 } from "../../../../shared/services";
 import { formatInitialTaskMessage } from "@/shared/utils/formatTaskMessage";
+import {
+  getPasteEvalConversation,
+  getPasteClarificationCount,
+  getUpdatedPasteAnswerCount,
+  hasFinalizedPasteEvaluation,
+  shouldClearStuckPasteEvaluation,
+} from "@/shared/utils/pasteEvaluationState";
 
 // Paste evaluation constants
 const MAX_NUM_OF_TOPICS = 4; // Cap topics to ensure reasonable evaluation length
@@ -225,11 +233,14 @@ const OpenAITextConversation = forwardRef<any, Props>(
       const sessionId = store.getState().interview.sessionId;
 
       if (!activePasteEval || !sessionId) return;
-      if (activePasteEval.accountabilityScore !== undefined) return;
 
       savingRef.current = true;
       try {
         const hasPartialAnswers = activePasteEval.questionScores && activePasteEval.questionScores.length > 0;
+        const pasteTranscript = getPasteEvalConversation(
+          codingState.messages,
+          activePasteEval.timestamp
+        );
         const ts = aiQuestionTimestampRef.current;
         if (!ts) {
           log.error(LOG_CATEGORY, "[paste_eval][flush] aiQuestionTimestampRef is null — skipping DB save");
@@ -282,13 +293,47 @@ const OpenAITextConversation = forwardRef<any, Props>(
           });
           if (resp.ok) savedToDbRef.current = true;
           else log.error(LOG_CATEGORY, "[paste_eval][flush] API error:", resp.status);
+        } else if (hasFinalizedPasteEvaluation(activePasteEval)) {
+          const finalScore =
+            activePasteEval.accountabilityScore ??
+            activePasteEval.pasteAccountabilityScore;
+          const evaluation =
+            activePasteEval.evaluationReasoning ||
+            activePasteEval.evaluationCaption ||
+            "Paste evaluation ended before a full score breakdown was stored.";
+          const caption = activePasteEval.evaluationCaption || evaluation;
+          const understanding =
+            finalScore >= 80 ? "full" : finalScore >= 50 ? "partial" : "none";
+          const dbPayload = {
+            timestamp: activePasteEval.timestamp,
+            pastedContent: activePasteEval.pastedContent,
+            characterCount: activePasteEval.pastedContent.length,
+            aiQuestion:
+              pasteTranscript.aiQuestions ||
+              activePasteEval.currentQuestion ||
+              "Paste follow-up unavailable",
+            aiQuestionTimestamp: ts,
+            userAnswer: pasteTranscript.userAnswers || "",
+            understanding,
+            accountabilityScore: finalScore,
+            reasoning: evaluation,
+            caption,
+          };
+
+          const resp = await fetch(`/api/interviews/session/${sessionId}/external-tools`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(dbPayload),
+          });
+          if (resp.ok) savedToDbRef.current = true;
+          else log.error(LOG_CATEGORY, "[paste_eval][flush] API error:", resp.status);
         } else {
           const evaluation = "The candidate did not respond to questions about the pasted code.";
           const dbPayload = {
             timestamp: activePasteEval.timestamp,
             pastedContent: activePasteEval.pastedContent,
             characterCount: activePasteEval.pastedContent.length,
-            aiQuestion: activePasteEval.topics?.map((t: any) => t.question).join("\n") || "No response provided",
+            aiQuestion: activePasteEval.currentQuestion || "No response provided",
             aiQuestionTimestamp: ts,
             userAnswer: "",
             understanding: "none",
@@ -592,11 +637,11 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
         // Check if we're in active paste evaluation to tag message
         const codingState = store.getState().coding;
         const activePasteEval = codingState.activePasteEvaluation;
-        const isPasteEvalActive = !!activePasteEval;
+        const isPasteEvalActive = Boolean(activePasteEval?.currentQuestion);
         
         post(text, "user", { 
           isPasteEval: isPasteEvalActive,
-          pasteEvaluationId: activePasteEval?.pasteEvaluationId,
+          pasteEvaluationId: isPasteEvalActive ? activePasteEval?.pasteEvaluationId : undefined,
         });
         // Lock input when user sends message
         setInputLocked?.(true);
@@ -683,11 +728,11 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
           const codingState = store.getState().coding;
           const activePasteEval = codingState.activePasteEvaluation;
           
-          // If paste eval exists but no question was ever posted, it's stuck - clear it
-          if (activePasteEval && !activePasteEval.currentQuestion) {
+          // Only clear orphaned paste-eval state; completed evaluations keep their summary data.
+          if (shouldClearStuckPasteEvaluation(activePasteEval)) {
             dispatch(clearPasteEvaluation());
             // Continue to normal coding chat flow
-          } else if (activePasteEval) {
+          } else if (activePasteEval?.currentQuestion) {
             // Handle paste evaluation flow with CONTROL messages
             // Increment answer count AFTER user answers
             const nextAnswerCount = activePasteEval.answerCount + 1;
@@ -710,14 +755,26 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
             // Build paste evaluation prompt with CONTROL format
             // Get raw messages directly from store (not filtered by buildControlContextMessages)
             const rawMessages = store.getState().coding.messages;
-            
-            // Only get paste eval messages AFTER the paste timestamp
-            const pasteConversation = rawMessages
-              .filter(m => m.isPasteEval && m.timestamp >= activePasteEval.timestamp)
-              .map(m => ({
-                role: m.speaker === "user" ? "user" as const : "assistant" as const,
-                content: m.text,
+            const endPasteEvaluationWithError = (message: string) => {
+              post(message, "ai");
+              if ((window as any).__clearPasteHighlight) {
+                (window as any).__clearPasteHighlight();
+              }
+              clearPendingState();
+              dispatch(setPasteEvaluationSummary({
+                reasoning: message,
+                caption: message,
+                finalScore:
+                  activePasteEval.accountabilityScore ??
+                  activePasteEval.pasteAccountabilityScore,
               }));
+              dispatch(completePasteEvaluation());
+              setInputLocked?.(false);
+            };
+            const { conversation: pasteConversation } = getPasteEvalConversation(
+              rawMessages,
+              activePasteEval.timestamp
+            );
             
             try {
               /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval][conversation_extracted]", {
@@ -802,10 +859,19 @@ Generate your question now:`;
                 if (scoreResponse.ok) {
                   questionScore = await scoreResponse.json();
                   /* eslint-disable no-console */ log.info(LOG_CATEGORY, `[paste_eval][Q${nextAnswerCount}_score]`, questionScore);
+                } else {
+                  /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval] Failed to score Q&A response");
                 }
               } catch (e) {
                 /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval] Failed to score Q&A:", e);
               }
+            }
+
+            if (lastQuestion && lastAnswer && !questionScore) {
+              /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval] Missing Q&A classification");
+              const pasteEvalErrorMessage = "I hit a problem evaluating that pasted-code answer, so I'm ending this follow-up and returning to your implementation.";
+              endPasteEvaluationWithError(pasteEvalErrorMessage);
+              return;
             }
             
             // Calculate updated topics first (before checking coverage)
@@ -813,6 +879,7 @@ Generate your question now:`;
             const enhancedQuestionScore = questionScore ? {
               question: lastQuestion,
               answer: lastAnswer,
+              detectedAnswerType: questionScore.detectedAnswerType,
               score: questionScore.score,
               reasoning: questionScore.reasoning,
               understandingLevel: questionScore.understandingLevel,
@@ -846,15 +913,27 @@ Generate your question now:`;
             
             // Check if all topics are covered using the UPDATED topics
             const allTopicsMaximized = updatedTopics.length > 0 && updatedTopics.every(t => t.percentage === 100);
-            const questionLimitReached = nextAnswerCount >= questionsLimit;
             // Use OpenAI's judgment of answer intent — not a hardcoded string match.
             // dont_know: candidate explicitly gave up / said pass / sent gibberish → exit early
             // clarification_request: candidate asked "what do you mean?" → stay in mode, post clarification
             // substantive: candidate engaged with the question → continue probing
-            const detectedAnswerType = questionScore?.detectedAnswerType || "substantive";
+            const detectedAnswerType = questionScore?.detectedAnswerType;
             const candidateExplicitlyGaveUp = detectedAnswerType === "dont_know";
             const candidateAskedClarification = detectedAnswerType === "clarification_request";
-            const shouldEvaluate = allTopicsMaximized || questionLimitReached || candidateExplicitlyGaveUp;
+            const updatedAnswerCount = getUpdatedPasteAnswerCount(
+              activePasteEval.answerCount,
+              detectedAnswerType
+            );
+            const clarificationTurnCount = getPasteClarificationCount(updatedScores);
+            const questionLimitReached = updatedAnswerCount >= questionsLimit;
+            const clarificationLimitReached =
+              candidateAskedClarification && clarificationTurnCount >= questionsLimit;
+            const shouldEvaluate =
+              allTopicsMaximized ||
+              questionLimitReached ||
+              candidateExplicitlyGaveUp ||
+              clarificationLimitReached;
+            const shouldIncrementAnswerCount = updatedAnswerCount > activePasteEval.answerCount;
             
             // If evaluation complete, post static message and exit
             if (shouldEvaluate) {
@@ -869,7 +948,13 @@ Generate your question now:`;
               try {
                 /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval][acknowledgment_sent]", {
                   text: exitMessage,
-                  reason: allTopicsMaximized ? "all_topics_100" : questionLimitReached ? "question_limit" : "candidate_gave_up"
+                  reason: allTopicsMaximized
+                    ? "all_topics_100"
+                    : questionLimitReached
+                      ? "question_limit"
+                      : clarificationLimitReached
+                        ? "clarification_limit"
+                        : "candidate_gave_up"
                 });
               } catch {}
               
@@ -889,10 +974,20 @@ The candidate did not understand the question and asked for clarification.
 
 Rephrase the original question in a simpler, clearer way (1-2 sentences max). Be warm and encouraging. Do not ask a completely new question — just clarify what was already asked.`;
 
-              const clarificationReply = await askViaChatCompletion(clarificationPrompt, []);
-              if (clarificationReply) {
-                post(clarificationReply, "ai", { isPasteEval: true, pasteEvaluationId: activePasteEval.pasteEvaluationId });
+              let clarificationReply: string | null = null;
+              try {
+                clarificationReply = await askViaChatCompletion(clarificationPrompt, []);
+              } catch (error) {
+                log.error(LOG_CATEGORY, "[paste_eval][clarification_failed]", error);
               }
+              if (!clarificationReply) {
+                endPasteEvaluationWithError(
+                  "I hit a problem rephrasing that pasted-code question, so I'm ending this follow-up and returning to your implementation."
+                );
+                return;
+              }
+              post(clarificationReply, "ai", { isPasteEval: true, pasteEvaluationId: activePasteEval.pasteEvaluationId });
+              dispatch(setPasteQuestion(clarificationReply));
               clearPendingState();
             } else {
               // Continue evaluation - generate next question from OpenAI
@@ -903,14 +998,20 @@ Rephrase the original question in a simpler, clearer way (1-2 sentences max). Be
               }));
               
               // Generate AI follow-up question
-              const aiQuestion = await askViaChatCompletion(
-                pasteEvalPrompt,
-                historyMessages
-              );
+              let aiQuestion: string | null = null;
+              try {
+                aiQuestion = await askViaChatCompletion(
+                  pasteEvalPrompt,
+                  historyMessages
+                );
+              } catch (error) {
+                log.error(LOG_CATEGORY, "[paste_eval][followup_failed]", error);
+              }
               
               if (!aiQuestion) {
-                clearPendingState();
-                setInputLocked?.(false);
+                endPasteEvaluationWithError(
+                  "I hit a problem generating the next pasted-code follow-up, so I'm ending this follow-up and returning to your implementation."
+                );
                 return;
               }
               
@@ -920,6 +1021,7 @@ Rephrase the original question in a simpler, clearer way (1-2 sentences max). Be
               
               // Post follow-up question - keep green highlighting
               post(aiQuestion, "ai", { isPasteEval: true, pasteEvaluationId: activePasteEval.pasteEvaluationId });
+              dispatch(setPasteQuestion(aiQuestion));
               clearPendingState();
             }
             
@@ -937,8 +1039,10 @@ Rephrase the original question in a simpler, clearer way (1-2 sentences max). Be
             } catch {}
             
             dispatch(setPasteScore(calculatedScore));
-            dispatch(incrementPasteAnswer());
-            dispatch(setPasteReadyToEvaluate(shouldEvaluate));
+            if (shouldIncrementAnswerCount) {
+              dispatch(incrementPasteAnswer());
+            }
+            dispatch(shouldEvaluate ? completePasteEvaluation() : setPasteReadyToEvaluate(false));
             dispatch(updatePasteQuestionScores(updatedScores));
             if (updatedTopics.length > 0) {
               dispatch(updatePasteTopics(updatedTopics));
@@ -1039,10 +1143,6 @@ Rephrase the original question in a simpler, clearer way (1-2 sentences max). Be
                     .map(m => m.content)
                     .join(" ");
                   
-                  // Update debug panel with final evaluation
-                  dispatch(setPasteScore(avgScore));
-                  dispatch(incrementPasteAnswer());
-                  dispatch(setPasteReadyToEvaluate(true));
                   dispatch(setPasteEvaluationSummary({
                     reasoning: evaluation.reasoning,
                     caption: evaluation.caption,
