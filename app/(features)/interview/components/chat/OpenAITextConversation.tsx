@@ -25,6 +25,7 @@ import {
   setPasteQuestion,
   setPasteScore,
   setPasteReadyToEvaluate,
+  completePasteEvaluation,
   updatePasteTopics,
   updatePasteQuestionScores,
   setPasteEvaluationSummary,
@@ -823,8 +824,7 @@ Generate your question now:`;
                 caption: pasteEvalErrorMessage,
                 finalScore: activePasteEval.pasteAccountabilityScore,
               }));
-              dispatch(setPasteReadyToEvaluate(true));
-              dispatch(setPasteQuestion(""));
+              dispatch(completePasteEvaluation());
               setInputLocked?.(false);
               return;
             }
@@ -913,6 +913,7 @@ Rephrase the original question in a simpler, clearer way (1-2 sentences max). Be
               const clarificationReply = await askViaChatCompletion(clarificationPrompt, []);
               if (clarificationReply) {
                 post(clarificationReply, "ai", { isPasteEval: true, pasteEvaluationId: activePasteEval.pasteEvaluationId });
+                dispatch(setPasteQuestion(clarificationReply));
               }
               clearPendingState();
             } else {
@@ -941,6 +942,7 @@ Rephrase the original question in a simpler, clearer way (1-2 sentences max). Be
               
               // Post follow-up question - keep green highlighting
               post(aiQuestion, "ai", { isPasteEval: true, pasteEvaluationId: activePasteEval.pasteEvaluationId });
+              dispatch(setPasteQuestion(aiQuestion));
               clearPendingState();
             }
             
@@ -959,7 +961,7 @@ Rephrase the original question in a simpler, clearer way (1-2 sentences max). Be
             
             dispatch(setPasteScore(calculatedScore));
             dispatch(incrementPasteAnswer());
-            dispatch(setPasteReadyToEvaluate(shouldEvaluate));
+            dispatch(shouldEvaluate ? completePasteEvaluation() : setPasteReadyToEvaluate(false));
             dispatch(updatePasteQuestionScores(updatedScores));
             if (updatedTopics.length > 0) {
               dispatch(updatePasteTopics(updatedTopics));
@@ -1063,7 +1065,7 @@ Rephrase the original question in a simpler, clearer way (1-2 sentences max). Be
                   // Update debug panel with final evaluation
                   dispatch(setPasteScore(avgScore));
                   dispatch(incrementPasteAnswer());
-                  dispatch(setPasteReadyToEvaluate(true));
+                  dispatch(completePasteEvaluation());
                   dispatch(setPasteEvaluationSummary({
                     reasoning: evaluation.reasoning,
                     caption: evaluation.caption,

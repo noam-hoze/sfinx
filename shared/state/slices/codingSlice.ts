@@ -128,6 +128,11 @@ const codingSlice = createSlice({
             if (!state.activePasteEvaluation) return;
             state.activePasteEvaluation.readyToEvaluate = action.payload;
         },
+        completePasteEvaluation: (state) => {
+            if (!state.activePasteEvaluation) return;
+            state.activePasteEvaluation.readyToEvaluate = true;
+            state.activePasteEvaluation.currentQuestion = undefined;
+        },
         updatePasteTopics: (
             state,
             action: PayloadAction<Array<{
@@ -186,6 +191,7 @@ export const {
     setPasteQuestion,
     setPasteScore,
     setPasteReadyToEvaluate,
+    completePasteEvaluation,
     updatePasteTopics,
     updatePasteQuestionScores,
     setPasteEvaluationSummary,
