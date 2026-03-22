@@ -25,6 +25,7 @@ import {
   setPasteQuestion,
   setPasteScore,
   setPasteReadyToEvaluate,
+  completePasteEvaluation,
   updatePasteTopics,
   updatePasteQuestionScores,
   setPasteEvaluationSummary,
@@ -48,6 +49,7 @@ import {
   CONTROL_CONTEXT_TURNS,
 } from "../../../../shared/services";
 import { formatInitialTaskMessage } from "@/shared/utils/formatTaskMessage";
+import { shouldClearStuckPasteEvaluation } from "@/shared/utils/pasteEvaluationState";
 
 // Paste evaluation constants
 const MAX_NUM_OF_TOPICS = 4; // Cap topics to ensure reasonable evaluation length
@@ -592,11 +594,11 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
         // Check if we're in active paste evaluation to tag message
         const codingState = store.getState().coding;
         const activePasteEval = codingState.activePasteEvaluation;
-        const isPasteEvalActive = !!activePasteEval;
+        const isPasteEvalActive = Boolean(activePasteEval?.currentQuestion);
         
         post(text, "user", { 
           isPasteEval: isPasteEvalActive,
-          pasteEvaluationId: activePasteEval?.pasteEvaluationId,
+          pasteEvaluationId: isPasteEvalActive ? activePasteEval?.pasteEvaluationId : undefined,
         });
         // Lock input when user sends message
         setInputLocked?.(true);
@@ -683,11 +685,11 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
           const codingState = store.getState().coding;
           const activePasteEval = codingState.activePasteEvaluation;
           
-          // If paste eval exists but no question was ever posted, it's stuck - clear it
-          if (activePasteEval && !activePasteEval.currentQuestion) {
+          // Only clear orphaned paste-eval state; completed evaluations keep their summary data.
+          if (shouldClearStuckPasteEvaluation(activePasteEval)) {
             dispatch(clearPasteEvaluation());
             // Continue to normal coding chat flow
-          } else if (activePasteEval) {
+          } else if (activePasteEval?.currentQuestion) {
             // Handle paste evaluation flow with CONTROL messages
             // Increment answer count AFTER user answers
             const nextAnswerCount = activePasteEval.answerCount + 1;
@@ -802,10 +804,30 @@ Generate your question now:`;
                 if (scoreResponse.ok) {
                   questionScore = await scoreResponse.json();
                   /* eslint-disable no-console */ log.info(LOG_CATEGORY, `[paste_eval][Q${nextAnswerCount}_score]`, questionScore);
+                } else {
+                  /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval] Failed to score Q&A response");
                 }
               } catch (e) {
                 /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval] Failed to score Q&A:", e);
               }
+            }
+
+            if (lastQuestion && lastAnswer && !questionScore) {
+              /* eslint-disable no-console */ log.error(LOG_CATEGORY, "[paste_eval] Missing Q&A classification");
+              const pasteEvalErrorMessage = "I hit a problem evaluating that pasted-code answer, so I'm ending this follow-up and returning to your implementation.";
+              post(pasteEvalErrorMessage, "ai");
+              if ((window as any).__clearPasteHighlight) {
+                (window as any).__clearPasteHighlight();
+              }
+              clearPendingState();
+              dispatch(setPasteEvaluationSummary({
+                reasoning: pasteEvalErrorMessage,
+                caption: pasteEvalErrorMessage,
+                finalScore: activePasteEval.pasteAccountabilityScore,
+              }));
+              dispatch(completePasteEvaluation());
+              setInputLocked?.(false);
+              return;
             }
             
             // Calculate updated topics first (before checking coverage)
@@ -851,7 +873,7 @@ Generate your question now:`;
             // dont_know: candidate explicitly gave up / said pass / sent gibberish → exit early
             // clarification_request: candidate asked "what do you mean?" → stay in mode, post clarification
             // substantive: candidate engaged with the question → continue probing
-            const detectedAnswerType = questionScore?.detectedAnswerType || "substantive";
+            const detectedAnswerType = questionScore?.detectedAnswerType;
             const candidateExplicitlyGaveUp = detectedAnswerType === "dont_know";
             const candidateAskedClarification = detectedAnswerType === "clarification_request";
             const shouldEvaluate = allTopicsMaximized || questionLimitReached || candidateExplicitlyGaveUp;
@@ -892,6 +914,7 @@ Rephrase the original question in a simpler, clearer way (1-2 sentences max). Be
               const clarificationReply = await askViaChatCompletion(clarificationPrompt, []);
               if (clarificationReply) {
                 post(clarificationReply, "ai", { isPasteEval: true, pasteEvaluationId: activePasteEval.pasteEvaluationId });
+                dispatch(setPasteQuestion(clarificationReply));
               }
               clearPendingState();
             } else {
@@ -920,6 +943,7 @@ Rephrase the original question in a simpler, clearer way (1-2 sentences max). Be
               
               // Post follow-up question - keep green highlighting
               post(aiQuestion, "ai", { isPasteEval: true, pasteEvaluationId: activePasteEval.pasteEvaluationId });
+              dispatch(setPasteQuestion(aiQuestion));
               clearPendingState();
             }
             
@@ -938,7 +962,7 @@ Rephrase the original question in a simpler, clearer way (1-2 sentences max). Be
             
             dispatch(setPasteScore(calculatedScore));
             dispatch(incrementPasteAnswer());
-            dispatch(setPasteReadyToEvaluate(shouldEvaluate));
+            dispatch(shouldEvaluate ? completePasteEvaluation() : setPasteReadyToEvaluate(false));
             dispatch(updatePasteQuestionScores(updatedScores));
             if (updatedTopics.length > 0) {
               dispatch(updatePasteTopics(updatedTopics));
@@ -1042,7 +1066,7 @@ Rephrase the original question in a simpler, clearer way (1-2 sentences max). Be
                   // Update debug panel with final evaluation
                   dispatch(setPasteScore(avgScore));
                   dispatch(incrementPasteAnswer());
-                  dispatch(setPasteReadyToEvaluate(true));
+                  dispatch(completePasteEvaluation());
                   dispatch(setPasteEvaluationSummary({
                     reasoning: evaluation.reasoning,
                     caption: evaluation.caption,

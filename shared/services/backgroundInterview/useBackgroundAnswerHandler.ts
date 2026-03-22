@@ -162,6 +162,9 @@ export function useBackgroundAnswerHandler(
               });
 
               const questionData = await questionResponse.json();
+              if (!questionResponse.ok) {
+                throw new Error(questionData.error || "Next-question API request failed");
+              }
               log.info(LOG_CATEGORY, `[split-eval] Next question received in ${questionData.latencyMs || 0}ms`);
 
               // Check if all categories excluded
@@ -177,13 +180,15 @@ export function useBackgroundAnswerHandler(
                 dispatch(setCurrentFocusTopic({ topicName: questionData.newFocusTopic }));
               }
 
+              const isSubstantiveProbe = questionData.detectedAnswerType === 'substantive';
+
               // Track which angle was just probed to prevent semantic repetition
-              if (questionData.probeAngle && questionData.newFocusTopic) {
+              if (isSubstantiveProbe && questionData.probeAngle && questionData.newFocusTopic) {
                 dispatch(addCoveredAngle({ topic: questionData.newFocusTopic, angle: questionData.probeAngle }));
               }
 
               // Record substantive probes for full-session deduplication
-              if (questionData.detectedAnswerType === 'substantive' && questionData.fingerprint) {
+              if (isSubstantiveProbe && questionData.fingerprint) {
                 dispatch(addSubstantiveProbe({
                   question: questionData.question,
                   topic: questionData.fingerprint.topic,
@@ -437,6 +442,7 @@ export function useBackgroundAnswerHandler(
 
           } catch (err) {
             log.error(LOG_CATEGORY, useSplitEvaluation ? "Failed split evaluation:" : "Failed fast evaluation:", err);
+            throw err;
           } finally {
             dispatch(setEvaluatingAnswer({ evaluating: false }));
           }
@@ -511,7 +517,7 @@ export function useBackgroundAnswerHandler(
         throw error;
       }
     },
-    [dispatch, companyName, sessionId, userId, script, categoryStats, onEvaluationReceived, onIntentReceived, saveMessageToDb]
+    [dispatch, companyName, sessionId, userId, script, categoryStats, clarificationRetryCount, onEvaluationReceived, onIntentReceived, saveMessageToDb]
   );
 
   return { handleSubmit };
