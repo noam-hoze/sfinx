@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { log } from "app/shared/services";
+import { type AnswerType } from "shared/services/backgroundInterview/answerClassification";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
@@ -8,6 +9,54 @@ const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 const openaiClient = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
+
+/** Validates answer-type values returned by OpenAI. */
+function isAnswerType(value: unknown): value is AnswerType {
+    return value === "clarification_request" || value === "dont_know" || value === "substantive";
+}
+
+/** Validates understanding levels returned by OpenAI. */
+function isUnderstandingLevel(value: unknown): value is "full" | "partial" | "none" {
+    return value === "full" || value === "partial" || value === "none";
+}
+
+/** Enforces the score contract for each answer type. */
+function hasValidScore(answerType: AnswerType, score: number): boolean {
+    if (!Number.isFinite(score) || score < 0 || score > 100) {
+        return false;
+    }
+    if (answerType !== "substantive") {
+        return score === 0;
+    }
+    return true;
+}
+
+/** Trims OpenAI topic labels before contract comparison. */
+function normalizeTopicLabel(topic: string): string {
+    return topic.trim();
+}
+
+/** Maps returned topic labels onto the canonical phase-2 topic keys. */
+function getCanonicalTopicsAddressed(topics: unknown, validTopics: string[]): string[] | null {
+    if (!Array.isArray(topics)) {
+        return null;
+    }
+
+    const canonicalTopics = new Map(
+        validTopics.map((topic) => [normalizeTopicLabel(topic), topic])
+    );
+
+    const normalizedTopics = topics.map((topic) => {
+        if (typeof topic !== "string") {
+            return null;
+        }
+        return canonicalTopics.get(normalizeTopicLabel(topic)) ?? null;
+    });
+
+    return normalizedTopics.every((topic): topic is string => typeof topic === "string")
+        ? normalizedTopics
+        : null;
+}
 
 export async function POST(request: NextRequest) {
     try {
@@ -80,6 +129,8 @@ Only score if detectedAnswerType is "substantive". If "dont_know" or "clarificat
 
 **Step 3 – Identify topics addressed:**
 Identify which topics the answer attempts to address. Include even vague or incorrect attempts.
+Use ONLY topic names from "Current Topic Coverage".
+Copy each topic name exactly as written. Do not rename, abbreviate, pluralize, or invent topics.
 
 Return ONLY valid JSON with this exact structure:
 {
@@ -147,18 +198,23 @@ Return ONLY valid JSON with this exact structure:
         
         // Validate basic fields
         if (
-            typeof result.score !== "number" ||
-            !result.reasoning ||
-            !result.understandingLevel
+            !isAnswerType(result.detectedAnswerType) ||
+            !hasValidScore(result.detectedAnswerType, result.score) ||
+            typeof result.reasoning !== "string" ||
+            !result.reasoning.trim() ||
+            !isUnderstandingLevel(result.understandingLevel)
         ) {
             throw new Error("Invalid response structure from OpenAI");
         }
 
         // Validate Phase 2 fields if topics were provided
         if (hasTopics) {
-            if (!result.topicsAddressed || !Array.isArray(result.topicsAddressed)) {
+            const validTopics = Object.keys(currentTopicCoverage);
+            const canonicalTopicsAddressed = getCanonicalTopicsAddressed(result.topicsAddressed, validTopics);
+            if (!canonicalTopicsAddressed) {
                 throw new Error("Invalid response structure: missing topicsAddressed");
             }
+            result.topicsAddressed = canonicalTopicsAddressed;
             // Add metadata fields if not present (backward compatible)
             if (typeof result.questionCount !== 'number') {
                 result.questionCount = questionNumber || 1;
