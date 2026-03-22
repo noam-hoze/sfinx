@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import type { AnswerType } from "@/shared/services/backgroundInterview/answerClassification";
 import { resetInterview } from "./interviewSlice";
 
 export type ChatSpeaker = "user" | "ai";
@@ -30,6 +31,7 @@ export type CodingState = {
         questionScores?: Array<{
             question: string;
             answer: string;
+            detectedAnswerType?: AnswerType;
             score: number;
             reasoning: string;
             understandingLevel: string;
@@ -107,7 +109,6 @@ const codingSlice = createSlice({
                 pasteAccountabilityScore: 0,
                 answerCount: 0,
                 readyToEvaluate: false,
-                accountabilityScore: 0,
                 questionScores: [],
                 topics: action.payload.topics,
             };
@@ -150,6 +151,7 @@ const codingSlice = createSlice({
             action: PayloadAction<Array<{
                 question: string;
                 answer: string;
+                detectedAnswerType?: AnswerType;
                 score: number;
                 reasoning: string;
                 understandingLevel: string;

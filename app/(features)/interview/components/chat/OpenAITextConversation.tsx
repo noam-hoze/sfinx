@@ -49,7 +49,11 @@ import {
   CONTROL_CONTEXT_TURNS,
 } from "../../../../shared/services";
 import { formatInitialTaskMessage } from "@/shared/utils/formatTaskMessage";
-import { shouldClearStuckPasteEvaluation } from "@/shared/utils/pasteEvaluationState";
+import {
+  getPasteClarificationCount,
+  getUpdatedPasteAnswerCount,
+  shouldClearStuckPasteEvaluation,
+} from "@/shared/utils/pasteEvaluationState";
 
 // Paste evaluation constants
 const MAX_NUM_OF_TOPICS = 4; // Cap topics to ensure reasonable evaluation length
@@ -227,7 +231,6 @@ const OpenAITextConversation = forwardRef<any, Props>(
       const sessionId = store.getState().interview.sessionId;
 
       if (!activePasteEval || !sessionId) return;
-      if (activePasteEval.accountabilityScore !== undefined) return;
 
       savingRef.current = true;
       try {
@@ -290,7 +293,7 @@ const OpenAITextConversation = forwardRef<any, Props>(
             timestamp: activePasteEval.timestamp,
             pastedContent: activePasteEval.pastedContent,
             characterCount: activePasteEval.pastedContent.length,
-            aiQuestion: activePasteEval.topics?.map((t: any) => t.question).join("\n") || "No response provided",
+            aiQuestion: activePasteEval.currentQuestion || "No response provided",
             aiQuestionTimestamp: ts,
             userAnswer: "",
             understanding: "none",
@@ -835,6 +838,7 @@ Generate your question now:`;
             const enhancedQuestionScore = questionScore ? {
               question: lastQuestion,
               answer: lastAnswer,
+              detectedAnswerType: questionScore.detectedAnswerType,
               score: questionScore.score,
               reasoning: questionScore.reasoning,
               understandingLevel: questionScore.understandingLevel,
@@ -868,7 +872,6 @@ Generate your question now:`;
             
             // Check if all topics are covered using the UPDATED topics
             const allTopicsMaximized = updatedTopics.length > 0 && updatedTopics.every(t => t.percentage === 100);
-            const questionLimitReached = nextAnswerCount >= questionsLimit;
             // Use OpenAI's judgment of answer intent — not a hardcoded string match.
             // dont_know: candidate explicitly gave up / said pass / sent gibberish → exit early
             // clarification_request: candidate asked "what do you mean?" → stay in mode, post clarification
@@ -876,7 +879,20 @@ Generate your question now:`;
             const detectedAnswerType = questionScore?.detectedAnswerType;
             const candidateExplicitlyGaveUp = detectedAnswerType === "dont_know";
             const candidateAskedClarification = detectedAnswerType === "clarification_request";
-            const shouldEvaluate = allTopicsMaximized || questionLimitReached || candidateExplicitlyGaveUp;
+            const updatedAnswerCount = getUpdatedPasteAnswerCount(
+              activePasteEval.answerCount,
+              detectedAnswerType
+            );
+            const clarificationTurnCount = getPasteClarificationCount(updatedScores);
+            const questionLimitReached = updatedAnswerCount >= questionsLimit;
+            const clarificationLimitReached =
+              candidateAskedClarification && clarificationTurnCount >= questionsLimit;
+            const shouldEvaluate =
+              allTopicsMaximized ||
+              questionLimitReached ||
+              candidateExplicitlyGaveUp ||
+              clarificationLimitReached;
+            const shouldIncrementAnswerCount = updatedAnswerCount > activePasteEval.answerCount;
             
             // If evaluation complete, post static message and exit
             if (shouldEvaluate) {
@@ -891,7 +907,13 @@ Generate your question now:`;
               try {
                 /* eslint-disable no-console */ log.info(LOG_CATEGORY, "[paste_eval][acknowledgment_sent]", {
                   text: exitMessage,
-                  reason: allTopicsMaximized ? "all_topics_100" : questionLimitReached ? "question_limit" : "candidate_gave_up"
+                  reason: allTopicsMaximized
+                    ? "all_topics_100"
+                    : questionLimitReached
+                      ? "question_limit"
+                      : clarificationLimitReached
+                        ? "clarification_limit"
+                        : "candidate_gave_up"
                 });
               } catch {}
               
@@ -961,7 +983,9 @@ Rephrase the original question in a simpler, clearer way (1-2 sentences max). Be
             } catch {}
             
             dispatch(setPasteScore(calculatedScore));
-            dispatch(incrementPasteAnswer());
+            if (shouldIncrementAnswerCount) {
+              dispatch(incrementPasteAnswer());
+            }
             dispatch(shouldEvaluate ? completePasteEvaluation() : setPasteReadyToEvaluate(false));
             dispatch(updatePasteQuestionScores(updatedScores));
             if (updatedTopics.length > 0) {
@@ -1063,10 +1087,6 @@ Rephrase the original question in a simpler, clearer way (1-2 sentences max). Be
                     .map(m => m.content)
                     .join(" ");
                   
-                  // Update debug panel with final evaluation
-                  dispatch(setPasteScore(avgScore));
-                  dispatch(incrementPasteAnswer());
-                  dispatch(completePasteEvaluation());
                   dispatch(setPasteEvaluationSummary({
                     reasoning: evaluation.reasoning,
                     caption: evaluation.caption,

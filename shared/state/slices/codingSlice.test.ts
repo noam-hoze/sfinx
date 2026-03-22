@@ -19,6 +19,7 @@ describe("codingSlice paste evaluation lifecycle", () => {
         const questioningState = reducer(startedState, setPasteQuestion("What does this line return?"));
         const completedState = reducer(questioningState, completePasteEvaluation());
 
+        expect(startedState.activePasteEvaluation?.accountabilityScore).toBeUndefined();
         expect(questioningState.activePasteEvaluation?.currentQuestion).toBe("What does this line return?");
         expect(completedState.activePasteEvaluation?.readyToEvaluate).toBe(true);
         expect(completedState.activePasteEvaluation?.currentQuestion).toBeUndefined();

@@ -141,7 +141,6 @@ export function useBackgroundAnswerHandler(
               // CALL 1: Next Question (BLOCKING, ~300-500ms)
               log.info(LOG_CATEGORY, "[split-eval] Calling next-question endpoint...");
               const recentHistory = buildRecentHistory(backgroundState.messages, 4);
-              const coveredAngles = backgroundState.coveredAnglesPerTopic[currentFocusTopic ?? ''] ?? [];
               const allPreviousProbes: SubstantiveProbe[] = backgroundState.substantiveProbeHistory;
               const questionResponse = await fetch(`/api/interviews/next-question`, {
                 method: "POST",
@@ -156,7 +155,7 @@ export function useBackgroundAnswerHandler(
                   excludedTopics,
                   clarificationRetryCount,
                   recentHistory,
-                  coveredAngles,
+                  coveredAnglesByTopic: backgroundState.coveredAnglesPerTopic,
                   allPreviousProbes,
                 })
               });

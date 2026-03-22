@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { shouldClearStuckPasteEvaluation } from "./pasteEvaluationState";
+import {
+  getPasteClarificationCount,
+  getUpdatedPasteAnswerCount,
+  hasFinalizedPasteEvaluation,
+  isCompletedPasteEvaluation,
+  shouldClearStuckPasteEvaluation,
+} from "./pasteEvaluationState";
 
 function buildPasteEvaluation(overrides = {}) {
   return {
@@ -10,11 +16,49 @@ function buildPasteEvaluation(overrides = {}) {
     pasteAccountabilityScore: 0,
     answerCount: 0,
     readyToEvaluate: false,
-    accountabilityScore: 0,
     questionScores: [],
     ...overrides,
   };
 }
+
+describe("isCompletedPasteEvaluation", () => {
+  it("returns false before a final score or summary exists", () => {
+    expect(isCompletedPasteEvaluation(buildPasteEvaluation())).toBe(false);
+  });
+
+  it("returns true for completed evaluations", () => {
+    expect(
+      isCompletedPasteEvaluation(
+        buildPasteEvaluation({
+          readyToEvaluate: true,
+          evaluationCaption: "Candidate understood the pasted code.",
+        })
+      )
+    ).toBe(true);
+  });
+});
+
+describe("hasFinalizedPasteEvaluation", () => {
+  it("returns false when completion was marked but summary data is still pending", () => {
+    expect(
+      hasFinalizedPasteEvaluation(
+        buildPasteEvaluation({
+          readyToEvaluate: true,
+        })
+      )
+    ).toBe(false);
+  });
+
+  it("returns true once a final score or summary exists", () => {
+    expect(
+      hasFinalizedPasteEvaluation(
+        buildPasteEvaluation({
+          evaluationCaption: "Candidate understood the pasted code.",
+        })
+      )
+    ).toBe(true);
+  });
+});
 
 describe("shouldClearStuckPasteEvaluation", () => {
   it("returns true for unfinished evaluations without an active question", () => {
@@ -39,5 +83,28 @@ describe("shouldClearStuckPasteEvaluation", () => {
         buildPasteEvaluation({ currentQuestion: "What does this return?" })
       )
     ).toBe(false);
+  });
+});
+
+describe("getUpdatedPasteAnswerCount", () => {
+  it("does not increment the budget for clarification turns", () => {
+    expect(getUpdatedPasteAnswerCount(1, "clarification_request")).toBe(1);
+  });
+
+  it("increments the budget for substantive and give-up turns", () => {
+    expect(getUpdatedPasteAnswerCount(1, "substantive")).toBe(2);
+    expect(getUpdatedPasteAnswerCount(1, "dont_know")).toBe(2);
+  });
+});
+
+describe("getPasteClarificationCount", () => {
+  it("counts only clarification_request turns", () => {
+    expect(
+      getPasteClarificationCount([
+        { detectedAnswerType: "clarification_request" },
+        { detectedAnswerType: "substantive" },
+        { detectedAnswerType: "clarification_request" },
+      ])
+    ).toBe(2);
   });
 });

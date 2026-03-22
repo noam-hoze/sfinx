@@ -154,6 +154,109 @@ describe("POST /api/interviews/next-question", () => {
         expect(body.shouldMoveOn).toBe(false);
     });
 
+    it("does not exclude the only topic before OpenAI classifies a clarification request", async () => {
+        mockSessionLookup();
+        mockCompletion({
+            detectedAnswerType: "clarification_request",
+            question: "Sure — what part of the cache setup should I clarify?",
+        });
+
+        const response = await POST(makeRequest({
+            ...requestBody,
+            lastAnswer: "Not sure, can you clarify what you mean?",
+            experienceCategories: [{ name: "Algorithms" }],
+            currentCounts: [
+                { categoryName: "Algorithms", count: 0, avgStrength: 20, dontKnowCount: 1 },
+            ],
+            currentFocusTopic: "Algorithms",
+        }));
+        const body = await response.json();
+
+        expect(createMock).toHaveBeenCalledOnce();
+        expect(response.status).toBe(200);
+        expect(body.allCategoriesExcluded).toBeUndefined();
+        expect(body.detectedAnswerType).toBe("clarification_request");
+        expect(body.newFocusTopic).toBe("Algorithms");
+    });
+
+    it("uses angle history for the selected focus topic", async () => {
+        mockSessionLookup();
+        mockCompletion({
+            detectedAnswerType: "substantive",
+            question: "What tradeoff made Redis worth the extra complexity here?",
+            probeAngle: "tradeoff",
+            fingerprint: {
+                topic: "Distributed Systems",
+                angle: "tradeoff",
+                slot: "tradeoff_choice",
+            },
+        });
+
+        const response = await POST(makeRequest({
+            ...requestBody,
+            currentFocusTopic: "Algorithms",
+            experienceCategories: [{ name: "Algorithms" }, { name: "Distributed Systems" }],
+            currentCounts: [
+                { categoryName: "Algorithms", count: 0, avgStrength: 20, dontKnowCount: 0 },
+                { categoryName: "Distributed Systems", count: 2, avgStrength: 90, dontKnowCount: 0 },
+            ],
+            coveredAnglesByTopic: {
+                Algorithms: ["implementation"],
+                "Distributed Systems": ["tradeoff"],
+            },
+        }));
+        const body = await response.json();
+        const prompt = createMock.mock.calls[0][0].messages[1].content;
+
+        expect(response.status).toBe(200);
+        expect(body.newFocusTopic).toBe("Distributed Systems");
+        expect(prompt).toContain("Angles already covered for this topic: tradeoff.");
+    });
+
+    it("regenerates the next question when a confirmed dont_know excludes the current topic", async () => {
+        mockSessionLookup();
+        createMock
+            .mockResolvedValueOnce({
+                choices: [{
+                    finish_reason: "stop",
+                    message: {
+                        content: JSON.stringify({
+                            detectedAnswerType: "dont_know",
+                            question: "No problem. Let's stay on Algorithms for one more question.",
+                        }),
+                    },
+                }],
+            })
+            .mockResolvedValueOnce({
+                choices: [{
+                    finish_reason: "stop",
+                    message: {
+                        content: JSON.stringify({
+                            detectedAnswerType: "dont_know",
+                            question: "No problem. Let's talk about Distributed Systems instead.",
+                        }),
+                    },
+                }],
+            });
+
+        const response = await POST(makeRequest({
+            ...requestBody,
+            currentFocusTopic: "Algorithms",
+            experienceCategories: [{ name: "Algorithms" }, { name: "Distributed Systems" }],
+            currentCounts: [
+                { categoryName: "Algorithms", count: 2, avgStrength: 90, dontKnowCount: 1 },
+                { categoryName: "Distributed Systems", count: 1, avgStrength: 60, dontKnowCount: 0 },
+            ],
+        }));
+        const body = await response.json();
+
+        expect(createMock).toHaveBeenCalledTimes(2);
+        expect(response.status).toBe(200);
+        expect(body.detectedAnswerType).toBe("dont_know");
+        expect(body.newFocusTopic).toBe("Distributed Systems");
+        expect(body.question).toBe("No problem. Let's talk about Distributed Systems instead.");
+    });
+
     it("rejects substantive responses without probe metadata", async () => {
         mockSessionLookup();
         mockCompletion({
