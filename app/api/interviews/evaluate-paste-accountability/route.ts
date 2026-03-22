@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { log } from "app/shared/services";
+import { type AnswerType } from "shared/services/backgroundInterview/answerClassification";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
@@ -8,6 +9,35 @@ const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 const openaiClient = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
+
+/** Validates answer-type values returned by OpenAI. */
+function isAnswerType(value: unknown): value is AnswerType {
+    return value === "clarification_request" || value === "dont_know" || value === "substantive";
+}
+
+/** Validates understanding levels returned by OpenAI. */
+function isUnderstandingLevel(value: unknown): value is "full" | "partial" | "none" {
+    return value === "full" || value === "partial" || value === "none";
+}
+
+/** Enforces the score contract for each answer type. */
+function hasValidScore(answerType: AnswerType, score: number): boolean {
+    if (!Number.isFinite(score) || score < 0 || score > 100) {
+        return false;
+    }
+    if (answerType !== "substantive") {
+        return score === 0;
+    }
+    return true;
+}
+
+/** Validates the topic list returned for phase-2 coverage updates. */
+function hasValidTopicsAddressed(answerType: AnswerType, topics: unknown, validTopics: string[]): boolean {
+    if (!Array.isArray(topics)) {
+        return false;
+    }
+    return topics.every((topic) => typeof topic === "string" && validTopics.includes(topic));
+}
 
 export async function POST(request: NextRequest) {
     try {
@@ -147,16 +177,19 @@ Return ONLY valid JSON with this exact structure:
         
         // Validate basic fields
         if (
-            typeof result.score !== "number" ||
-            !result.reasoning ||
-            !result.understandingLevel
+            !isAnswerType(result.detectedAnswerType) ||
+            !hasValidScore(result.detectedAnswerType, result.score) ||
+            typeof result.reasoning !== "string" ||
+            !result.reasoning.trim() ||
+            !isUnderstandingLevel(result.understandingLevel)
         ) {
             throw new Error("Invalid response structure from OpenAI");
         }
 
         // Validate Phase 2 fields if topics were provided
         if (hasTopics) {
-            if (!result.topicsAddressed || !Array.isArray(result.topicsAddressed)) {
+            const validTopics = Object.keys(currentTopicCoverage);
+            if (!hasValidTopicsAddressed(result.detectedAnswerType, result.topicsAddressed, validTopics)) {
                 throw new Error("Invalid response structure: missing topicsAddressed");
             }
             // Add metadata fields if not present (backward compatible)
