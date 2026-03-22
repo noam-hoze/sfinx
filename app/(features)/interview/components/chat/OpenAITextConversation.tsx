@@ -49,6 +49,7 @@ import {
   CONTROL_CONTEXT_TURNS,
 } from "../../../../shared/services";
 import { formatInitialTaskMessage } from "@/shared/utils/formatTaskMessage";
+import { shouldClearStuckPasteEvaluation } from "@/shared/utils/pasteEvaluationState";
 
 // Paste evaluation constants
 const MAX_NUM_OF_TOPICS = 4; // Cap topics to ensure reasonable evaluation length
@@ -684,11 +685,11 @@ Ask ONE short, relevant question (1-2 sentences) to understand if they comprehen
           const codingState = store.getState().coding;
           const activePasteEval = codingState.activePasteEvaluation;
           
-          // If paste eval exists but no question was ever posted, it's stuck - clear it
-          if (activePasteEval && !activePasteEval.currentQuestion) {
+          // Only clear orphaned paste-eval state; completed evaluations keep their summary data.
+          if (shouldClearStuckPasteEvaluation(activePasteEval)) {
             dispatch(clearPasteEvaluation());
             // Continue to normal coding chat flow
-          } else if (activePasteEval) {
+          } else if (activePasteEval?.currentQuestion) {
             // Handle paste evaluation flow with CONTROL messages
             // Increment answer count AFTER user answers
             const nextAnswerCount = activePasteEval.answerCount + 1;

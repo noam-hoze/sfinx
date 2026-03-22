@@ -517,7 +517,7 @@ export function useBackgroundAnswerHandler(
         throw error;
       }
     },
-    [dispatch, companyName, sessionId, userId, script, categoryStats, onEvaluationReceived, onIntentReceived, saveMessageToDb]
+    [dispatch, companyName, sessionId, userId, script, categoryStats, clarificationRetryCount, onEvaluationReceived, onIntentReceived, saveMessageToDb]
   );
 
   return { handleSubmit };
