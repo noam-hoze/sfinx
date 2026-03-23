@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.3] - 2026-03-23
+
+### Fixed
+
+- **Problem-solving migration reconciliation**: The recovery migration now backfills `ScoringConfiguration.problemSolvingWeight`, then enforces its `DEFAULT 25` and `NOT NULL` constraints so partially drifted environments converge to the current Prisma schema instead of only handling the fully-missing-column case.
+
 ## [1.29.2] - 2026-03-09
 
 ### Fixed
