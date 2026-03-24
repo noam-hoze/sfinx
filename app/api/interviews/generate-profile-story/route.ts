@@ -3,6 +3,7 @@ import prisma from "lib/prisma";
 import OpenAI from "openai";
 import { log } from "app/shared/services";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+import { normalizeScoringConfig } from "./scoringConfig";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
@@ -342,11 +343,7 @@ function calculatePerformanceContext(
     const workstyleMetrics = { aiAssistAccountabilityScore: avgAccountabilityScore };
 
     // Ensure scoringConfiguration has all required fields with defaults
-    const scoringConfig = {
-        aiAssistWeight: job.scoringConfiguration?.aiAssistWeight ?? 25,
-        experienceWeight: job.scoringConfiguration?.experienceWeight ?? 50,
-        codingWeight: job.scoringConfiguration?.codingWeight ?? 50
-    };
+    const scoringConfig = normalizeScoringConfig(job.scoringConfiguration);
 
     const result = calculateScore(rawScores, workstyleMetrics, scoringConfig);
 
