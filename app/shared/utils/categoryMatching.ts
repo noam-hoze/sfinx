@@ -9,6 +9,13 @@ export function findCategoryScoreKey(
     const exact = availableKeys.find((key) => key === categoryName);
     if (exact) return exact;
 
-    const baseName = categoryName.split(" (")[0];
-    return availableKeys.find((key) => key.startsWith(baseName) || categoryName.startsWith(key));
+    const normalizedName = normalizeCategoryName(categoryName);
+    return availableKeys.find((key) => normalizeCategoryName(key) === normalizedName);
+}
+
+/**
+ * Removes presentational suffixes so category names can be matched consistently.
+ */
+export function normalizeCategoryName(categoryName: string): string {
+    return categoryName.replace(/\s*\([^)]*\)\s*$/u, "").trim();
 }

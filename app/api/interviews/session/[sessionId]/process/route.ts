@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
+import { findCategoryScoreKey } from "app/shared/utils/categoryMatching";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
@@ -195,9 +196,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
                 // Enrich with descriptions from jobCategories, then write back
                 const enrichedCategories: Record<string, any> = {};
+                const categoryNames = jobCategories.map((category: any) => category.name);
                 Object.entries(evalData.categories || {}).forEach(([name, data]: [string, any]) => {
-                    const catDef = jobCategories.find((c) => c.name === name);
-                    enrichedCategories[name] = { ...data, description: catDef?.description ?? "" };
+                    const categoryName = findCategoryScoreKey(name, categoryNames) ?? name;
+                    const catDef = jobCategories.find((c) => c.name === categoryName);
+                    enrichedCategories[categoryName] = { ...data, description: catDef?.description ?? "" };
                 });
 
                 try {

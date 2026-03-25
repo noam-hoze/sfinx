@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.3] - 2026-03-25
+
+### Fixed
+
+- **Category-name score mismatches end-to-end**: Canonicalized decorated evaluator category names before persistence and reused the shared matcher in telemetry/CPS readers so renamed coding categories keep their scores, contributions, and evidence instead of falling back to `0`.
+
 ## [1.29.2] - 2026-03-09
 
 ### Fixed

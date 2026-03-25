@@ -3,6 +3,7 @@ import { log } from "app/shared/services";
 import { getCached, setCached } from "app/shared/services/server";
 import prisma from "lib/prisma";
 import { calculateScore, type RawScores, type WorkstyleMetrics, type ScoringConfiguration } from "app/shared/utils/calculateScore";
+import { findCategoryScoreKey } from "app/shared/utils/categoryMatching";
 import { mergeWithPredefinedCategories, type CodingCategory } from "app/api/company/jobs/categorySchemas";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
@@ -337,11 +338,15 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         // Build coding scores from job-specific categories
                         const jobCodingCategories = (session.application?.job?.codingCategories as any) || [];
                         const codingCategoriesData = (codingSummary.jobSpecificCategories as any) || {};
-                        const categoryScores = jobCodingCategories.map((cat: any) => ({
-                            name: cat.name,
-                            score: codingCategoriesData[cat.name]?.score || 0,
-                            weight: cat.weight || 1
-                        }));
+                        const categoryKeys = Object.keys(codingCategoriesData);
+                        const categoryScores = jobCodingCategories.map((cat: any) => {
+                            const matchingKey = findCategoryScoreKey(cat.name, categoryKeys) ?? cat.name;
+                            return {
+                                name: cat.name,
+                                score: codingCategoriesData[matchingKey]?.score || 0,
+                                weight: cat.weight || 1
+                            };
+                        });
 
                         const rawScores: RawScores = {
                             experienceScores,
