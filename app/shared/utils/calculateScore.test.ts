@@ -242,4 +242,40 @@ describe("calculateScore", () => {
         expect(Number.isInteger(result.codingScore)).toBe(true);
         expect(Number.isInteger(result.finalScore)).toBe(true);
     });
+
+    it("clamps malformed score inputs instead of returning NaN", () => {
+        const raw: RawScores = {
+            experienceScores: [{ name: "A", score: Number.NaN, weight: 1 }],
+            categoryScores: [{ name: "B", score: Number.POSITIVE_INFINITY, weight: 1 }],
+        };
+        const ws: WorkstyleMetrics = {
+            aiAssistAccountabilityScore: Number.NaN,
+            problemSolvingScore: 250,
+        };
+        const result = calculateScore(raw, ws, defaultConfig);
+
+        expect(result.experienceScore).toBe(0);
+        expect(result.codingScore).toBe(25);
+        expect(result.finalScore).toBe(15);
+        expect(result.normalizedWorkstyle.aiAssist).toBeNull();
+        expect(result.normalizedWorkstyle.problemSolving).toBe(100);
+    });
+
+    it("returns zero finalScore when main weights are invalid", () => {
+        const raw: RawScores = {
+            experienceScores: [makeExperienceScore(80)],
+            categoryScores: [makeCodingScore(90)],
+        };
+        const ws: WorkstyleMetrics = {};
+        const result = calculateScore(raw, ws, {
+            aiAssistWeight: Number.NaN as unknown as number,
+            problemSolvingWeight: Number.POSITIVE_INFINITY as unknown as number,
+            experienceWeight: 0,
+            codingWeight: 0,
+        });
+
+        expect(result.experienceScore).toBe(80);
+        expect(result.codingScore).toBe(90);
+        expect(result.finalScore).toBe(0);
+    });
 });
