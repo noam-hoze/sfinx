@@ -10,6 +10,34 @@ const openaiClient = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
+/**
+ * Converts model output into a bounded score or throws on invalid values.
+ */
+function parseBoundedScore(value: unknown, label: string): number {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+        throw new Error(`${label} must be a finite number`);
+    }
+    return Math.min(100, Math.max(0, value));
+}
+
+/**
+ * Validates and normalizes category evaluations returned by the model.
+ */
+function normalizeCategoryEvaluations(categories: unknown) {
+    if (!categories || typeof categories !== "object" || Array.isArray(categories)) {
+        throw new Error("Invalid response structure from OpenAI");
+    }
+    return Object.fromEntries(
+        Object.entries(categories).map(([name, value]) => {
+            const entry = value as { score?: unknown; text?: unknown };
+            return [name, {
+                score: parseBoundedScore(entry?.score ?? 0, `${name} score`),
+                text: typeof entry?.text === "string" ? entry.text : "",
+            }];
+        })
+    );
+}
+
 /** Evaluate correctness of candidate code against reference solution. */
 async function evaluateProblemSolvingCorrectness(params: {
     finalCode: string;
@@ -69,7 +97,7 @@ Return ONLY JSON:
     if (!content) throw new Error("Empty correctness response from OpenAI");
 
     const result = JSON.parse(content);
-    const correctnessScore = result.correctnessScore ?? 0;
+    const correctnessScore = parseBoundedScore(result.correctnessScore ?? 0, "correctnessScore");
     const problemSolvingScore = Math.round((correctnessScore + outputMatchPercentage) / 2);
 
     log.info(LOG_CATEGORY, `[Job-Specific Coding Eval] Problem Solving — Correctness: ${correctnessScore}%, Output match: ${outputMatchPercentage}%, Final: ${problemSolvingScore}`);
@@ -150,9 +178,7 @@ Return ONLY valid JSON with this exact structure:
         if (!content) throw new Error("Empty response from OpenAI");
 
         const result = JSON.parse(content);
-        if (!result.categories || typeof result.categories !== "object") {
-            throw new Error("Invalid response structure from OpenAI");
-        }
+        result.categories = normalizeCategoryEvaluations(result.categories);
 
         // Evaluate Problem Solving separately when reference code is available
         if (referenceCode && sessionId) {

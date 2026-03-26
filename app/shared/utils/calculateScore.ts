@@ -36,6 +36,33 @@ export interface CalculatedScore {
 }
 
 /**
+ * Returns a finite numeric value or a fallback when input is invalid.
+ */
+function finiteOr(value: unknown, fallback: number): number {
+    return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+/**
+ * Normalizes a score-like value to a finite 0-100 number when present.
+ */
+function normalizeOptionalScore(value: unknown): number | undefined {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+        return undefined;
+    }
+    return Math.min(100, Math.max(0, value));
+}
+
+/**
+ * Normalizes a score entry so invalid numbers cannot contaminate totals.
+ */
+function normalizeEntry(entry: { score: number; weight: number }) {
+    return {
+        score: Math.min(100, Math.max(0, finiteOr(entry.score, 0))),
+        weight: Math.max(0, finiteOr(entry.weight, 0)),
+    };
+}
+
+/**
  * Calculate final candidate score based on configuration
  */
 export function calculateScore(
@@ -43,21 +70,24 @@ export function calculateScore(
     workstyleMetrics: WorkstyleMetrics,
     config: ScoringConfiguration
 ): CalculatedScore {
-    const hasAiAssistScore = workstyleMetrics.aiAssistAccountabilityScore !== undefined &&
-                              workstyleMetrics.aiAssistAccountabilityScore !== null;
-    const normalizedAiAssist = workstyleMetrics.aiAssistAccountabilityScore;
-
-    const hasProblemSolvingScore = workstyleMetrics.problemSolvingScore !== undefined &&
-                                    workstyleMetrics.problemSolvingScore !== null;
+    const normalizedAiAssist = normalizeOptionalScore(workstyleMetrics.aiAssistAccountabilityScore);
+    const normalizedProblemSolving = normalizeOptionalScore(workstyleMetrics.problemSolvingScore);
+    const hasAiAssistScore = normalizedAiAssist !== undefined;
+    const hasProblemSolvingScore = normalizedProblemSolving !== undefined;
+    const aiAssistWeight = Math.max(0, finiteOr(config.aiAssistWeight, 0));
+    const problemSolvingWeight = Math.max(0, finiteOr(config.problemSolvingWeight, 0));
+    const experienceWeight = Math.max(0, finiteOr(config.experienceWeight, 0));
+    const codingWeight = Math.max(0, finiteOr(config.codingWeight, 0));
 
     // Calculate experience score from dynamic categories (same pattern as coding)
     let experienceWeightedSum = 0;
     let totalExperienceWeight = 0;
 
     rawScores.experienceScores.forEach(category => {
-        if (category.weight > 0) {
-            experienceWeightedSum += category.score * category.weight;
-            totalExperienceWeight += category.weight;
+        const normalized = normalizeEntry(category);
+        if (normalized.weight > 0) {
+            experienceWeightedSum += normalized.score * normalized.weight;
+            totalExperienceWeight += normalized.weight;
         }
     });
 
@@ -69,44 +99,48 @@ export function calculateScore(
     let totalCategoryWeight = 0;
 
     rawScores.categoryScores.forEach(category => {
-        if (category.weight > 0) {
-            categoryWeightedSum += category.score * category.weight;
-            totalCategoryWeight += category.weight;
+        const normalized = normalizeEntry(category);
+        if (normalized.weight > 0) {
+            categoryWeightedSum += normalized.score * normalized.weight;
+            totalCategoryWeight += normalized.weight;
         }
     });
 
     const categoryAverage = totalCategoryWeight > 0 ? categoryWeightedSum / totalCategoryWeight : 0;
 
     // Step 2: Categories contribute (100 - aiAssistWeight - problemSolvingWeight)% of coding score
-    const categoryContribution = categoryAverage * (100 - config.aiAssistWeight - config.problemSolvingWeight) / 100;
+    const categoryWeightShare = Math.max(0, 100 - aiAssistWeight - problemSolvingWeight);
+    const categoryContribution = categoryAverage * categoryWeightShare / 100;
 
     // Step 3: AI assist contributes its percentage of the coding score
     const aiAssistContribution = hasAiAssistScore
-        ? normalizedAiAssist! * config.aiAssistWeight / 100
+        ? normalizedAiAssist * aiAssistWeight / 100
         : 0;
 
     // Step 4: Problem solving contributes its percentage of the coding score
     const problemSolvingContribution = hasProblemSolvingScore
-        ? workstyleMetrics.problemSolvingScore! * config.problemSolvingWeight / 100
+        ? normalizedProblemSolving * problemSolvingWeight / 100
         : 0;
 
     // Step 5: Final coding score (0-100)
     const codingScore = categoryContribution + aiAssistContribution + problemSolvingContribution;
 
     // Calculate final score (weighted average of experience and coding)
-    const totalMainCategoryWeight = config.experienceWeight + config.codingWeight;
-    const finalScore = (
-        (experienceScore * config.experienceWeight) +
-        (codingScore * config.codingWeight)
-    ) / totalMainCategoryWeight;
+    const totalMainCategoryWeight = experienceWeight + codingWeight;
+    const finalScore = totalMainCategoryWeight > 0
+        ? (
+            (experienceScore * experienceWeight) +
+            (codingScore * codingWeight)
+        ) / totalMainCategoryWeight
+        : 0;
 
     return {
         finalScore: Math.round(finalScore),
         experienceScore: Math.round(experienceScore),
         codingScore: Math.round(codingScore),
         normalizedWorkstyle: {
-            aiAssist: hasAiAssistScore ? Math.round(normalizedAiAssist!) : null,
-            problemSolving: hasProblemSolvingScore ? Math.round(workstyleMetrics.problemSolvingScore!) : null,
+            aiAssist: hasAiAssistScore ? Math.round(normalizedAiAssist) : null,
+            problemSolving: hasProblemSolvingScore ? Math.round(normalizedProblemSolving) : null,
         },
     };
 }

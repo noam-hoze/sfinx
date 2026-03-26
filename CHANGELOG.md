@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.3] - 2026-03-26
+
+### Fixed
+
+- **Profile-story scoring hardening**: `calculateScore` now clamps malformed scores and non-finite weights instead of emitting `NaN`, and `evaluate-job-specific-coding` now validates model-returned category and problem-solving scores before they are persisted into profile-story scoring context.
+
 ## [1.29.2] - 2026-03-09
 
 ### Fixed
