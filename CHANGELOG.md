@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.4] - 2026-03-26
+
+### Fixed
+
+- **Scoring parity across profile surfaces**: Added a shared raw-score builder so `generate-profile-story`, telemetry scoring, `coding-summary-update`, and `generate-coding-summary` all reconstruct category scores from job-configured definitions, preserving explicit `0` weights and missing configured categories consistently.
+
 ## [1.29.3] - 2026-03-26
 
 ### Fixed

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "lib/prisma";
 import OpenAI from "openai";
 import { log } from "app/shared/services";
+import { buildCanonicalRawScores } from "app/shared/utils/buildCanonicalRawScores";
+import { calculateScore } from "app/shared/utils/calculateScore";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
@@ -77,6 +79,11 @@ export async function POST(request: NextRequest) {
                 },
                 { status: 400 }
             );
+        }
+
+        if (!session.application.job) {
+            log.error(LOG_CATEGORY, "[Generate Profile Story] Job not found for session:", sessionId);
+            return NextResponse.json({ error: "Job not found for session" }, { status: 404 });
         }
 
         log.info(LOG_CATEGORY, "[Generate Profile Story] Fetching evaluation data for session:", sessionId);
@@ -200,7 +207,7 @@ export async function POST(request: NextRequest) {
             where: { id: session.telemetryData.id },
             data: {
                 story,
-                storyEmphasis: null // Story now contains inline HTML for emphasis
+                storyEmphasis: []
             },
         });
 
@@ -300,7 +307,7 @@ function calculatePerformanceContext(
     backgroundSummary: any,
     codingSummary: any,
     externalToolUsages: Array<{ accountabilityScore: number; understanding: string }>,
-    job: { scoringConfiguration: any },
+    job: { scoringConfiguration: any; experienceCategories?: any; codingCategories?: any },
     problemSolvingScore?: number | null
 ): {
     finalScore: number;
@@ -314,34 +321,18 @@ function calculatePerformanceContext(
         description: string;
     };
 } {
-    // Import calculateScore utility
-    const { calculateScore } = require('app/shared/utils/calculateScore');
-
-    // Build experience scores from backgroundSummary categories
-    const experienceScores = backgroundSummary.experienceCategories
-        ? Object.entries(backgroundSummary.experienceCategories).map(([name, data]: [string, any]) => ({
-            name,
-            score: data.score,
-            weight: data.weight || 1
-        }))
-        : [];
-
-    // Build coding category scores from codingSummary
-    const categoryScores = codingSummary.jobSpecificCategories
-        ? Object.entries(codingSummary.jobSpecificCategories).map(([name, data]: [string, any]) => ({
-            name,
-            score: data.score,
-            weight: data.weight || 1
-        }))
-        : [];
-
     // Calculate average accountability score
     const avgAccountabilityScore = externalToolUsages.length > 0
         ? externalToolUsages.reduce((sum, usage) => sum + usage.accountabilityScore, 0) / externalToolUsages.length
         : undefined;
 
     // Calculate scores using the same logic as coding-summary-update
-    const rawScores = { experienceScores, categoryScores };
+    const rawScores = buildCanonicalRawScores({
+        experienceCategoryDefinitions: job.experienceCategories as any[] | null | undefined,
+        experienceCategoryScores: backgroundSummary.experienceCategories as Record<string, { score?: unknown }> | null | undefined,
+        codingCategoryDefinitions: job.codingCategories as any[] | null | undefined,
+        codingCategoryScores: codingSummary.jobSpecificCategories as Record<string, { score?: unknown }> | null | undefined,
+    });
     const workstyleMetrics = {
         aiAssistAccountabilityScore: avgAccountabilityScore,
         problemSolvingScore: problemSolvingScore ?? undefined,

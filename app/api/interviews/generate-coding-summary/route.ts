@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 import OpenAI from "openai";
+import { buildCanonicalRawScores } from "app/shared/utils/buildCanonicalRawScores";
 import { calculateScore, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
@@ -61,7 +62,10 @@ export async function POST(request: NextRequest) {
         }
 
         // Get scoring configuration (with defaults if not configured)
-        const scoringConfig = session.application?.job?.scoringConfiguration;
+        const scoringConfig = session.application?.job?.scoringConfiguration as
+            | { iterationSpeedThresholdModerate?: number; iterationSpeedThresholdHigh?: number }
+            | null
+            | undefined;
         const iterationThresholdModerate = scoringConfig?.iterationSpeedThresholdModerate ?? 5;
         const iterationThresholdHigh = scoringConfig?.iterationSpeedThresholdHigh ?? 10;
 
@@ -241,18 +245,18 @@ Provide a comprehensive summary and scores for this candidate's coding performan
 
         // Calculate and save final score if we have all required data
         let finalScore: number | null = null;
-        if (session.telemetryData?.backgroundSummary && session.application.job.scoringConfiguration) {
+        if (session.telemetryData?.backgroundSummary && session.application.job?.scoringConfiguration) {
             try {
                 const job = session.application.job;
-                const jobExperienceCategories = (job.experienceCategories as any) || [];
-                const backgroundExperienceCategories = (session.telemetryData.backgroundSummary.experienceCategories as any) || {};
-                const experienceScores = jobExperienceCategories.map((cat: any) => ({
-                    name: cat.name,
-                    score: backgroundExperienceCategories[cat.name]?.score || 0,
-                    weight: cat.weight || 1
-                }));
-
-                const rawScores: RawScores = { experienceScores, categoryScores: [] };
+                if (!job) {
+                    throw new Error("Job missing while calculating coding summary score");
+                }
+                const rawScores: RawScores = buildCanonicalRawScores({
+                    experienceCategoryDefinitions: job.experienceCategories as any[] | null | undefined,
+                    experienceCategoryScores: session.telemetryData.backgroundSummary.experienceCategories as Record<string, { score?: unknown }> | null | undefined,
+                    codingCategoryDefinitions: [],
+                    codingCategoryScores: {},
+                });
                 const workstyleMetrics: WorkstyleMetrics = { aiAssistAccountabilityScore: undefined };
 
                 const result = calculateScore(rawScores, workstyleMetrics, job.scoringConfiguration as any);

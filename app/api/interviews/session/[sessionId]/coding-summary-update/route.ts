@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
+import type { Prisma } from "@prisma/client";
+import { buildCanonicalRawScores } from "app/shared/utils/buildCanonicalRawScores";
 import { calculateScore, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
 import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
 
@@ -136,7 +138,7 @@ export async function PATCH(
         await prisma.codingSummary.update({
             where: { id: session.telemetryData.codingSummary.id },
             data: {
-                jobSpecificCategories: categoryOnlyEntries,
+                jobSpecificCategories: categoryOnlyEntries as Prisma.InputJsonValue,
             },
         });
 
@@ -153,25 +155,18 @@ export async function PATCH(
 
         // Calculate and persist final score
         let finalScore: number | null = null;
-        if (session.telemetryData?.backgroundSummary && session.application.job.scoringConfiguration) {
+        if (session.telemetryData?.backgroundSummary && session.application.job?.scoringConfiguration) {
             try {
                 const job = session.application.job;
-                const jobExperienceCategories = (job.experienceCategories as any) || [];
-                const backgroundExperienceCategories = (session.telemetryData.backgroundSummary.experienceCategories as any) || {};
-                const experienceScores = jobExperienceCategories.map((cat: any) => ({
-                    name: cat.name,
-                    score: backgroundExperienceCategories[cat.name]?.score || 0,
-                    weight: cat.weight || 1
-                }));
-
-                const jobCodingCategories = (job.codingCategories as any) || [];
-                const categoryScores = jobCodingCategories.map((cat: any) => ({
-                    name: cat.name,
-                    score: (categoryOnlyEntries as any)[cat.name]?.score ?? 0,
-                    weight: cat.weight ?? 1,
-                }));
-
-                const rawScores: RawScores = { experienceScores, categoryScores };
+                if (!job) {
+                    throw new Error("Job not found for coding summary update");
+                }
+                const rawScores: RawScores = buildCanonicalRawScores({
+                    experienceCategoryDefinitions: job.experienceCategories as any[] | null | undefined,
+                    experienceCategoryScores: session.telemetryData.backgroundSummary.experienceCategories as Record<string, { score?: unknown }> | null | undefined,
+                    codingCategoryDefinitions: job.codingCategories as any[] | null | undefined,
+                    codingCategoryScores: categoryOnlyEntries as Record<string, { score?: unknown }> | null | undefined,
+                });
 
                 // Get External Tools accountability score if available
                 const externalToolUsages = await prisma.externalToolUsage.findMany({

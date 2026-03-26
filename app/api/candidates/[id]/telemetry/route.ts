@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import { getCached, setCached } from "app/shared/services/server";
 import prisma from "lib/prisma";
+import { buildCanonicalRawScores } from "app/shared/utils/buildCanonicalRawScores";
 import { calculateScore, type RawScores, type WorkstyleMetrics, type ScoringConfiguration } from "app/shared/utils/calculateScore";
 import { mergeWithPredefinedCategories, type CodingCategory } from "app/api/company/jobs/categorySchemas";
 
@@ -325,28 +326,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
                 if (scoringConfig && backgroundSummary && codingSummary && telemetry?.workstyleMetrics) {
                     try {
-                        // Build experience scores from dynamic categories
-                        const jobExperienceCategories = (session.application?.job?.experienceCategories as any) || [];
-                        const backgroundExperienceCategories = (backgroundSummary.experienceCategories as any) || {};
-                        const experienceScores = jobExperienceCategories.map((cat: any) => ({
-                            name: cat.name,
-                            score: backgroundExperienceCategories[cat.name]?.score || 0,
-                            weight: cat.weight || 1
-                        }));
-
-                        // Build coding scores from job-specific categories
-                        const jobCodingCategories = (session.application?.job?.codingCategories as any) || [];
-                        const codingCategoriesData = (codingSummary.jobSpecificCategories as any) || {};
-                        const categoryScores = jobCodingCategories.map((cat: any) => ({
-                            name: cat.name,
-                            score: codingCategoriesData[cat.name]?.score || 0,
-                            weight: cat.weight || 1
-                        }));
-
-                        const rawScores: RawScores = {
-                            experienceScores,
-                            categoryScores,
-                        };
+                        const rawScores: RawScores = buildCanonicalRawScores({
+                            experienceCategoryDefinitions: session.application?.job?.experienceCategories as any[] | null | undefined,
+                            experienceCategoryScores: backgroundSummary.experienceCategories as Record<string, { score?: unknown }> | null | undefined,
+                            codingCategoryDefinitions: session.application?.job?.codingCategories as any[] | null | undefined,
+                            codingCategoryScores: codingSummary.jobSpecificCategories as Record<string, { score?: unknown }> | null | undefined,
+                        });
 
                         const sessionExternalTools = externalToolsBySession.get(session.id) || [];
                         const totalScore = sessionExternalTools.reduce((sum: number, tool: any) =>
@@ -463,19 +448,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
                                   value: telemetry.workstyleMetrics.externalToolUsage ?? 0,
                                   avgAccountabilityScore: avgAccountabilityScore ?? null,
                                   level:
-                                      avgAccountabilityScore !== undefined && avgAccountabilityScore >= 70
+                                      avgAccountabilityScore !== null && avgAccountabilityScore >= 70
                                           ? "High"
-                                          : avgAccountabilityScore !== undefined && avgAccountabilityScore >= 40
+                                          : avgAccountabilityScore !== null && avgAccountabilityScore >= 40
                                           ? "Moderate"
-                                          : avgAccountabilityScore !== undefined
+                                          : avgAccountabilityScore !== null
                                           ? "Low"
                                           : "N/A",
                                   color:
-                                      avgAccountabilityScore !== undefined && avgAccountabilityScore >= 70
+                                      avgAccountabilityScore !== null && avgAccountabilityScore >= 70
                                           ? "blue"
-                                          : avgAccountabilityScore !== undefined && avgAccountabilityScore >= 40
+                                          : avgAccountabilityScore !== null && avgAccountabilityScore >= 40
                                           ? "yellow"
-                                          : avgAccountabilityScore !== undefined
+                                          : avgAccountabilityScore !== null
                                           ? "red"
                                           : "gray",
                                   isFairnessFlag:
