@@ -1,6 +1,6 @@
 /**
  * Finds the best matching category key for a job category name.
- * Handles common model/name variations like dropped parenthetical suffixes.
+ * Returns null when the available matches are ambiguous or missing.
  */
 export function findCategoryKeyByName(
     categories: Record<string, unknown>,
@@ -12,14 +12,13 @@ export function findCategoryKeyByName(
     if (keys.includes(categoryName)) return categoryName;
 
     const normalizedTarget = normalizeLabel(categoryName);
-    const exactNormalized = keys.find((key) => normalizeLabel(key) === normalizedTarget);
-    if (exactNormalized) return exactNormalized;
+    const normalizedMatch = findSingleMatch(
+        keys,
+        (key) => normalizeLabel(key) === normalizedTarget
+    );
+    if (normalizedMatch) return normalizedMatch;
 
-    const baseTarget = getBaseLabel(categoryName);
-    const baseMatch = keys.find((key) => getBaseLabel(key) === baseTarget);
-    if (baseMatch) return baseMatch;
-    
-    return null;
+    return findSingleBaseMatch(keys, categoryName);
 }
 
 function normalizeLabel(value: string): string {
@@ -28,4 +27,17 @@ function normalizeLabel(value: string): string {
 
 function getBaseLabel(value: string): string {
     return normalizeLabel(value.split(" (")[0] ?? value);
+}
+
+function findSingleMatch(
+    keys: string[],
+    predicate: (key: string) => boolean
+): string | null {
+    const matches = keys.filter(predicate);
+    return matches.length === 1 ? matches[0] : null;
+}
+
+function findSingleBaseMatch(keys: string[], categoryName: string): string | null {
+    const baseTarget = getBaseLabel(categoryName);
+    return findSingleMatch(keys, (key) => getBaseLabel(key) === baseTarget);
 }

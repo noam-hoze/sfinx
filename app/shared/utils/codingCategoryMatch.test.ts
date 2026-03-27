@@ -25,6 +25,14 @@ describe("findCategoryKeyByName", () => {
         );
     });
 
+    it("returns null when normalized matches are ambiguous", () => {
+        const categories = {
+            "Python Proficiency": { score: 80 },
+            " python proficiency ": { score: 92 },
+        };
+        expect(findCategoryKeyByName(categories, "PYTHON PROFICIENCY")).toBeNull();
+    });
+
     it("does not match partial prefixes to sibling categories", () => {
         const categories = {
             JavaScript: { score: 90 },
@@ -34,6 +42,14 @@ describe("findCategoryKeyByName", () => {
         expect(findCategoryKeyByName(categories, "Java")).toBeNull();
         expect(findCategoryKeyByName(categories, "React")).toBeNull();
         expect(findCategoryKeyByName(categories, "C")).toBeNull();
+    });
+
+    it("returns null when multiple stored keys share the same base label", () => {
+        const categories = {
+            "Python Proficiency (3+ years)": { score: 80 },
+            "Python Proficiency (5+ years)": { score: 92 },
+        };
+        expect(findCategoryKeyByName(categories, "Python Proficiency")).toBeNull();
     });
 
     it("returns null when no match exists", () => {
