@@ -6,6 +6,7 @@ import {
     EvidenceJumpHandler,
     EXTERNAL_TOOLS_EVIDENCE_CATEGORY,
 } from "../types/evidence";
+import { findCategoryKeyByName } from "app/shared/utils/codingCategoryMatch";
 
 interface CodingSummary {
     codeQuality?: {
@@ -80,12 +81,8 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                 {codingCategories
                     ?.filter(categoryDef => categoryDef.weight > 0)
                     .map(categoryDef => {
-                        // Match by base name (before any parentheses) to handle name mismatches
-                        const baseName = categoryDef.name.split(' (')[0];
-                        const matchingKey = codingSummary?.jobSpecificCategories ? 
-                            Object.keys(codingSummary.jobSpecificCategories).find(key => 
-                                key.startsWith(baseName) || categoryDef.name.startsWith(key)
-                            ) || categoryDef.name
+                        const matchingKey = codingSummary?.jobSpecificCategories
+                            ? findCategoryKeyByName(codingSummary.jobSpecificCategories, categoryDef.name) ?? categoryDef.name
                             : categoryDef.name;
                         
                         const data = codingSummary?.jobSpecificCategories?.[matchingKey];
