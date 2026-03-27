@@ -25,6 +25,17 @@ describe("findCategoryKeyByName", () => {
         );
     });
 
+    it("does not match partial prefixes to sibling categories", () => {
+        const categories = {
+            JavaScript: { score: 90 },
+            "React Native": { score: 88 },
+            "C++": { score: 84 },
+        };
+        expect(findCategoryKeyByName(categories, "Java")).toBeNull();
+        expect(findCategoryKeyByName(categories, "React")).toBeNull();
+        expect(findCategoryKeyByName(categories, "C")).toBeNull();
+    });
+
     it("returns null when no match exists", () => {
         const categories = {
             "System Design": { score: 65 },

@@ -4,11 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
-## [1.29.4] - 2026-03-27
+## [1.29.5] - 2026-03-27
 
 ### Fixed
 
 - **Critical final-score regression from category name mismatch**: Final scoring paths in `coding-summary-update`, candidate telemetry recalculation, and score backfill used brittle coding-category key matching, so jobs with parenthetical labels (for example, `"Python Proficiency (5+ years hands-on)"`) could miss valid evaluated scores stored under shortened names (for example, `"Python Proficiency"`), collapsing coding contribution to `0` and producing incorrect low `finalScore`. Restored resilient shared matching across all recalculation paths and added focused tests.
+- **Ambiguous coding-category prefix collisions**: The initial shared matcher still treated partial prefixes as valid matches, so categories like `"Java"` could incorrectly reuse `"JavaScript"` scores in live recalculation, backfill, and CPS evidence views. Removed prefix fallback, reused the shared matcher in CPS UI lookups, and added regression coverage for sibling-category collisions.
 
 ## [1.29.2] - 2026-03-09
 

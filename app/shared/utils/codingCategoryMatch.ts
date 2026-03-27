@@ -18,11 +18,8 @@ export function findCategoryKeyByName(
     const baseTarget = getBaseLabel(categoryName);
     const baseMatch = keys.find((key) => getBaseLabel(key) === baseTarget);
     if (baseMatch) return baseMatch;
-
-    return keys.find((key) => {
-        const baseKey = getBaseLabel(key);
-        return baseKey.startsWith(baseTarget) || baseTarget.startsWith(baseKey);
-    }) ?? null;
+    
+    return null;
 }
 
 function normalizeLabel(value: string): string {
