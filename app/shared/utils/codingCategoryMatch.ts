@@ -9,16 +9,18 @@ export function findCategoryKeyByName(
     const keys = Object.keys(categories);
     if (keys.length === 0) return null;
 
-    if (keys.includes(categoryName)) return categoryName;
-
     const normalizedTarget = normalizeLabel(categoryName);
-    const normalizedMatch = findSingleMatch(
-        keys,
+    const normalizedMatches = keys.filter(
         (key) => normalizeLabel(key) === normalizedTarget
     );
-    if (normalizedMatch) return normalizedMatch;
+    if (normalizedMatches.length > 1) return null;
 
-    return findSingleBaseMatch(keys, categoryName);
+    const baseMatches = findBaseMatches(keys, categoryName);
+    if (normalizedMatches.length === 1) {
+        return baseMatches.length === 1 ? normalizedMatches[0] : null;
+    }
+
+    return baseMatches.length === 1 ? baseMatches[0] : null;
 }
 
 function normalizeLabel(value: string): string {
@@ -37,7 +39,7 @@ function findSingleMatch(
     return matches.length === 1 ? matches[0] : null;
 }
 
-function findSingleBaseMatch(keys: string[], categoryName: string): string | null {
+function findBaseMatches(keys: string[], categoryName: string): string[] {
     const baseTarget = getBaseLabel(categoryName);
-    return findSingleMatch(keys, (key) => getBaseLabel(key) === baseTarget);
+    return keys.filter((key) => getBaseLabel(key) === baseTarget);
 }
