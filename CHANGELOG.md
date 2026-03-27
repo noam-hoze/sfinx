@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.3] - 2026-03-27
+
+### Fixed
+
+- **Critical final-score regression from category name mismatch**: Final scoring paths in `coding-summary-update` and candidate telemetry recalculation used exact key lookup for coding category names, so jobs with parenthetical category labels (for example, `"Python Proficiency (5+ years hands-on)"`) could miss valid evaluated scores stored under shortened names (for example, `"Python Proficiency"`), collapsing coding contribution to `0` and producing incorrect low `finalScore`. Restored resilient key matching with a shared helper and added focused tests.
+
 ## [1.29.2] - 2026-03-09
 
 ### Fixed
