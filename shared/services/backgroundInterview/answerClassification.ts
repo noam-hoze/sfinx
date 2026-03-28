@@ -396,3 +396,24 @@ export function shouldMoveToNextQuestion(
 
   return false;
 }
+
+/**
+ * Determines whether a next-question response represents a substantive turn.
+ * Supports both new (`detectedAnswerType`) and legacy boolean flags.
+ */
+export function isSubstantiveQuestionTurn(response: {
+  detectedAnswerType?: AnswerType | null;
+  isClarificationRequest?: boolean;
+  isDontKnow?: boolean;
+}): boolean {
+  if (response.detectedAnswerType) {
+    return response.detectedAnswerType === 'substantive';
+  }
+  const hasLegacyFlags =
+    typeof response.isClarificationRequest === 'boolean' ||
+    typeof response.isDontKnow === 'boolean';
+  if (!hasLegacyFlags) {
+    return false;
+  }
+  return !response.isClarificationRequest && !response.isDontKnow;
+}

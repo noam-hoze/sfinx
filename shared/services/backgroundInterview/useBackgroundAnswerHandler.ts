@@ -12,6 +12,7 @@ import {
   askViaChatCompletion,
   generateAssistantReply,
 } from "app/(features)/interview/components/chat/openAITextConversationHelpers";
+import { isSubstantiveQuestionTurn } from "./answerClassification";
 import { shouldTransition } from "@/shared/services/backgroundSessionGuard";
 import { buildOpenAIBackgroundPrompt } from "@/shared/prompts/openAIInterviewerPrompt";
 import { buildControlContextMessages, CONTROL_CONTEXT_TURNS } from "app/shared/services";
@@ -183,7 +184,7 @@ export function useBackgroundAnswerHandler(
               }
 
               // Record substantive probes for full-session deduplication
-              if (questionData.detectedAnswerType === 'substantive' && questionData.fingerprint) {
+              if (isSubstantiveQuestionTurn(questionData) && questionData.fingerprint) {
                 dispatch(addSubstantiveProbe({
                   question: questionData.question,
                   topic: questionData.fingerprint.topic,
