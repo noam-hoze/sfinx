@@ -20,6 +20,47 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
+type NextQuestionPayload = {
+    answerType: AnswerType;
+    result: ClassifiedQuestionResponse;
+    newFocusTopic: string;
+    isGibberish: boolean;
+    isClarificationRequest: boolean;
+    isDontKnow: boolean;
+    shouldIncrementRetry: boolean;
+    shouldMoveOn: boolean;
+    elapsed: number;
+};
+
+/** Build stable API response shape for next-question endpoint. */
+export function buildNextQuestionResponse(payload: NextQuestionPayload) {
+    const {
+        answerType,
+        result,
+        newFocusTopic,
+        isGibberish,
+        isClarificationRequest,
+        isDontKnow,
+        shouldIncrementRetry,
+        shouldMoveOn,
+        elapsed,
+    } = payload;
+    return {
+        success: true,
+        detectedAnswerType: answerType,
+        question: result.question,
+        newFocusTopic,
+        isGibberish,
+        isClarificationRequest,
+        isDontKnow,
+        shouldIncrementRetry,
+        shouldMoveOn,
+        probeAngle: result.probeAngle ?? null,
+        fingerprint: result.fingerprint ?? null,
+        latencyMs: elapsed,
+    };
+}
+
 /**
  * POST /api/interviews/next-question
  * Ultra-fast question generation (target <500ms) with NO scoring logic.
@@ -302,19 +343,19 @@ export async function POST(request: NextRequest) {
 
         log.info(LOG_CATEGORY, `[next-question] Classification: ${answerType}, Question generated in ${elapsed}ms`);
 
-        return NextResponse.json({
-            success: true,
-            question: result.question,
-            newFocusTopic,
-            isGibberish,
-            isClarificationRequest,
-            isDontKnow,
-            shouldIncrementRetry,
-            shouldMoveOn,
-            probeAngle: result.probeAngle ?? null,
-            fingerprint: result.fingerprint ?? null,
-            latencyMs: elapsed, // For monitoring
-        });
+        return NextResponse.json(
+            buildNextQuestionResponse({
+                answerType,
+                result,
+                newFocusTopic,
+                isGibberish,
+                isClarificationRequest,
+                isDontKnow,
+                shouldIncrementRetry,
+                shouldMoveOn,
+                elapsed,
+            })
+        );
     } catch (error) {
         log.error(LOG_CATEGORY, "[next-question] ❌ Error:", error);
         return NextResponse.json(
