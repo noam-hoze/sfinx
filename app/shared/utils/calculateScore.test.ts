@@ -193,6 +193,23 @@ describe("calculateScore", () => {
         expect(result.normalizedWorkstyle.problemSolving).toBe(60);
     });
 
+    it("defaults missing problemSolvingWeight to zero for backward compatibility", () => {
+        const raw: RawScores = {
+            experienceScores: [makeExperienceScore(80)],
+            categoryScores: [makeCodingScore(80)],
+        };
+        const ws: WorkstyleMetrics = { aiAssistAccountabilityScore: 70 };
+        const result = calculateScore(raw, ws, {
+            aiAssistWeight: 25,
+            experienceWeight: 50,
+            codingWeight: 50,
+        } as any);
+
+        expect(result.experienceScore).toBe(80);
+        expect(result.codingScore).toBe(78);
+        expect(result.finalScore).toBe(79);
+    });
+
     it("computes finalScore as weighted average of experience and coding", () => {
         const raw: RawScores = {
             experienceScores: [makeExperienceScore(50)],
