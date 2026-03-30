@@ -43,9 +43,9 @@ export function calculateScore(
     workstyleMetrics: WorkstyleMetrics,
     config: ScoringConfiguration
 ): CalculatedScore {
-    // Runtime safety: older call sites may omit newly added weights.
-    const aiAssistWeight = config.aiAssistWeight ?? 0;
-    const problemSolvingWeight = config.problemSolvingWeight ?? 0;
+    // Runtime safety: preserve persisted scoring defaults for older call sites.
+    const aiAssistWeight = config.aiAssistWeight ?? 25;
+    const problemSolvingWeight = config.problemSolvingWeight ?? 25;
 
     const hasAiAssistScore = workstyleMetrics.aiAssistAccountabilityScore !== undefined &&
                               workstyleMetrics.aiAssistAccountabilityScore !== null;

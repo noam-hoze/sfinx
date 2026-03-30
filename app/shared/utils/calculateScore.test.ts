@@ -193,7 +193,7 @@ describe("calculateScore", () => {
         expect(result.normalizedWorkstyle.problemSolving).toBe(60);
     });
 
-    it("defaults missing problemSolvingWeight to zero for backward compatibility", () => {
+    it("defaults missing problemSolvingWeight to schema default for backward compatibility", () => {
         const raw: RawScores = {
             experienceScores: [makeExperienceScore(80)],
             categoryScores: [makeCodingScore(80)],
@@ -206,8 +206,8 @@ describe("calculateScore", () => {
         } as any);
 
         expect(result.experienceScore).toBe(80);
-        expect(result.codingScore).toBe(78);
-        expect(result.finalScore).toBe(79);
+        expect(result.codingScore).toBe(58);
+        expect(result.finalScore).toBe(69);
     });
 
     it("computes finalScore as weighted average of experience and coding", () => {

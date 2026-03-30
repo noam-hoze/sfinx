@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.3] - 2026-03-30
+
+### Fixed
+
+- **Scoring fallback drift**: `calculateScore()` now preserves schema-default workstyle weights when older callers omit `problemSolvingWeight`, and the profile-story route now passes that weight explicitly so all scoring endpoints produce consistent results instead of diverging from persisted configuration defaults.
+
 ## [1.29.2] - 2026-03-09
 
 ### Fixed
