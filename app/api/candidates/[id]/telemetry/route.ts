@@ -331,7 +331,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         const experienceScores = jobExperienceCategories.map((cat: any) => ({
                             name: cat.name,
                             score: backgroundExperienceCategories[cat.name]?.score || 0,
-                            weight: cat.weight || 1
+                            weight: cat.weight ?? 1
                         }));
 
                         // Build coding scores from job-specific categories
@@ -340,7 +340,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         const categoryScores = jobCodingCategories.map((cat: any) => ({
                             name: cat.name,
                             score: codingCategoriesData[cat.name]?.score || 0,
-                            weight: cat.weight || 1
+                            weight: cat.weight ?? 1
                         }));
 
                         const rawScores: RawScores = {
