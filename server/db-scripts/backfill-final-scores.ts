@@ -70,7 +70,7 @@ async function backfillFinalScores() {
             const experienceScores = jobExperienceCategories.map((cat: any) => ({
                 name: cat.name,
                 score: backgroundExperienceCategories[cat.name]?.score || 0,
-                weight: cat.weight || 1
+                weight: cat.weight ?? 1
             }));
 
             const jobCodingCategories = (job.codingCategories as any) || [];
@@ -85,7 +85,7 @@ async function backfillFinalScores() {
                 return {
                     name: cat.name,
                     score: codingCategoriesData[matchingKey]?.score || 0,
-                    weight: cat.weight || 1
+                    weight: cat.weight ?? 1
                 };
             });
 

@@ -242,4 +242,39 @@ describe("calculateScore", () => {
         expect(Number.isInteger(result.codingScore)).toBe(true);
         expect(Number.isInteger(result.finalScore)).toBe(true);
     });
+
+    it("uses defaults when persisted config fields are non-finite", () => {
+        const raw: RawScores = {
+            experienceScores: [makeExperienceScore(40)],
+            categoryScores: [makeCodingScore(80)],
+        };
+        const ws: WorkstyleMetrics = { aiAssistAccountabilityScore: 100, problemSolvingScore: 60 };
+        const result = calculateScore(raw, ws, {
+            aiAssistWeight: 25,
+            problemSolvingWeight: Number.NaN,
+            experienceWeight: 40,
+            codingWeight: 60,
+        });
+
+        expect(result.codingScore).toBe(80);
+        expect(result.finalScore).toBe(64);
+    });
+
+    it("fails closed for malformed persisted scores instead of returning NaN", () => {
+        const raw: RawScores = {
+            experienceScores: [{ name: "A", score: Number.NaN, weight: 1 }],
+            categoryScores: [{ name: "B", score: Number.POSITIVE_INFINITY, weight: 1 }],
+        };
+        const ws: WorkstyleMetrics = {
+            aiAssistAccountabilityScore: Number.NaN,
+            problemSolvingScore: Number.POSITIVE_INFINITY,
+        };
+        const result = calculateScore(raw, ws, defaultConfig);
+
+        expect(result.experienceScore).toBe(0);
+        expect(result.codingScore).toBe(0);
+        expect(result.finalScore).toBe(0);
+        expect(result.normalizedWorkstyle.aiAssist).toBeNull();
+        expect(result.normalizedWorkstyle.problemSolving).toBeNull();
+    });
 });

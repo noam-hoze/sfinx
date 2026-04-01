@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
                     include: {
                         backgroundSummary: true,
                         codingSummary: true,
+                        workstyleMetrics: true,
                     },
                 },
                 application: {
@@ -131,7 +132,8 @@ export async function POST(request: NextRequest) {
             backgroundSummary,
             codingSummary,
             externalToolUsages,
-            session.application.job
+            session.application.job,
+            session.telemetryData.workstyleMetrics?.problemSolvingScore
         );
 
         log.info(LOG_CATEGORY, "[Generate Profile Story] Performance context:", {
@@ -298,7 +300,8 @@ function calculatePerformanceContext(
     backgroundSummary: any,
     codingSummary: any,
     externalToolUsages: Array<{ accountabilityScore: number; understanding: string }>,
-    job: { scoringConfiguration: any }
+    job: { scoringConfiguration: any },
+    problemSolvingScore?: number
 ): {
     finalScore: number;
     experienceScore: number;
@@ -319,7 +322,7 @@ function calculatePerformanceContext(
         ? Object.entries(backgroundSummary.experienceCategories).map(([name, data]: [string, any]) => ({
             name,
             score: data.score,
-            weight: data.weight || 1
+            weight: data.weight ?? 1
         }))
         : [];
 
@@ -328,7 +331,7 @@ function calculatePerformanceContext(
         ? Object.entries(codingSummary.jobSpecificCategories).map(([name, data]: [string, any]) => ({
             name,
             score: data.score,
-            weight: data.weight || 1
+            weight: data.weight ?? 1
         }))
         : [];
 
@@ -339,11 +342,15 @@ function calculatePerformanceContext(
 
     // Calculate scores using the same logic as coding-summary-update
     const rawScores = { experienceScores, categoryScores };
-    const workstyleMetrics = { aiAssistAccountabilityScore: avgAccountabilityScore };
+    const workstyleMetrics = {
+        aiAssistAccountabilityScore: avgAccountabilityScore,
+        problemSolvingScore,
+    };
 
     // Ensure scoringConfiguration has all required fields with defaults
     const scoringConfig = {
         aiAssistWeight: job.scoringConfiguration?.aiAssistWeight ?? 25,
+        problemSolvingWeight: job.scoringConfiguration?.problemSolvingWeight ?? 25,
         experienceWeight: job.scoringConfiguration?.experienceWeight ?? 50,
         codingWeight: job.scoringConfiguration?.codingWeight ?? 50
     };

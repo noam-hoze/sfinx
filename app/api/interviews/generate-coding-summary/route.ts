@@ -249,7 +249,7 @@ Provide a comprehensive summary and scores for this candidate's coding performan
                 const experienceScores = jobExperienceCategories.map((cat: any) => ({
                     name: cat.name,
                     score: backgroundExperienceCategories[cat.name]?.score || 0,
-                    weight: cat.weight || 1
+                    weight: cat.weight ?? 1
                 }));
 
                 const rawScores: RawScores = { experienceScores, categoryScores: [] };
