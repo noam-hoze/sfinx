@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.3] - 2026-04-01
+
+### Fixed
+
+- **Shared score sanitization**: `calculateScore` now clamps and sanitizes malformed persisted weights and scores so profile stories, telemetry recalculations, and backfill scripts fail closed with numeric results instead of propagating `NaN`.
+
 ## [1.29.2] - 2026-03-09
 
 ### Fixed
