@@ -5,7 +5,10 @@ import prisma from "lib/prisma";
 import { log } from "app/shared/services";
 import { loadCompanyForUser } from "../../companyContext";
 import { ensureCompanyRole } from "../../companyAuth";
-import { validateScoringWeightConsistency } from "../../scoringConfigValidation";
+import {
+    validateIterationThresholdConsistency,
+    validateScoringWeightConsistency,
+} from "../../scoringConfigValidation";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.COMPANY;
@@ -178,19 +181,21 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             );
         }
 
-        // Validate thresholds are sensible
-        if (
-            body.iterationSpeedThresholdModerate !== undefined &&
-            body.iterationSpeedThresholdHigh !== undefined
-        ) {
-            const moderate = Number(body.iterationSpeedThresholdModerate);
-            const high = Number(body.iterationSpeedThresholdHigh);
-            if (moderate >= high) {
-                return NextResponse.json(
-                    { error: "Iteration speed moderate threshold must be less than high threshold" },
-                    { status: 400 }
-                );
-            }
+        const existingThresholds = job.scoringConfiguration as
+            | {
+                  iterationSpeedThresholdModerate?: number | null;
+                  iterationSpeedThresholdHigh?: number | null;
+              }
+            | null;
+        const thresholdError = validateIterationThresholdConsistency(body as Record<string, unknown>, {
+            iterationSpeedThresholdModerate: existingThresholds?.iterationSpeedThresholdModerate,
+            iterationSpeedThresholdHigh: existingThresholds?.iterationSpeedThresholdHigh,
+        });
+        if (thresholdError) {
+            return NextResponse.json(
+                { error: thresholdError },
+                { status: 400 }
+            );
         }
 
         // Build update data

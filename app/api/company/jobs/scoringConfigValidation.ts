@@ -5,6 +5,11 @@ interface ExistingWeights {
     codingWeight?: number | null;
 }
 
+interface ExistingThresholds {
+    iterationSpeedThresholdModerate?: number | null;
+    iterationSpeedThresholdHigh?: number | null;
+}
+
 function readWeight(
     body: Record<string, unknown>,
     key: keyof ExistingWeights,
@@ -42,6 +47,36 @@ export function validateScoringWeightConsistency(
         if (Math.abs(experienceWeight + codingWeight - 100) > 0.01) {
             return "Experience weight and coding weight must sum to 100";
         }
+    }
+
+    return null;
+}
+
+/**
+ * Validates iteration thresholds while supporting partial updates.
+ */
+export function validateIterationThresholdConsistency(
+    body: Record<string, unknown>,
+    existing: ExistingThresholds
+): string | null {
+    const hasThresholdUpdate =
+        body.iterationSpeedThresholdModerate !== undefined ||
+        body.iterationSpeedThresholdHigh !== undefined;
+    if (!hasThresholdUpdate) {
+        return null;
+    }
+
+    const moderate =
+        body.iterationSpeedThresholdModerate !== undefined
+            ? Number(body.iterationSpeedThresholdModerate)
+            : existing.iterationSpeedThresholdModerate ?? 5;
+    const high =
+        body.iterationSpeedThresholdHigh !== undefined
+            ? Number(body.iterationSpeedThresholdHigh)
+            : existing.iterationSpeedThresholdHigh ?? 10;
+
+    if (moderate >= high) {
+        return "Iteration speed moderate threshold must be less than high threshold";
     }
 
     return null;

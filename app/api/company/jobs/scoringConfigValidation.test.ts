@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { validateScoringWeightConsistency } from "./scoringConfigValidation";
+import {
+    validateIterationThresholdConsistency,
+    validateScoringWeightConsistency,
+} from "./scoringConfigValidation";
 
 describe("validateScoringWeightConsistency", () => {
     it("allows valid partial workstyle updates", () => {
@@ -40,5 +43,21 @@ describe("validateScoringWeightConsistency", () => {
             {}
         );
         expect(error).toBe("AI Assist weight and Problem Solving weight must sum to 100 or less");
+    });
+
+    it("rejects partial threshold updates when moderate reaches existing high", () => {
+        const error = validateIterationThresholdConsistency(
+            { iterationSpeedThresholdModerate: 10 },
+            { iterationSpeedThresholdHigh: 10 }
+        );
+        expect(error).toBe("Iteration speed moderate threshold must be less than high threshold");
+    });
+
+    it("allows partial threshold updates when persisted pair remains ordered", () => {
+        const error = validateIterationThresholdConsistency(
+            { iterationSpeedThresholdHigh: 12 },
+            { iterationSpeedThresholdModerate: 5 }
+        );
+        expect(error).toBeNull();
     });
 });
