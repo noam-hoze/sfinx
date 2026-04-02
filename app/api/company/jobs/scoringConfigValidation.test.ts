@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-    validateIterationThresholdConsistency,
+    validateSupportedScoringConfigFields,
     validateScoringWeightConsistency,
 } from "./scoringConfigValidation";
 
@@ -45,19 +45,18 @@ describe("validateScoringWeightConsistency", () => {
         expect(error).toBe("AI Assist weight and Problem Solving weight must sum to 100 or less");
     });
 
-    it("rejects partial threshold updates when moderate reaches existing high", () => {
-        const error = validateIterationThresholdConsistency(
-            { iterationSpeedThresholdModerate: 10 },
-            { iterationSpeedThresholdHigh: 10 }
-        );
-        expect(error).toBe("Iteration speed moderate threshold must be less than high threshold");
+    it("rejects legacy threshold fields removed from scoring configuration", () => {
+        const error = validateSupportedScoringConfigFields({
+            iterationSpeedThresholdModerate: 10,
+        });
+        expect(error).toBe("iterationSpeedThresholdModerate is no longer supported");
     });
 
-    it("allows partial threshold updates when persisted pair remains ordered", () => {
-        const error = validateIterationThresholdConsistency(
-            { iterationSpeedThresholdHigh: 12 },
-            { iterationSpeedThresholdModerate: 5 }
-        );
+    it("allows supported scoring fields", () => {
+        const error = validateSupportedScoringConfigFields({
+            aiAssistWeight: 25,
+            codingWeight: 75,
+        });
         expect(error).toBeNull();
     });
 });

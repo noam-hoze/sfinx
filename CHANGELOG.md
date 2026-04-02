@@ -4,11 +4,11 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
-## [1.29.3] - 2026-04-02
+## [1.29.4] - 2026-04-02
 
 ### Fixed
 
-- **Scoring config partial-update gaps**: `PUT /api/company/jobs/[jobId]/scoring-config` now rejects invalid one-sided iteration threshold updates by validating each partial change against the persisted companion threshold, preventing impossible `moderate >= high` pairs from being saved.
+- **Scoring config legacy-field guard**: `PUT /api/company/jobs/[jobId]/scoring-config` now rejects removed iteration-threshold fields before persistence, preventing Prisma write failures from unsupported `iterationSpeedThreshold*` inputs.
 - **Profile story score math**: `generate-profile-story` now loads persisted `workstyleMetrics` and passes `problemSolvingWeight` into `calculateScore`, preventing `NaN` scoring and keeping profile-story performance context aligned with the main scoring pipeline.
 
 ## [1.29.2] - 2026-03-09

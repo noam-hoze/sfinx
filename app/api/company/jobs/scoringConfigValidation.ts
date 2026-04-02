@@ -5,10 +5,10 @@ interface ExistingWeights {
     codingWeight?: number | null;
 }
 
-interface ExistingThresholds {
-    iterationSpeedThresholdModerate?: number | null;
-    iterationSpeedThresholdHigh?: number | null;
-}
+const LEGACY_SCORING_CONFIG_FIELDS = [
+    "iterationSpeedThresholdModerate",
+    "iterationSpeedThresholdHigh",
+] as const;
 
 function readWeight(
     body: Record<string, unknown>,
@@ -53,31 +53,13 @@ export function validateScoringWeightConsistency(
 }
 
 /**
- * Validates iteration thresholds while supporting partial updates.
+ * Rejects legacy scoring-config fields removed from the persisted schema.
  */
-export function validateIterationThresholdConsistency(
-    body: Record<string, unknown>,
-    existing: ExistingThresholds
-): string | null {
-    const hasThresholdUpdate =
-        body.iterationSpeedThresholdModerate !== undefined ||
-        body.iterationSpeedThresholdHigh !== undefined;
-    if (!hasThresholdUpdate) {
+export function validateSupportedScoringConfigFields(body: Record<string, unknown>): string | null {
+    const legacyField = LEGACY_SCORING_CONFIG_FIELDS.find((field) => body[field] !== undefined);
+    if (!legacyField) {
         return null;
     }
 
-    const moderate =
-        body.iterationSpeedThresholdModerate !== undefined
-            ? Number(body.iterationSpeedThresholdModerate)
-            : existing.iterationSpeedThresholdModerate ?? 5;
-    const high =
-        body.iterationSpeedThresholdHigh !== undefined
-            ? Number(body.iterationSpeedThresholdHigh)
-            : existing.iterationSpeedThresholdHigh ?? 10;
-
-    if (moderate >= high) {
-        return "Iteration speed moderate threshold must be less than high threshold";
-    }
-
-    return null;
+    return `${legacyField} is no longer supported`;
 }

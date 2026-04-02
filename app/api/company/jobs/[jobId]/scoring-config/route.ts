@@ -6,8 +6,8 @@ import { log } from "app/shared/services";
 import { loadCompanyForUser } from "../../companyContext";
 import { ensureCompanyRole } from "../../companyAuth";
 import {
-    validateIterationThresholdConsistency,
     validateScoringWeightConsistency,
+    validateSupportedScoringConfigFields,
 } from "../../scoringConfigValidation";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
@@ -181,30 +181,19 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             );
         }
 
-        const existingThresholds = job.scoringConfiguration as
-            | {
-                  iterationSpeedThresholdModerate?: number | null;
-                  iterationSpeedThresholdHigh?: number | null;
-              }
-            | null;
-        const thresholdError = validateIterationThresholdConsistency(body as Record<string, unknown>, {
-            iterationSpeedThresholdModerate: existingThresholds?.iterationSpeedThresholdModerate,
-            iterationSpeedThresholdHigh: existingThresholds?.iterationSpeedThresholdHigh,
-        });
-        if (thresholdError) {
+        const unsupportedFieldError = validateSupportedScoringConfigFields(
+            body as Record<string, unknown>
+        );
+        if (unsupportedFieldError) {
             return NextResponse.json(
-                { error: thresholdError },
+                { error: unsupportedFieldError },
                 { status: 400 }
             );
         }
 
         // Build update data
         const updates: any = {};
-        const updateableFields = [
-            ...weightFields,
-            'iterationSpeedThresholdModerate',
-            'iterationSpeedThresholdHigh',
-        ];
+        const updateableFields = [...weightFields];
 
         for (const field of updateableFields) {
             if (body[field] !== undefined) {
