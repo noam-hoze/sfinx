@@ -5,6 +5,10 @@ import prisma from "lib/prisma";
 import { log } from "app/shared/services";
 import { loadCompanyForUser } from "../../companyContext";
 import { ensureCompanyRole } from "../../companyAuth";
+import {
+    validateScoringWeightConsistency,
+    validateSupportedScoringConfigFields,
+} from "../../scoringConfigValidation";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.COMPANY;
@@ -131,6 +135,9 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         const { company } = await loadCompanyForUser(userId);
         const job = await prisma.job.findUnique({
             where: { id: jobId },
+            include: {
+                scoringConfiguration: true,
+            },
         });
 
         if (!job) {
@@ -161,39 +168,32 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             }
         }
 
-        // Validate category weights sum to 100 (with tolerance for floating point)
-        if (body.experienceWeight !== undefined && body.codingWeight !== undefined) {
-            const sum = Number(body.experienceWeight) + Number(body.codingWeight);
-            if (Math.abs(sum - 100) > 0.01) {
-                return NextResponse.json(
-                    { error: "Experience weight and coding weight must sum to 100" },
-                    { status: 400 }
-                );
-            }
+        const weightError = validateScoringWeightConsistency(body as Record<string, unknown>, {
+            aiAssistWeight: job.scoringConfiguration?.aiAssistWeight,
+            problemSolvingWeight: job.scoringConfiguration?.problemSolvingWeight,
+            experienceWeight: job.scoringConfiguration?.experienceWeight,
+            codingWeight: job.scoringConfiguration?.codingWeight,
+        });
+        if (weightError) {
+            return NextResponse.json(
+                { error: weightError },
+                { status: 400 }
+            );
         }
 
-        // Validate thresholds are sensible
-        if (
-            body.iterationSpeedThresholdModerate !== undefined &&
-            body.iterationSpeedThresholdHigh !== undefined
-        ) {
-            const moderate = Number(body.iterationSpeedThresholdModerate);
-            const high = Number(body.iterationSpeedThresholdHigh);
-            if (moderate >= high) {
-                return NextResponse.json(
-                    { error: "Iteration speed moderate threshold must be less than high threshold" },
-                    { status: 400 }
-                );
-            }
+        const unsupportedFieldError = validateSupportedScoringConfigFields(
+            body as Record<string, unknown>
+        );
+        if (unsupportedFieldError) {
+            return NextResponse.json(
+                { error: unsupportedFieldError },
+                { status: 400 }
+            );
         }
 
         // Build update data
         const updates: any = {};
-        const updateableFields = [
-            ...weightFields,
-            'iterationSpeedThresholdModerate',
-            'iterationSpeedThresholdHigh',
-        ];
+        const updateableFields = [...weightFields];
 
         for (const field of updateableFields) {
             if (body[field] !== undefined) {
