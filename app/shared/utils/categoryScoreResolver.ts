@@ -36,13 +36,23 @@ export function resolveCategoryKey(
 }
 
 /**
+ * Resolves a stored category value using the shared category-key matcher.
+ */
+export function resolveCategoryValue<T>(
+    categories: Record<string, T>,
+    categoryName: string
+): T | undefined {
+    const resolvedKey = resolveCategoryKey(categories, categoryName);
+    return resolvedKey ? categories[resolvedKey] : undefined;
+}
+
+/**
  * Resolves a category score from AI output without cross-matching sibling categories.
  */
 export function resolveCategoryScore(
     categories: Record<string, CategoryScoreEntry>,
     categoryName: string
 ): number {
-    const resolvedKey = resolveCategoryKey(categories, categoryName);
-    const resolvedScore = resolvedKey ? categories[resolvedKey]?.score : undefined;
+    const resolvedScore = resolveCategoryValue(categories, categoryName)?.score;
     return typeof resolvedScore === "number" ? resolvedScore : 0;
 }

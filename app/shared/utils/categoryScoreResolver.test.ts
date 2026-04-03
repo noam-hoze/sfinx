@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { resolveCategoryKey, resolveCategoryScore } from "./categoryScoreResolver";
+import {
+    resolveCategoryKey,
+    resolveCategoryScore,
+    resolveCategoryValue,
+} from "./categoryScoreResolver";
 
 describe("resolveCategoryScore", () => {
     it("returns exact category score when key matches", () => {
@@ -57,5 +61,23 @@ describe("resolveCategoryKey", () => {
 
         const key = resolveCategoryKey(categories, "Python Proficiency (5+ years hands-on)");
         expect(key).toBeUndefined();
+    });
+});
+
+describe("resolveCategoryValue", () => {
+    it("returns the stored entry for a unique normalized match", () => {
+        const storedCategory = {
+            score: 91,
+            evidenceLinks: [{ timestamp: 14, caption: "candidate explains tradeoff" }],
+        };
+        const categories = {
+            "Python Proficiency": storedCategory,
+        };
+
+        const value = resolveCategoryValue(
+            categories,
+            "Python Proficiency (5+ years hands-on)"
+        );
+        expect(value).toBe(storedCategory);
     });
 });

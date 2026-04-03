@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.3] - 2026-04-03
+
+### Fixed
+
+- **Coding contribution evidence matching**: `coding-summary-update` now reuses the shared coding-category resolver when merging real-time contributions into final coding categories, so AI-suffixed labels preserve evidence links, contribution counts, and confidence instead of silently dropping them.
+
 ## [1.29.2] - 2026-03-09
 
 ### Fixed
