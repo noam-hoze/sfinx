@@ -2,6 +2,7 @@
 
 import { PrismaClient } from "@prisma/client";
 import { calculateScore, type RawScores, type WorkstyleMetrics } from "../../app/shared/utils/calculateScore";
+import { resolveCategoryScore } from "../../app/shared/utils/categoryScoreResolver";
 import { config } from "dotenv";
 import path from "path";
 
@@ -75,19 +76,11 @@ async function backfillFinalScores() {
 
             const jobCodingCategories = (job.codingCategories as any) || [];
             const codingCategoriesData = (telemetryData.codingSummary.jobSpecificCategories as any) || {};
-            const categoryScores = jobCodingCategories.map((cat: any) => {
-                // Match by base name (before any parentheses)
-                const baseName = cat.name.split(' (')[0];
-                const matchingKey = Object.keys(codingCategoriesData).find(key => 
-                    key.startsWith(baseName) || cat.name.startsWith(key)
-                ) || cat.name;
-                
-                return {
-                    name: cat.name,
-                    score: codingCategoriesData[matchingKey]?.score || 0,
-                    weight: cat.weight || 1
-                };
-            });
+            const categoryScores = jobCodingCategories.map((cat: any) => ({
+                name: cat.name,
+                score: resolveCategoryScore(codingCategoriesData, cat.name),
+                weight: cat.weight || 1
+            }));
 
             const rawScores: RawScores = { experienceScores, categoryScores };
             
