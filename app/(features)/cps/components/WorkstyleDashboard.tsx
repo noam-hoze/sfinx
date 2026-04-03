@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { WorkstyleMetrics } from "../../../shared/contexts";
+import { resolveCategoryKey } from "app/shared/utils/categoryScoreResolver";
 import MetricRow from "./MetricRow";
 import CodeQualityModal from "./CodeQualityModal";
 import {
@@ -19,6 +20,8 @@ interface CodingSummary {
     jobSpecificCategories?: Record<string, {
         score: number;
         text: string;
+        description?: string;
+        evidenceLinks?: Array<number | { timestamp: number; caption?: string }>;
     }>;
 }
 
@@ -80,12 +83,8 @@ const WorkstyleDashboard: React.FC<WorkstyleDashboardProps> = ({
                 {codingCategories
                     ?.filter(categoryDef => categoryDef.weight > 0)
                     .map(categoryDef => {
-                        // Match by base name (before any parentheses) to handle name mismatches
-                        const baseName = categoryDef.name.split(' (')[0];
-                        const matchingKey = codingSummary?.jobSpecificCategories ? 
-                            Object.keys(codingSummary.jobSpecificCategories).find(key => 
-                                key.startsWith(baseName) || categoryDef.name.startsWith(key)
-                            ) || categoryDef.name
+                        const matchingKey = codingSummary?.jobSpecificCategories
+                            ? resolveCategoryKey(codingSummary.jobSpecificCategories, categoryDef.name) ?? categoryDef.name
                             : categoryDef.name;
                         
                         const data = codingSummary?.jobSpecificCategories?.[matchingKey];

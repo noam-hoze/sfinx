@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 import { calculateScore, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
+import {
+    resolveCategoryScore,
+    resolveCategoryValue,
+} from "app/shared/utils/categoryScoreResolver";
 import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
@@ -63,12 +67,12 @@ export async function PATCH(
         log.info(LOG_CATEGORY, `[Coding Summary Update] Found ${allContributions.length} real-time contributions`);
 
         // Group contributions by category
-        const categoriesByName = new Map<string, any[]>();
+        const categoriesByName: Record<string, any[]> = {};
         allContributions.forEach(contrib => {
-            if (!categoriesByName.has(contrib.categoryName)) {
-                categoriesByName.set(contrib.categoryName, []);
+            if (!categoriesByName[contrib.categoryName]) {
+                categoriesByName[contrib.categoryName] = [];
             }
-            categoriesByName.get(contrib.categoryName)!.push(contrib);
+            categoriesByName[contrib.categoryName].push(contrib);
         });
 
         // Calculate video offset helper
@@ -81,7 +85,8 @@ export async function PATCH(
         const enrichedCategories: any = { ...jobSpecificCategories };
 
         for (const [categoryName, categoryData] of Object.entries(jobSpecificCategories as Record<string, any>)) {
-            const contributions = categoriesByName.get(categoryName) || [];
+            const contributions =
+                resolveCategoryValue(categoriesByName, categoryName) || [];
             
             if (contributions.length > 0) {
                 // Calculate raw average from contributions
@@ -165,9 +170,10 @@ export async function PATCH(
                 }));
 
                 const jobCodingCategories = (job.codingCategories as any) || [];
+                const normalizedCodingCategories = categoryOnlyEntries as Record<string, any>;
                 const categoryScores = jobCodingCategories.map((cat: any) => ({
                     name: cat.name,
-                    score: (categoryOnlyEntries as any)[cat.name]?.score ?? 0,
+                    score: resolveCategoryScore(normalizedCodingCategories, cat.name),
                     weight: cat.weight ?? 1,
                 }));
 

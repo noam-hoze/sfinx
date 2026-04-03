@@ -23,6 +23,7 @@ import SfinxSpinner from "app/shared/components/SfinxSpinner";
 import Breadcrumbs from "app/shared/components/Breadcrumbs";
 import { log } from "app/shared/services";
 import { type ScoringConfiguration } from "app/shared/utils/calculateScore";
+import { resolveCategoryKey } from "app/shared/utils/categoryScoreResolver";
 import { useDebug } from "app/shared/contexts";
 import { selectBreadcrumbSource } from "@/shared/state/slices/navigationSlice";
 import {
@@ -326,13 +327,11 @@ function TelemetryContent() {
             codingCategoryDefs
                 .filter((categoryDef) => categoryDef.weight > 0)
                 .forEach((categoryDef) => {
-                    const baseName = categoryDef.name.split(" (")[0];
                     const matchingKey =
-                        Object.keys(codingSummary.jobSpecificCategories).find(
-                            (key) =>
-                                key.startsWith(baseName) ||
-                                categoryDef.name.startsWith(key)
-                        ) || categoryDef.name;
+                        resolveCategoryKey(
+                            codingSummary.jobSpecificCategories,
+                            categoryDef.name
+                        ) ?? categoryDef.name;
                     const data = codingSummary.jobSpecificCategories?.[matchingKey];
 
                     if (data?.evidenceLinks) {
