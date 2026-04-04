@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { calculateScore } from "./calculateScore";
+import { calculateScore, createRawScoreEntry } from "./calculateScore";
 import type { RawScores, WorkstyleMetrics, ScoringConfiguration } from "./calculateScore";
 
 const defaultConfig: ScoringConfiguration = {
@@ -241,6 +241,15 @@ describe("calculateScore", () => {
         expect(Number.isInteger(result.experienceScore)).toBe(true);
         expect(Number.isInteger(result.codingScore)).toBe(true);
         expect(Number.isInteger(result.finalScore)).toBe(true);
+    });
+
+    it("preserves zero weights while defaulting only missing raw score fields", () => {
+        const preservedValues = createRawScoreEntry("A", Number.NaN, 0);
+        const defaultedValues = createRawScoreEntry("B", undefined, undefined);
+
+        expect(Number.isNaN(preservedValues.score)).toBe(true);
+        expect(preservedValues.weight).toBe(0);
+        expect(defaultedValues).toEqual({ name: "B", score: 0, weight: 1 });
     });
 
     it("ignores non-finite workstyle scores instead of returning NaN", () => {

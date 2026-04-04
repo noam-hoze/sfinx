@@ -11,7 +11,7 @@ import { SfinxSpinner } from "app/shared/components";
 import RealTimeContributionsView from "app/shared/components/debug/RealTimeContributionsView";
 import { transformCodingDataToRealtime } from "./transformers/codingDataTransformer";
 import ScoreProgressDisplay from "app/shared/components/debug/ScoreProgressDisplay";
-import { calculateScore } from "app/shared/utils/calculateScore";
+import { calculateScore, createRawScoreEntry } from "app/shared/utils/calculateScore";
 import { useSelector } from "react-redux";
 import { RootState } from "@/shared/state/store";
 import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
@@ -160,14 +160,13 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
     // Calculate real-time scores
     const experienceScores = useMemo(() => {
         if (!experienceCategories || !contributionStats) return [];
-        return experienceCategories.map((category: any) => {
-            const stat = contributionStats.find(s => s.categoryName === category.name);
-            return {
-                name: category.name,
-                score: stat?.avgStrength || 0,
-                weight: category.weight
-            };
-        });
+        return experienceCategories.map((category: any) =>
+            createRawScoreEntry(
+                category.name,
+                contributionStats.find(s => s.categoryName === category.name)?.avgStrength,
+                category.weight
+            )
+        );
     }, [experienceCategories, contributionStats]);
 
     const codingScores = useMemo(() => {

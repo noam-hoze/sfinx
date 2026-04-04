@@ -19,6 +19,8 @@ export interface RawScores {
     categoryScores: Array<{name: string; score: number; weight: number}>;
 }
 
+export type RawScoreEntry = RawScores["experienceScores"][number];
+
 export interface WorkstyleMetrics {
     aiAssistAccountabilityScore?: number; // Already 0-100
     /** Problem solving score (0-100): average of correctness + output match. Undefined if no expected solution. */
@@ -48,6 +50,21 @@ function toFiniteNumber(value: number | undefined | null): number | null {
 function toPositiveWeight(value: number | undefined | null): number {
     const weight = toFiniteNumber(value);
     return weight !== null && weight > 0 ? weight : 0;
+}
+
+/**
+ * Defaults missing score data while preserving explicit zeroes and NaN inputs.
+ */
+export function createRawScoreEntry(
+    name: string,
+    score: number | undefined | null,
+    weight: number | undefined | null
+): RawScoreEntry {
+    return {
+        name,
+        score: score ?? 0,
+        weight: weight ?? 1,
+    };
 }
 
 /**
