@@ -8,7 +8,7 @@ import { forceTimeExpiry } from "@/shared/state/slices/backgroundSlice";
 import RealTimeContributionsView from "./debug/RealTimeContributionsView";
 import { transformBackgroundDataToRealtime } from "./debug/transformers/backgroundDataTransformer";
 import ScoreProgressDisplay from "./debug/ScoreProgressDisplay";
-import { calculateScore } from "app/shared/utils/calculateScore";
+import { calculateScore, createRawScoreEntry } from "app/shared/utils/calculateScore";
 import { log } from "app/shared/services/logger";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 
@@ -79,14 +79,13 @@ export default function BackgroundDebugPanel({ timeboxMs = TIMEBOX_MS, experienc
     // Calculate real-time scores (must be before any conditional returns)
     const experienceScores = useMemo(() => {
         if (!experienceCategories || !contributionStats) return [];
-        return experienceCategories.map(category => {
-            const stat = contributionStats.find(s => s.categoryName === category.name);
-            return {
-                name: category.name,
-                score: stat?.avgStrength || 0,
-                weight: category.weight
-            };
-        });
+        return experienceCategories.map(category =>
+            createRawScoreEntry(
+                category.name,
+                contributionStats.find(s => s.categoryName === category.name)?.avgStrength,
+                category.weight
+            )
+        );
     }, [experienceCategories, contributionStats]);
 
     const scores = useMemo(() => {

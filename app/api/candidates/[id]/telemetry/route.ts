@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import { getCached, setCached } from "app/shared/services/server";
 import prisma from "lib/prisma";
-import { calculateScore, type RawScores, type WorkstyleMetrics, type ScoringConfiguration } from "app/shared/utils/calculateScore";
+import { calculateScore, createRawScoreEntry, type RawScores, type WorkstyleMetrics, type ScoringConfiguration } from "app/shared/utils/calculateScore";
 import { mergeWithPredefinedCategories, type CodingCategory } from "app/api/company/jobs/categorySchemas";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
@@ -322,26 +322,29 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 const scoringConfig = jobId ? scoringConfigsByJobId.get(jobId) : null;
                 const backgroundSummary = backgroundSummariesBySessionId.get(session.id);
                 const codingSummary = codingSummariesBySessionId.get(session.id);
-
-                if (scoringConfig && backgroundSummary && codingSummary && telemetry?.workstyleMetrics) {
+                if (scoringConfig && backgroundSummary && codingSummary) {
                     try {
                         // Build experience scores from dynamic categories
                         const jobExperienceCategories = (session.application?.job?.experienceCategories as any) || [];
                         const backgroundExperienceCategories = (backgroundSummary.experienceCategories as any) || {};
-                        const experienceScores = jobExperienceCategories.map((cat: any) => ({
-                            name: cat.name,
-                            score: backgroundExperienceCategories[cat.name]?.score || 0,
-                            weight: cat.weight || 1
-                        }));
+                        const experienceScores = jobExperienceCategories.map((cat: any) =>
+                            createRawScoreEntry(
+                                cat.name,
+                                backgroundExperienceCategories[cat.name]?.score,
+                                cat.weight
+                            )
+                        );
 
                         // Build coding scores from job-specific categories
                         const jobCodingCategories = (session.application?.job?.codingCategories as any) || [];
                         const codingCategoriesData = (codingSummary.jobSpecificCategories as any) || {};
-                        const categoryScores = jobCodingCategories.map((cat: any) => ({
-                            name: cat.name,
-                            score: codingCategoriesData[cat.name]?.score || 0,
-                            weight: cat.weight || 1
-                        }));
+                        const categoryScores = jobCodingCategories.map((cat: any) =>
+                            createRawScoreEntry(
+                                cat.name,
+                                codingCategoriesData[cat.name]?.score,
+                                cat.weight
+                            )
+                        );
 
                         const rawScores: RawScores = {
                             experienceScores,

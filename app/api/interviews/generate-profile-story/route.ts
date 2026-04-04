@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
                     include: {
                         backgroundSummary: true,
                         codingSummary: true,
+                        workstyleMetrics: true,
                     },
                 },
                 application: {
@@ -131,6 +132,7 @@ export async function POST(request: NextRequest) {
             backgroundSummary,
             codingSummary,
             externalToolUsages,
+            session.telemetryData.workstyleMetrics,
             session.application.job
         );
 
@@ -298,6 +300,7 @@ function calculatePerformanceContext(
     backgroundSummary: any,
     codingSummary: any,
     externalToolUsages: Array<{ accountabilityScore: number; understanding: string }>,
+    workstyleMetricsData: { problemSolvingScore?: number | null } | null | undefined,
     job: { scoringConfiguration: any }
 ): {
     finalScore: number;
@@ -312,24 +315,20 @@ function calculatePerformanceContext(
     };
 } {
     // Import calculateScore utility
-    const { calculateScore } = require('app/shared/utils/calculateScore');
+    const { calculateScore, createRawScoreEntry } = require('app/shared/utils/calculateScore');
 
     // Build experience scores from backgroundSummary categories
     const experienceScores = backgroundSummary.experienceCategories
-        ? Object.entries(backgroundSummary.experienceCategories).map(([name, data]: [string, any]) => ({
-            name,
-            score: data.score,
-            weight: data.weight || 1
-        }))
+        ? Object.entries(backgroundSummary.experienceCategories).map(([name, data]: [string, any]) =>
+            createRawScoreEntry(name, data.score, data.weight)
+        )
         : [];
 
     // Build coding category scores from codingSummary
     const categoryScores = codingSummary.jobSpecificCategories
-        ? Object.entries(codingSummary.jobSpecificCategories).map(([name, data]: [string, any]) => ({
-            name,
-            score: data.score,
-            weight: data.weight || 1
-        }))
+        ? Object.entries(codingSummary.jobSpecificCategories).map(([name, data]: [string, any]) =>
+            createRawScoreEntry(name, data.score, data.weight)
+        )
         : [];
 
     // Calculate average accountability score
@@ -339,11 +338,15 @@ function calculatePerformanceContext(
 
     // Calculate scores using the same logic as coding-summary-update
     const rawScores = { experienceScores, categoryScores };
-    const workstyleMetrics = { aiAssistAccountabilityScore: avgAccountabilityScore };
+    const workstyleMetrics = {
+        aiAssistAccountabilityScore: avgAccountabilityScore,
+        problemSolvingScore: workstyleMetricsData?.problemSolvingScore ?? undefined,
+    };
 
     // Ensure scoringConfiguration has all required fields with defaults
     const scoringConfig = {
         aiAssistWeight: job.scoringConfiguration?.aiAssistWeight ?? 25,
+        problemSolvingWeight: job.scoringConfiguration?.problemSolvingWeight ?? 25,
         experienceWeight: job.scoringConfiguration?.experienceWeight ?? 50,
         codingWeight: job.scoringConfiguration?.codingWeight ?? 50
     };

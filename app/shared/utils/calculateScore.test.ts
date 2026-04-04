@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { calculateScore } from "./calculateScore";
+import { calculateScore, createRawScoreEntry } from "./calculateScore";
 import type { RawScores, WorkstyleMetrics, ScoringConfiguration } from "./calculateScore";
 
 const defaultConfig: ScoringConfiguration = {
@@ -241,5 +241,63 @@ describe("calculateScore", () => {
         expect(Number.isInteger(result.experienceScore)).toBe(true);
         expect(Number.isInteger(result.codingScore)).toBe(true);
         expect(Number.isInteger(result.finalScore)).toBe(true);
+    });
+
+    it("preserves zero weights while defaulting only missing raw score fields", () => {
+        const preservedValues = createRawScoreEntry("A", Number.NaN, 0);
+        const defaultedValues = createRawScoreEntry("B", undefined, undefined);
+
+        expect(Number.isNaN(preservedValues.score)).toBe(true);
+        expect(preservedValues.weight).toBe(0);
+        expect(defaultedValues).toEqual({ name: "B", score: 0, weight: 1 });
+    });
+
+    it("ignores non-finite workstyle scores instead of returning NaN", () => {
+        const raw: RawScores = {
+            experienceScores: [makeExperienceScore(50)],
+            categoryScores: [makeCodingScore(80)],
+        };
+        const ws: WorkstyleMetrics = {
+            aiAssistAccountabilityScore: Number.NaN,
+            problemSolvingScore: Number.NaN,
+        };
+        const result = calculateScore(raw, ws, defaultConfig);
+
+        expect(result.codingScore).toBe(40);
+        expect(result.finalScore).toBe(44);
+        expect(result.normalizedWorkstyle.aiAssist).toBeNull();
+        expect(result.normalizedWorkstyle.problemSolving).toBeNull();
+    });
+
+    it("skips categories with non-finite scores", () => {
+        const raw: RawScores = {
+            experienceScores: [
+                makeExperienceScore(80),
+                makeExperienceScore(Number.NaN),
+            ],
+            categoryScores: [],
+        };
+        const ws: WorkstyleMetrics = {};
+        const result = calculateScore(raw, ws, defaultConfig);
+
+        expect(result.experienceScore).toBe(80);
+        expect(result.finalScore).toBe(32);
+    });
+
+    it("treats non-finite config weights as zero", () => {
+        const raw: RawScores = {
+            experienceScores: [],
+            categoryScores: [makeCodingScore(80)],
+        };
+        const ws: WorkstyleMetrics = {};
+        const result = calculateScore(raw, ws, {
+            aiAssistWeight: Number.NaN,
+            problemSolvingWeight: 0,
+            experienceWeight: 0,
+            codingWeight: 100,
+        });
+
+        expect(result.codingScore).toBe(80);
+        expect(result.finalScore).toBe(80);
     });
 });

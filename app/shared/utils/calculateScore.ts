@@ -19,6 +19,8 @@ export interface RawScores {
     categoryScores: Array<{name: string; score: number; weight: number}>;
 }
 
+export type RawScoreEntry = RawScores["experienceScores"][number];
+
 export interface WorkstyleMetrics {
     aiAssistAccountabilityScore?: number; // Already 0-100
     /** Problem solving score (0-100): average of correctness + output match. Undefined if no expected solution. */
@@ -36,6 +38,60 @@ export interface CalculatedScore {
 }
 
 /**
+ * Returns a finite runtime number or null when the value is invalid.
+ */
+function toFiniteNumber(value: number | undefined | null): number | null {
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+/**
+ * Returns a positive finite weight or 0 when the value is invalid.
+ */
+function toPositiveWeight(value: number | undefined | null): number {
+    const weight = toFiniteNumber(value);
+    return weight !== null && weight > 0 ? weight : 0;
+}
+
+/**
+ * Defaults missing score data while preserving explicit zeroes and NaN inputs.
+ */
+export function createRawScoreEntry(
+    name: string,
+    score: number | undefined | null,
+    weight: number | undefined | null
+): RawScoreEntry {
+    return {
+        name,
+        score: score ?? 0,
+        weight: weight ?? 1,
+    };
+}
+
+/**
+ * Calculates a weighted average while skipping invalid score data.
+ */
+function calculateWeightedAverage(
+    categories: Array<{score: number; weight: number}>
+): number {
+    let weightedSum = 0;
+    let totalWeight = 0;
+
+    categories.forEach(category => {
+        const score = toFiniteNumber(category.score);
+        const weight = toPositiveWeight(category.weight);
+
+        if (score === null || weight === 0) {
+            return;
+        }
+
+        weightedSum += score * weight;
+        totalWeight += weight;
+    });
+
+    return totalWeight > 0 ? weightedSum / totalWeight : 0;
+}
+
+/**
  * Calculate final candidate score based on configuration
  */
 export function calculateScore(
@@ -43,70 +99,50 @@ export function calculateScore(
     workstyleMetrics: WorkstyleMetrics,
     config: ScoringConfiguration
 ): CalculatedScore {
-    const hasAiAssistScore = workstyleMetrics.aiAssistAccountabilityScore !== undefined &&
-                              workstyleMetrics.aiAssistAccountabilityScore !== null;
-    const normalizedAiAssist = workstyleMetrics.aiAssistAccountabilityScore;
-
-    const hasProblemSolvingScore = workstyleMetrics.problemSolvingScore !== undefined &&
-                                    workstyleMetrics.problemSolvingScore !== null;
-
-    // Calculate experience score from dynamic categories (same pattern as coding)
-    let experienceWeightedSum = 0;
-    let totalExperienceWeight = 0;
-
-    rawScores.experienceScores.forEach(category => {
-        if (category.weight > 0) {
-            experienceWeightedSum += category.score * category.weight;
-            totalExperienceWeight += category.weight;
-        }
-    });
-
-    const experienceScore = totalExperienceWeight > 0 ? experienceWeightedSum / totalExperienceWeight : 0;
-
-    // Calculate coding score from category scores with their individual weights
-    // Step 1: Calculate weighted average of categories (user enters weights thinking of them as 100%)
-    let categoryWeightedSum = 0;
-    let totalCategoryWeight = 0;
-
-    rawScores.categoryScores.forEach(category => {
-        if (category.weight > 0) {
-            categoryWeightedSum += category.score * category.weight;
-            totalCategoryWeight += category.weight;
-        }
-    });
-
-    const categoryAverage = totalCategoryWeight > 0 ? categoryWeightedSum / totalCategoryWeight : 0;
+    const normalizedAiAssist = toFiniteNumber(workstyleMetrics.aiAssistAccountabilityScore);
+    const normalizedProblemSolving = toFiniteNumber(workstyleMetrics.problemSolvingScore);
+    const sanitizedConfig = {
+        aiAssistWeight: toPositiveWeight(config.aiAssistWeight),
+        problemSolvingWeight: toPositiveWeight(config.problemSolvingWeight),
+        experienceWeight: toPositiveWeight(config.experienceWeight),
+        codingWeight: toPositiveWeight(config.codingWeight),
+    };
+    const experienceScore = calculateWeightedAverage(rawScores.experienceScores);
+    const categoryAverage = calculateWeightedAverage(rawScores.categoryScores);
 
     // Step 2: Categories contribute (100 - aiAssistWeight - problemSolvingWeight)% of coding score
-    const categoryContribution = categoryAverage * (100 - config.aiAssistWeight - config.problemSolvingWeight) / 100;
+    const categoryContribution = categoryAverage *
+        (100 - sanitizedConfig.aiAssistWeight - sanitizedConfig.problemSolvingWeight) / 100;
 
     // Step 3: AI assist contributes its percentage of the coding score
-    const aiAssistContribution = hasAiAssistScore
-        ? normalizedAiAssist! * config.aiAssistWeight / 100
+    const aiAssistContribution = normalizedAiAssist !== null
+        ? normalizedAiAssist * sanitizedConfig.aiAssistWeight / 100
         : 0;
 
     // Step 4: Problem solving contributes its percentage of the coding score
-    const problemSolvingContribution = hasProblemSolvingScore
-        ? workstyleMetrics.problemSolvingScore! * config.problemSolvingWeight / 100
+    const problemSolvingContribution = normalizedProblemSolving !== null
+        ? normalizedProblemSolving * sanitizedConfig.problemSolvingWeight / 100
         : 0;
 
     // Step 5: Final coding score (0-100)
     const codingScore = categoryContribution + aiAssistContribution + problemSolvingContribution;
 
     // Calculate final score (weighted average of experience and coding)
-    const totalMainCategoryWeight = config.experienceWeight + config.codingWeight;
-    const finalScore = (
-        (experienceScore * config.experienceWeight) +
-        (codingScore * config.codingWeight)
-    ) / totalMainCategoryWeight;
+    const totalMainCategoryWeight = sanitizedConfig.experienceWeight + sanitizedConfig.codingWeight;
+    const finalScore = totalMainCategoryWeight > 0
+        ? (
+            (experienceScore * sanitizedConfig.experienceWeight) +
+            (codingScore * sanitizedConfig.codingWeight)
+        ) / totalMainCategoryWeight
+        : 0;
 
     return {
         finalScore: Math.round(finalScore),
         experienceScore: Math.round(experienceScore),
         codingScore: Math.round(codingScore),
         normalizedWorkstyle: {
-            aiAssist: hasAiAssistScore ? Math.round(normalizedAiAssist!) : null,
-            problemSolving: hasProblemSolvingScore ? Math.round(workstyleMetrics.problemSolvingScore!) : null,
+            aiAssist: normalizedAiAssist !== null ? Math.round(normalizedAiAssist) : null,
+            problemSolving: normalizedProblemSolving !== null ? Math.round(normalizedProblemSolving) : null,
         },
     };
 }

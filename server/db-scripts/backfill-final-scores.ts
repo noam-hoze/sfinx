@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 
 import { PrismaClient } from "@prisma/client";
-import { calculateScore, type RawScores, type WorkstyleMetrics } from "../../app/shared/utils/calculateScore";
+import { calculateScore, createRawScoreEntry, type RawScores, type WorkstyleMetrics } from "../../app/shared/utils/calculateScore";
 import { config } from "dotenv";
 import path from "path";
 
@@ -67,11 +67,13 @@ async function backfillFinalScores() {
 
             const jobExperienceCategories = (job.experienceCategories as any) || [];
             const backgroundExperienceCategories = (telemetryData.backgroundSummary.experienceCategories as any) || {};
-            const experienceScores = jobExperienceCategories.map((cat: any) => ({
-                name: cat.name,
-                score: backgroundExperienceCategories[cat.name]?.score || 0,
-                weight: cat.weight || 1
-            }));
+            const experienceScores = jobExperienceCategories.map((cat: any) =>
+                createRawScoreEntry(
+                    cat.name,
+                    backgroundExperienceCategories[cat.name]?.score,
+                    cat.weight
+                )
+            );
 
             const jobCodingCategories = (job.codingCategories as any) || [];
             const codingCategoriesData = (telemetryData.codingSummary.jobSpecificCategories as any) || {};
@@ -82,11 +84,11 @@ async function backfillFinalScores() {
                     key.startsWith(baseName) || cat.name.startsWith(key)
                 ) || cat.name;
                 
-                return {
-                    name: cat.name,
-                    score: codingCategoriesData[matchingKey]?.score || 0,
-                    weight: cat.weight || 1
-                };
+                return createRawScoreEntry(
+                    cat.name,
+                    codingCategoriesData[matchingKey]?.score,
+                    cat.weight
+                );
             });
 
             const rawScores: RawScores = { experienceScores, categoryScores };
@@ -102,7 +104,8 @@ async function backfillFinalScores() {
                 : undefined;
             
             const workstyleMetrics: WorkstyleMetrics = { 
-                aiAssistAccountabilityScore: avgAccountabilityScore
+                aiAssistAccountabilityScore: avgAccountabilityScore,
+                problemSolvingScore: telemetryData.workstyleMetrics?.problemSolvingScore ?? undefined,
             };
 
             console.log(`📊 Score calculation inputs for ${session.id}:`, {

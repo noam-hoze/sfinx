@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 import OpenAI from "openai";
-import { calculateScore, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
+import { calculateScore, createRawScoreEntry, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
@@ -246,11 +246,13 @@ Provide a comprehensive summary and scores for this candidate's coding performan
                 const job = session.application.job;
                 const jobExperienceCategories = (job.experienceCategories as any) || [];
                 const backgroundExperienceCategories = (session.telemetryData.backgroundSummary.experienceCategories as any) || {};
-                const experienceScores = jobExperienceCategories.map((cat: any) => ({
-                    name: cat.name,
-                    score: backgroundExperienceCategories[cat.name]?.score || 0,
-                    weight: cat.weight || 1
-                }));
+                const experienceScores = jobExperienceCategories.map((cat: any) =>
+                    createRawScoreEntry(
+                        cat.name,
+                        backgroundExperienceCategories[cat.name]?.score,
+                        cat.weight
+                    )
+                );
 
                 const rawScores: RawScores = { experienceScores, categoryScores: [] };
                 const workstyleMetrics: WorkstyleMetrics = { aiAssistAccountabilityScore: undefined };
