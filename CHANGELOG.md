@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.3] - 2026-04-04
+
+### Fixed
+
+- **NaN-safe score calculation**: `calculateScore` now ignores non-finite workstyle scores, category scores, and config weights instead of propagating `NaN` into `finalScore`, `codingScore`, and profile-story performance context.
+
 ## [1.29.2] - 2026-03-09
 
 ### Fixed
