@@ -104,7 +104,8 @@ async function backfillFinalScores() {
                 : undefined;
             
             const workstyleMetrics: WorkstyleMetrics = { 
-                aiAssistAccountabilityScore: avgAccountabilityScore
+                aiAssistAccountabilityScore: avgAccountabilityScore,
+                problemSolvingScore: telemetryData.workstyleMetrics?.problemSolvingScore ?? undefined,
             };
 
             console.log(`📊 Score calculation inputs for ${session.id}:`, {

@@ -131,6 +131,9 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         const { company } = await loadCompanyForUser(userId);
         const job = await prisma.job.findUnique({
             where: { id: jobId },
+            include: {
+                scoringConfiguration: true,
+            },
         });
 
         if (!job) {
@@ -151,24 +154,72 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
         for (const field of weightFields) {
             if (body[field] !== undefined) {
+                if (body[field] === null) {
+                    return NextResponse.json(
+                        { error: `${field} must be a non-negative number` },
+                        { status: 400 }
+                    );
+                }
                 const value = Number(body[field]);
                 if (isNaN(value) || value < 0) {
                     return NextResponse.json(
-                        { error: `${field} must be a positive number` },
+                        { error: `${field} must be a non-negative number` },
                         { status: 400 }
                     );
                 }
             }
         }
 
-        // Validate category weights sum to 100 (with tolerance for floating point)
-        if (body.experienceWeight !== undefined && body.codingWeight !== undefined) {
-            const sum = Number(body.experienceWeight) + Number(body.codingWeight);
-            if (Math.abs(sum - 100) > 0.01) {
-                return NextResponse.json(
-                    { error: "Experience weight and coding weight must sum to 100" },
-                    { status: 400 }
-                );
+        const effectiveExperienceWeight = Number(
+            body.experienceWeight ?? job.scoringConfiguration?.experienceWeight ?? 50
+        );
+        const effectiveCodingWeight = Number(
+            body.codingWeight ?? job.scoringConfiguration?.codingWeight ?? 50
+        );
+        if (Math.abs(effectiveExperienceWeight + effectiveCodingWeight - 100) > 0.01) {
+            return NextResponse.json(
+                { error: "Experience weight and coding weight must sum to 100" },
+                { status: 400 }
+            );
+        }
+
+        const currentAiAssistWeight = Number(
+            job.scoringConfiguration?.aiAssistWeight ?? 25
+        );
+        const currentProblemSolvingWeight = Number(
+            job.scoringConfiguration?.problemSolvingWeight ?? 25
+        );
+        const effectiveAiAssistWeight = Number(
+            body.aiAssistWeight ?? currentAiAssistWeight
+        );
+        const effectiveProblemSolvingWeight = Number(
+            body.problemSolvingWeight ?? currentProblemSolvingWeight
+        );
+        const workstyleWeightsChanged =
+            effectiveAiAssistWeight !== currentAiAssistWeight ||
+            effectiveProblemSolvingWeight !== currentProblemSolvingWeight;
+        if (
+            workstyleWeightsChanged &&
+            effectiveAiAssistWeight + effectiveProblemSolvingWeight > 100.01
+        ) {
+            return NextResponse.json(
+                { error: "AI assist weight and problem solving weight must sum to 100 or less" },
+                { status: 400 }
+            );
+        }
+
+        const thresholdFields = [
+            'iterationSpeedThresholdModerate',
+            'iterationSpeedThresholdHigh',
+        ];
+        for (const field of thresholdFields) {
+            if (body[field] !== undefined) {
+                if (body[field] === null || isNaN(Number(body[field]))) {
+                    return NextResponse.json(
+                        { error: `${field} must be a number` },
+                        { status: 400 }
+                    );
+                }
             }
         }
 
@@ -191,8 +242,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         const updates: any = {};
         const updateableFields = [
             ...weightFields,
-            'iterationSpeedThresholdModerate',
-            'iterationSpeedThresholdHigh',
+            ...thresholdFields,
         ];
 
         for (const field of updateableFields) {

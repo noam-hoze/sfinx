@@ -322,8 +322,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 const scoringConfig = jobId ? scoringConfigsByJobId.get(jobId) : null;
                 const backgroundSummary = backgroundSummariesBySessionId.get(session.id);
                 const codingSummary = codingSummariesBySessionId.get(session.id);
-
-                if (scoringConfig && backgroundSummary && codingSummary && telemetry?.workstyleMetrics) {
+                if (scoringConfig && backgroundSummary && codingSummary) {
                     try {
                         // Build experience scores from dynamic categories
                         const jobExperienceCategories = (session.application?.job?.experienceCategories as any) || [];

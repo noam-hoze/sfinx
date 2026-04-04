@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.4] - 2026-04-04
+
+### Fixed
+
+- **Score follow-up hardening**: telemetry score recomputation no longer requires a persisted `WorkstyleMetrics` row, backfill now propagates `problemSolvingScore`, and scoring-config updates reject `null`/invalid partial values while preserving compatibility with legacy workstyle weights.
+
 ## [1.29.3] - 2026-04-04
 
 ### Fixed
