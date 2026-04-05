@@ -344,6 +344,7 @@ function calculatePerformanceContext(
     // Ensure scoringConfiguration has all required fields with defaults
     const scoringConfig = {
         aiAssistWeight: job.scoringConfiguration?.aiAssistWeight ?? 25,
+        problemSolvingWeight: job.scoringConfiguration?.problemSolvingWeight ?? 25,
         experienceWeight: job.scoringConfiguration?.experienceWeight ?? 50,
         codingWeight: job.scoringConfiguration?.codingWeight ?? 50
     };

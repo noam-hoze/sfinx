@@ -82,6 +82,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
         experienceWeight: number;
         codingWeight: number;
         aiAssistWeight: number;
+        problemSolvingWeight: number;
     } | null>(null);
 
     // Track interview submission state to stop polling
@@ -147,6 +148,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                         experienceWeight: data.config.experienceWeight,
                         codingWeight: data.config.codingWeight,
                         aiAssistWeight: data.config.aiAssistWeight,
+                        problemSolvingWeight: data.config.problemSolvingWeight,
                     });
                 }
             } catch (err) {
@@ -206,7 +208,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
     }, [jobCategories, evaluationData?.realtimeContributions, scoringConfig]);
 
     const scores = useMemo(() => {
-        if (!scoringConfig) return { experienceScore: 0, codingScore: 0, finalScore: 0, normalizedWorkstyle: { aiAssist: null } };
+        if (!scoringConfig) return { experienceScore: 0, codingScore: 0, finalScore: 0, normalizedWorkstyle: { aiAssist: null, problemSolving: null } };
         return calculateScore(
             { experienceScores, categoryScores: codingScores },
             { aiAssistAccountabilityScore: activePasteEval?.accountabilityScore },

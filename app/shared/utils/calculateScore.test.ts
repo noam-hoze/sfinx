@@ -242,4 +242,30 @@ describe("calculateScore", () => {
         expect(Number.isInteger(result.codingScore)).toBe(true);
         expect(Number.isInteger(result.finalScore)).toBe(true);
     });
+
+    it("throws when workstyle weights exceed 100", () => {
+        const raw: RawScores = { experienceScores: [], categoryScores: [makeCodingScore(80)] };
+
+        expect(() =>
+            calculateScore(raw, {}, {
+                aiAssistWeight: 70,
+                problemSolvingWeight: 40,
+                experienceWeight: 50,
+                codingWeight: 50,
+            })
+        ).toThrow("Invalid scoring configuration: AI Assist weight and Problem Solving weight cannot exceed 100");
+    });
+
+    it("throws when required weights are missing", () => {
+        const raw: RawScores = { experienceScores: [makeExperienceScore(50)], categoryScores: [] };
+
+        expect(() =>
+            calculateScore(raw, {}, {
+                aiAssistWeight: 25,
+                problemSolvingWeight: undefined as unknown as number,
+                experienceWeight: 50,
+                codingWeight: 50,
+            })
+        ).toThrow("Invalid scoring configuration: problemSolvingWeight must be a finite number");
+    });
 });
