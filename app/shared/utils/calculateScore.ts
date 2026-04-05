@@ -36,23 +36,25 @@ export interface CalculatedScore {
 }
 
 /**
- * Validates scoring weights before computing candidate scores.
+ * Validates an individual scoring weight before score calculation.
  */
-function assertFiniteWeight(name: keyof ScoringConfiguration, value: number): void {
-    if (Number.isFinite(value)) {
-        return;
+function assertValidWeight(name: keyof ScoringConfiguration, value: number): void {
+    if (!Number.isFinite(value)) {
+        throw new Error(`Invalid scoring configuration: ${name} must be a finite number`);
     }
-    throw new Error(`Invalid scoring configuration: ${name} must be a finite number`);
+    if (value < 0) {
+        throw new Error(`Invalid scoring configuration: ${name} must be non-negative`);
+    }
 }
 
 /**
  * Rejects incomplete or inconsistent scoring-weight totals.
  */
 function validateScoringConfiguration(config: ScoringConfiguration): void {
-    assertFiniteWeight("aiAssistWeight", config.aiAssistWeight);
-    assertFiniteWeight("problemSolvingWeight", config.problemSolvingWeight);
-    assertFiniteWeight("experienceWeight", config.experienceWeight);
-    assertFiniteWeight("codingWeight", config.codingWeight);
+    assertValidWeight("aiAssistWeight", config.aiAssistWeight);
+    assertValidWeight("problemSolvingWeight", config.problemSolvingWeight);
+    assertValidWeight("experienceWeight", config.experienceWeight);
+    assertValidWeight("codingWeight", config.codingWeight);
     if ((config.aiAssistWeight + config.problemSolvingWeight) > 100.01) {
         throw new Error("Invalid scoring configuration: AI Assist weight and Problem Solving weight cannot exceed 100");
     }

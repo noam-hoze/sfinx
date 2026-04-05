@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import prisma from "lib/prisma";
 import OpenAI from "openai";
 import { log } from "app/shared/services";
+import { calculateScore, type ScoringConfiguration } from "app/shared/utils/calculateScore";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
@@ -59,6 +61,7 @@ export async function POST(request: NextRequest) {
         }
 
         const { backgroundSummary, codingSummary } = session.telemetryData;
+        const job = session.application?.job;
 
         if (!backgroundSummary || !codingSummary) {
             log.error(LOG_CATEGORY, "[Generate Profile Story] Missing summaries:", {
@@ -76,6 +79,10 @@ export async function POST(request: NextRequest) {
                 },
                 { status: 400 }
             );
+        }
+        if (!job) {
+            log.error(LOG_CATEGORY, "[Generate Profile Story] Missing job for session:", sessionId);
+            return NextResponse.json({ error: "Job not found for session" }, { status: 404 });
         }
 
         log.info(LOG_CATEGORY, "[Generate Profile Story] Fetching evaluation data for session:", sessionId);
@@ -131,7 +138,7 @@ export async function POST(request: NextRequest) {
             backgroundSummary,
             codingSummary,
             externalToolUsages,
-            session.application.job
+            job
         );
 
         log.info(LOG_CATEGORY, "[Generate Profile Story] Performance context:", {
@@ -170,7 +177,7 @@ export async function POST(request: NextRequest) {
 
         const formattingPrompt = buildFormattingPrompt(
             session.candidate.name || "The candidate",
-            session.application.job.title,
+            job.title,
             extractedData
         );
 
@@ -198,7 +205,7 @@ export async function POST(request: NextRequest) {
             where: { id: session.telemetryData.id },
             data: {
                 story,
-                storyEmphasis: null // Story now contains inline HTML for emphasis
+                storyEmphasis: Prisma.JsonNull // Story now contains inline HTML for emphasis
             },
         });
 
@@ -311,9 +318,6 @@ function calculatePerformanceContext(
         description: string;
     };
 } {
-    // Import calculateScore utility
-    const { calculateScore } = require('app/shared/utils/calculateScore');
-
     // Build experience scores from backgroundSummary categories
     const experienceScores = backgroundSummary.experienceCategories
         ? Object.entries(backgroundSummary.experienceCategories).map(([name, data]: [string, any]) => ({
@@ -340,16 +344,12 @@ function calculatePerformanceContext(
     // Calculate scores using the same logic as coding-summary-update
     const rawScores = { experienceScores, categoryScores };
     const workstyleMetrics = { aiAssistAccountabilityScore: avgAccountabilityScore };
+    const scoringConfig = job.scoringConfiguration;
+    if (!scoringConfig) {
+        throw new Error("Invalid scoring configuration: missing job scoring configuration");
+    }
 
-    // Ensure scoringConfiguration has all required fields with defaults
-    const scoringConfig = {
-        aiAssistWeight: job.scoringConfiguration?.aiAssistWeight ?? 25,
-        problemSolvingWeight: job.scoringConfiguration?.problemSolvingWeight ?? 25,
-        experienceWeight: job.scoringConfiguration?.experienceWeight ?? 50,
-        codingWeight: job.scoringConfiguration?.codingWeight ?? 50
-    };
-
-    const result = calculateScore(rawScores, workstyleMetrics, scoringConfig);
+    const result = calculateScore(rawScores, workstyleMetrics, scoringConfig as ScoringConfiguration);
 
     // Classify overall performance level
     let performanceLevel: 'strong' | 'competent' | 'needs-development';

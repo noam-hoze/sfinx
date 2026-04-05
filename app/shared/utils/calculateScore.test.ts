@@ -268,4 +268,17 @@ describe("calculateScore", () => {
             })
         ).toThrow("Invalid scoring configuration: problemSolvingWeight must be a finite number");
     });
+
+    it("throws when any weight is negative", () => {
+        const raw: RawScores = { experienceScores: [makeExperienceScore(50)], categoryScores: [makeCodingScore(80)] };
+
+        expect(() =>
+            calculateScore(raw, {}, {
+                aiAssistWeight: -1,
+                problemSolvingWeight: 25,
+                experienceWeight: 50,
+                codingWeight: 50,
+            })
+        ).toThrow("Invalid scoring configuration: aiAssistWeight must be non-negative");
+    });
 });
