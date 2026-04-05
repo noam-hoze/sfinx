@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "lib/prisma";
 import OpenAI from "openai";
 import { log } from "app/shared/services";
-import { calculateScore, type ScoringConfiguration } from "app/shared/utils/calculateScore";
+import { calculateScore, createRawScoreEntry, type ScoringConfiguration } from "app/shared/utils/calculateScore";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
@@ -320,20 +320,16 @@ function calculatePerformanceContext(
 } {
     // Build experience scores from backgroundSummary categories
     const experienceScores = backgroundSummary.experienceCategories
-        ? Object.entries(backgroundSummary.experienceCategories).map(([name, data]: [string, any]) => ({
-            name,
-            score: data.score,
-            weight: data.weight || 1
-        }))
+        ? Object.entries(backgroundSummary.experienceCategories).map(([name, data]: [string, any]) =>
+            createRawScoreEntry(name, data.score, data.weight)
+        )
         : [];
 
     // Build coding category scores from codingSummary
     const categoryScores = codingSummary.jobSpecificCategories
-        ? Object.entries(codingSummary.jobSpecificCategories).map(([name, data]: [string, any]) => ({
-            name,
-            score: data.score,
-            weight: data.weight || 1
-        }))
+        ? Object.entries(codingSummary.jobSpecificCategories).map(([name, data]: [string, any]) =>
+            createRawScoreEntry(name, data.score, data.weight)
+        )
         : [];
 
     // Calculate average accountability score

@@ -12,11 +12,17 @@ export interface ScoringConfiguration {
     codingWeight: number;
 }
 
+export interface RawScoreEntry {
+    name: string;
+    score: number;
+    weight: number;
+}
+
 export interface RawScores {
     // Experience category scores with weights
-    experienceScores: Array<{name: string; score: number; weight: number}>;
+    experienceScores: RawScoreEntry[];
     // Coding category scores with weights
-    categoryScores: Array<{name: string; score: number; weight: number}>;
+    categoryScores: RawScoreEntry[];
 }
 
 export interface WorkstyleMetrics {
@@ -48,6 +54,18 @@ function assertValidWeight(name: keyof ScoringConfiguration, value: number): voi
 }
 
 /**
+ * Validates one raw category weight from runtime data.
+ */
+function assertValidRawWeight(group: string, entry: RawScoreEntry): void {
+    if (!Number.isFinite(entry.weight)) {
+        throw new Error(`Invalid scoring weight for ${group} category "${entry.name}": weight must be a finite number`);
+    }
+    if (entry.weight < 0) {
+        throw new Error(`Invalid scoring weight for ${group} category "${entry.name}": weight must be non-negative`);
+    }
+}
+
+/**
  * Rejects incomplete or inconsistent scoring-weight totals.
  */
 function validateScoringConfiguration(config: ScoringConfiguration): void {
@@ -64,18 +82,33 @@ function validateScoringConfiguration(config: ScoringConfiguration): void {
 }
 
 /**
+ * Rejects invalid category weights from persisted runtime data.
+ */
+function validateRawScoreWeights(rawScores: RawScores): void {
+    rawScores.experienceScores.forEach(entry => assertValidRawWeight("experience", entry));
+    rawScores.categoryScores.forEach(entry => assertValidRawWeight("coding", entry));
+}
+
+/**
  * Calculates a weighted average while ignoring zero-weight categories.
  */
-function calculateWeightedAverage(scores: Array<{score: number; weight: number}>): number {
+function calculateWeightedAverage(scores: RawScoreEntry[]): number {
     let weightedSum = 0;
     let totalWeight = 0;
     scores.forEach(category => {
-        if (category.weight > 0) {
+        if (category.weight > 0 && Number.isFinite(category.score)) {
             weightedSum += category.score * category.weight;
             totalWeight += category.weight;
         }
     });
     return totalWeight > 0 ? weightedSum / totalWeight : 0;
+}
+
+/**
+ * Normalizes optional workstyle metrics and drops malformed numbers.
+ */
+function readMetric(value: number | undefined): number | undefined {
+    return Number.isFinite(value) ? value : undefined;
 }
 
 /**
@@ -86,8 +119,8 @@ function calculateCodingScore(
     workstyleMetrics: WorkstyleMetrics,
     config: ScoringConfiguration
 ): number {
-    const aiAssistScore = workstyleMetrics.aiAssistAccountabilityScore;
-    const problemSolvingScore = workstyleMetrics.problemSolvingScore;
+    const aiAssistScore = readMetric(workstyleMetrics.aiAssistAccountabilityScore);
+    const problemSolvingScore = readMetric(workstyleMetrics.problemSolvingScore);
     const categoryContribution = categoryAverage * (100 - config.aiAssistWeight - config.problemSolvingWeight) / 100;
     const aiAssistContribution = aiAssistScore !== undefined && aiAssistScore !== null
         ? aiAssistScore * config.aiAssistWeight / 100
@@ -102,7 +135,19 @@ function calculateCodingScore(
  * Rounds present workstyle metrics and preserves missing values.
  */
 function roundMetric(value: number | undefined): number | null {
-    return value === undefined || value === null ? null : Math.round(value);
+    const metric = readMetric(value);
+    return metric === undefined ? null : Math.round(metric);
+}
+
+/**
+ * Creates a raw score entry without silently defaulting category weights.
+ */
+export function createRawScoreEntry(name: string, score: unknown, weight: unknown): RawScoreEntry {
+    return {
+        name,
+        score: score === undefined || score === null ? 0 : Number(score),
+        weight: weight === undefined || weight === null ? Number.NaN : Number(weight),
+    };
 }
 
 /**
@@ -114,6 +159,7 @@ export function calculateScore(
     config: ScoringConfiguration
 ): CalculatedScore {
     validateScoringConfiguration(config);
+    validateRawScoreWeights(rawScores);
     const experienceScore = calculateWeightedAverage(rawScores.experienceScores);
     const categoryAverage = calculateWeightedAverage(rawScores.categoryScores);
     const codingScore = calculateCodingScore(categoryAverage, workstyleMetrics, config);

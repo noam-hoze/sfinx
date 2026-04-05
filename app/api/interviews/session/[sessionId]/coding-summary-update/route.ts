@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
-import { calculateScore, type RawScores, type ScoringConfiguration, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
+import { calculateScore, createRawScoreEntry, type RawScores, type ScoringConfiguration, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
 import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
@@ -159,18 +159,14 @@ export async function PATCH(
             try {
                 const jobExperienceCategories = (job.experienceCategories as any) || [];
                 const backgroundExperienceCategories = (session.telemetryData.backgroundSummary.experienceCategories as any) || {};
-                const experienceScores = jobExperienceCategories.map((cat: any) => ({
-                    name: cat.name,
-                    score: backgroundExperienceCategories[cat.name]?.score || 0,
-                    weight: cat.weight || 1
-                }));
+                const experienceScores = jobExperienceCategories.map((cat: any) =>
+                    createRawScoreEntry(cat.name, backgroundExperienceCategories[cat.name]?.score, cat.weight)
+                );
 
                 const jobCodingCategories = (job.codingCategories as any) || [];
-                const categoryScores = jobCodingCategories.map((cat: any) => ({
-                    name: cat.name,
-                    score: (categoryOnlyEntries as any)[cat.name]?.score ?? 0,
-                    weight: cat.weight ?? 1,
-                }));
+                const categoryScores = jobCodingCategories.map((cat: any) =>
+                    createRawScoreEntry(cat.name, (categoryOnlyEntries as any)[cat.name]?.score, cat.weight)
+                );
 
                 const rawScores: RawScores = { experienceScores, categoryScores };
 

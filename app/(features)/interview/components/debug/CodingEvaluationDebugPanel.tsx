@@ -6,12 +6,11 @@ import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEW_UI;
 
 import React, { useState, useEffect, useMemo } from "react";
-import { MAX_PASTE_EVAL_ANSWERS } from "../chat/OpenAITextConversation";
 import { SfinxSpinner } from "app/shared/components";
 import RealTimeContributionsView from "app/shared/components/debug/RealTimeContributionsView";
 import { transformCodingDataToRealtime } from "./transformers/codingDataTransformer";
 import ScoreProgressDisplay from "app/shared/components/debug/ScoreProgressDisplay";
-import { calculateScore } from "app/shared/utils/calculateScore";
+import { calculateScore, createRawScoreEntry } from "app/shared/utils/calculateScore";
 import { useSelector } from "react-redux";
 import { RootState } from "@/shared/state/store";
 import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
@@ -164,11 +163,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
         if (!experienceCategories || !contributionStats) return [];
         return experienceCategories.map((category: any) => {
             const stat = contributionStats.find(s => s.categoryName === category.name);
-            return {
-                name: category.name,
-                score: stat?.avgStrength || 0,
-                weight: category.weight
-            };
+            return createRawScoreEntry(category.name, stat?.avgStrength, category.weight);
         });
     }, [experienceCategories, contributionStats]);
 
@@ -187,7 +182,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
         });
         
         // Scale category weights to fit within (100 - aiAssistWeight)
-        const dbWeightSum = jobCategories.reduce((sum, cat) => sum + (cat.weight || 1), 0);
+        const dbWeightSum = jobCategories.reduce((sum, cat) => sum + Number(cat.weight), 0);
         const targetCategoryWeight = 100 - scoringConfig.aiAssistWeight;
         const scaleFactor = targetCategoryWeight / dbWeightSum;
         
@@ -199,11 +194,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
             const confidence = Math.min(1.0, strengths.length / CONTRIBUTIONS_TARGET);
             const score = Math.round(rawAvg * confidence);
             
-            return {
-                name: category.name,
-                score,
-                weight: category.weight * scaleFactor
-            };
+            return createRawScoreEntry(category.name, score, category.weight * scaleFactor);
         });
     }, [jobCategories, evaluationData?.realtimeContributions, scoringConfig]);
 
@@ -342,7 +333,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                     <RealTimeContributionsView
                         {...transformCodingDataToRealtime(
                             evaluationData?.realtimeContributions || [],
-                            nextEvaluationTime,
+                            nextEvaluationTime ?? null,
                             evaluationThrottleMs,
                             jobCategories || undefined
                         )}

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 import OpenAI from "openai";
-import { calculateScore, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
+import { calculateScore, createRawScoreEntry, type RawScores, type ScoringConfiguration, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
@@ -61,7 +61,10 @@ export async function POST(request: NextRequest) {
         }
 
         // Get scoring configuration (with defaults if not configured)
-        const scoringConfig = session.application?.job?.scoringConfiguration;
+        const scoringConfig = session.application?.job?.scoringConfiguration as {
+            iterationSpeedThresholdModerate?: number;
+            iterationSpeedThresholdHigh?: number;
+        } | null | undefined;
         const iterationThresholdModerate = scoringConfig?.iterationSpeedThresholdModerate ?? 5;
         const iterationThresholdHigh = scoringConfig?.iterationSpeedThresholdHigh ?? 10;
 
@@ -241,21 +244,23 @@ Provide a comprehensive summary and scores for this candidate's coding performan
 
         // Calculate and save final score if we have all required data
         let finalScore: number | null = null;
-        if (session.telemetryData?.backgroundSummary && session.application.job.scoringConfiguration) {
+        const job = session.application?.job;
+        if (session.telemetryData?.backgroundSummary && job?.scoringConfiguration) {
             try {
-                const job = session.application.job;
                 const jobExperienceCategories = (job.experienceCategories as any) || [];
                 const backgroundExperienceCategories = (session.telemetryData.backgroundSummary.experienceCategories as any) || {};
-                const experienceScores = jobExperienceCategories.map((cat: any) => ({
-                    name: cat.name,
-                    score: backgroundExperienceCategories[cat.name]?.score || 0,
-                    weight: cat.weight || 1
-                }));
+                const experienceScores = jobExperienceCategories.map((cat: any) =>
+                    createRawScoreEntry(cat.name, backgroundExperienceCategories[cat.name]?.score, cat.weight)
+                );
 
                 const rawScores: RawScores = { experienceScores, categoryScores: [] };
                 const workstyleMetrics: WorkstyleMetrics = { aiAssistAccountabilityScore: undefined };
 
-                const result = calculateScore(rawScores, workstyleMetrics, job.scoringConfiguration as any);
+                const result = calculateScore(
+                    rawScores,
+                    workstyleMetrics,
+                    job.scoringConfiguration as ScoringConfiguration
+                );
                 finalScore = Math.round(result.finalScore);
 
                 await prisma.interviewSession.update({

@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { calculateScore } from "./calculateScore";
+import { calculateScore, createRawScoreEntry } from "./calculateScore";
 import type { RawScores, WorkstyleMetrics, ScoringConfiguration } from "./calculateScore";
 
 const defaultConfig: ScoringConfiguration = {
@@ -280,5 +280,38 @@ describe("calculateScore", () => {
                 codingWeight: 50,
             })
         ).toThrow("Invalid scoring configuration: aiAssistWeight must be non-negative");
+    });
+
+    it("throws when an experience category weight is negative at runtime", () => {
+        const raw: RawScores = {
+            experienceScores: [createRawScoreEntry("Experience", 50, -1)],
+            categoryScores: [],
+        };
+
+        expect(() => calculateScore(raw, {}, defaultConfig))
+            .toThrow('Invalid scoring weight for experience category "Experience": weight must be non-negative');
+    });
+
+    it("throws when a coding category weight is missing at runtime", () => {
+        const raw: RawScores = {
+            experienceScores: [],
+            categoryScores: [createRawScoreEntry("Coding", 80, undefined)],
+        };
+
+        expect(() => calculateScore(raw, {}, defaultConfig))
+            .toThrow('Invalid scoring weight for coding category "Coding": weight must be a finite number');
+    });
+
+    it("preserves explicit zero runtime weights instead of defaulting them", () => {
+        const raw: RawScores = {
+            experienceScores: [
+                createRawScoreEntry("Disabled", 100, 0),
+                createRawScoreEntry("Enabled", 40, 2),
+            ],
+            categoryScores: [],
+        };
+
+        const result = calculateScore(raw, {}, defaultConfig);
+        expect(result.experienceScore).toBe(40);
     });
 });
