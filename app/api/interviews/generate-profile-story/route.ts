@@ -3,6 +3,7 @@ import prisma from "lib/prisma";
 import OpenAI from "openai";
 import { log } from "app/shared/services";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+import { calculateScore } from "app/shared/utils/calculateScore";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
 
@@ -294,7 +295,7 @@ function organizeByStrength(
 /**
  * Calculates comprehensive performance context from interview data.
  */
-function calculatePerformanceContext(
+export function calculatePerformanceContext(
     backgroundSummary: any,
     codingSummary: any,
     externalToolUsages: Array<{ accountabilityScore: number; understanding: string }>,
@@ -311,9 +312,6 @@ function calculatePerformanceContext(
         description: string;
     };
 } {
-    // Import calculateScore utility
-    const { calculateScore } = require('app/shared/utils/calculateScore');
-
     // Build experience scores from backgroundSummary categories
     const experienceScores = backgroundSummary.experienceCategories
         ? Object.entries(backgroundSummary.experienceCategories).map(([name, data]: [string, any]) => ({
@@ -344,6 +342,7 @@ function calculatePerformanceContext(
     // Ensure scoringConfiguration has all required fields with defaults
     const scoringConfig = {
         aiAssistWeight: job.scoringConfiguration?.aiAssistWeight ?? 25,
+        problemSolvingWeight: job.scoringConfiguration?.problemSolvingWeight ?? 25,
         experienceWeight: job.scoringConfiguration?.experienceWeight ?? 50,
         codingWeight: job.scoringConfiguration?.codingWeight ?? 50
     };
