@@ -9,6 +9,7 @@ The format is based on Keep a Changelog and this project adheres to Semantic Ver
 ### Fixed
 
 - **Profile-story score drift**: `generate-profile-story` now loads persisted `workstyleMetrics` and passes `problemSolvingScore` into `calculatePerformanceContext`, keeping story-scoring aligned with the canonical final-score calculation when Problem Solving weight is enabled.
+- **Cross-surface scoring alignment**: profile story, coding-summary updates, and CPS telemetry now rebuild raw scores from the job's canonical category definitions, preserve zero-weight categories as disabled, and stop penalizing sessions that have no persisted Problem Solving metric.
 
 ## [1.29.2] - 2026-03-09
 

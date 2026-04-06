@@ -153,7 +153,7 @@ describe("calculateScore", () => {
         expect(result.normalizedWorkstyle.problemSolving).toBe(100);
     });
 
-    it("omits problem solving contribution when score is undefined", () => {
+    it("keeps category weight when problem solving score is undefined", () => {
         const raw: RawScores = {
             experienceScores: [],
             categoryScores: [makeCodingScore(80)],
@@ -166,8 +166,8 @@ describe("calculateScore", () => {
             codingWeight: 60,
         });
 
-        // categoryContribution = 80 * 0.75 = 60, problemSolvingContribution = 0
-        expect(result.codingScore).toBe(60);
+        // categoryContribution = 80 * (100 - 0 - 0) / 100 = 80
+        expect(result.codingScore).toBe(80);
         expect(result.normalizedWorkstyle.problemSolving).toBeNull();
     });
 
@@ -258,8 +258,8 @@ describe("calculateScore", () => {
         const result = calculateScore(raw, ws, defaultConfig);
 
         expect(result.experienceScore).toBe(0);
-        expect(result.codingScore).toBe(40);
-        expect(result.finalScore).toBe(24);
+        expect(result.codingScore).toBe(60);
+        expect(result.finalScore).toBe(36);
         expect(result.normalizedWorkstyle.aiAssist).toBeNull();
         expect(result.normalizedWorkstyle.problemSolving).toBeNull();
     });

@@ -3,6 +3,7 @@ import prisma from "lib/prisma";
 import OpenAI from "openai";
 import { log } from "app/shared/services";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
+import { buildInterviewRawScores } from "app/shared/utils/buildInterviewRawScores";
 import { calculateScore } from "app/shared/utils/calculateScore";
 
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
@@ -80,6 +81,11 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        if (!session.application.job) {
+            log.error(LOG_CATEGORY, "[Generate Profile Story] Missing job for session:", sessionId);
+            return NextResponse.json({ error: "Job not found for session" }, { status: 404 });
+        }
+
         log.info(LOG_CATEGORY, "[Generate Profile Story] Fetching evaluation data for session:", sessionId);
 
         const [iterations, codingContributions, experienceContributions, externalToolUsages] = await Promise.all([
@@ -133,7 +139,7 @@ export async function POST(request: NextRequest) {
             backgroundSummary,
             codingSummary,
             externalToolUsages,
-            session.application.job,
+            session.application.job as any,
             workstyleMetrics
         );
 
@@ -222,7 +228,6 @@ export async function POST(request: NextRequest) {
         });
     } catch (error) {
         log.error(LOG_CATEGORY, "[Generate Profile Story] Error:", error);
-        console.error("[Generate Profile Story] Full error details:", error);
         
         // Return detailed error in development
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -301,7 +306,11 @@ export function calculatePerformanceContext(
     backgroundSummary: any,
     codingSummary: any,
     externalToolUsages: Array<{ accountabilityScore: number; understanding: string }>,
-    job: { scoringConfiguration: any },
+    job: {
+        codingCategories?: Array<{ name: string; weight?: number | null }> | null;
+        experienceCategories?: Array<{ name: string; weight?: number | null }> | null;
+        scoringConfiguration: any;
+    },
     workstyleMetrics?: { problemSolvingScore?: number | null } | null
 ): {
     finalScore: number;
@@ -315,31 +324,13 @@ export function calculatePerformanceContext(
         description: string;
     };
 } {
-    // Build experience scores from backgroundSummary categories
-    const experienceScores = backgroundSummary.experienceCategories
-        ? Object.entries(backgroundSummary.experienceCategories).map(([name, data]: [string, any]) => ({
-            name,
-            score: data.score,
-            weight: data.weight || 1
-        }))
-        : [];
-
-    // Build coding category scores from codingSummary
-    const categoryScores = codingSummary.jobSpecificCategories
-        ? Object.entries(codingSummary.jobSpecificCategories).map(([name, data]: [string, any]) => ({
-            name,
-            score: data.score,
-            weight: data.weight || 1
-        }))
-        : [];
-
     // Calculate average accountability score
     const avgAccountabilityScore = externalToolUsages.length > 0
         ? externalToolUsages.reduce((sum, usage) => sum + usage.accountabilityScore, 0) / externalToolUsages.length
         : undefined;
 
     // Calculate scores using the same logic as coding-summary-update
-    const rawScores = { experienceScores, categoryScores };
+    const rawScores = buildInterviewRawScores(job, backgroundSummary, codingSummary);
     const scoringWorkstyleMetrics = {
         aiAssistAccountabilityScore: avgAccountabilityScore,
         problemSolvingScore: workstyleMetrics?.problemSolvingScore ?? undefined,

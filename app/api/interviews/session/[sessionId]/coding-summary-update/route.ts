@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 import { calculateScore, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
+import { buildInterviewRawScores } from "app/shared/utils/buildInterviewRawScores";
 import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
@@ -153,25 +154,19 @@ export async function PATCH(
 
         // Calculate and persist final score
         let finalScore: number | null = null;
-        if (session.telemetryData?.backgroundSummary && session.application.job.scoringConfiguration) {
+        if (session.telemetryData?.backgroundSummary && session.application.job?.scoringConfiguration) {
             try {
                 const job = session.application.job;
-                const jobExperienceCategories = (job.experienceCategories as any) || [];
-                const backgroundExperienceCategories = (session.telemetryData.backgroundSummary.experienceCategories as any) || {};
-                const experienceScores = jobExperienceCategories.map((cat: any) => ({
-                    name: cat.name,
-                    score: backgroundExperienceCategories[cat.name]?.score || 0,
-                    weight: cat.weight || 1
-                }));
 
-                const jobCodingCategories = (job.codingCategories as any) || [];
-                const categoryScores = jobCodingCategories.map((cat: any) => ({
-                    name: cat.name,
-                    score: (categoryOnlyEntries as any)[cat.name]?.score ?? 0,
-                    weight: cat.weight ?? 1,
-                }));
+                if (!job) {
+                    throw new Error("Job missing while calculating final score");
+                }
 
-                const rawScores: RawScores = { experienceScores, categoryScores };
+                const rawScores: RawScores = buildInterviewRawScores(
+                    job,
+                    session.telemetryData.backgroundSummary,
+                    { jobSpecificCategories: categoryOnlyEntries as Record<string, { score?: number | null }> }
+                );
 
                 // Get External Tools accountability score if available
                 const externalToolUsages = await prisma.externalToolUsage.findMany({

@@ -101,14 +101,25 @@ function calculateCodingScore(
     problemSolvingScore: number | null,
     config: ScoringConfiguration
 ): number {
+    const problemSolvingWeight = getProblemSolvingWeight(problemSolvingScore, config);
     const categoryContribution =
-        (categoryAverage * (100 - config.aiAssistWeight - config.problemSolvingWeight)) / 100;
+        (categoryAverage * (100 - config.aiAssistWeight - problemSolvingWeight)) / 100;
     const aiAssistContribution =
         aiAssistScore !== null ? (aiAssistScore * config.aiAssistWeight) / 100 : 0;
     const problemSolvingContribution =
-        problemSolvingScore !== null ? (problemSolvingScore * config.problemSolvingWeight) / 100 : 0;
+        problemSolvingScore !== null ? (problemSolvingScore * problemSolvingWeight) / 100 : 0;
 
     return categoryContribution + aiAssistContribution + problemSolvingContribution;
+}
+
+/**
+ * Uses Problem Solving weight only when the metric exists for the session.
+ */
+function getProblemSolvingWeight(
+    problemSolvingScore: number | null,
+    config: ScoringConfiguration
+): number {
+    return problemSolvingScore !== null ? config.problemSolvingWeight : 0;
 }
 
 /**

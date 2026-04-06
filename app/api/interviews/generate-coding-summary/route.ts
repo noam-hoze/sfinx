@@ -3,6 +3,7 @@ import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 import OpenAI from "openai";
 import { calculateScore, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
+import { buildInterviewRawScores } from "app/shared/utils/buildInterviewRawScores";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
@@ -39,6 +40,7 @@ export async function POST(request: NextRequest) {
                 telemetryData: {
                     include: {
                         backgroundSummary: true,
+                        codingSummary: true,
                     },
                 },
                 application: {
@@ -241,18 +243,17 @@ Provide a comprehensive summary and scores for this candidate's coding performan
 
         // Calculate and save final score if we have all required data
         let finalScore: number | null = null;
-        if (session.telemetryData?.backgroundSummary && session.application.job.scoringConfiguration) {
+        if (session.telemetryData?.backgroundSummary && session.application.job?.scoringConfiguration) {
             try {
                 const job = session.application.job;
-                const jobExperienceCategories = (job.experienceCategories as any) || [];
-                const backgroundExperienceCategories = (session.telemetryData.backgroundSummary.experienceCategories as any) || {};
-                const experienceScores = jobExperienceCategories.map((cat: any) => ({
-                    name: cat.name,
-                    score: backgroundExperienceCategories[cat.name]?.score || 0,
-                    weight: cat.weight || 1
-                }));
-
-                const rawScores: RawScores = { experienceScores, categoryScores: [] };
+                if (!job) {
+                    throw new Error("Job not found for scoring");
+                }
+                const rawScores: RawScores = buildInterviewRawScores(
+                    job,
+                    session.telemetryData.backgroundSummary,
+                    session.telemetryData.codingSummary
+                );
                 const workstyleMetrics: WorkstyleMetrics = { aiAssistAccountabilityScore: undefined };
 
                 const result = calculateScore(rawScores, workstyleMetrics, job.scoringConfiguration as any);

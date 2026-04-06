@@ -2,9 +2,18 @@ import { describe, expect, it } from "vitest";
 import { calculateScore } from "app/shared/utils/calculateScore";
 
 describe("calculatePerformanceContext", () => {
-    it("defaults missing problemSolvingWeight to avoid NaN scores", async () => {
+    it("returns a finite score when problemSolvingWeight is missing", async () => {
         process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? "test-key";
         const { calculatePerformanceContext } = await import("./route");
+        const job = {
+            experienceCategories: [{ name: "System Design", weight: 1 }],
+            codingCategories: [{ name: "Algorithms", weight: 1 }],
+            scoringConfiguration: {
+                aiAssistWeight: 25,
+                experienceWeight: 50,
+                codingWeight: 50,
+            },
+        };
 
         const result = calculatePerformanceContext(
             {
@@ -18,17 +27,11 @@ describe("calculatePerformanceContext", () => {
                 },
             },
             [],
-            {
-                scoringConfiguration: {
-                    aiAssistWeight: 25,
-                    experienceWeight: 50,
-                    codingWeight: 50,
-                },
-            }
+            job
         );
 
         expect(Number.isFinite(result.finalScore)).toBe(true);
-        expect(result.finalScore).toBe(55);
+        expect(result.finalScore).toBe(63);
         expect(result.performanceLevel).toBe("competent");
     });
 
@@ -51,11 +54,16 @@ describe("calculatePerformanceContext", () => {
             experienceWeight: 50,
             codingWeight: 50,
         };
+        const job = {
+            experienceCategories: [{ name: "System Design", weight: 1 }],
+            codingCategories: [{ name: "Algorithms", weight: 1 }],
+            scoringConfiguration,
+        };
         const result = calculatePerformanceContext(
             backgroundSummary,
             codingSummary,
             [{ accountabilityScore: 60, understanding: "strong" }],
-            { scoringConfiguration },
+            job,
             { problemSolvingScore: 100 }
         );
         const expected = calculateScore(
@@ -70,5 +78,43 @@ describe("calculatePerformanceContext", () => {
         expect(result.experienceScore).toBe(expected.experienceScore);
         expect(result.codingScore).toBe(expected.codingScore);
         expect(result.finalScore).toBe(expected.finalScore);
+    });
+
+    it("uses job category definitions so missing categories stay zero-weighted canonically", async () => {
+        process.env.OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? "test-key";
+        const { calculatePerformanceContext } = await import("./route");
+        const result = calculatePerformanceContext(
+            {
+                experienceCategories: {
+                    "System Design": { score: 80, weight: 1 },
+                },
+            },
+            {
+                jobSpecificCategories: {
+                    Algorithms: { score: 80, weight: 1 },
+                },
+            },
+            [],
+            {
+                experienceCategories: [
+                    { name: "System Design", weight: 3 },
+                    { name: "Communication", weight: 1 },
+                ],
+                codingCategories: [
+                    { name: "Algorithms", weight: 3 },
+                    { name: "Debugging", weight: 1 },
+                ],
+                scoringConfiguration: {
+                    aiAssistWeight: 0,
+                    problemSolvingWeight: 0,
+                    experienceWeight: 50,
+                    codingWeight: 50,
+                },
+            }
+        );
+
+        expect(result.experienceScore).toBe(60);
+        expect(result.codingScore).toBe(60);
+        expect(result.finalScore).toBe(60);
     });
 });
