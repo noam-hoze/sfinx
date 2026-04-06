@@ -242,4 +242,43 @@ describe("calculateScore", () => {
         expect(Number.isInteger(result.codingScore)).toBe(true);
         expect(Number.isInteger(result.finalScore)).toBe(true);
     });
+
+    it("ignores non-finite raw scores and workstyle metrics", () => {
+        const raw: RawScores = {
+            experienceScores: [{ name: "A", score: Number.NaN, weight: 1 }],
+            categoryScores: [
+                { name: "Broken", score: Number.NaN, weight: 1 },
+                { name: "Valid", score: 80, weight: 1 },
+            ],
+        };
+        const ws: WorkstyleMetrics = {
+            aiAssistAccountabilityScore: Number.NaN,
+            problemSolvingScore: Number.NaN,
+        };
+        const result = calculateScore(raw, ws, defaultConfig);
+
+        expect(result.experienceScore).toBe(0);
+        expect(result.codingScore).toBe(40);
+        expect(result.finalScore).toBe(24);
+        expect(result.normalizedWorkstyle.aiAssist).toBeNull();
+        expect(result.normalizedWorkstyle.problemSolving).toBeNull();
+    });
+
+    it("ignores non-finite config weights instead of returning NaN", () => {
+        const raw: RawScores = {
+            experienceScores: [makeExperienceScore(50)],
+            categoryScores: [makeCodingScore(100)],
+        };
+        const ws: WorkstyleMetrics = {};
+        const result = calculateScore(raw, ws, {
+            aiAssistWeight: Number.NaN as number,
+            problemSolvingWeight: undefined as unknown as number,
+            experienceWeight: 50,
+            codingWeight: Number.NaN as number,
+        });
+
+        expect(result.experienceScore).toBe(50);
+        expect(result.codingScore).toBe(100);
+        expect(result.finalScore).toBe(50);
+    });
 });
