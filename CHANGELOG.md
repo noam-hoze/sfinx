@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.3] - 2026-04-06
+
+### Fixed
+
+- **Profile-story score drift**: `generate-profile-story` now loads persisted `workstyleMetrics` and passes `problemSolvingScore` into `calculatePerformanceContext`, keeping story-scoring aligned with the canonical final-score calculation when Problem Solving weight is enabled.
+
 ## [1.29.2] - 2026-03-09
 
 ### Fixed
