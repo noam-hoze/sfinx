@@ -131,6 +131,9 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         const { company } = await loadCompanyForUser(userId);
         const job = await prisma.job.findUnique({
             where: { id: jobId },
+            include: {
+                scoringConfiguration: true,
+            },
         });
 
         if (!job) {
@@ -159,6 +162,19 @@ export async function PUT(request: NextRequest, context: RouteContext) {
                     );
                 }
             }
+        }
+
+        const nextAiAssistWeight = Number(
+            body.aiAssistWeight ?? job.scoringConfiguration?.aiAssistWeight ?? 25
+        );
+        const nextProblemSolvingWeight = Number(
+            body.problemSolvingWeight ?? job.scoringConfiguration?.problemSolvingWeight ?? 25
+        );
+        if (nextAiAssistWeight + nextProblemSolvingWeight > 100) {
+            return NextResponse.json(
+                { error: "aiAssistWeight and problemSolvingWeight must sum to 100 or less" },
+                { status: 400 }
+            );
         }
 
         // Validate category weights sum to 100 (with tolerance for floating point)
