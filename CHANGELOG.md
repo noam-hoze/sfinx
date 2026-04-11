@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.4] - 2026-04-11
+
+### Fixed
+
+- **Legacy scoring-config regression**: Shared scoring normalization now falls back to Prisma's default scoring weights when a job has no persisted `scoringConfiguration` row, so `generate-profile-story` and other score callers do not fail on legacy jobs.
+- **Invalid problem-solving weight handling**: Shared scoring normalization now rejects non-finite `problemSolvingWeight` values instead of letting `NaN` or `Infinity` propagate into score calculations.
+
 ## [1.29.3] - 2026-04-11
 
 ### Fixed

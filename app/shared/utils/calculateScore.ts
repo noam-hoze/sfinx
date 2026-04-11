@@ -36,6 +36,16 @@ export interface CalculatedScore {
 }
 
 /**
+ * Matches the Prisma defaults for jobs without a persisted scoring config row.
+ */
+const DEFAULT_SCORING_CONFIGURATION: ScoringConfiguration = {
+    aiAssistWeight: 25,
+    problemSolvingWeight: 25,
+    experienceWeight: 50,
+    codingWeight: 50,
+};
+
+/**
  * Require numeric weights for non-legacy scoring config fields.
  */
 function requireWeight(field: string, value: unknown): number {
@@ -52,9 +62,15 @@ function requireWeight(field: string, value: unknown): number {
 export function normalizeScoringConfiguration(
     config: Partial<ScoringConfiguration> | null | undefined
 ): ScoringConfiguration {
+    if (!config) {
+        return DEFAULT_SCORING_CONFIGURATION;
+    }
+
     return {
         aiAssistWeight: requireWeight("aiAssistWeight", config?.aiAssistWeight),
-        problemSolvingWeight: typeof config?.problemSolvingWeight === "number" ? config.problemSolvingWeight : 0,
+        problemSolvingWeight: config.problemSolvingWeight == null
+            ? 0
+            : requireWeight("problemSolvingWeight", config.problemSolvingWeight),
         experienceWeight: requireWeight("experienceWeight", config?.experienceWeight),
         codingWeight: requireWeight("codingWeight", config?.codingWeight),
     };
