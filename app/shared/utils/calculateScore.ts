@@ -36,13 +36,60 @@ export interface CalculatedScore {
 }
 
 /**
- * Calculate final candidate score based on configuration
+ * Matches the Prisma defaults for jobs without a persisted scoring config row.
+ */
+const DEFAULT_SCORING_CONFIGURATION: ScoringConfiguration = {
+    aiAssistWeight: 25,
+    problemSolvingWeight: 25,
+    experienceWeight: 50,
+    codingWeight: 50,
+};
+
+/**
+ * Require numeric weights for non-legacy scoring config fields.
+ */
+function requireWeight(field: string, value: unknown): number {
+    if (typeof value === "number" && Number.isFinite(value)) {
+        return value;
+    }
+
+    throw new Error(`Missing scoring configuration weight: ${field}`);
+}
+
+/**
+ * Normalize scoring config while preserving legacy jobs without problem-solving weight.
+ */
+export function normalizeScoringConfiguration(
+    config: Partial<ScoringConfiguration> | null | undefined
+): ScoringConfiguration {
+    if (!config) {
+        return DEFAULT_SCORING_CONFIGURATION;
+    }
+
+    return {
+        aiAssistWeight: requireWeight("aiAssistWeight", config?.aiAssistWeight),
+        problemSolvingWeight: config.problemSolvingWeight == null
+            ? 0
+            : requireWeight("problemSolvingWeight", config.problemSolvingWeight),
+        experienceWeight: requireWeight("experienceWeight", config?.experienceWeight),
+        codingWeight: requireWeight("codingWeight", config?.codingWeight),
+    };
+}
+
+/**
+ * Calculate final candidate score based on configuration.
  */
 export function calculateScore(
     rawScores: RawScores,
     workstyleMetrics: WorkstyleMetrics,
-    config: ScoringConfiguration
+    config: Partial<ScoringConfiguration>
 ): CalculatedScore {
+    const normalizedConfig = normalizeScoringConfiguration(config);
+    const aiAssistWeight = normalizedConfig.aiAssistWeight;
+    const problemSolvingWeight = normalizedConfig.problemSolvingWeight;
+    const experienceWeight = normalizedConfig.experienceWeight;
+    const codingWeight = normalizedConfig.codingWeight;
+
     const hasAiAssistScore = workstyleMetrics.aiAssistAccountabilityScore !== undefined &&
                               workstyleMetrics.aiAssistAccountabilityScore !== null;
     const normalizedAiAssist = workstyleMetrics.aiAssistAccountabilityScore;
@@ -78,27 +125,29 @@ export function calculateScore(
     const categoryAverage = totalCategoryWeight > 0 ? categoryWeightedSum / totalCategoryWeight : 0;
 
     // Step 2: Categories contribute (100 - aiAssistWeight - problemSolvingWeight)% of coding score
-    const categoryContribution = categoryAverage * (100 - config.aiAssistWeight - config.problemSolvingWeight) / 100;
+    const categoryContribution = categoryAverage * (100 - aiAssistWeight - problemSolvingWeight) / 100;
 
     // Step 3: AI assist contributes its percentage of the coding score
     const aiAssistContribution = hasAiAssistScore
-        ? normalizedAiAssist! * config.aiAssistWeight / 100
+        ? normalizedAiAssist! * aiAssistWeight / 100
         : 0;
 
     // Step 4: Problem solving contributes its percentage of the coding score
     const problemSolvingContribution = hasProblemSolvingScore
-        ? workstyleMetrics.problemSolvingScore! * config.problemSolvingWeight / 100
+        ? workstyleMetrics.problemSolvingScore! * problemSolvingWeight / 100
         : 0;
 
     // Step 5: Final coding score (0-100)
     const codingScore = categoryContribution + aiAssistContribution + problemSolvingContribution;
 
     // Calculate final score (weighted average of experience and coding)
-    const totalMainCategoryWeight = config.experienceWeight + config.codingWeight;
-    const finalScore = (
-        (experienceScore * config.experienceWeight) +
-        (codingScore * config.codingWeight)
-    ) / totalMainCategoryWeight;
+    const totalMainCategoryWeight = experienceWeight + codingWeight;
+    const finalScore = totalMainCategoryWeight > 0
+        ? (
+            (experienceScore * experienceWeight) +
+            (codingScore * codingWeight)
+        ) / totalMainCategoryWeight
+        : 0;
 
     return {
         finalScore: Math.round(finalScore),
