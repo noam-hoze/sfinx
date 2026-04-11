@@ -36,17 +36,43 @@ export interface CalculatedScore {
 }
 
 /**
- * Calculate final candidate score based on configuration
+ * Require numeric weights for non-legacy scoring config fields.
+ */
+function requireWeight(field: string, value: unknown): number {
+    if (typeof value === "number" && Number.isFinite(value)) {
+        return value;
+    }
+
+    throw new Error(`Missing scoring configuration weight: ${field}`);
+}
+
+/**
+ * Normalize scoring config while preserving legacy jobs without problem-solving weight.
+ */
+export function normalizeScoringConfiguration(
+    config: Partial<ScoringConfiguration> | null | undefined
+): ScoringConfiguration {
+    return {
+        aiAssistWeight: requireWeight("aiAssistWeight", config?.aiAssistWeight),
+        problemSolvingWeight: typeof config?.problemSolvingWeight === "number" ? config.problemSolvingWeight : 0,
+        experienceWeight: requireWeight("experienceWeight", config?.experienceWeight),
+        codingWeight: requireWeight("codingWeight", config?.codingWeight),
+    };
+}
+
+/**
+ * Calculate final candidate score based on configuration.
  */
 export function calculateScore(
     rawScores: RawScores,
     workstyleMetrics: WorkstyleMetrics,
-    config: ScoringConfiguration
+    config: Partial<ScoringConfiguration>
 ): CalculatedScore {
-    const aiAssistWeight = config.aiAssistWeight ?? 0;
-    const problemSolvingWeight = config.problemSolvingWeight ?? 0;
-    const experienceWeight = config.experienceWeight ?? 0;
-    const codingWeight = config.codingWeight ?? 0;
+    const normalizedConfig = normalizeScoringConfiguration(config);
+    const aiAssistWeight = normalizedConfig.aiAssistWeight;
+    const problemSolvingWeight = normalizedConfig.problemSolvingWeight;
+    const experienceWeight = normalizedConfig.experienceWeight;
+    const codingWeight = normalizedConfig.codingWeight;
 
     const hasAiAssistScore = workstyleMetrics.aiAssistAccountabilityScore !== undefined &&
                               workstyleMetrics.aiAssistAccountabilityScore !== null;
