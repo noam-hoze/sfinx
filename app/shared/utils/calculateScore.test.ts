@@ -171,6 +171,24 @@ describe("calculateScore", () => {
         expect(result.normalizedWorkstyle.problemSolving).toBeNull();
     });
 
+    it("treats missing problemSolvingWeight as 0 to avoid NaN scores", () => {
+        const raw: RawScores = {
+            experienceScores: [makeExperienceScore(80)],
+            categoryScores: [makeCodingScore(70)],
+        };
+        const ws: WorkstyleMetrics = {};
+        const legacyConfig = {
+            aiAssistWeight: 25,
+            experienceWeight: 50,
+            codingWeight: 50,
+        } as unknown as ScoringConfiguration;
+
+        const result = calculateScore(raw, ws, legacyConfig);
+
+        expect(result.codingScore).toBe(53);
+        expect(result.finalScore).toBe(66);
+    });
+
     it("combines aiAssist and problemSolving weights correctly", () => {
         const raw: RawScores = {
             experienceScores: [],
