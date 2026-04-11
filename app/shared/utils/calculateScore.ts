@@ -43,6 +43,11 @@ export function calculateScore(
     workstyleMetrics: WorkstyleMetrics,
     config: ScoringConfiguration
 ): CalculatedScore {
+    const aiAssistWeight = config.aiAssistWeight ?? 0;
+    const problemSolvingWeight = config.problemSolvingWeight ?? 0;
+    const experienceWeight = config.experienceWeight ?? 0;
+    const codingWeight = config.codingWeight ?? 0;
+
     const hasAiAssistScore = workstyleMetrics.aiAssistAccountabilityScore !== undefined &&
                               workstyleMetrics.aiAssistAccountabilityScore !== null;
     const normalizedAiAssist = workstyleMetrics.aiAssistAccountabilityScore;
@@ -78,27 +83,29 @@ export function calculateScore(
     const categoryAverage = totalCategoryWeight > 0 ? categoryWeightedSum / totalCategoryWeight : 0;
 
     // Step 2: Categories contribute (100 - aiAssistWeight - problemSolvingWeight)% of coding score
-    const categoryContribution = categoryAverage * (100 - config.aiAssistWeight - config.problemSolvingWeight) / 100;
+    const categoryContribution = categoryAverage * (100 - aiAssistWeight - problemSolvingWeight) / 100;
 
     // Step 3: AI assist contributes its percentage of the coding score
     const aiAssistContribution = hasAiAssistScore
-        ? normalizedAiAssist! * config.aiAssistWeight / 100
+        ? normalizedAiAssist! * aiAssistWeight / 100
         : 0;
 
     // Step 4: Problem solving contributes its percentage of the coding score
     const problemSolvingContribution = hasProblemSolvingScore
-        ? workstyleMetrics.problemSolvingScore! * config.problemSolvingWeight / 100
+        ? workstyleMetrics.problemSolvingScore! * problemSolvingWeight / 100
         : 0;
 
     // Step 5: Final coding score (0-100)
     const codingScore = categoryContribution + aiAssistContribution + problemSolvingContribution;
 
     // Calculate final score (weighted average of experience and coding)
-    const totalMainCategoryWeight = config.experienceWeight + config.codingWeight;
-    const finalScore = (
-        (experienceScore * config.experienceWeight) +
-        (codingScore * config.codingWeight)
-    ) / totalMainCategoryWeight;
+    const totalMainCategoryWeight = experienceWeight + codingWeight;
+    const finalScore = totalMainCategoryWeight > 0
+        ? (
+            (experienceScore * experienceWeight) +
+            (codingScore * codingWeight)
+        ) / totalMainCategoryWeight
+        : 0;
 
     return {
         finalScore: Math.round(finalScore),
