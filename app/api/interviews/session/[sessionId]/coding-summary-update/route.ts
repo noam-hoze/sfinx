@@ -140,13 +140,21 @@ export async function PATCH(
             },
         });
 
-        if (problemSolvingScore !== undefined && session.telemetryData?.id) {
+        if (session.telemetryData?.id) {
             await prisma.workstyleMetrics.upsert({
                 where: { telemetryDataId: session.telemetryData.id },
-                create: { telemetryDataId: session.telemetryData.id, problemSolvingScore },
-                update: { problemSolvingScore },
+                create: {
+                    telemetryDataId: session.telemetryData.id,
+                    problemSolvingScore: problemSolvingScore ?? null,
+                },
+                update: {
+                    problemSolvingScore: problemSolvingScore ?? null,
+                },
             });
-            log.info(LOG_CATEGORY, `[Coding Summary Update] Persisted problemSolvingScore=${problemSolvingScore} to WorkstyleMetrics`);
+            log.info(
+                LOG_CATEGORY,
+                `[Coding Summary Update] Updated problemSolvingScore=${problemSolvingScore ?? "null"} in WorkstyleMetrics`
+            );
         }
 
         log.info(LOG_CATEGORY, "[Coding Summary Update] Successfully updated job-specific categories with contribution data");
