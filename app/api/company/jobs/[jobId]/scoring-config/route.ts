@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "app/shared/services/auth";
 import prisma from "lib/prisma";
+import type { ScoringConfiguration } from "@prisma/client";
 import { log } from "app/shared/services";
+import { normalizeScoringConfiguration } from "app/shared/utils/calculateScore";
 import { loadCompanyForUser } from "../../companyContext";
 import { ensureCompanyRole } from "../../companyAuth";
 
@@ -16,6 +18,28 @@ interface RouteContext {
 function normalizeJobId(jobId: string | string[] | undefined): string {
     if (Array.isArray(jobId)) return jobId[0] ?? "";
     return jobId ?? "";
+}
+
+/**
+ * Validate the final persisted scoring weights after a partial update merges in.
+ */
+function validateMergedScoringConfiguration(
+    currentConfig: ScoringConfiguration | null,
+    updates: Record<string, number>
+) {
+    if (!currentConfig) {
+        normalizeScoringConfiguration(updates);
+        return;
+    }
+
+    const mergedConfig = normalizeScoringConfiguration({
+        aiAssistWeight: updates.aiAssistWeight ?? currentConfig.aiAssistWeight,
+        problemSolvingWeight: updates.problemSolvingWeight ?? currentConfig.problemSolvingWeight,
+        experienceWeight: updates.experienceWeight ?? currentConfig.experienceWeight,
+        codingWeight: updates.codingWeight ?? currentConfig.codingWeight,
+    });
+
+    normalizeScoringConfiguration(mergedConfig);
 }
 
 /**
@@ -131,6 +155,9 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         const { company } = await loadCompanyForUser(userId);
         const job = await prisma.job.findUnique({
             where: { id: jobId },
+            include: {
+                scoringConfiguration: true,
+            },
         });
 
         if (!job) {
@@ -200,6 +227,8 @@ export async function PUT(request: NextRequest, context: RouteContext) {
                 updates[field] = Number(body[field]);
             }
         }
+
+        validateMergedScoringConfiguration(job.scoringConfiguration as any, updates);
 
         // Upsert configuration
         const config = await prisma.scoringConfiguration.upsert({

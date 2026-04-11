@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import { getCached, setCached } from "app/shared/services/server";
 import prisma from "lib/prisma";
-import { calculateScore, type RawScores, type WorkstyleMetrics, type ScoringConfiguration } from "app/shared/utils/calculateScore";
+import { calculateScore, normalizeScoringConfiguration, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
 import { mergeWithPredefinedCategories, type CodingCategory } from "app/api/company/jobs/categorySchemas";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
@@ -319,19 +319,22 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 let calculatedExperienceScore: number | null = null;
                 let calculatedCodingScore: number | null = null;
                 const jobId = session.application?.job?.id;
-                const scoringConfig = jobId ? scoringConfigsByJobId.get(jobId) : null;
                 const backgroundSummary = backgroundSummariesBySessionId.get(session.id);
                 const codingSummary = codingSummariesBySessionId.get(session.id);
 
-                if (scoringConfig && backgroundSummary && codingSummary && telemetry?.workstyleMetrics) {
+                if (backgroundSummary && codingSummary) {
                     try {
+                        const scoringConfig = normalizeScoringConfiguration(
+                            jobId ? scoringConfigsByJobId.get(jobId) : undefined
+                        );
+
                         // Build experience scores from dynamic categories
                         const jobExperienceCategories = (session.application?.job?.experienceCategories as any) || [];
                         const backgroundExperienceCategories = (backgroundSummary.experienceCategories as any) || {};
                         const experienceScores = jobExperienceCategories.map((cat: any) => ({
                             name: cat.name,
                             score: backgroundExperienceCategories[cat.name]?.score || 0,
-                            weight: cat.weight || 1
+                            weight: cat.weight ?? 1,
                         }));
 
                         // Build coding scores from job-specific categories
@@ -340,7 +343,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                         const categoryScores = jobCodingCategories.map((cat: any) => ({
                             name: cat.name,
                             score: codingCategoriesData[cat.name]?.score || 0,
-                            weight: cat.weight || 1
+                            weight: cat.weight ?? 1,
                         }));
 
                         const rawScores: RawScores = {
@@ -360,7 +363,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                             problemSolvingScore: telemetry?.workstyleMetrics?.problemSolvingScore ?? undefined,
                         };
 
-                        const result = calculateScore(rawScores, workstyleMetrics, scoringConfig as ScoringConfiguration);
+                        const result = calculateScore(rawScores, workstyleMetrics, scoringConfig);
                         calculatedScore = result.finalScore;
                         calculatedExperienceScore = result.experienceScore;
                         calculatedCodingScore = result.codingScore;
@@ -463,19 +466,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
                                   value: telemetry.workstyleMetrics.externalToolUsage ?? 0,
                                   avgAccountabilityScore: avgAccountabilityScore ?? null,
                                   level:
-                                      avgAccountabilityScore !== undefined && avgAccountabilityScore >= 70
+                                      avgAccountabilityScore !== null && avgAccountabilityScore >= 70
                                           ? "High"
-                                          : avgAccountabilityScore !== undefined && avgAccountabilityScore >= 40
+                                          : avgAccountabilityScore !== null && avgAccountabilityScore >= 40
                                           ? "Moderate"
-                                          : avgAccountabilityScore !== undefined
+                                          : avgAccountabilityScore !== null
                                           ? "Low"
                                           : "N/A",
                                   color:
-                                      avgAccountabilityScore !== undefined && avgAccountabilityScore >= 70
+                                      avgAccountabilityScore !== null && avgAccountabilityScore >= 70
                                           ? "blue"
-                                          : avgAccountabilityScore !== undefined && avgAccountabilityScore >= 40
+                                          : avgAccountabilityScore !== null && avgAccountabilityScore >= 40
                                           ? "yellow"
-                                          : avgAccountabilityScore !== undefined
+                                          : avgAccountabilityScore !== null
                                           ? "red"
                                           : "gray",
                                   isFairnessFlag:

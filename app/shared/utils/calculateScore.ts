@@ -57,6 +57,22 @@ function requireWeight(field: string, value: unknown): number {
 }
 
 /**
+ * Reject configs that reserve more than 100% of coding for workstyle metrics.
+ */
+function validateWorkstyleWeightBudget(aiAssistWeight: number, problemSolvingWeight: number) {
+    if (aiAssistWeight + problemSolvingWeight > 100) {
+        throw new Error("AI Assist weight and Problem Solving weight must sum to 100 or less");
+    }
+}
+
+/**
+ * Unmeasurable problem-solving should not consume coding weight.
+ */
+function getProblemSolvingWeight(weight: number, hasProblemSolvingScore: boolean) {
+    return hasProblemSolvingScore ? weight : 0;
+}
+
+/**
  * Normalize scoring config while preserving legacy jobs without problem-solving weight.
  */
 export function normalizeScoringConfiguration(
@@ -66,7 +82,7 @@ export function normalizeScoringConfiguration(
         return DEFAULT_SCORING_CONFIGURATION;
     }
 
-    return {
+    const normalizedConfig = {
         aiAssistWeight: requireWeight("aiAssistWeight", config?.aiAssistWeight),
         problemSolvingWeight: config.problemSolvingWeight == null
             ? 0
@@ -74,6 +90,13 @@ export function normalizeScoringConfiguration(
         experienceWeight: requireWeight("experienceWeight", config?.experienceWeight),
         codingWeight: requireWeight("codingWeight", config?.codingWeight),
     };
+
+    validateWorkstyleWeightBudget(
+        normalizedConfig.aiAssistWeight,
+        normalizedConfig.problemSolvingWeight
+    );
+
+    return normalizedConfig;
 }
 
 /**
@@ -82,11 +105,10 @@ export function normalizeScoringConfiguration(
 export function calculateScore(
     rawScores: RawScores,
     workstyleMetrics: WorkstyleMetrics,
-    config: Partial<ScoringConfiguration>
+    config: Partial<ScoringConfiguration> | null | undefined
 ): CalculatedScore {
     const normalizedConfig = normalizeScoringConfiguration(config);
     const aiAssistWeight = normalizedConfig.aiAssistWeight;
-    const problemSolvingWeight = normalizedConfig.problemSolvingWeight;
     const experienceWeight = normalizedConfig.experienceWeight;
     const codingWeight = normalizedConfig.codingWeight;
 
@@ -96,6 +118,10 @@ export function calculateScore(
 
     const hasProblemSolvingScore = workstyleMetrics.problemSolvingScore !== undefined &&
                                     workstyleMetrics.problemSolvingScore !== null;
+    const problemSolvingWeight = getProblemSolvingWeight(
+        normalizedConfig.problemSolvingWeight,
+        hasProblemSolvingScore
+    );
 
     // Calculate experience score from dynamic categories (same pattern as coding)
     let experienceWeightedSum = 0;

@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.5] - 2026-04-11
+
+### Fixed
+
+- **Legacy score persistence drift**: `coding-summary-update`, `generate-coding-summary`, telemetry recalculation, and the backfill script now all normalize missing `scoringConfiguration` rows through the shared defaults instead of skipping final-score calculation for legacy jobs.
+- **Unmeasurable Problem Solving penalty**: `calculateScore()` no longer deducts Problem Solving weight when no `problemSolvingScore` exists, so interviews without a reference solution keep the measured coding-category share instead of losing score to an unavailable metric.
+- **Invalid workstyle weight combinations**: Shared score normalization and the job scoring-config API now reject `aiAssistWeight + problemSolvingWeight > 100`, preventing negative coding-category contributions from partial config updates.
+
 ## [1.29.4] - 2026-04-11
 
 ### Fixed

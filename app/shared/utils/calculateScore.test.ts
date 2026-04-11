@@ -153,7 +153,7 @@ describe("calculateScore", () => {
         expect(result.normalizedWorkstyle.problemSolving).toBe(100);
     });
 
-    it("omits problem solving contribution when score is undefined", () => {
+    it("reallocates problem-solving weight when the score is unavailable", () => {
         const raw: RawScores = {
             experienceScores: [],
             categoryScores: [makeCodingScore(80)],
@@ -166,8 +166,8 @@ describe("calculateScore", () => {
             codingWeight: 60,
         });
 
-        // categoryContribution = 80 * 0.75 = 60, problemSolvingContribution = 0
-        expect(result.codingScore).toBe(60);
+        // categoryContribution = 80 * 1.0 = 80, problemSolvingContribution = 0
+        expect(result.codingScore).toBe(80);
         expect(result.normalizedWorkstyle.problemSolving).toBeNull();
     });
 
@@ -230,6 +230,15 @@ describe("calculateScore", () => {
             experienceWeight: 50,
             codingWeight: 50,
         })).toThrow("Missing scoring configuration weight: problemSolvingWeight");
+    });
+
+    it("rejects workstyle weights above the coding budget", () => {
+        expect(() => normalizeScoringConfiguration({
+            aiAssistWeight: 80,
+            problemSolvingWeight: 30,
+            experienceWeight: 50,
+            codingWeight: 50,
+        })).toThrow("AI Assist weight and Problem Solving weight must sum to 100 or less");
     });
 
     it("combines aiAssist and problemSolving weights correctly", () => {

@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 
 import { PrismaClient } from "@prisma/client";
-import { calculateScore, type RawScores, type WorkstyleMetrics } from "../../app/shared/utils/calculateScore";
+import { calculateScore, normalizeScoringConfiguration, type RawScores, type WorkstyleMetrics } from "../../app/shared/utils/calculateScore";
 import { config } from "dotenv";
 import path from "path";
 
@@ -51,6 +51,11 @@ async function backfillFinalScores() {
             const { telemetryData, application } = session;
             const job = application.job;
 
+            if (!job) {
+                console.log(`⏭️  Skipping session ${session.id} - missing job`);
+                continue;
+            }
+
             console.log(`🔍 Checking session ${session.id}:`, {
                 jobId: job.id,
                 jobTitle: job.title,
@@ -60,7 +65,7 @@ async function backfillFinalScores() {
                 scoringConfigId: job.scoringConfiguration?.id,
             });
 
-            if (!telemetryData?.backgroundSummary || !telemetryData?.codingSummary || !job.scoringConfiguration) {
+            if (!telemetryData?.backgroundSummary || !telemetryData?.codingSummary) {
                 console.log(`⏭️  Skipping session ${session.id} - missing required data`);
                 continue;
             }
@@ -70,7 +75,7 @@ async function backfillFinalScores() {
             const experienceScores = jobExperienceCategories.map((cat: any) => ({
                 name: cat.name,
                 score: backgroundExperienceCategories[cat.name]?.score || 0,
-                weight: cat.weight || 1
+                weight: cat.weight ?? 1
             }));
 
             const jobCodingCategories = (job.codingCategories as any) || [];
@@ -85,7 +90,7 @@ async function backfillFinalScores() {
                 return {
                     name: cat.name,
                     score: codingCategoriesData[matchingKey]?.score || 0,
-                    weight: cat.weight || 1
+                    weight: cat.weight ?? 1
                 };
             });
 
@@ -102,17 +107,19 @@ async function backfillFinalScores() {
                 : undefined;
             
             const workstyleMetrics: WorkstyleMetrics = { 
-                aiAssistAccountabilityScore: avgAccountabilityScore
+                aiAssistAccountabilityScore: avgAccountabilityScore,
+                problemSolvingScore: session.telemetryData?.workstyleMetrics?.problemSolvingScore ?? undefined,
             };
+            const scoringConfig = normalizeScoringConfiguration(job.scoringConfiguration as any);
 
             console.log(`📊 Score calculation inputs for ${session.id}:`, {
                 experienceScores,
                 categoryScores,
                 workstyleMetrics,
-                scoringConfig: job.scoringConfiguration,
+                scoringConfig,
             });
 
-            const result = calculateScore(rawScores, workstyleMetrics, job.scoringConfiguration as any);
+            const result = calculateScore(rawScores, workstyleMetrics, scoringConfig);
             const finalScore = Math.round(result.finalScore);
 
             console.log(`📊 Score calculation result:`, {

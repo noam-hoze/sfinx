@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 import OpenAI from "openai";
-import { calculateScore, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
+import { calculateScore, normalizeScoringConfiguration, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
@@ -241,7 +241,7 @@ Provide a comprehensive summary and scores for this candidate's coding performan
 
         // Calculate and save final score if we have all required data
         let finalScore: number | null = null;
-        if (session.telemetryData?.backgroundSummary && session.application.job.scoringConfiguration) {
+        if (session.telemetryData?.backgroundSummary && session.application.job) {
             try {
                 const job = session.application.job;
                 const jobExperienceCategories = (job.experienceCategories as any) || [];
@@ -249,13 +249,14 @@ Provide a comprehensive summary and scores for this candidate's coding performan
                 const experienceScores = jobExperienceCategories.map((cat: any) => ({
                     name: cat.name,
                     score: backgroundExperienceCategories[cat.name]?.score || 0,
-                    weight: cat.weight || 1
+                    weight: cat.weight ?? 1,
                 }));
 
                 const rawScores: RawScores = { experienceScores, categoryScores: [] };
-                const workstyleMetrics: WorkstyleMetrics = { aiAssistAccountabilityScore: undefined };
+                const workstyleMetrics: WorkstyleMetrics = {};
+                const scoringConfig = normalizeScoringConfiguration(job.scoringConfiguration);
 
-                const result = calculateScore(rawScores, workstyleMetrics, job.scoringConfiguration as any);
+                const result = calculateScore(rawScores, workstyleMetrics, scoringConfig);
                 finalScore = Math.round(result.finalScore);
 
                 await prisma.interviewSession.update({

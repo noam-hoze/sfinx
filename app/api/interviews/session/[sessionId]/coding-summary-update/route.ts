@@ -161,7 +161,7 @@ export async function PATCH(
 
         // Calculate and persist final score
         let finalScore: number | null = null;
-        if (session.telemetryData?.backgroundSummary && session.application.job.scoringConfiguration) {
+        if (session.telemetryData?.backgroundSummary && session.application.job) {
             try {
                 const job = session.application.job;
                 const jobExperienceCategories = (job.experienceCategories as any) || [];
@@ -169,7 +169,7 @@ export async function PATCH(
                 const experienceScores = jobExperienceCategories.map((cat: any) => ({
                     name: cat.name,
                     score: backgroundExperienceCategories[cat.name]?.score || 0,
-                    weight: cat.weight || 1
+                    weight: cat.weight ?? 1,
                 }));
 
                 const jobCodingCategories = (job.codingCategories as any) || [];

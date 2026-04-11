@@ -322,7 +322,7 @@ function calculatePerformanceContext(
         ? Object.entries(backgroundSummary.experienceCategories).map(([name, data]: [string, any]) => ({
             name,
             score: data.score,
-            weight: data.weight || 1
+            weight: data.weight ?? 1
         }))
         : [];
 
@@ -331,7 +331,7 @@ function calculatePerformanceContext(
         ? Object.entries(codingSummary.jobSpecificCategories).map(([name, data]: [string, any]) => ({
             name,
             score: data.score,
-            weight: data.weight || 1
+            weight: data.weight ?? 1
         }))
         : [];
 
