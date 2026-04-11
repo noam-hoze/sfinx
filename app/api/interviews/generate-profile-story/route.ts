@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
                     include: {
                         backgroundSummary: true,
                         codingSummary: true,
+                        workstyleMetrics: true,
                     },
                 },
                 application: {
@@ -131,6 +132,7 @@ export async function POST(request: NextRequest) {
             backgroundSummary,
             codingSummary,
             externalToolUsages,
+            session.telemetryData.workstyleMetrics,
             session.application.job
         );
 
@@ -298,6 +300,7 @@ function calculatePerformanceContext(
     backgroundSummary: any,
     codingSummary: any,
     externalToolUsages: Array<{ accountabilityScore: number; understanding: string }>,
+    storedWorkstyleMetrics: { problemSolvingScore?: number | null } | null | undefined,
     job: { scoringConfiguration: any }
 ): {
     finalScore: number;
@@ -312,7 +315,7 @@ function calculatePerformanceContext(
     };
 } {
     // Import calculateScore utility
-    const { calculateScore } = require('app/shared/utils/calculateScore');
+    const { calculateScore, normalizeScoringConfiguration } = require('app/shared/utils/calculateScore');
 
     // Build experience scores from backgroundSummary categories
     const experienceScores = backgroundSummary.experienceCategories
@@ -339,14 +342,13 @@ function calculatePerformanceContext(
 
     // Calculate scores using the same logic as coding-summary-update
     const rawScores = { experienceScores, categoryScores };
-    const workstyleMetrics = { aiAssistAccountabilityScore: avgAccountabilityScore };
-
-    // Ensure scoringConfiguration has all required fields with defaults
-    const scoringConfig = {
-        aiAssistWeight: job.scoringConfiguration?.aiAssistWeight ?? 25,
-        experienceWeight: job.scoringConfiguration?.experienceWeight ?? 50,
-        codingWeight: job.scoringConfiguration?.codingWeight ?? 50
+    const workstyleMetrics = {
+        aiAssistAccountabilityScore: avgAccountabilityScore,
+        problemSolvingScore: storedWorkstyleMetrics?.problemSolvingScore ?? undefined,
     };
+
+    // Legacy jobs can omit only problemSolvingWeight; all other weights must come from persistence.
+    const scoringConfig = normalizeScoringConfiguration(job.scoringConfiguration as any);
 
     const result = calculateScore(rawScores, workstyleMetrics, scoringConfig);
 
