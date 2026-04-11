@@ -312,7 +312,7 @@ function calculatePerformanceContext(
     };
 } {
     // Import calculateScore utility
-    const { calculateScore } = require('app/shared/utils/calculateScore');
+    const { calculateScore, normalizeScoringConfiguration } = require('app/shared/utils/calculateScore');
 
     // Build experience scores from backgroundSummary categories
     const experienceScores = backgroundSummary.experienceCategories
@@ -341,12 +341,13 @@ function calculatePerformanceContext(
     const rawScores = { experienceScores, categoryScores };
     const workstyleMetrics = { aiAssistAccountabilityScore: avgAccountabilityScore };
 
-    // Ensure scoringConfiguration has all required fields with defaults
-    const scoringConfig = {
+    // Legacy jobs can omit problemSolvingWeight; preserve that historical split as 0.
+    const scoringConfig = normalizeScoringConfiguration({
         aiAssistWeight: job.scoringConfiguration?.aiAssistWeight ?? 25,
+        problemSolvingWeight: job.scoringConfiguration?.problemSolvingWeight,
         experienceWeight: job.scoringConfiguration?.experienceWeight ?? 50,
         codingWeight: job.scoringConfiguration?.codingWeight ?? 50
-    };
+    });
 
     const result = calculateScore(rawScores, workstyleMetrics, scoringConfig);
 

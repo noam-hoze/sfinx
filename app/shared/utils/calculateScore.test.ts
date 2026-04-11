@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { calculateScore } from "./calculateScore";
+import { calculateScore, normalizeScoringConfiguration } from "./calculateScore";
 import type { RawScores, WorkstyleMetrics, ScoringConfiguration } from "./calculateScore";
 
 const defaultConfig: ScoringConfiguration = {
@@ -169,6 +169,45 @@ describe("calculateScore", () => {
         // categoryContribution = 80 * 0.75 = 60, problemSolvingContribution = 0
         expect(result.codingScore).toBe(60);
         expect(result.normalizedWorkstyle.problemSolving).toBeNull();
+    });
+
+    it("treats missing problemSolvingWeight as 0 to avoid NaN scores", () => {
+        const raw: RawScores = {
+            experienceScores: [makeExperienceScore(80)],
+            categoryScores: [makeCodingScore(70)],
+        };
+        const ws: WorkstyleMetrics = {};
+        const legacyConfig = {
+            aiAssistWeight: 25,
+            experienceWeight: 50,
+            codingWeight: 50,
+        } as unknown as ScoringConfiguration;
+
+        const result = calculateScore(raw, ws, legacyConfig);
+
+        expect(result.codingScore).toBe(53);
+        expect(result.finalScore).toBe(66);
+    });
+
+    it("normalizes legacy configs consistently across score callers", () => {
+        const raw: RawScores = {
+            experienceScores: [makeExperienceScore(80)],
+            categoryScores: [makeCodingScore(70)],
+        };
+        const ws: WorkstyleMetrics = {};
+        const legacyConfig = {
+            aiAssistWeight: 25,
+            experienceWeight: 50,
+            codingWeight: 50,
+        } as Partial<ScoringConfiguration>;
+
+        const directResult = calculateScore(raw, ws, legacyConfig);
+        const normalizedConfig = normalizeScoringConfiguration(legacyConfig);
+        const normalizedResult = calculateScore(raw, ws, normalizedConfig);
+
+        expect(normalizedConfig.problemSolvingWeight).toBe(0);
+        expect(normalizedResult.codingScore).toBe(directResult.codingScore);
+        expect(normalizedResult.finalScore).toBe(directResult.finalScore);
     });
 
     it("combines aiAssist and problemSolving weights correctly", () => {
