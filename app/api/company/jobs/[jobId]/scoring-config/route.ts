@@ -18,6 +18,10 @@ function normalizeJobId(jobId: string | string[] | undefined): string {
     return jobId ?? "";
 }
 
+function toNumber(value: unknown): number {
+    return Number(value);
+}
+
 /**
  * GET /api/company/jobs/[jobId]/scoring-config
  * Fetch scoring configuration for a job (create default if doesn't exist)
@@ -131,6 +135,9 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         const { company } = await loadCompanyForUser(userId);
         const job = await prisma.job.findUnique({
             where: { id: jobId },
+            include: {
+                scoringConfiguration: true,
+            },
         });
 
         if (!job) {
@@ -151,25 +158,44 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
         for (const field of weightFields) {
             if (body[field] !== undefined) {
-                const value = Number(body[field]);
-                if (isNaN(value) || value < 0) {
+                const value = toNumber(body[field]);
+                if (Number.isNaN(value) || value < 0 || value > 100) {
                     return NextResponse.json(
-                        { error: `${field} must be a positive number` },
+                        { error: `${field} must be a number between 0 and 100` },
                         { status: 400 }
                     );
                 }
             }
         }
 
-        // Validate category weights sum to 100 (with tolerance for floating point)
-        if (body.experienceWeight !== undefined && body.codingWeight !== undefined) {
-            const sum = Number(body.experienceWeight) + Number(body.codingWeight);
-            if (Math.abs(sum - 100) > 0.01) {
-                return NextResponse.json(
-                    { error: "Experience weight and coding weight must sum to 100" },
-                    { status: 400 }
-                );
-            }
+        const existingConfig = job.scoringConfiguration;
+        const resolvedAiAssistWeight = body.aiAssistWeight !== undefined
+            ? toNumber(body.aiAssistWeight)
+            : existingConfig?.aiAssistWeight ?? 25;
+        const resolvedProblemSolvingWeight = body.problemSolvingWeight !== undefined
+            ? toNumber(body.problemSolvingWeight)
+            : existingConfig?.problemSolvingWeight ?? 25;
+        const resolvedExperienceWeight = body.experienceWeight !== undefined
+            ? toNumber(body.experienceWeight)
+            : existingConfig?.experienceWeight ?? 50;
+        const resolvedCodingWeight = body.codingWeight !== undefined
+            ? toNumber(body.codingWeight)
+            : existingConfig?.codingWeight ?? 50;
+
+        // Ensure coding score never receives a negative category contribution.
+        if (resolvedAiAssistWeight + resolvedProblemSolvingWeight > 100) {
+            return NextResponse.json(
+                { error: "aiAssistWeight + problemSolvingWeight must be less than or equal to 100" },
+                { status: 400 }
+            );
+        }
+
+        // Validate category weights sum to 100 (supports partial updates too)
+        if (Math.abs((resolvedExperienceWeight + resolvedCodingWeight) - 100) > 0.01) {
+            return NextResponse.json(
+                { error: "Experience weight and coding weight must sum to 100" },
+                { status: 400 }
+            );
         }
 
         // Validate thresholds are sensible
@@ -177,8 +203,8 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             body.iterationSpeedThresholdModerate !== undefined &&
             body.iterationSpeedThresholdHigh !== undefined
         ) {
-            const moderate = Number(body.iterationSpeedThresholdModerate);
-            const high = Number(body.iterationSpeedThresholdHigh);
+            const moderate = toNumber(body.iterationSpeedThresholdModerate);
+            const high = toNumber(body.iterationSpeedThresholdHigh);
             if (moderate >= high) {
                 return NextResponse.json(
                     { error: "Iteration speed moderate threshold must be less than high threshold" },
@@ -197,7 +223,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
         for (const field of updateableFields) {
             if (body[field] !== undefined) {
-                updates[field] = Number(body[field]);
+                updates[field] = toNumber(body[field]);
             }
         }
 

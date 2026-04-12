@@ -193,6 +193,24 @@ describe("calculateScore", () => {
         expect(result.normalizedWorkstyle.problemSolving).toBe(60);
     });
 
+    it("clamps coding score when workstyle weights exceed 100", () => {
+        const raw: RawScores = {
+            experienceScores: [],
+            categoryScores: [makeCodingScore(100)],
+        };
+        const ws: WorkstyleMetrics = { aiAssistAccountabilityScore: 100, problemSolvingScore: 100 };
+        const result = calculateScore(raw, ws, {
+            aiAssistWeight: 70,
+            problemSolvingWeight: 50,
+            experienceWeight: 0,
+            codingWeight: 100,
+        });
+
+        // category budget is clamped to 0, and final coding score stays capped at 100.
+        expect(result.codingScore).toBe(100);
+        expect(result.finalScore).toBe(100);
+    });
+
     it("computes finalScore as weighted average of experience and coding", () => {
         const raw: RawScores = {
             experienceScores: [makeExperienceScore(50)],
