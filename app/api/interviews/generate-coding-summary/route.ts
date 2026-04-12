@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 import OpenAI from "openai";
-import { calculateScore, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
+import {
+    calculateScore,
+    resolveScoringConfiguration,
+    type RawScores,
+    type WorkstyleMetrics,
+} from "app/shared/utils/calculateScore";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.INTERVIEWS;
@@ -60,8 +65,16 @@ export async function POST(request: NextRequest) {
             );
         }
 
+        const job = session.application?.job;
+        if (!job) {
+            return NextResponse.json(
+                { error: "Job not found for session" },
+                { status: 404 }
+            );
+        }
+
         // Get scoring configuration (with defaults if not configured)
-        const scoringConfig = session.application?.job?.scoringConfiguration;
+        const scoringConfig = job.scoringConfiguration;
         const iterationThresholdModerate = scoringConfig?.iterationSpeedThresholdModerate ?? 5;
         const iterationThresholdHigh = scoringConfig?.iterationSpeedThresholdHigh ?? 10;
 
@@ -241,9 +254,8 @@ Provide a comprehensive summary and scores for this candidate's coding performan
 
         // Calculate and save final score if we have all required data
         let finalScore: number | null = null;
-        if (session.telemetryData?.backgroundSummary && session.application.job.scoringConfiguration) {
+        if (session.telemetryData?.backgroundSummary) {
             try {
-                const job = session.application.job;
                 const jobExperienceCategories = (job.experienceCategories as any) || [];
                 const backgroundExperienceCategories = (session.telemetryData.backgroundSummary.experienceCategories as any) || {};
                 const experienceScores = jobExperienceCategories.map((cat: any) => ({
@@ -254,8 +266,8 @@ Provide a comprehensive summary and scores for this candidate's coding performan
 
                 const rawScores: RawScores = { experienceScores, categoryScores: [] };
                 const workstyleMetrics: WorkstyleMetrics = { aiAssistAccountabilityScore: undefined };
-
-                const result = calculateScore(rawScores, workstyleMetrics, job.scoringConfiguration as any);
+                const scoringConfig = resolveScoringConfiguration(job.scoringConfiguration);
+                const result = calculateScore(rawScores, workstyleMetrics, scoringConfig);
                 finalScore = Math.round(result.finalScore);
 
                 await prisma.interviewSession.update({

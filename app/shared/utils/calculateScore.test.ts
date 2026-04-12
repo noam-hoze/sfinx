@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { calculateScore } from "./calculateScore";
+import { calculateScore, resolveScoringConfiguration } from "./calculateScore";
 import type { RawScores, WorkstyleMetrics, ScoringConfiguration } from "./calculateScore";
 
 const defaultConfig: ScoringConfiguration = {
@@ -39,6 +39,28 @@ function makeCodingScore(score: number, weight = 1) {
 // ---------------------------------------------------------------------------
 
 describe("calculateScore", () => {
+    it("uses Prisma defaults when no scoring config row exists", () => {
+        expect(resolveScoringConfiguration(undefined)).toEqual({
+            aiAssistWeight: 25,
+            problemSolvingWeight: 25,
+            experienceWeight: 50,
+            codingWeight: 50,
+        });
+    });
+
+    it("treats legacy missing problem solving weight as zero", () => {
+        expect(resolveScoringConfiguration({
+            aiAssistWeight: 40,
+            experienceWeight: 45,
+            codingWeight: 55,
+        })).toEqual({
+            aiAssistWeight: 40,
+            problemSolvingWeight: 0,
+            experienceWeight: 45,
+            codingWeight: 55,
+        });
+    });
+
     it("returns all-zero scores for empty arrays with no AI assist", () => {
         const raw: RawScores = { experienceScores: [], categoryScores: [] };
         const ws: WorkstyleMetrics = {};

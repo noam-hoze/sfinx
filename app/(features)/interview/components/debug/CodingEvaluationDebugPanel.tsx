@@ -82,6 +82,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
         experienceWeight: number;
         codingWeight: number;
         aiAssistWeight: number;
+        problemSolvingWeight: number;
     } | null>(null);
 
     // Track interview submission state to stop polling
@@ -147,6 +148,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
                         experienceWeight: data.config.experienceWeight,
                         codingWeight: data.config.codingWeight,
                         aiAssistWeight: data.config.aiAssistWeight,
+                        problemSolvingWeight: data.config.problemSolvingWeight,
                     });
                 }
             } catch (err) {
@@ -171,7 +173,7 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
     }, [experienceCategories, contributionStats]);
 
     const codingScores = useMemo(() => {
-        if (!jobCategories || !evaluationData?.realtimeContributions || !scoringConfig) return [];
+        if (!jobCategories || !evaluationData?.realtimeContributions) return [];
         
         const categoryContributions = new Map<string, number[]>();
         
@@ -184,11 +186,6 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
             });
         });
         
-        // Scale category weights to fit within (100 - aiAssistWeight)
-        const dbWeightSum = jobCategories.reduce((sum, cat) => sum + (cat.weight || 1), 0);
-        const targetCategoryWeight = 100 - scoringConfig.aiAssistWeight;
-        const scaleFactor = targetCategoryWeight / dbWeightSum;
-        
         return jobCategories.map(category => {
             const strengths = categoryContributions.get(category.name) || [];
             const rawAvg = strengths.length > 0 
@@ -200,13 +197,21 @@ export default function CodingEvaluationDebugPanel({ evaluationData, isLoading, 
             return {
                 name: category.name,
                 score,
-                weight: category.weight * scaleFactor
+                weight: category.weight
             };
         });
-    }, [jobCategories, evaluationData?.realtimeContributions, scoringConfig]);
+    }, [jobCategories, evaluationData?.realtimeContributions]);
 
     const scores = useMemo(() => {
-        if (!scoringConfig) return { experienceScore: 0, codingScore: 0, finalScore: 0, normalizedWorkstyle: { aiAssist: null } };
+        if (!scoringConfig) {
+            return {
+                experienceScore: 0,
+                codingScore: 0,
+                finalScore: 0,
+                normalizedWorkstyle: { aiAssist: null, problemSolving: null },
+            };
+        }
+
         return calculateScore(
             { experienceScores, categoryScores: codingScores },
             { aiAssistAccountabilityScore: activePasteEval?.accountabilityScore },

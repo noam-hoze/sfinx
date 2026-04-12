@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "app/shared/services/auth";
 import prisma from "lib/prisma";
 import { log } from "app/shared/services";
+import { resolveScoringConfiguration } from "app/shared/utils/calculateScore";
 import { loadCompanyForUser } from "../../companyContext";
 import { ensureCompanyRole } from "../../companyAuth";
 
@@ -58,7 +59,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 log.info(LOG_CATEGORY, `[scoring-config/GET] Created default configuration for job ${jobId}`);
             }
 
-            return NextResponse.json({ config });
+            return NextResponse.json({ config: resolveScoringConfiguration(config) });
         }
 
     // Regular authenticated mode
@@ -96,7 +97,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
             log.info(LOG_CATEGORY, `[scoring-config/GET] Created default configuration for job ${jobId}`);
         }
 
-        return NextResponse.json({ config });
+        return NextResponse.json({ config: resolveScoringConfiguration(config) });
     } catch (error: any) {
         log.error(LOG_CATEGORY, "[scoring-config/GET] Error:", error);
         const message =
@@ -168,19 +169,19 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             }
         }
 
-        const existingConfig = job.scoringConfiguration;
+        const existingConfig = resolveScoringConfiguration(job.scoringConfiguration);
         const resolvedAiAssistWeight = body.aiAssistWeight !== undefined
             ? toNumber(body.aiAssistWeight)
-            : existingConfig?.aiAssistWeight ?? 25;
+            : existingConfig.aiAssistWeight;
         const resolvedProblemSolvingWeight = body.problemSolvingWeight !== undefined
             ? toNumber(body.problemSolvingWeight)
-            : existingConfig?.problemSolvingWeight ?? 25;
+            : existingConfig.problemSolvingWeight;
         const resolvedExperienceWeight = body.experienceWeight !== undefined
             ? toNumber(body.experienceWeight)
-            : existingConfig?.experienceWeight ?? 50;
+            : existingConfig.experienceWeight;
         const resolvedCodingWeight = body.codingWeight !== undefined
             ? toNumber(body.codingWeight)
-            : existingConfig?.codingWeight ?? 50;
+            : existingConfig.codingWeight;
 
         // Ensure coding score never receives a negative category contribution.
         if (resolvedAiAssistWeight + resolvedProblemSolvingWeight > 100) {

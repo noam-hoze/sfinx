@@ -38,6 +38,7 @@ export async function POST(request: NextRequest) {
                     include: {
                         backgroundSummary: true,
                         codingSummary: true,
+                        workstyleMetrics: true,
                     },
                 },
                 application: {
@@ -76,6 +77,11 @@ export async function POST(request: NextRequest) {
                 },
                 { status: 400 }
             );
+        }
+
+        const job = session.application?.job;
+        if (!job) {
+            return NextResponse.json({ error: "Job not found for session" }, { status: 404 });
         }
 
         log.info(LOG_CATEGORY, "[Generate Profile Story] Fetching evaluation data for session:", sessionId);
@@ -131,7 +137,8 @@ export async function POST(request: NextRequest) {
             backgroundSummary,
             codingSummary,
             externalToolUsages,
-            session.application.job
+            job,
+            session.telemetryData?.workstyleMetrics?.problemSolvingScore ?? undefined
         );
 
         log.info(LOG_CATEGORY, "[Generate Profile Story] Performance context:", {
@@ -170,7 +177,7 @@ export async function POST(request: NextRequest) {
 
         const formattingPrompt = buildFormattingPrompt(
             session.candidate.name || "The candidate",
-            session.application.job.title,
+            job.title,
             extractedData
         );
 
@@ -298,7 +305,8 @@ function calculatePerformanceContext(
     backgroundSummary: any,
     codingSummary: any,
     externalToolUsages: Array<{ accountabilityScore: number; understanding: string }>,
-    job: { scoringConfiguration: any }
+    job: { scoringConfiguration: any },
+    problemSolvingScore?: number
 ): {
     finalScore: number;
     experienceScore: number;
@@ -312,7 +320,7 @@ function calculatePerformanceContext(
     };
 } {
     // Import calculateScore utility
-    const { calculateScore } = require('app/shared/utils/calculateScore');
+    const { calculateScore, resolveScoringConfiguration } = require('app/shared/utils/calculateScore');
 
     // Build experience scores from backgroundSummary categories
     const experienceScores = backgroundSummary.experienceCategories
@@ -339,14 +347,11 @@ function calculatePerformanceContext(
 
     // Calculate scores using the same logic as coding-summary-update
     const rawScores = { experienceScores, categoryScores };
-    const workstyleMetrics = { aiAssistAccountabilityScore: avgAccountabilityScore };
-
-    // Ensure scoringConfiguration has all required fields with defaults
-    const scoringConfig = {
-        aiAssistWeight: job.scoringConfiguration?.aiAssistWeight ?? 25,
-        experienceWeight: job.scoringConfiguration?.experienceWeight ?? 50,
-        codingWeight: job.scoringConfiguration?.codingWeight ?? 50
+    const workstyleMetrics = {
+        aiAssistAccountabilityScore: avgAccountabilityScore,
+        problemSolvingScore,
     };
+    const scoringConfig = resolveScoringConfiguration(job.scoringConfiguration);
 
     const result = calculateScore(rawScores, workstyleMetrics, scoringConfig);
 

@@ -35,6 +35,31 @@ export interface CalculatedScore {
     };
 }
 
+const DEFAULT_SCORING_CONFIGURATION: ScoringConfiguration = {
+    aiAssistWeight: 25,
+    problemSolvingWeight: 25,
+    experienceWeight: 50,
+    codingWeight: 50,
+};
+
+/**
+ * Resolves persisted scoring config to live scoring defaults.
+ */
+export function resolveScoringConfiguration(
+    config: Partial<ScoringConfiguration> | null | undefined
+): ScoringConfiguration {
+    if (!config) {
+        return { ...DEFAULT_SCORING_CONFIGURATION };
+    }
+
+    return {
+        aiAssistWeight: config.aiAssistWeight ?? DEFAULT_SCORING_CONFIGURATION.aiAssistWeight,
+        problemSolvingWeight: config.problemSolvingWeight ?? 0,
+        experienceWeight: config.experienceWeight ?? DEFAULT_SCORING_CONFIGURATION.experienceWeight,
+        codingWeight: config.codingWeight ?? DEFAULT_SCORING_CONFIGURATION.codingWeight,
+    };
+}
+
 /**
  * Clamp score values to a 0-100 range.
  */
