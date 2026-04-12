@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "app/shared/services/auth";
 import prisma from "lib/prisma";
 import { log } from "app/shared/services";
+import { resolveScoringConfiguration } from "app/shared/utils/calculateScore";
 import { loadCompanyForUser } from "../../companyContext";
 import { ensureCompanyRole } from "../../companyAuth";
 
@@ -16,6 +17,10 @@ interface RouteContext {
 function normalizeJobId(jobId: string | string[] | undefined): string {
     if (Array.isArray(jobId)) return jobId[0] ?? "";
     return jobId ?? "";
+}
+
+function toNumber(value: unknown): number {
+    return Number(value);
 }
 
 /**
@@ -54,7 +59,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
                 log.info(LOG_CATEGORY, `[scoring-config/GET] Created default configuration for job ${jobId}`);
             }
 
-            return NextResponse.json({ config });
+            return NextResponse.json({ config: resolveScoringConfiguration(config) });
         }
 
     // Regular authenticated mode
@@ -92,7 +97,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
             log.info(LOG_CATEGORY, `[scoring-config/GET] Created default configuration for job ${jobId}`);
         }
 
-        return NextResponse.json({ config });
+        return NextResponse.json({ config: resolveScoringConfiguration(config) });
     } catch (error: any) {
         log.error(LOG_CATEGORY, "[scoring-config/GET] Error:", error);
         const message =
@@ -131,6 +136,9 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         const { company } = await loadCompanyForUser(userId);
         const job = await prisma.job.findUnique({
             where: { id: jobId },
+            include: {
+                scoringConfiguration: true,
+            },
         });
 
         if (!job) {
@@ -151,25 +159,44 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
         for (const field of weightFields) {
             if (body[field] !== undefined) {
-                const value = Number(body[field]);
-                if (isNaN(value) || value < 0) {
+                const value = toNumber(body[field]);
+                if (Number.isNaN(value) || value < 0 || value > 100) {
                     return NextResponse.json(
-                        { error: `${field} must be a positive number` },
+                        { error: `${field} must be a number between 0 and 100` },
                         { status: 400 }
                     );
                 }
             }
         }
 
-        // Validate category weights sum to 100 (with tolerance for floating point)
-        if (body.experienceWeight !== undefined && body.codingWeight !== undefined) {
-            const sum = Number(body.experienceWeight) + Number(body.codingWeight);
-            if (Math.abs(sum - 100) > 0.01) {
-                return NextResponse.json(
-                    { error: "Experience weight and coding weight must sum to 100" },
-                    { status: 400 }
-                );
-            }
+        const existingConfig = resolveScoringConfiguration(job.scoringConfiguration);
+        const resolvedAiAssistWeight = body.aiAssistWeight !== undefined
+            ? toNumber(body.aiAssistWeight)
+            : existingConfig.aiAssistWeight;
+        const resolvedProblemSolvingWeight = body.problemSolvingWeight !== undefined
+            ? toNumber(body.problemSolvingWeight)
+            : existingConfig.problemSolvingWeight;
+        const resolvedExperienceWeight = body.experienceWeight !== undefined
+            ? toNumber(body.experienceWeight)
+            : existingConfig.experienceWeight;
+        const resolvedCodingWeight = body.codingWeight !== undefined
+            ? toNumber(body.codingWeight)
+            : existingConfig.codingWeight;
+
+        // Ensure coding score never receives a negative category contribution.
+        if (resolvedAiAssistWeight + resolvedProblemSolvingWeight > 100) {
+            return NextResponse.json(
+                { error: "aiAssistWeight + problemSolvingWeight must be less than or equal to 100" },
+                { status: 400 }
+            );
+        }
+
+        // Validate category weights sum to 100 (supports partial updates too)
+        if (Math.abs((resolvedExperienceWeight + resolvedCodingWeight) - 100) > 0.01) {
+            return NextResponse.json(
+                { error: "Experience weight and coding weight must sum to 100" },
+                { status: 400 }
+            );
         }
 
         // Validate thresholds are sensible
@@ -177,8 +204,8 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             body.iterationSpeedThresholdModerate !== undefined &&
             body.iterationSpeedThresholdHigh !== undefined
         ) {
-            const moderate = Number(body.iterationSpeedThresholdModerate);
-            const high = Number(body.iterationSpeedThresholdHigh);
+            const moderate = toNumber(body.iterationSpeedThresholdModerate);
+            const high = toNumber(body.iterationSpeedThresholdHigh);
             if (moderate >= high) {
                 return NextResponse.json(
                     { error: "Iteration speed moderate threshold must be less than high threshold" },
@@ -197,7 +224,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
         for (const field of updateableFields) {
             if (body[field] !== undefined) {
-                updates[field] = Number(body[field]);
+                updates[field] = toNumber(body[field]);
             }
         }
 

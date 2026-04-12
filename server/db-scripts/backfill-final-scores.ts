@@ -1,7 +1,12 @@
 #!/usr/bin/env tsx
 
 import { PrismaClient } from "@prisma/client";
-import { calculateScore, type RawScores, type WorkstyleMetrics } from "../../app/shared/utils/calculateScore";
+import {
+    calculateScore,
+    resolveScoringConfiguration,
+    type RawScores,
+    type WorkstyleMetrics,
+} from "../../app/shared/utils/calculateScore";
 import { config } from "dotenv";
 import path from "path";
 
@@ -51,6 +56,11 @@ async function backfillFinalScores() {
             const { telemetryData, application } = session;
             const job = application.job;
 
+            if (!job) {
+                console.log(`⏭️  Skipping session ${session.id} - missing job`);
+                continue;
+            }
+
             console.log(`🔍 Checking session ${session.id}:`, {
                 jobId: job.id,
                 jobTitle: job.title,
@@ -60,7 +70,7 @@ async function backfillFinalScores() {
                 scoringConfigId: job.scoringConfiguration?.id,
             });
 
-            if (!telemetryData?.backgroundSummary || !telemetryData?.codingSummary || !job.scoringConfiguration) {
+            if (!telemetryData?.backgroundSummary || !telemetryData?.codingSummary) {
                 console.log(`⏭️  Skipping session ${session.id} - missing required data`);
                 continue;
             }
@@ -101,8 +111,9 @@ async function backfillFinalScores() {
                 ? externalToolUsages.reduce((sum, usage) => sum + usage.accountabilityScore, 0) / externalToolUsages.length
                 : undefined;
             
-            const workstyleMetrics: WorkstyleMetrics = { 
-                aiAssistAccountabilityScore: avgAccountabilityScore
+            const workstyleMetrics: WorkstyleMetrics = {
+                aiAssistAccountabilityScore: avgAccountabilityScore,
+                problemSolvingScore: telemetryData.workstyleMetrics?.problemSolvingScore ?? undefined,
             };
 
             console.log(`📊 Score calculation inputs for ${session.id}:`, {
@@ -112,7 +123,8 @@ async function backfillFinalScores() {
                 scoringConfig: job.scoringConfiguration,
             });
 
-            const result = calculateScore(rawScores, workstyleMetrics, job.scoringConfiguration as any);
+            const scoringConfig = resolveScoringConfiguration(job.scoringConfiguration);
+            const result = calculateScore(rawScores, workstyleMetrics, scoringConfig);
             const finalScore = Math.round(result.finalScore);
 
             console.log(`📊 Score calculation result:`, {

@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
-import { calculateScore, type RawScores, type WorkstyleMetrics } from "app/shared/utils/calculateScore";
+import {
+    calculateScore,
+    resolveScoringConfiguration,
+    type RawScores,
+    type WorkstyleMetrics,
+} from "app/shared/utils/calculateScore";
 import { CONTRIBUTIONS_TARGET } from "@/shared/constants/interview";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
@@ -153,7 +158,7 @@ export async function PATCH(
 
         // Calculate and persist final score
         let finalScore: number | null = null;
-        if (session.telemetryData?.backgroundSummary && session.application.job.scoringConfiguration) {
+        if (session.telemetryData?.backgroundSummary && session.application.job) {
             try {
                 const job = session.application.job;
                 const jobExperienceCategories = (job.experienceCategories as any) || [];
@@ -183,18 +188,13 @@ export async function PATCH(
                     ? externalToolUsages.reduce((sum, usage) => sum + usage.accountabilityScore, 0) / externalToolUsages.length
                     : undefined;
 
-                const scoringConfig = job.scoringConfiguration as any;
+                const scoringConfig = resolveScoringConfiguration(job.scoringConfiguration);
                 const workstyleMetrics: WorkstyleMetrics = {
                     aiAssistAccountabilityScore: avgAccountabilityScore,
                     problemSolvingScore,
                 };
 
-                const result = calculateScore(rawScores, workstyleMetrics, {
-                    aiAssistWeight: scoringConfig.aiAssistWeight ?? 25,
-                    problemSolvingWeight: scoringConfig.problemSolvingWeight ?? 25,
-                    experienceWeight: scoringConfig.experienceWeight ?? 50,
-                    codingWeight: scoringConfig.codingWeight ?? 50,
-                });
+                const result = calculateScore(rawScores, workstyleMetrics, scoringConfig);
                 finalScore = Math.round(result.finalScore);
                 await prisma.interviewSession.update({
                     where: { id: sessionId },

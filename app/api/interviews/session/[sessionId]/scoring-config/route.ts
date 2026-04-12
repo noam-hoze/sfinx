@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { log } from "app/shared/services";
+import { resolveScoringConfiguration } from "app/shared/utils/calculateScore";
 import prisma from "lib/prisma";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
@@ -58,7 +59,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
             log.info(LOG_CATEGORY, `[Scoring Config GET] Created default config for job ${job.id}`);
         }
 
-        return NextResponse.json({ config });
+        return NextResponse.json({ config: resolveScoringConfiguration(config) });
     } catch (error: any) {
         log.error(LOG_CATEGORY, "[Scoring Config GET] Error:", error);
         return NextResponse.json(
