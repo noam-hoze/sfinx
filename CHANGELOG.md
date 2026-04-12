@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.3] - 2026-04-12
+
+### Fixed
+
+- **Disabled scoring categories stayed disabled**: Several score-building paths were using `cat.weight || 1`, which silently turned an explicit `0` weight back into `1` during live score calculation and final-score backfills. Raw score creation is now centralized so zero-weight categories remain excluded consistently.
+
 ## [1.29.2] - 2026-03-09
 
 ### Fixed

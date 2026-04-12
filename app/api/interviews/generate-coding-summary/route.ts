@@ -4,6 +4,7 @@ import prisma from "lib/prisma";
 import OpenAI from "openai";
 import {
     calculateScore,
+    createRawScoreEntry,
     resolveScoringConfiguration,
     type RawScores,
     type WorkstyleMetrics,
@@ -258,11 +259,13 @@ Provide a comprehensive summary and scores for this candidate's coding performan
             try {
                 const jobExperienceCategories = (job.experienceCategories as any) || [];
                 const backgroundExperienceCategories = (session.telemetryData.backgroundSummary.experienceCategories as any) || {};
-                const experienceScores = jobExperienceCategories.map((cat: any) => ({
-                    name: cat.name,
-                    score: backgroundExperienceCategories[cat.name]?.score || 0,
-                    weight: cat.weight || 1
-                }));
+                const experienceScores = jobExperienceCategories.map((cat: any) =>
+                    createRawScoreEntry(
+                        cat.name,
+                        backgroundExperienceCategories[cat.name]?.score,
+                        cat.weight
+                    )
+                );
 
                 const rawScores: RawScores = { experienceScores, categoryScores: [] };
                 const workstyleMetrics: WorkstyleMetrics = { aiAssistAccountabilityScore: undefined };

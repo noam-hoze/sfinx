@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { calculateScore, resolveScoringConfiguration } from "./calculateScore";
+import { calculateScore, createRawScoreEntry, resolveScoringConfiguration } from "./calculateScore";
 import type { RawScores, WorkstyleMetrics, ScoringConfiguration } from "./calculateScore";
 
 const defaultConfig: ScoringConfiguration = {
@@ -58,6 +58,14 @@ describe("calculateScore", () => {
             problemSolvingWeight: 0,
             experienceWeight: 45,
             codingWeight: 55,
+        });
+    });
+
+    it("preserves explicit zero weights when building raw score entries", () => {
+        expect(createRawScoreEntry("Category", 88, 0)).toEqual({
+            name: "Category",
+            score: 88,
+            weight: 0,
         });
     });
 

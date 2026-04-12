@@ -3,6 +3,7 @@ import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 import {
     calculateScore,
+    createRawScoreEntry,
     resolveScoringConfiguration,
     type RawScores,
     type WorkstyleMetrics,
@@ -163,18 +164,22 @@ export async function PATCH(
                 const job = session.application.job;
                 const jobExperienceCategories = (job.experienceCategories as any) || [];
                 const backgroundExperienceCategories = (session.telemetryData.backgroundSummary.experienceCategories as any) || {};
-                const experienceScores = jobExperienceCategories.map((cat: any) => ({
-                    name: cat.name,
-                    score: backgroundExperienceCategories[cat.name]?.score || 0,
-                    weight: cat.weight || 1
-                }));
+                const experienceScores = jobExperienceCategories.map((cat: any) =>
+                    createRawScoreEntry(
+                        cat.name,
+                        backgroundExperienceCategories[cat.name]?.score,
+                        cat.weight
+                    )
+                );
 
                 const jobCodingCategories = (job.codingCategories as any) || [];
-                const categoryScores = jobCodingCategories.map((cat: any) => ({
-                    name: cat.name,
-                    score: (categoryOnlyEntries as any)[cat.name]?.score ?? 0,
-                    weight: cat.weight ?? 1,
-                }));
+                const categoryScores = jobCodingCategories.map((cat: any) =>
+                    createRawScoreEntry(
+                        cat.name,
+                        (categoryOnlyEntries as any)[cat.name]?.score,
+                        cat.weight
+                    )
+                );
 
                 const rawScores: RawScores = { experienceScores, categoryScores };
 

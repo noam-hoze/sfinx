@@ -3,6 +3,7 @@
 import { PrismaClient } from "@prisma/client";
 import {
     calculateScore,
+    createRawScoreEntry,
     resolveScoringConfiguration,
     type RawScores,
     type WorkstyleMetrics,
@@ -77,11 +78,13 @@ async function backfillFinalScores() {
 
             const jobExperienceCategories = (job.experienceCategories as any) || [];
             const backgroundExperienceCategories = (telemetryData.backgroundSummary.experienceCategories as any) || {};
-            const experienceScores = jobExperienceCategories.map((cat: any) => ({
-                name: cat.name,
-                score: backgroundExperienceCategories[cat.name]?.score || 0,
-                weight: cat.weight || 1
-            }));
+            const experienceScores = jobExperienceCategories.map((cat: any) =>
+                createRawScoreEntry(
+                    cat.name,
+                    backgroundExperienceCategories[cat.name]?.score,
+                    cat.weight
+                )
+            );
 
             const jobCodingCategories = (job.codingCategories as any) || [];
             const codingCategoriesData = (telemetryData.codingSummary.jobSpecificCategories as any) || {};
@@ -92,11 +95,11 @@ async function backfillFinalScores() {
                     key.startsWith(baseName) || cat.name.startsWith(key)
                 ) || cat.name;
                 
-                return {
-                    name: cat.name,
-                    score: codingCategoriesData[matchingKey]?.score || 0,
-                    weight: cat.weight || 1
-                };
+                return createRawScoreEntry(
+                    cat.name,
+                    codingCategoriesData[matchingKey]?.score,
+                    cat.weight
+                );
             });
 
             const rawScores: RawScores = { experienceScores, categoryScores };

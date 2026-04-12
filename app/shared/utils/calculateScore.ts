@@ -12,11 +12,17 @@ export interface ScoringConfiguration {
     codingWeight: number;
 }
 
+export interface RawScoreEntry {
+    name: string;
+    score: number;
+    weight: number;
+}
+
 export interface RawScores {
     // Experience category scores with weights
-    experienceScores: Array<{name: string; score: number; weight: number}>;
+    experienceScores: Array<RawScoreEntry>;
     // Coding category scores with weights
-    categoryScores: Array<{name: string; score: number; weight: number}>;
+    categoryScores: Array<RawScoreEntry>;
 }
 
 export interface WorkstyleMetrics {
@@ -58,6 +64,17 @@ export function resolveScoringConfiguration(
         experienceWeight: config.experienceWeight ?? DEFAULT_SCORING_CONFIGURATION.experienceWeight,
         codingWeight: config.codingWeight ?? DEFAULT_SCORING_CONFIGURATION.codingWeight,
     };
+}
+
+/**
+ * Builds a score entry while preserving explicit zero weights.
+ */
+export function createRawScoreEntry(
+    name: string,
+    score: number | null | undefined,
+    weight: number | null | undefined
+): RawScoreEntry {
+    return { name, score: score ?? 0, weight: weight ?? 1 };
 }
 
 /**
