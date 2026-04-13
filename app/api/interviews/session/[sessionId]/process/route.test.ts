@@ -92,13 +92,47 @@ beforeEach(() => {
 });
 
 describe("POST /api/interviews/session/[sessionId]/process", () => {
-    it("rejects skip-auth requests without an authenticated session", async () => {
+    it("accepts skip-auth requests when body provides the candidate owner", async () => {
+        mocks.getServerSession.mockResolvedValue(null);
+        mocks.findFirst.mockResolvedValue(buildInterviewSession());
+        mocks.updateMany.mockResolvedValue({ count: 1 });
+
+        const response = await POST(
+            makeRequest({ finalCode: "code", userId: "candidate-1" }, "?skip-auth=true"),
+            routeContext as any
+        );
+        const body = await response.json();
+
+        expect(response.status).toBe(202);
+        expect(body.status).toBe("PROCESSING");
+        expect(mocks.updateMany).toHaveBeenCalledWith({
+            where: {
+                id: "session-1",
+                candidateId: "candidate-1",
+                status: "IN_PROGRESS",
+            },
+            data: { status: "PROCESSING" },
+        });
+        expect(mocks.after).toHaveBeenCalledOnce();
+    });
+
+    it("rejects skip-auth requests that omit the explicit user id", async () => {
         mocks.getServerSession.mockResolvedValue(null);
 
         const response = await POST(
-            makeRequest({ finalCode: "code", userId: "victim-1" }, "?skip-auth=true"),
+            makeRequest({ finalCode: "code" }, "?skip-auth=true"),
             routeContext as any
         );
+
+        expect(response.status).toBe(400);
+        expect(mocks.findFirst).not.toHaveBeenCalled();
+        expect(mocks.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("rejects unauthenticated requests when skip-auth is not enabled", async () => {
+        mocks.getServerSession.mockResolvedValue(null);
+
+        const response = await POST(makeRequest({ finalCode: "code" }), routeContext as any);
 
         expect(response.status).toBe(401);
         expect(mocks.findFirst).not.toHaveBeenCalled();

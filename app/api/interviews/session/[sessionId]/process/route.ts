@@ -28,7 +28,7 @@ type RouteContext = {
 };
 
 type CodingCategory = { name: string; description: string; weight: number };
-type ProcessRequestBody = { finalCode?: string };
+type ProcessRequestBody = { finalCode?: string; userId?: string };
 
 function normalizeSessionId(sessionId: string | string[] | undefined): string {
     if (Array.isArray(sessionId)) return sessionId[0] ?? "";
@@ -52,6 +52,13 @@ function getAuthenticatedUserId(session: unknown): string | undefined {
     return (session as { user?: { id?: string } } | null)?.user?.id;
 }
 
+/** Returns the candidate id explicitly supplied for skip-auth interview flows. */
+function getRequestedUserId(body: ProcessRequestBody): string | undefined {
+    if (typeof body.userId !== "string") return undefined;
+    const userId = body.userId.trim();
+    return userId.length > 0 ? userId : undefined;
+}
+
 export async function POST(request: NextRequest, context: RouteContext) {
     const { sessionId: rawSessionId } = await context.params;
     const sessionId = normalizeSessionId(rawSessionId);
@@ -72,11 +79,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
         return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
+    const url = new URL(request.url);
+    const skipAuth = url.searchParams.get("skip-auth") === "true";
     const session = await getServerSession(authOptions);
-    const actingUserId = getAuthenticatedUserId(session);
+    const actingUserId = getAuthenticatedUserId(session)
+        ?? (skipAuth ? getRequestedUserId(body) : undefined);
 
     if (!actingUserId) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        return skipAuth
+            ? NextResponse.json({ error: "userId required when skip-auth=true" }, { status: 400 })
+            : NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const interviewSession = await prisma.interviewSession.findFirst({

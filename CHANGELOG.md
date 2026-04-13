@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.4] - 2026-04-13
+
+### Fixed
+
+- Restored the candidate `skip-auth` submit flow for `POST /api/interviews/session/[sessionId]/process` while keeping candidate ownership checks and the new processing race protections intact.
+
 ## [1.29.3] - 2026-04-13
 
 ### Fixed

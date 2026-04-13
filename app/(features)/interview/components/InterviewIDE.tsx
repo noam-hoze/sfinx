@@ -476,8 +476,12 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             // The /process endpoint returns 202 immediately after marking the session
             // PROCESSING, so the candidate is never blocked waiting for AI computations.
             if (interviewSessionId && interviewScript) {
+                const authenticatedUserId = (session?.user as any)?.id;
+                const processUrl = authenticatedUserId
+                    ? `/api/interviews/session/${interviewSessionId}/process`
+                    : `/api/interviews/session/${interviewSessionId}/process?skip-auth=true`;
                 const jobCategories = (job?.codingCategories as Array<{name: string; description: string; weight: number}> | undefined) ?? [];
-                fetch(`/api/interviews/session/${interviewSessionId}/process`, {
+                fetch(processUrl, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
@@ -486,6 +490,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
                         expectedSolution: interviewScript.codingAnswer,
                         expectedOutput: interviewScript.expectedOutput,
                         jobCategories,
+                        ...(authenticatedUserId ? {} : { userId: reduxUserId }),
                     }),
                 }).catch((err) => logger.error(LOG_CATEGORY, "Failed to trigger processing:", err));
             }
@@ -503,7 +508,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         } catch (error) {
             logger.error("❌ Failed to submit solution:", error);
         }
-    }, [candidateName, interviewScript, interviewSessionId, job, setCodingStarted, state.currentCode, stopRecording, stopTimer, updateSubmission]);
+    }, [candidateName, interviewScript, interviewSessionId, job, reduxUserId, session, setCodingStarted, state.currentCode, stopRecording, stopTimer, updateSubmission]);
 
     /**
      * Starts the interview using the shared recording session created during the start flow.
