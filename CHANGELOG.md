@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.5] - 2026-04-13
+
+### Fixed
+
+- Retried candidate interview submit processing through the existing `skip-auth` path when browser auth and server auth disagree, preventing sessions from getting stuck in `IN_PROGRESS` after a silent `401` or `404`.
+
 ## [1.29.4] - 2026-04-13
 
 ### Fixed

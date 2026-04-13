@@ -35,6 +35,7 @@ import { useCamera } from "./hooks/useCamera";
 import { useInterviewTimer } from "./hooks/useInterviewTimer";
 import { useThemePreference } from "./hooks/useThemePreference";
 import { fetchJobById } from "./services/jobService";
+import { triggerInterviewProcessing } from "./services/processInterviewSubmission";
 import { useSelector } from "react-redux";
 import { store, RootState } from "@/shared/state/store";
 import { useInterviewRecording } from "./InterviewRecordingContext";
@@ -475,24 +476,13 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
             // Trigger all post-interview processing asynchronously on the server.
             // The /process endpoint returns 202 immediately after marking the session
             // PROCESSING, so the candidate is never blocked waiting for AI computations.
-            if (interviewSessionId && interviewScript) {
-                const authenticatedUserId = (session?.user as any)?.id;
-                const processUrl = authenticatedUserId
-                    ? `/api/interviews/session/${interviewSessionId}/process`
-                    : `/api/interviews/session/${interviewSessionId}/process?skip-auth=true`;
-                const jobCategories = (job?.codingCategories as Array<{name: string; description: string; weight: number}> | undefined) ?? [];
-                fetch(processUrl, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        finalCode: state.currentCode,
-                        codingTask: interviewScript.codingPrompt,
-                        expectedSolution: interviewScript.codingAnswer,
-                        expectedOutput: interviewScript.expectedOutput,
-                        jobCategories,
-                        ...(authenticatedUserId ? {} : { userId: reduxUserId }),
-                    }),
-                }).catch((err) => logger.error(LOG_CATEGORY, "Failed to trigger processing:", err));
+            if (interviewSessionId) {
+                await triggerInterviewProcessing({
+                    interviewSessionId,
+                    finalCode: state.currentCode,
+                    authenticatedUserId: (session?.user as any)?.id,
+                    fallbackUserId: reduxUserId,
+                });
             }
             
             // OpenAI flow: say closing line and rely on response.done to end
@@ -508,7 +498,7 @@ const InterviewerContent: React.FC<InterviewerContentProps> = ({
         } catch (error) {
             logger.error("❌ Failed to submit solution:", error);
         }
-    }, [candidateName, interviewScript, interviewSessionId, job, reduxUserId, session, setCodingStarted, state.currentCode, stopRecording, stopTimer, updateSubmission]);
+    }, [candidateName, interviewSessionId, reduxUserId, session, setCodingStarted, state.currentCode, stopRecording, stopTimer, updateSubmission]);
 
     /**
      * Starts the interview using the shared recording session created during the start flow.
