@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.3] - 2026-04-13
+
+### Fixed
+
+- Secured `POST /api/interviews/session/[sessionId]/process` by requiring an authenticated candidate session, validating server-owned interview content before claiming `PROCESSING`, and handling concurrent submit races idempotently.
+
 ## [1.29.2] - 2026-03-09
 
 ### Fixed
