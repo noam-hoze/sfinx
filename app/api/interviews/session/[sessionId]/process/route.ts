@@ -28,6 +28,7 @@ type RouteContext = {
 };
 
 type CodingCategory = { name: string; description: string; weight: number };
+type ProcessRequestBody = { finalCode?: string };
 
 function normalizeSessionId(sessionId: string | string[] | undefined): string {
     if (Array.isArray(sessionId)) return sessionId[0] ?? "";
@@ -46,6 +47,11 @@ function normalizeCodingCategories(raw: unknown): CodingCategory[] {
         .filter((category) => category.name.length > 0);
 }
 
+/** Returns the authenticated candidate id from the active session. */
+function getAuthenticatedUserId(session: unknown): string | undefined {
+    return (session as { user?: { id?: string } } | null)?.user?.id;
+}
+
 export async function POST(request: NextRequest, context: RouteContext) {
     const { sessionId: rawSessionId } = await context.params;
     const sessionId = normalizeSessionId(rawSessionId);
@@ -58,10 +64,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Parse and validate request body
-    let body: {
-        finalCode?: string;
-        userId?: string;
-    };
+    let body: ProcessRequestBody;
 
     try {
         body = await request.json();
@@ -69,10 +72,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const skipAuth = request.nextUrl.searchParams.get("skip-auth") === "true";
     const session = await getServerSession(authOptions);
-    const authenticatedUserId = (session?.user as { id?: string } | undefined)?.id;
-    const actingUserId = skipAuth ? body.userId : authenticatedUserId;
+    const actingUserId = getAuthenticatedUserId(session);
 
     if (!actingUserId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -117,30 +118,45 @@ export async function POST(request: NextRequest, context: RouteContext) {
         return NextResponse.json({ status: interviewSession.status }, { status: 202 });
     }
 
-    // Mark as PROCESSING synchronously before returning so the CPS page
-    // can immediately show the "calculating" state on first poll.
-    await prisma.interviewSession.update({
-        where: { id: sessionId },
+    const interviewContent = interviewSession.application?.job?.interviewContent;
+    if (!interviewContent) {
+        return NextResponse.json(
+            { error: "Interview content is missing for this session's job" },
+            { status: 400 }
+        );
+    }
+
+    const claimResult = await prisma.interviewSession.updateMany({
+        where: {
+            id: sessionId,
+            candidateId: actingUserId,
+            status: "IN_PROGRESS",
+        },
         data: { status: "PROCESSING" },
     });
+
+    if (claimResult.count === 0) {
+        const latestSession = await prisma.interviewSession.findFirst({
+            where: { id: sessionId, candidateId: actingUserId },
+            select: { status: true },
+        });
+        if (!latestSession) {
+            return NextResponse.json({ error: "Interview session not found" }, { status: 404 });
+        }
+        if (latestSession.status === "PROCESSING" || latestSession.status === "COMPLETED") {
+            return NextResponse.json({ status: latestSession.status }, { status: 202 });
+        }
+        return NextResponse.json(
+            { error: `Interview session cannot be processed from status ${latestSession.status}` },
+            { status: 409 }
+        );
+    }
 
     log.info(LOG_CATEGORY, `[Process] Session ${sessionId} marked PROCESSING, scheduling background work`);
 
     // Build the absolute base URL for internal API calls executed after the
     // response is flushed. The request URL is the most reliable source here.
     const baseUrl = new URL(request.url).origin;
-
-    const interviewContent = interviewSession.application?.job?.interviewContent;
-    if (!interviewContent) {
-        await prisma.interviewSession.update({
-            where: { id: sessionId },
-            data: { status: "IN_PROGRESS" },
-        });
-        return NextResponse.json(
-            { error: "Interview content is missing for this session's job" },
-            { status: 400 }
-        );
-    }
 
     const finalCode = body.finalCode ?? "";
     const codingTask = interviewContent.codingPrompt;
