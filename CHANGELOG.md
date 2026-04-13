@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.5] - 2026-04-13
+
+### Fixed
+
+- Retried candidate interview submit processing through the existing `skip-auth` path when browser auth and server auth disagree, preventing sessions from getting stuck in `IN_PROGRESS` after a silent `401` or `404`.
+
+## [1.29.4] - 2026-04-13
+
+### Fixed
+
+- Restored the candidate `skip-auth` submit flow for `POST /api/interviews/session/[sessionId]/process` while keeping candidate ownership checks and the new processing race protections intact.
+
+## [1.29.3] - 2026-04-13
+
+### Fixed
+
+- Secured `POST /api/interviews/session/[sessionId]/process` by requiring an authenticated candidate session, validating server-owned interview content before claiming `PROCESSING`, and handling concurrent submit races idempotently.
+
 ## [1.29.2] - 2026-03-09
 
 ### Fixed

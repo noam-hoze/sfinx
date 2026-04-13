@@ -15,6 +15,8 @@
  */
 
 import { NextRequest, NextResponse, after } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "app/shared/services/auth";
 import { log } from "app/shared/services";
 import prisma from "lib/prisma";
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
@@ -25,9 +27,36 @@ type RouteContext = {
     params: Promise<{ sessionId?: string | string[] }>;
 };
 
+type CodingCategory = { name: string; description: string; weight: number };
+type ProcessRequestBody = { finalCode?: string; userId?: string };
+
 function normalizeSessionId(sessionId: string | string[] | undefined): string {
     if (Array.isArray(sessionId)) return sessionId[0] ?? "";
     return sessionId ?? "";
+}
+
+function normalizeCodingCategories(raw: unknown): CodingCategory[] {
+    if (!Array.isArray(raw)) return [];
+    return raw
+        .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
+        .map((item) => ({
+            name: typeof item.name === "string" ? item.name : "",
+            description: typeof item.description === "string" ? item.description : "",
+            weight: typeof item.weight === "number" ? item.weight : Number(item.weight) || 0,
+        }))
+        .filter((category) => category.name.length > 0);
+}
+
+/** Returns the authenticated candidate id from the active session. */
+function getAuthenticatedUserId(session: unknown): string | undefined {
+    return (session as { user?: { id?: string } } | null)?.user?.id;
+}
+
+/** Returns the candidate id explicitly supplied for skip-auth interview flows. */
+function getRequestedUserId(body: ProcessRequestBody): string | undefined {
+    if (typeof body.userId !== "string") return undefined;
+    const userId = body.userId.trim();
+    return userId.length > 0 ? userId : undefined;
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
@@ -42,13 +71,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     // Parse and validate request body
-    let body: {
-        finalCode?: string;
-        codingTask?: string;
-        expectedSolution?: string;
-        expectedOutput?: string;
-        jobCategories?: Array<{ name: string; description: string; weight: number }>;
-    };
+    let body: ProcessRequestBody;
 
     try {
         body = await request.json();
@@ -56,11 +79,44 @@ export async function POST(request: NextRequest, context: RouteContext) {
         return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    // Verify session exists. The candidate submits this from their own browser,
-    // so no company-auth check is needed here (same skip-auth pattern used elsewhere).
-    const interviewSession = await prisma.interviewSession.findUnique({
-        where: { id: sessionId },
-        select: { id: true, status: true, candidateId: true },
+    const url = new URL(request.url);
+    const skipAuth = url.searchParams.get("skip-auth") === "true";
+    const session = await getServerSession(authOptions);
+    const actingUserId = getAuthenticatedUserId(session)
+        ?? (skipAuth ? getRequestedUserId(body) : undefined);
+
+    if (!actingUserId) {
+        return skipAuth
+            ? NextResponse.json({ error: "userId required when skip-auth=true" }, { status: 400 })
+            : NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const interviewSession = await prisma.interviewSession.findFirst({
+        where: {
+            id: sessionId,
+            candidateId: actingUserId,
+        },
+        select: {
+            id: true,
+            status: true,
+            candidateId: true,
+            application: {
+                select: {
+                    job: {
+                        select: {
+                            codingCategories: true,
+                            interviewContent: {
+                                select: {
+                                    codingPrompt: true,
+                                    codingAnswer: true,
+                                    expectedOutput: true,
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
     });
 
     if (!interviewSession) {
@@ -74,12 +130,39 @@ export async function POST(request: NextRequest, context: RouteContext) {
         return NextResponse.json({ status: interviewSession.status }, { status: 202 });
     }
 
-    // Mark as PROCESSING synchronously before returning so the CPS page
-    // can immediately show the "calculating" state on first poll.
-    await prisma.interviewSession.update({
-        where: { id: sessionId },
+    const interviewContent = interviewSession.application?.job?.interviewContent;
+    if (!interviewContent) {
+        return NextResponse.json(
+            { error: "Interview content is missing for this session's job" },
+            { status: 400 }
+        );
+    }
+
+    const claimResult = await prisma.interviewSession.updateMany({
+        where: {
+            id: sessionId,
+            candidateId: actingUserId,
+            status: "IN_PROGRESS",
+        },
         data: { status: "PROCESSING" },
     });
+
+    if (claimResult.count === 0) {
+        const latestSession = await prisma.interviewSession.findFirst({
+            where: { id: sessionId, candidateId: actingUserId },
+            select: { status: true },
+        });
+        if (!latestSession) {
+            return NextResponse.json({ error: "Interview session not found" }, { status: 404 });
+        }
+        if (latestSession.status === "PROCESSING" || latestSession.status === "COMPLETED") {
+            return NextResponse.json({ status: latestSession.status }, { status: 202 });
+        }
+        return NextResponse.json(
+            { error: `Interview session cannot be processed from status ${latestSession.status}` },
+            { status: 409 }
+        );
+    }
 
     log.info(LOG_CATEGORY, `[Process] Session ${sessionId} marked PROCESSING, scheduling background work`);
 
@@ -87,13 +170,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // response is flushed. The request URL is the most reliable source here.
     const baseUrl = new URL(request.url).origin;
 
-    const {
-        finalCode = "",
-        codingTask = "",
-        expectedSolution = "",
-        expectedOutput = "",
-        jobCategories = [],
-    } = body;
+    const finalCode = body.finalCode ?? "";
+    const codingTask = interviewContent.codingPrompt;
+    const expectedSolution = interviewContent.codingAnswer ?? "";
+    const expectedOutput = interviewContent.expectedOutput ?? "";
+    const jobCategories = normalizeCodingCategories(interviewSession.application?.job?.codingCategories);
 
     // Schedule work to run AFTER the HTTP response is sent to the candidate.
     after(async () => {
