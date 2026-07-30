@@ -22,18 +22,18 @@ export async function POST(request: Request) {
     const voiceId = process.env.ELEVEN_LABS_CANDIDATE_VOICE_ID;
 
     if (!mascotApiKey) {
-      console.error("[Mascot API] Mascotbot API key missing");
-      return NextResponse.json({ error: "Mascotbot API key missing" }, { status: 500 });
+      console.error("[Mascot API] Missing env var: MASCOTBOT_API_KEY");
+      return NextResponse.json({ error: "Missing env var: MASCOTBOT_API_KEY" }, { status: 500 });
     }
 
     if (!elevenLabsApiKey) {
-      console.error("[Mascot API] ElevenLabs API key missing");
-      return NextResponse.json({ error: "ElevenLabs API key missing" }, { status: 500 });
+      console.error("[Mascot API] Missing env var: ELEVENLABS_API_KEY");
+      return NextResponse.json({ error: "Missing env var: ELEVENLABS_API_KEY" }, { status: 500 });
     }
 
     if (!voiceId) {
-      console.error("[Mascot API] Voice ID missing");
-      return NextResponse.json({ error: "Voice ID missing" }, { status: 500 });
+      console.error("[Mascot API] Missing env var: ELEVEN_LABS_CANDIDATE_VOICE_ID");
+      return NextResponse.json({ error: "Missing env var: ELEVEN_LABS_CANDIDATE_VOICE_ID" }, { status: 500 });
     }
 
     console.log("[Mascot API] Generating TTS and visemes for text:", text);
@@ -58,8 +58,8 @@ export async function POST(request: Request) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("[Mascot API] Error response:", errorText);
-      throw new Error(`API error: ${response.status} - ${errorText}`);
+      console.error(`[Mascot API] Upstream error ${response.status}:`, errorText);
+      return NextResponse.json({ error: `Mascot upstream error ${response.status}: ${errorText}` }, { status: response.status });
     }
 
     // Parse SSE stream
@@ -117,7 +117,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ visemes, audioBase64 });
   } catch (error) {
-    console.error("Error:", error);
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[Mascot API] Unhandled error:", message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
