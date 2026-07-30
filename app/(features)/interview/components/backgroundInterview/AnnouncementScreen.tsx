@@ -84,20 +84,10 @@ export default function AnnouncementScreen({
         let visemes: Viseme[] = [];
         
         if (mascotEnabled) {
-          try {
-            const result = await generateVisemesAndAudio(text);
-            visemes = result.visemes;
-            const wavBuffer = convertPCMToWAV(result.audioBase64);
-            blob = new Blob([wavBuffer], { type: "audio/wav" });
-          } catch (err) {
-            log.warn(LOG_CATEGORY, "[Announcement] Mascot audio generation failed, falling back to standard TTS:", err);
-            if (preloadedAudioBlob) {
-              blob = preloadedAudioBlob;
-            } else {
-              const audioBuffer = await generateTTS(text);
-              blob = new Blob([audioBuffer], { type: "audio/mpeg" });
-            }
-          }
+          const result = await generateVisemesAndAudio(text);
+          visemes = result.visemes;
+          const wavBuffer = convertPCMToWAV(result.audioBase64);
+          blob = new Blob([wavBuffer], { type: "audio/wav" });
         } else if (preloadedAudioBlob) {
           blob = preloadedAudioBlob;
         } else {
