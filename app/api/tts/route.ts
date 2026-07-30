@@ -15,6 +15,13 @@ export async function POST(request: Request) {
     const voiceId = process.env.ELEVEN_LABS_CANDIDATE_VOICE_ID;
     const apiKey = process.env.ELEVENLABS_API_KEY;
 
+    if (process.env.NEXT_PUBLIC_TTS_ENABLED === "false") {
+      return NextResponse.json(
+        { error: "TTS disabled via NEXT_PUBLIC_TTS_ENABLED" },
+        { status: 503 }
+      );
+    }
+
     if (!voiceId || !apiKey) {
       return NextResponse.json(
         { error: "TTS not configured" },

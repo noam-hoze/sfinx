@@ -19,6 +19,11 @@ const LOG_CATEGORY = LOG_CATEGORIES.TTS;
 export async function generateTTS(text: string): Promise<ArrayBuffer> {
   validateText(text);
   
+  if (process.env.NEXT_PUBLIC_TTS_ENABLED === "false") {
+    log.info(LOG_CATEGORY, '[TTS] TTS generation is disabled (NEXT_PUBLIC_TTS_ENABLED=false)');
+    throw new Error('TTS disabled via NEXT_PUBLIC_TTS_ENABLED');
+  }
+
   log.info(LOG_CATEGORY, '[TTS] Generating audio for text:', text.substring(0, 50));
   
   const response = await fetchTTS(text);

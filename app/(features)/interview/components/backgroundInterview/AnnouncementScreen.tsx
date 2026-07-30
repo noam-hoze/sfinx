@@ -72,6 +72,14 @@ export default function AnnouncementScreen({
     // Play TTS (preloaded or generate on-demand)
     (async () => {
       try {
+        if (process.env.NEXT_PUBLIC_TTS_ENABLED === "false") {
+          log.info(LOG_CATEGORY, "[Announcement] TTS disabled via NEXT_PUBLIC_TTS_ENABLED");
+          onAudioStateChange?.(false, undefined, []);
+          setAudioReady(true);
+          setAudioFinished(true);
+          return;
+        }
+
         let blob: Blob;
         let visemes: Viseme[] = [];
         

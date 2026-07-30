@@ -144,13 +144,13 @@ export default function QuestionCard({
       setIsTranscribing(false); // Reset transcription state
       questionReadyTimeRef.current = new Date(); // Reset question ready timestamp for new question
 
-      // If muted, skip TTS, animation, and show controls immediately
-      if (isMuted) {
-        log.info(LOG_CATEGORY, "[QuestionCard] Muted - skipping TTS and animation, showing controls immediately");
+      // If muted or TTS disabled, skip TTS audio playback
+      if (isMuted || process.env.NEXT_PUBLIC_TTS_ENABLED === "false") {
+        log.info(LOG_CATEGORY, "[QuestionCard] Muted or TTS disabled - skipping TTS audio playback");
         setQuestionAnimationEnabled(false); // No animation when muted before start
         setIsAudioPlaying(true);
         setAudioFinished(true);
-        onAudioStateChange?.(false, intentText, []);  // Pass empty visemes - no lip sync when muted
+        onAudioStateChange?.(false, intentText, []);  // Pass empty visemes - no lip sync
         return;
       }
 

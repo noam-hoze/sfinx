@@ -28,7 +28,7 @@ importers:
         version: 2.0.17
       '@mascotbot-sdk/react':
         specifier: file:mascotbot-sdk-react-0.1.9.tgz
-        version: file:mascotbot-sdk-react-0.1.9.tgz(@rive-app/react-webgl2@4.26.1(react@18.3.1))(@rive-app/webgl2@2.34.1)(@types/node@22.17.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.17(ts-node@10.9.2(@types/node@22.17.1)(typescript@5.9.2)))
+        version: file:mascotbot-sdk-react-0.1.9.tgz(@rive-app/react-webgl2@4.30.0(react@18.3.1))(@rive-app/webgl2@2.39.1)(@types/node@22.17.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.17(ts-node@10.9.2(@types/node@22.17.1)(typescript@5.9.2)))
       '@monaco-editor/react':
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.52.2)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -53,6 +53,9 @@ importers:
       '@rive-app/react-canvas':
         specifier: ^4.26.1
         version: 4.26.1(react@18.3.1)
+      '@rive-app/react-webgl2':
+        specifier: ^4.30.0
+        version: 4.30.0(react@18.3.1)
       '@types/node-cache':
         specifier: ^4.2.5
         version: 4.2.5
@@ -1176,13 +1179,13 @@ packages:
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0
 
-  '@rive-app/react-webgl2@4.26.1':
-    resolution: {integrity: sha512-zUyJvoEutjUXRnE5rQAEDxV4F+kLJzFkWCEQRO3mAk/wMxWYmgZjr6fUTJyjWCsdEP2APwODl4+J1uU5SldRmg==}
+  '@rive-app/react-webgl2@4.30.0':
+    resolution: {integrity: sha512-PLhK9fzyJhYz1XEGT/C7u72P+Jwds89brCdBalMIOepQgBKs3WGqBqPP4o7/a0c6XxiV8Cxdy0UO1yOs7bp1XA==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0
 
-  '@rive-app/webgl2@2.34.1':
-    resolution: {integrity: sha512-xxdz1XJaVp0OOsg9CJZ8gNtfPerqtAXnOpPg2autwZWgQ+0OSNvxhfUOA80+R/7BxxqNLQDcCjj7vs3pAQy7Wg==}
+  '@rive-app/webgl2@2.39.1':
+    resolution: {integrity: sha512-T/d2yieiQIStRatwB1G7G58tXTsXyeK91g2AhaPIGvi6SpdvQAJx7s6+ir42L4kiiTY5HeIBRXI+xueU+xzA3Q==}
 
   '@rollup/rollup-android-arm-eabi@4.46.2':
     resolution: {integrity: sha512-Zj3Hl6sN34xJtMv7Anwb5Gu01yujyE/cLBDB2gnHTAHaWS1Z38L7kuSG+oAh0giZMqG060f/YBStXtMH6FvPMA==}
@@ -5362,12 +5365,12 @@ snapshots:
       globby: 11.1.0
       read-yaml-file: 1.1.0
 
-  '@mascotbot-sdk/react@file:mascotbot-sdk-react-0.1.9.tgz(@rive-app/react-webgl2@4.26.1(react@18.3.1))(@rive-app/webgl2@2.34.1)(@types/node@22.17.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.17(ts-node@10.9.2(@types/node@22.17.1)(typescript@5.9.2)))':
+  '@mascotbot-sdk/react@file:mascotbot-sdk-react-0.1.9.tgz(@rive-app/react-webgl2@4.30.0(react@18.3.1))(@rive-app/webgl2@2.39.1)(@types/node@22.17.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(tailwindcss@3.4.17(ts-node@10.9.2(@types/node@22.17.1)(typescript@5.9.2)))':
     dependencies:
       '@breezystack/lamejs': 1.2.7
       '@changesets/cli': 2.29.8(@types/node@22.17.1)
-      '@rive-app/react-webgl2': 4.26.1(react@18.3.1)
-      '@rive-app/webgl2': 2.34.1
+      '@rive-app/react-webgl2': 4.30.0(react@18.3.1)
+      '@rive-app/webgl2': 2.39.1
       class-variance-authority: 0.7.1
       clsx: 2.1.1
       lodash: 4.17.21
@@ -5687,12 +5690,12 @@ snapshots:
       '@rive-app/canvas': 2.34.1
       react: 18.3.1
 
-  '@rive-app/react-webgl2@4.26.1(react@18.3.1)':
+  '@rive-app/react-webgl2@4.30.0(react@18.3.1)':
     dependencies:
-      '@rive-app/webgl2': 2.34.1
+      '@rive-app/webgl2': 2.39.1
       react: 18.3.1
 
-  '@rive-app/webgl2@2.34.1': {}
+  '@rive-app/webgl2@2.39.1': {}
 
   '@rollup/rollup-android-arm-eabi@4.46.2':
     optional: true
