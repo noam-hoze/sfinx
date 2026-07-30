@@ -7,6 +7,13 @@ import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   try {
+    if (process.env.NEXT_PUBLIC_TTS_ENABLED === "false" || process.env.NEXT_PUBLIC_MASCOT_ENABLED === "false") {
+      return NextResponse.json(
+        { error: "Mascot/TTS disabled via NEXT_PUBLIC_TTS_ENABLED or NEXT_PUBLIC_MASCOT_ENABLED" },
+        { status: 503 }
+      );
+    }
+
     const body = await request.text();
     if (!body) {
       return NextResponse.json({ error: "Empty request body" }, { status: 400 });
@@ -23,17 +30,17 @@ export async function POST(request: Request) {
 
     if (!mascotApiKey) {
       console.error("[Mascot API] Mascotbot API key missing");
-      return NextResponse.json({ error: "Mascotbot API key missing" }, { status: 500 });
+      return NextResponse.json({ error: "Mascotbot API key missing (MASCOTBOT_API_KEY)" }, { status: 500 });
     }
 
     if (!elevenLabsApiKey) {
       console.error("[Mascot API] ElevenLabs API key missing");
-      return NextResponse.json({ error: "ElevenLabs API key missing" }, { status: 500 });
+      return NextResponse.json({ error: "ElevenLabs API key missing (ELEVENLABS_API_KEY)" }, { status: 500 });
     }
 
     if (!voiceId) {
       console.error("[Mascot API] Voice ID missing");
-      return NextResponse.json({ error: "Voice ID missing" }, { status: 500 });
+      return NextResponse.json({ error: "Voice ID missing (ELEVEN_LABS_CANDIDATE_VOICE_ID)" }, { status: 500 });
     }
 
     console.log("[Mascot API] Generating TTS and visemes for text:", text);
@@ -59,7 +66,10 @@ export async function POST(request: Request) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("[Mascot API] Error response:", errorText);
-      throw new Error(`API error: ${response.status} - ${errorText}`);
+      return NextResponse.json(
+        { error: `Mascot API error (${response.status}): ${errorText}` },
+        { status: response.status >= 400 && response.status < 600 ? response.status : 500 }
+      );
     }
 
     // Parse SSE stream
@@ -117,7 +127,8 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ visemes, audioBase64 });
   } catch (error) {
-    console.error("Error:", error);
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Failed to generate mascot audio";
+    console.error("[Mascot API] Error:", error);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

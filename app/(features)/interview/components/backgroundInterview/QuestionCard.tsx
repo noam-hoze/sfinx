@@ -37,10 +37,15 @@ async function generateAudioAndVisemes(
 async function generateWithMascot(
   question: string
 ): Promise<{ audioBlob: Blob; visemes: Viseme[] }> {
-  const { visemes, audioBase64 } = await generateVisemesAndAudio(question);
-  const wavBuffer = convertPCMToWAV(audioBase64);
-  const audioBlob = new Blob([wavBuffer], { type: "audio/wav" });
-  return { audioBlob, visemes };
+  try {
+    const { visemes, audioBase64 } = await generateVisemesAndAudio(question);
+    const wavBuffer = convertPCMToWAV(audioBase64);
+    const audioBlob = new Blob([wavBuffer], { type: "audio/wav" });
+    return { audioBlob, visemes };
+  } catch (err) {
+    log.warn(LOG_CATEGORY, "[QuestionCard] Mascot audio generation failed, falling back to standard TTS:", err);
+    return await generateWithoutMascot(question);
+  }
 }
 
 /**
