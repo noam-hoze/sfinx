@@ -61,9 +61,9 @@ function handlePlayback(
 }
 
 /**
- * Main RiveMascot component
+ * Inner component that renders the full Rive canvas & Mascot client
  */
-const RiveMascot: React.FC<RiveMascotProps> = ({
+const ActiveRiveMascot: React.FC<RiveMascotProps> = ({
   className = "",
   visemes = [],
   isPlaying = false,
@@ -91,6 +91,25 @@ const RiveMascot: React.FC<RiveMascotProps> = ({
       </MascotProvider>
     </div>
   );
+};
+
+/**
+ * Main RiveMascot component - conditionally renders based on NEXT_PUBLIC_MASCOT_ENABLED
+ */
+const RiveMascot: React.FC<RiveMascotProps> = (props) => {
+  const mascotEnabled = process.env.NEXT_PUBLIC_MASCOT_ENABLED === "true";
+
+  useEffect(() => {
+    if (!mascotEnabled && props.onReady) {
+      props.onReady();
+    }
+  }, [mascotEnabled, props.onReady]);
+
+  if (!mascotEnabled) {
+    return null;
+  }
+
+  return <ActiveRiveMascot {...props} />;
 };
 
 export default RiveMascot;
