@@ -309,8 +309,9 @@ async function seedCompanyCandidates() {
     try {
         log.info(LOG_CATEGORY, `Starting candidate seeding for companies: ${companyIds.join(', ')}`);
 
-        // Hash password once for all candidates
-        const hashedPassword = await bcrypt.hash("sfinx", 12);
+        // Hash password once for all candidates (configurable via SEED_USER_PASSWORD)
+        const seedPassword = process.env.SEED_USER_PASSWORD || "sfinx";
+        const hashedPassword = await bcrypt.hash(seedPassword, 12);
 
         let totalCreated = 0;
         for (const companyId of companyIds) {
