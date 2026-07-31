@@ -22,6 +22,7 @@ coverage
 
 # API keys and sensitive files
 app/api/debug/seed/ok
+server/db-scripts/data/*.prod.json
 
 /lib/generated/prisma
 
