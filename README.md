@@ -52,10 +52,10 @@ pnpm install
 
 ### 3. Environment Configuration
 
-Copy the template environment configuration file to `.env.local`:
+Copy the template environment configuration file `.env.example` to `.env.local`:
 
 ```bash
-cp .env .env.local
+cp .env.example .env.local
 ```
 
 Edit `.env.local` to provide your OpenAI API key and local configuration. Minimum required variables:
@@ -63,6 +63,7 @@ Edit `.env.local` to provide your OpenAI API key and local configuration. Minimu
 ```env
 OPENAI_API_KEY="your-openai-api-key"
 DATABASE_URL="postgresql://user:password@localhost:5432/sfinx?sslmode=require"
+SEED_USER_PASSWORD="sfinx"
 NEXTAUTH_URL="http://localhost:3000"
 NEXTAUTH_SECRET="your-generated-nextauth-secret"
 ```
