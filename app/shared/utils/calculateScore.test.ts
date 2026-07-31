@@ -153,7 +153,7 @@ describe("calculateScore", () => {
         expect(result.normalizedWorkstyle.problemSolving).toBe(100);
     });
 
-    it("omits problem solving contribution when score is undefined", () => {
+    it("redistributes problem solving weight to categories when score is undefined", () => {
         const raw: RawScores = {
             experienceScores: [],
             categoryScores: [makeCodingScore(80)],
@@ -166,8 +166,9 @@ describe("calculateScore", () => {
             codingWeight: 60,
         });
 
-        // categoryContribution = 80 * 0.75 = 60, problemSolvingContribution = 0
-        expect(result.codingScore).toBe(60);
+        // No Problem Solving score => categories receive full 100% share here.
+        // categoryContribution = 80 * 1.0 = 80, problemSolvingContribution = 0
+        expect(result.codingScore).toBe(80);
         expect(result.normalizedWorkstyle.problemSolving).toBeNull();
     });
 
