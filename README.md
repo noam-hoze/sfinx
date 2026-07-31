@@ -100,9 +100,10 @@ All company profiles (such as **Sfinx**, **AxonPulse**, **Quantum Machines (QM)*
 
 ## 🔑 Default Credentials & Authentication
 
-- **Pre-seeded Candidate Account**:
-  - **Email**: `noam.hoze@gmail.com`
-  - **Password**: `sfinx`
+- **Pre-seeded Candidate & Manager Accounts**:
+  - **Candidate Email**: `noam.hoze@gmail.com`
+  - **Company Manager Email**: `manager@sfinx.com`
+  - **Default Password**: `sfinx` *(configurable via `SEED_USER_PASSWORD` in `.env`)*
 - **Self Registration**:
   - You can also register a fresh test candidate account anytime at [http://localhost:3000/signup](http://localhost:3000/signup).
 
@@ -115,6 +116,7 @@ All company profiles (such as **Sfinx**, **AxonPulse**, **Quantum Machines (QM)*
 | `OPENAI_API_KEY` | OpenAI API Key for real-time interview & evaluation models | `sk-proj-...` |
 | `NEXT_PUBLIC_OPENAI_EVALUATION_MODEL` | Model used for candidate evaluation and scoring | `gpt-4o-mini` |
 | `DATABASE_URL` | PostgreSQL database connection URL | `postgresql://...` |
+| `SEED_USER_PASSWORD` | Default password set for seeded candidates and company managers | `sfinx` |
 | `NEXTAUTH_URL` | Canonical URL for NextAuth authentication redirects | `http://localhost:3000` |
 | `NEXTAUTH_SECRET` | Secret key used to encrypt NextAuth JWT sessions | `random-secret-string` |
 | `NEXT_PUBLIC_MASCOT_ENABLED` | Toggle Rive WebGL animated interviewer mascot | `false` |
