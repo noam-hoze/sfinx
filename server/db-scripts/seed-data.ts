@@ -487,7 +487,7 @@ async function resetDatabase() {
                     role: UserRole.COMPANY,
                     image:
                         companyData.id === "sfinx"
-                            ? "/uploads/profiles/sfinx-profile.png"
+                            ? "/sfinx-avatar-nobg.png"
                             : companyData.id === "qm"
                             ? "/uploads/profiles/manager-qm-1768211217790.png"
                             : companyData.id === "axonpulse"
