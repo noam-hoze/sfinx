@@ -455,8 +455,9 @@ async function resetDatabase() {
 
         log.info(LOG_CATEGORY, "Seeding companies, users, and jobs...");
 
-        // Hash the password once for all users
-        const hashedPassword = await bcrypt.hash("sfinx", 12);
+        // Hash the password once for all users (configurable via SEED_USER_PASSWORD)
+        const seedPassword = process.env.SEED_USER_PASSWORD || "sfinx";
+        const hashedPassword = await bcrypt.hash(seedPassword, 12);
 
         for (const companyData of companiesData) {
             const company = await prisma.company.create({
