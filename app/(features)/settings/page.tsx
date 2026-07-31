@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import AuthGuard from "app/shared/components/AuthGuard";
+import ChangePasswordSection from "app/shared/components/ChangePasswordSection";
 import { log } from "app/shared/services";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
@@ -153,6 +154,9 @@ export default function SettingsPage() {
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Password Change Section */}
+                                <ChangePasswordSection />
                             </div>
                         </div>
                     </div>

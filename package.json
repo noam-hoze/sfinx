@@ -27,6 +27,7 @@
     "sync-db:dev": "tsx server/db-scripts/sync-schema-and-seed.ts --env=dev",
     "studio": "prisma studio",
     "studio:dev": "export $(grep ^DATABASE_URL .env.local | xargs) && prisma studio",
+    "studio:prod": "export $(grep ^DATABASE_URL .env | xargs) && prisma studio",
     "prisma:generate": "prisma generate",
     "prisma:generate:dev": "export $(grep ^DATABASE_URL .env.local | xargs) && prisma generate",
     "db:push": "prisma db push",
