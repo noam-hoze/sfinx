@@ -92,6 +92,12 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
+## ℹ️ Disclaimer & Seed Data
+
+All company profiles (such as **Sfinx**, **AxonPulse**, **Quantum Machines (QM)**, **Meta**) and candidate data included in seed files ([`server/db-scripts/data/companies.json`](file:///Users/noonejoze/Projects/Other/sfinx/server/db-scripts/data/companies.json) and [`server/db-scripts/data/companies.prod.json`](file:///Users/noonejoze/Projects/Other/sfinx/server/db-scripts/data/companies.prod.json)) are **mock examples provided strictly for demonstration and testing purposes**. They do not contain real proprietary information or official company endorsements.
+
+---
+
 ## 🔑 Default Credentials & Authentication
 
 - **Pre-seeded Candidate Account**:
