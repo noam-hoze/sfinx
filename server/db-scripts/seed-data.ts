@@ -455,9 +455,12 @@ async function resetDatabase() {
 
         log.info(LOG_CATEGORY, "Seeding companies, users, and jobs...");
 
-        // Hash the password once for all users (configurable via SEED_USER_PASSWORD)
-        const seedPassword = process.env.SEED_USER_PASSWORD || "sfinx";
-        const hashedPassword = await bcrypt.hash(seedPassword, 12);
+        if (!process.env.SEED_USER_PASSWORD) {
+            log.error(LOG_CATEGORY, "❌ SEED_USER_PASSWORD environment variable is required for seeding");
+            process.exit(1);
+        }
+
+        const hashedPassword = await bcrypt.hash(process.env.SEED_USER_PASSWORD, 12);
 
         for (const companyData of companiesData) {
             const company = await prisma.company.create({
