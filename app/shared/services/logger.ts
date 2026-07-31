@@ -46,7 +46,7 @@ function computePageOrFile(filePath: string, base: string): string {
         const cleaned = dirParts.filter((p) => !/^\(.+\)$/.test(p));
         const last = cleaned[cleaned.length - 1];
         if (!last) {
-            throw new Error(`Unable to compute page label for ${filePath}`);
+            return baseName; // fallback: use filename (e.g. seed-data)
         }
         return last.replace(/\[(.+?)\]/g, ":$1");
     }
@@ -68,9 +68,10 @@ function extractCallerLabel(stack: string): string | null {
             const fnParts = fnMatch[1].split(".");
             const fn = fnParts[fnParts.length - 1];
             if (!fn) {
-                throw new Error("Unable to extract function name from stack frame");
+                // fallback: skip function label
+            } else if (fn !== "Object" && fn !== "Module") {
+                labelFromFn = fn;
             }
-            if (fn !== "Object" && fn !== "Module") labelFromFn = fn;
         }
         let m = l.match(/\(?((?:[a-zA-Z]:)?[^:()]+\.(?:tsx?|jsx?)):(\d+):(\d+)\)?/);
         if (m && m[1]) {
@@ -78,7 +79,7 @@ function extractCallerLabel(stack: string): string | null {
             const segments = filePath.replace(/\\/g, "/").split("/");
             const base = segments[segments.length - 1];
             if (!base) {
-                throw new Error(`Unable to determine base filename for ${filePath}`);
+                return null; // fallback: skip label
             }
             const pageOrFile = computePageOrFile(filePath, base);
             const overridden = applyLabelOverrides(filePath, pageOrFile);
@@ -90,7 +91,7 @@ function extractCallerLabel(stack: string): string | null {
             const segments = filePath.replace(/\\/g, "/").split("/");
             const base = segments[segments.length - 1];
             if (!base) {
-                throw new Error(`Unable to determine base filename for ${filePath}`);
+                return null; // fallback: skip label
             }
             const pageOrFile = computePageOrFile(filePath, base);
             const overridden = applyLabelOverrides(filePath, pageOrFile);
