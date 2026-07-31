@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on Keep a Changelog and this project adheres to Semantic Versioning.
 
+## [1.29.5] - 2026-03-21
+
+### Fixed
+
+- **Atomic job + scoring-config saves**: Company job create/edit requests now validate and persist `scoringConfig` inside the main job API call, so invalid scoring payloads reject before any job write and valid submissions no longer depend on a second follow-up save.
+
+## [1.29.4] - 2026-03-21
+
+### Fixed
+
+- **Scoring config form guard**: The company job create and edit forms now block invalid `aiAssistWeight`, `problemSolvingWeight`, `experienceWeight`, and `codingWeight` combinations before any save request, preventing partial job writes when the scoring-config API rejects bad totals.
+
+## [1.29.3] - 2026-03-21
+
+### Fixed
+
+- **Scoring config partial-update corruption**: `PUT /api/company/jobs/[jobId]/scoring-config` now validates `aiAssistWeight`, `problemSolvingWeight`, `experienceWeight`, and `codingWeight` against the effective persisted/default configuration, so single-field updates can no longer create invalid sums that distort candidate scores.
+
 ## [1.29.2] - 2026-03-09
 
 ### Fixed

@@ -5,6 +5,11 @@ import prisma from "lib/prisma";
 import { log } from "app/shared/services";
 import { loadCompanyForUser } from "../../companyContext";
 import { ensureCompanyRole } from "../../companyAuth";
+import {
+    DEFAULT_SCORING_CONFIG,
+    isScoringConfigValidationMessage,
+    resolveScoringConfigPayload,
+} from "../../scoringConfigPayload";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
 const LOG_CATEGORY = LOG_CATEGORIES.COMPANY;
@@ -131,6 +136,9 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         const { company } = await loadCompanyForUser(userId);
         const job = await prisma.job.findUnique({
             where: { id: jobId },
+            include: {
+                scoringConfiguration: true,
+            },
         });
 
         if (!job) {
@@ -141,64 +149,13 @@ export async function PUT(request: NextRequest, context: RouteContext) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        // Validate weights are positive numbers
-        const weightFields = [
-            'aiAssistWeight',
-            'problemSolvingWeight',
-            'experienceWeight',
-            'codingWeight',
-        ];
-
-        for (const field of weightFields) {
-            if (body[field] !== undefined) {
-                const value = Number(body[field]);
-                if (isNaN(value) || value < 0) {
-                    return NextResponse.json(
-                        { error: `${field} must be a positive number` },
-                        { status: 400 }
-                    );
-                }
-            }
-        }
-
-        // Validate category weights sum to 100 (with tolerance for floating point)
-        if (body.experienceWeight !== undefined && body.codingWeight !== undefined) {
-            const sum = Number(body.experienceWeight) + Number(body.codingWeight);
-            if (Math.abs(sum - 100) > 0.01) {
-                return NextResponse.json(
-                    { error: "Experience weight and coding weight must sum to 100" },
-                    { status: 400 }
-                );
-            }
-        }
-
-        // Validate thresholds are sensible
-        if (
-            body.iterationSpeedThresholdModerate !== undefined &&
-            body.iterationSpeedThresholdHigh !== undefined
-        ) {
-            const moderate = Number(body.iterationSpeedThresholdModerate);
-            const high = Number(body.iterationSpeedThresholdHigh);
-            if (moderate >= high) {
-                return NextResponse.json(
-                    { error: "Iteration speed moderate threshold must be less than high threshold" },
-                    { status: 400 }
-                );
-            }
-        }
-
-        // Build update data
-        const updates: any = {};
-        const updateableFields = [
-            ...weightFields,
-            'iterationSpeedThresholdModerate',
-            'iterationSpeedThresholdHigh',
-        ];
-
-        for (const field of updateableFields) {
-            if (body[field] !== undefined) {
-                updates[field] = Number(body[field]);
-            }
+        const currentConfig = job.scoringConfiguration ?? DEFAULT_SCORING_CONFIG;
+        const updates = resolveScoringConfigPayload(body, currentConfig);
+        if (!updates) {
+            return NextResponse.json(
+                { error: "Scoring config is required" },
+                { status: 400 }
+            );
         }
 
         // Upsert configuration
@@ -221,7 +178,15 @@ export async function PUT(request: NextRequest, context: RouteContext) {
                 ? error.message
                 : "Failed to update scoring configuration";
         const status =
-            message === "Company role required" || message.includes("Forbidden") ? 403 : 500;
+            message === "Company role required" || message.includes("Forbidden")
+                ? 403
+                : message === "Job not found"
+                  ? 404
+                  : message === "Job ID is required" ||
+                      message === "Scoring config is required" ||
+                      isScoringConfigValidationMessage(message)
+                    ? 400
+                    : 500;
         return NextResponse.json({ error: message }, { status });
     }
 }
