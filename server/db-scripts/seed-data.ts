@@ -424,10 +424,14 @@ sha256: 2bb3dcf324d82b9ec99a6592433a31c139f07855bcdb626a4d16ecfe7a319fff`,
 
 async function resetDatabase() {
     try {
+        const isProd = process.argv.includes('--env=prod');
+        const companiesFile = isProd ? "companies.prod.json" : "companies.json";
         const companiesPath = path.join(
             process.cwd(),
-            "server/db-scripts/data/companies.json"
+            "server/db-scripts/data",
+            companiesFile
         );
+        log.info(LOG_CATEGORY, `Loading companies from: ${companiesFile}`);
         const companiesData = JSON.parse(
             fs.readFileSync(companiesPath, "utf-8")
         );
