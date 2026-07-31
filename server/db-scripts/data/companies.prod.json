@@ -1,0 +1,27 @@
+[
+  {
+    "id": "sfinx",
+    "name": "Sfinx",
+    "logo": "/logos/sfinx-logo.png",
+    "industry": "AI / HR Tech",
+    "locations": [
+      "Tel Aviv, Israel",
+      "Remote"
+    ],
+    "size": "startup",
+    "cultureTags": [
+      "Innovation",
+      "AI-driven",
+      "Fast-paced",
+      "Tech-forward"
+    ],
+    "openRoles": [
+      {
+        "title": "Frontend Engineer",
+        "type": "full-time",
+        "location": "Tel Aviv, Israel",
+        "salary": "$120k - $180k"
+      }
+    ]
+  }
+]
