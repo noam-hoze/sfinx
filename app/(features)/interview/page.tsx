@@ -947,7 +947,6 @@ function InterviewPageContent() {
   // Unified camera visibility control - single source of truth
   const showCamera = !showAnnouncement && currentQuestion !== "";
   const isDebugModeEnabled = process.env.NEXT_PUBLIC_DEBUG_MODE === "true";
-  const { isDebugVisible } = useDebug();
 
   const handleSignOut = async () => {
     await signOut({ callbackUrl: "/login" });
