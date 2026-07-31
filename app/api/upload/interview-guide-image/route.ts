@@ -1,7 +1,7 @@
 /**
  * Upload endpoint for interview guide images (hero + team photos).
  * Saves to public/uploads/interview-guide/, returns the public URL.
- * Does not modify any database record — the URL is stored in interviewGuideConfig JSON.
+ * Falls back to base64 Data URL on read-only serverless environments (e.g. Vercel).
  */
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
@@ -22,14 +22,20 @@ function validateFile(file: File) {
     if (file.size > MAX_BYTES) throw new Error("File must be under 5 MB.");
 }
 
-/** Writes the file buffer to disk and returns the public URL path. */
+/** Writes the file buffer to disk (or returns a Data URL on read-only filesystems). */
 async function persistFile(file: File, userId: string): Promise<string> {
-    const ext = path.extname(file.name);
-    const fileName = `${userId}-${Date.now()}${ext}`;
-    await mkdir(UPLOAD_DIR, { recursive: true });
     const buffer = Buffer.from(await file.arrayBuffer());
-    await writeFile(path.join(UPLOAD_DIR, fileName), buffer);
-    return `/uploads/interview-guide/${fileName}`;
+    try {
+        const ext = path.extname(file.name) || ".png";
+        const fileName = `${userId}-${Date.now()}${ext}`;
+        await mkdir(UPLOAD_DIR, { recursive: true });
+        await writeFile(path.join(UPLOAD_DIR, fileName), buffer);
+        return `/uploads/interview-guide/${fileName}`;
+    } catch (fsError) {
+        log.warn(LOG_CATEGORY, "Filesystem write failed, falling back to base64 Data URL", fsError);
+        const mimeType = file.type || "image/png";
+        return `data:${mimeType};base64,${buffer.toString("base64")}`;
+    }
 }
 
 export async function POST(request: NextRequest) {
@@ -46,7 +52,7 @@ export async function POST(request: NextRequest) {
         validateFile(file);
         const imageUrl = await persistFile(file, userId);
 
-        log.info(LOG_CATEGORY, "Interview guide image uploaded", { userId, imageUrl });
+        log.info(LOG_CATEGORY, "Interview guide image uploaded", { userId, imageUrl: imageUrl.substring(0, 50) });
         return NextResponse.json({ imageUrl });
     } catch (error) {
         const message = error instanceof Error ? error.message : "Upload failed";
