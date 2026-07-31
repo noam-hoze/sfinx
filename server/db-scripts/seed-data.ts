@@ -486,8 +486,8 @@ async function resetDatabase() {
                     password: hashedPassword,
                     role: UserRole.COMPANY,
                     image:
-                        companyData.id === "meta"
-                            ? "/uploads/profiles/meta-profile.png"
+                        companyData.id === "sfinx"
+                            ? "/uploads/profiles/sfinx-profile.png"
                             : companyData.id === "qm"
                             ? "/uploads/profiles/manager-qm-1768211217790.png"
                             : companyData.id === "axonpulse"
@@ -741,7 +741,7 @@ async function resetDatabase() {
             throw new Error("No Frontend Engineer jobs found to attach interview content");
         }
         log.info(LOG_CATEGORY, 
-            `Linked interview content to ${frontendJobUpdate.count} Frontend Engineer jobs (including Meta)`
+            `Linked interview content to ${frontendJobUpdate.count} Frontend Engineer jobs (including Sfinx)`
         );
 
         log.info(LOG_CATEGORY, "Seeding QM Python interview content for Senior Python Engineer role...");
