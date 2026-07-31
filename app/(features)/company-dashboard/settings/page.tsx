@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import AuthGuard from "app/shared/components/AuthGuard";
 import Header from "app/shared/components/Header";
+import ChangePasswordSection from "app/shared/components/ChangePasswordSection";
 import { log } from "app/shared/services";
 
 import { LOG_CATEGORIES } from "app/shared/services/logger.config";
@@ -143,6 +144,9 @@ export default function CompanySettingsPage() {
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Password Change Section */}
+                                <ChangePasswordSection />
                             </div>
                         </div>
                     </div>
