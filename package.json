@@ -10,6 +10,7 @@
     "lint": "next lint",
     "test": "vitest run",
     "seed": "tsx server/db-scripts/seed-data.ts",
+    "seed:prod": "export $(grep ^DATABASE_URL .env | xargs) && tsx server/db-scripts/seed-data.ts --env=prod",
     "seed:companies": "tsx server/db-scripts/seed-company-candidates.ts --env=prod",
     "seed:companies:dev": "tsx server/db-scripts/seed-company-candidates.ts --env=dev",
     "seed:axonpulse": "tsx server/db-scripts/seed-company-candidates.ts --env=prod --companies=axonpulse",

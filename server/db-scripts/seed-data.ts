@@ -829,11 +829,12 @@ async function resetDatabase() {
             },
         });
         if (pythonJobUpdate.count === 0) {
-            throw new Error("No Senior Python Engineer jobs found to attach interview content");
+            log.warn(LOG_CATEGORY, "No Senior Python Engineer jobs found — skipping QM interview content link (expected in prod)");
+        } else {
+            log.info(LOG_CATEGORY, 
+                `Linked interview content to ${pythonJobUpdate.count} Senior Python Engineer jobs (QM)`
+            );
         }
-        log.info(LOG_CATEGORY, 
-            `Linked interview content to ${pythonJobUpdate.count} Senior Python Engineer jobs (QM)`
-        );
 
         log.info(LOG_CATEGORY, "Seeding AxonPulse DL interview content for Deep Learning Engineer role...");
         const axonpulseInterviewContent = await prisma.interviewContent.upsert({
@@ -959,11 +960,12 @@ Independent and proactive.`,
             },
         });
         if (dlJobUpdate.count === 0) {
-            throw new Error("No Deep Learning Engineer jobs found to attach interview content");
+            log.warn(LOG_CATEGORY, "No Deep Learning Engineer jobs found — skipping AxonPulse interview content link (expected in prod)");
+        } else {
+            log.info(LOG_CATEGORY, 
+                `Linked interview content to ${dlJobUpdate.count} Deep Learning Engineer jobs (AxonPulse)`
+            );
         }
-        log.info(LOG_CATEGORY, 
-            `Linked interview content to ${dlJobUpdate.count} Deep Learning Engineer jobs (AxonPulse)`
-        );
 
         // Create default scoring configurations for all jobs
         log.info(LOG_CATEGORY, "Creating default scoring configurations...");
