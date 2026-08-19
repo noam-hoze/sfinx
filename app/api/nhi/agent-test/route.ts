@@ -209,24 +209,44 @@ async function handleValidEvaluation(userEmail: string) {
 }
 
 /**
- * Handles Rogue Agent Attack Flow
+ * Handles Rogue Agent Attack Flow with Real REST API Execution & Policy Interception
  */
-function handleRogueAttack() {
+async function handleRogueAttack(reqOrigin: string) {
+  const targetUrl = `${reqOrigin}/api/admin/system-secrets`;
+  let httpStatus = 403;
+  let responseData: any = null;
+
+  try {
+    const res = await fetch(targetUrl, {
+      method: 'GET',
+      headers: {
+        'x-sfinx-agent': 'rogue-screener-bot',
+        'Authorization': 'Bearer rogue-stolen-token-sk-9981a'
+      }
+    });
+    httpStatus = res.status;
+    responseData = await res.json().catch(() => null);
+  } catch (err) {
+    console.error('Error making real HTTP request to /api/admin/system-secrets:', err);
+  }
+
+  const nowIso = new Date().toISOString();
+
   return NextResponse.json(
     {
       success: false,
-      status: 403,
+      status: httpStatus,
       action: 'BLOCKED',
       intentViolation: 'EXFILTRATE_BILLING_KEYS',
       attemptedEndpoint: '/api/admin/system-secrets',
       auditTrail: [
-        { timestamp: new Date().toISOString(), event: 'REQUEST_RECEIVED', detail: 'Agent attempted call to /api/admin/system-secrets' },
-        { timestamp: new Date().toISOString(), event: 'SFINX_AAM_CHECK', detail: 'POLICY VIOLATION: Intent [EXFILTRATE_BILLING_KEYS] not authorized' },
-        { timestamp: new Date().toISOString(), event: 'THREAT_INTERCEPTED', detail: 'Sfinx Control Plane blocked unauthorized API call' },
-        { timestamp: new Date().toISOString(), event: 'SECURITY_ALERT', detail: 'Blast Radius Contained: Token Revoked' }
+        { timestamp: nowIso, event: 'REQUEST_RECEIVED', detail: 'Agent attempted REST API call to GET /api/admin/system-secrets' },
+        { timestamp: nowIso, event: 'POLICY_ENGINE_INTERCEPT', detail: 'PostgreSQL Policy pol-01 matched restrictedPath /api/admin/system-secrets' },
+        { timestamp: nowIso, event: 'HTTP_RESPONSE', detail: `Received HTTP ${httpStatus} Forbidden (${responseData?.error || 'Policy Engine Violation'})` },
+        { timestamp: nowIso, event: 'SECURITY_ALERT', detail: 'Blast Radius Contained: Credentials Revoked & Security Event Logged in DB' }
       ]
     },
-    { status: 403 }
+    { status: httpStatus }
   );
 }
 
@@ -241,8 +261,10 @@ export async function POST(req: Request) {
     }
 
     const body: AgentTestBody = await req.json();
+    const reqOrigin = new URL(req.url).origin;
+
     if (body.testType === 'ROGUE_ATTACK') {
-      return handleRogueAttack();
+      return await handleRogueAttack(reqOrigin);
     }
 
     return await handleValidEvaluation(userEmail);

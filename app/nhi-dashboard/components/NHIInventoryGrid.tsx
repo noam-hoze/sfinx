@@ -287,12 +287,12 @@ export const NHIInventoryGrid: React.FC<Props> = ({ identities: initialIdentitie
 
                   {/* Risk Level Badge (Minimal Apple Style Green/Red Status Indicator) */}
                   <td className="py-3.5 px-4">
-                    {isItemExpired || item.riskSeverity === 'HIGH' ? (
+                    {!isItemExpired && item.riskSeverity === 'HIGH' ? (
                       <span className="px-2.5 py-0.5 bg-rose-50 text-rose-700 border border-rose-200/80 rounded-full font-semibold text-[10px] inline-flex items-center gap-1.5 w-fit">
                         <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
-                        <span>{isItemExpired ? 'REVOKED (401)' : 'HIGH RISK'}</span>
+                        <span>HIGH RISK</span>
                       </span>
-                    ) : item.riskSeverity === 'MEDIUM' ? (
+                    ) : !isItemExpired && item.riskSeverity === 'MEDIUM' ? (
                       <span className="px-2.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200/80 rounded-full font-semibold text-[10px] inline-flex items-center gap-1.5 w-fit">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
                         <span>MEDIUM RISK</span>

@@ -1,17 +1,34 @@
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
 import { PrismaClient } from '@prisma/client';
+import { validateOpenAIKey, rotateOpenAIKeysViaAdminApi } from '../app/shared/services/openai-admin';
 
 const prisma = new PrismaClient();
 
 async function seedNHI() {
   console.log('🌱 Seeding PostgreSQL MachineIdentity and AgentIntentPolicy tables...');
 
+  const adminKey = process.env.OPENAI_ADMIN_KEY || '';
+  let currentKey = process.env.OPENAI_API_KEY || '';
+  let keyCheck = await validateOpenAIKey(currentKey);
+
+  // If key is invalid, revoked, or missing, programmatically create a real key via OpenAI Admin API
+  if (!keyCheck.valid && adminKey) {
+    console.log('🔑 CLI Seed: No valid OpenAI key found. Creating a real Service Account API key via OpenAI Admin API...');
+    const created = await rotateOpenAIKeysViaAdminApi(adminKey);
+    if (created.success && created.key) {
+      currentKey = created.key;
+      console.log(`✅ Programmatically created new OpenAI Service Account API key (sk-...${created.key.slice(-4)})`);
+    }
+  }
+
+  const last4 = currentKey.length >= 4 ? currentKey.slice(-4) : 'BToA';
+
   const initialIdentities = [
     {
       id: "nhi-01",
       name: "openai-evaluator-api-key",
-      keySuffix: "BToA",
+      keySuffix: last4,
       type: "API_KEY",
       provider: "OpenAI",
       keyAgeDays: 142,

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from 'app/shared/services/server';
 import { PrismaClient } from '@prisma/client';
+import { validateOpenAIKey, rotateOpenAIKeysViaAdminApi } from 'app/shared/services/openai-admin';
 
 const prisma = new PrismaClient();
 
@@ -86,7 +87,19 @@ export async function POST() {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
 
-    const currentKey = process.env.OPENAI_API_KEY || '';
+    const adminKey = process.env.OPENAI_ADMIN_KEY || '';
+    let currentKey = process.env.OPENAI_API_KEY || '';
+    let keyCheck = await validateOpenAIKey(currentKey);
+
+    // If key is invalid, revoked, or missing, programmatically create a real key via OpenAI Admin API
+    if (!keyCheck.valid && adminKey) {
+      console.log('🔄 Reset Demo: No valid OpenAI key found. Creating a real Service Account API key via OpenAI Admin API...');
+      const created = await rotateOpenAIKeysViaAdminApi(adminKey);
+      if (created.success && created.key) {
+        currentKey = created.key;
+      }
+    }
+
     const last4 = currentKey.length >= 4 ? currentKey.slice(-4) : 'vIgA';
 
     for (const item of INITIAL_IDENTITIES) {
