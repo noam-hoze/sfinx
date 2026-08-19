@@ -582,13 +582,17 @@ async function resetDatabase() {
         }
 
         log.info(LOG_CATEGORY, "Creating candidate user...");
-        const candidateUser = await prisma.user.create({
-            data: {
+        const candidateUser = await prisma.user.upsert({
+            where: { email: "noam.hoze@gmail.com" },
+            update: {
+                role: UserRole.ADMIN,
+            },
+            create: {
                 id: "candidate-noam-hoze",
                 name: "Noam Hoze",
                 email: "noam.hoze@gmail.com",
                 password: hashedPassword,
-                role: UserRole.CANDIDATE,
+                role: UserRole.ADMIN,
                 image: "/uploads/profiles/candidate-noam-hoze-1768308255018.jpeg",
             },
         });

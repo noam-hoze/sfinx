@@ -47,3 +47,4 @@ service-account.json
 
 test-results
 .env.test
+scripts/test-*.ts

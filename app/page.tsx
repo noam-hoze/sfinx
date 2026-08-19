@@ -15,10 +15,14 @@ export default function Home() {
         if (session) {
             // Redirect based on user role
             const userRole = (session.user as any)?.role;
-            if (userRole === "CANDIDATE") {
+            if (userRole === "ADMIN") {
+                router.push("/nhi-dashboard");
+            } else if (userRole === "CANDIDATE") {
                 router.push("/job-search");
             } else if (userRole === "COMPANY") {
                 router.push("/company-dashboard");
+            } else {
+                router.push("/job-search");
             }
         } else {
             // No session - redirect to login

@@ -28,10 +28,12 @@ export default function UnauthGuard({ children, fallback }: UnauthGuardProps) {
                 router.push(nextPath as Route);
             } else if (userRole === "CANDIDATE") {
                 router.push("/job-search");
+            } else if (userRole === "ADMIN") {
+                router.push("/nhi-dashboard");
             } else if (userRole === "COMPANY") {
                 router.push("/company-dashboard");
             } else {
-                router.push("/"); // Fallback for other roles or no role
+                router.push("/job-search");
             }
         }
     }, [session, status, router, searchParams]);
