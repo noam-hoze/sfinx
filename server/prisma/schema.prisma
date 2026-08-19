@@ -488,3 +488,53 @@ model CategoryContribution {
 
   @@index([interviewSessionId, categoryName])
 }
+
+/// Represents a Non-Human Identity (API key, service account, deploy key, IAM role)
+model MachineIdentity {
+  id               String              @id @default(cuid())
+  name             String
+  keySuffix        String?
+  type             String
+  provider         String              // 'AWS' | 'GitHub' | 'OpenAI' | 'PostgreSQL' | 'Internal'
+  keyAgeDays       Int
+  owner            String
+  permissions      String[]
+  isOverPrivileged Boolean             @default(false)
+  riskSeverity     String              // 'HIGH' | 'MEDIUM' | 'LOW'
+  status           String              // 'ACTIVE' | 'ROTATING' | 'ROTATED'
+  lastUsed         String
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  auditLogs        RotationAuditLog[]
+}
+
+/// Stores audit trail logs for key rotations and security posture checks
+model RotationAuditLog {
+  id                 String          @id @default(cuid())
+  machineIdentityId  String
+  action             String          // 'ROTATION_SUCCESS' | 'SANITY_CHECK_PASSED'
+  performedBy        String          // Email of admin user
+  newKeySuffix       String
+  pubKeyFingerprint  String?
+  stepsJson          Json
+  createdAt          DateTime        @default(now())
+  machineIdentity    MachineIdentity @relation(fields: [machineIdentityId], references: [id], onDelete: Cascade)
+
+  @@index([machineIdentityId])
+}
+
+/// Represents an Agent Intent Policy rule stored in PostgreSQL
+model AgentIntentPolicy {
+  id              String   @id @default(cuid())
+  agentName       String
+  agentType       String   // 'SCREENER_BOT' | 'EVALUATOR_SERVICE' | 'EXPORTER_AGENT'
+  allowedIntents  String[] // ['candidates:read', 'evaluations:write']
+  restrictedPaths String[] // ['/api/admin/system-secrets', '/api/billing/*']
+  maxTtlMinutes   Int      @default(15)
+  isEnforced      Boolean  @default(true)
+  description     String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+

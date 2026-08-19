@@ -51,7 +51,7 @@ export const MockCandidateHeader: React.FC<Props> = ({ candidate }) => {
 
           <div className="bg-purple-50 px-3 py-1.5 rounded-xl border border-purple-100 flex items-center gap-2 text-xs text-purple-800 font-semibold">
             <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
-            <span>Sfinx AAM™ Active</span>
+            <span>Sfinx AAM Active</span>
           </div>
         </div>
 

@@ -996,13 +996,96 @@ Independent and proactive.`,
         }
         log.info(LOG_CATEGORY, `Created scoring configurations for ${jobsWithoutScoring.length} jobs`);
 
+        log.info(LOG_CATEGORY, "Seeding Machine Identities into PostgreSQL database...");
+        const initialIdentities = [
+            {
+                id: "nhi-01",
+                name: "openai-evaluator-api-key",
+                keySuffix: "BToA",
+                type: "API_KEY",
+                provider: "OpenAI",
+                keyAgeDays: 142,
+                owner: "unassigned",
+                permissions: ["models:all", "chat:completions", "fine-tuning:*"],
+                isOverPrivileged: true,
+                riskSeverity: "HIGH",
+                status: "ACTIVE",
+                lastUsed: "2 mins ago"
+            },
+            {
+                id: "nhi-02",
+                name: "postgres-primary-db-service-account",
+                keySuffix: "master-cred",
+                type: "SERVICE_ACCOUNT",
+                provider: "PostgreSQL",
+                keyAgeDays: 185,
+                owner: "devops-team",
+                permissions: ["db:read", "db:write", "db:drop_table", "db:grant_roles"],
+                isOverPrivileged: true,
+                riskSeverity: "HIGH",
+                status: "ACTIVE",
+                lastUsed: "Just now"
+            },
+            {
+                id: "nhi-03",
+                name: "github-actions-deploy-key",
+                keySuffix: "ci-deploy-key",
+                type: "DEPLOY_KEY",
+                provider: "GitHub",
+                keyAgeDays: 45,
+                owner: "ci-cd-automation",
+                permissions: ["repo:read", "repo:write"],
+                isOverPrivileged: false,
+                riskSeverity: "LOW",
+                status: "ACTIVE",
+                lastUsed: "1 hour ago"
+            },
+            {
+                id: "nhi-04",
+                name: "sfinx-candidate-screener-bot",
+                keySuffix: "jit-token-v2",
+                type: "AGENT_CREDENTIAL",
+                provider: "Internal",
+                keyAgeDays: 12,
+                owner: "ai-engineering",
+                permissions: ["candidates:read", "evaluations:write"],
+                isOverPrivileged: false,
+                riskSeverity: "LOW",
+                status: "ACTIVE",
+                lastUsed: "Active JIT Token"
+            },
+            {
+                id: "nhi-05",
+                name: "aws-s3-logs-exporter-account",
+                keySuffix: "s3-exporter-iam",
+                type: "AWS_IAM_ROLE",
+                provider: "AWS",
+                keyAgeDays: 98,
+                owner: "unassigned",
+                permissions: ["s3:*"],
+                isOverPrivileged: true,
+                riskSeverity: "MEDIUM",
+                status: "ACTIVE",
+                lastUsed: "12 hours ago"
+            }
+        ];
+
+        for (const item of initialIdentities) {
+            await prisma.machineIdentity.upsert({
+                where: { id: item.id },
+                update: item,
+                create: item
+            });
+        }
+
         log.info(LOG_CATEGORY, "Database reset and seeded successfully!");
 
         // Print summary
         const companyCount = await prisma.company.count();
         const jobCount = await prisma.job.count();
         const userCount = await prisma.user.count();
-        log.info(LOG_CATEGORY, `Summary: ${companyCount} companies, ${userCount} users, ${jobCount} jobs`);
+        const nhiCount = await prisma.machineIdentity.count();
+        log.info(LOG_CATEGORY, `Summary: ${companyCount} companies, ${userCount} users, ${jobCount} jobs, ${nhiCount} NHI records`);
     } catch (error) {
         log.error(LOG_CATEGORY, "❌ Error resetting database:", error);
         process.exit(1);
