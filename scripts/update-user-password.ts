@@ -37,8 +37,10 @@ async function main() {
     process.exit(1);
   }
 
+  const dbHost = databaseUrl.split('@')[1]?.split('/')[0] || 'unknown-host';
   console.log(`🔒 Updating password for user: ${email}`);
   console.log(`🌐 Target environment: ${isDev ? 'Development (.env.local)' : 'Production (.env)'}`);
+  console.log(`🔌 Database Host: ${dbHost}`);
 
   const prisma = new PrismaClient();
 
